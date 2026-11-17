@@ -11,6 +11,8 @@ const slots = Array.from(document.querySelectorAll('.slot'));
 const saveKey = 'aquaria.save';
 const saveFormat = 1;
 const playerSize = { width: 12, height: 23 };
+const jumpSpeed = 217;
+const swimSpeed = 94;
 const keys = new Set();
 const pointer = { x: 0, y: 0, active: false };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -145,6 +147,14 @@ function nearestItem() {
   return result;
 }
 
+function canJumpAshore(direction) {
+  if (!direction || player.dy < -swimSpeed || player.y + 5 > WATER || player.y + player.height <= WATER) return false;
+
+  const shoreX = player.x + direction * player.width;
+  const clearanceY = player.y - 2 * TILE;
+  return collides(shoreX, player.y) && !collides(player.x, clearanceY) && !collides(shoreX, clearanceY);
+}
+
 function step(dt) {
   const left = pressed('KeyA', 'ArrowLeft');
   const right = pressed('KeyD', 'ArrowRight');
@@ -153,14 +163,15 @@ function step(dt) {
   const bodyInWater = player.y + player.height * 0.65 > WATER;
   const maxOxygen = tank ? 42 : 18;
   const horizontal = Number(right) - Number(left);
+  const shoreJump = (up || jumpRequested) && !down && canJumpAshore(horizontal);
 
   if (horizontal) player.facing = horizontal;
   player.dx += (horizontal * (bodyInWater ? 102 : 112) - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
-  if (bodyInWater) {
+  if (bodyInWater && !shoreJump) {
     const vertical = Number(down) - Number(up);
-    player.dy += ((vertical ? vertical * 94 : 10) - player.dy) * Math.min(1, 7 * dt);
+    player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
   } else {
-    if (jumpRequested && player.grounded) player.dy = -217;
+    if (shoreJump || (jumpRequested && player.grounded)) player.dy = -jumpSpeed;
     player.dy = Math.min(player.dy + 510 * dt, 245);
   }
   jumpRequested = false;
