@@ -218,6 +218,19 @@ export function createWorld() {
     { id: 'fish-deep-slope', kind: 'fish', x: 132 * TILE, y: 31 * TILE, span: 70, speed: 37, variant: 3, phase: 5.5 },
     { id: 'fish-cave-west', kind: 'fish', x: 99 * TILE, y: 56 * TILE, span: 46, speed: 31, variant: 3, phase: 1.9 },
     { id: 'fish-cave-east', kind: 'fish', x: 153 * TILE, y: 69 * TILE, span: 52, speed: 33, variant: 1, phase: 3.7 },
+    { id: 'jelly-west', kind: 'jellyfish', x: 32 * TILE, y: (ground[32 + WEST_EXTENSION] - 4) * TILE, span: 22, speed: 14, phase: 0.4 },
+    { id: 'jelly-reef', kind: 'jellyfish', x: 81 * TILE, y: (ground[81 + WEST_EXTENSION] - 4) * TILE, span: 22, speed: 12, phase: 1.7 },
+    { id: 'jelly-channel', kind: 'jellyfish', x: 96 * TILE, y: 27 * TILE, span: 30, speed: 15, phase: 3.1 },
+    { id: 'jelly-wreck', kind: 'jellyfish', x: 118 * TILE, y: 30 * TILE, span: 32, speed: 14, phase: 4.5 },
+    { id: 'jelly-cave', kind: 'jellyfish', x: 101 * TILE, y: 55 * TILE, span: 24, speed: 13, phase: 2.3 },
+    { id: 'squid-west', kind: 'squid', x: 25 * TILE, y: (ground[25 + WEST_EXTENSION] - 5) * TILE, span: 48, speed: 46, phase: 0.9 },
+    { id: 'squid-reef', kind: 'squid', x: 88 * TILE, y: 24 * TILE, span: 56, speed: 48, phase: 2.2 },
+    { id: 'squid-wreck', kind: 'squid', x: 108 * TILE, y: 26 * TILE, span: 64, speed: 52, phase: 3.8 },
+    { id: 'squid-deep', kind: 'squid', x: 149 * TILE, y: 66 * TILE, span: 68, speed: 54, phase: 5.1 },
+    { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
+    { id: 'shark-channel', kind: 'shark', x: 95 * TILE, y: 22 * TILE, span: 82, speed: 62, phase: 1.5 },
+    { id: 'shark-wreck', kind: 'shark', x: 124 * TILE, y: 28 * TILE, span: 104, speed: 66, phase: 2.9 },
+    { id: 'shark-deep', kind: 'shark', x: 158 * TILE, y: 35 * TILE, span: 112, speed: 70, phase: 4.2 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? ground[Math.floor(x / TILE)] * TILE : mob.y;
@@ -232,6 +245,7 @@ export function createWorld() {
       facing: index % 2 ? -1 : 1,
       grounded: mob.kind === 'crab',
       flee: 0,
+      cooldown: 0,
     };
   });
 

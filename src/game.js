@@ -45,6 +45,11 @@ const breakSeconds = {
 };
 const prompts = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
 const tankCost = { stone: 3, kelp: 2 };
+const enemySpecs = {
+  jellyfish: { width: 12, height: 18, radius: 11, damage: 4, message: 'Stung by a jellyfish. -4s oxygen', material: MATERIAL.reef },
+  squid: { width: 16, height: 14, radius: 12, damage: 5, message: 'Struck by a reef squid. -5s oxygen', material: MATERIAL.bedrock },
+  shark: { width: 30, height: 14, radius: 15, damage: 7, message: 'Bitten by a shark! -7s oxygen', material: MATERIAL.stone },
+};
 
 let world;
 let player;
@@ -70,7 +75,7 @@ const particles = [];
 function spawn() {
   let y = SPAWN.y;
   while (y > 0 && collides(SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18 };
+  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18, hurt: 0 };
 }
 
 function startNewWorld() {
@@ -212,18 +217,27 @@ function canJumpAshore(direction) {
   return collides(shoreX, player.y) && !collides(player.x, clearanceY) && !collides(shoreX, clearanceY);
 }
 
-function fishCollides(x, y) {
-  if (y - 4 < WATER + 8) return true;
-  const left = Math.floor((x - 6) / TILE);
-  const right = Math.floor((x + 6 - 0.01) / TILE);
-  const top = Math.floor((y - 4) / TILE);
-  const bottom = Math.floor((y + 4 - 0.01) / TILE);
+function fishCollides(x, y, width = 12, height = 8) {
+  if (y - height / 2 < WATER + 8) return true;
+  const left = Math.floor((x - width / 2) / TILE);
+  const right = Math.floor((x + width / 2 - 0.01) / TILE);
+  const top = Math.floor((y - height / 2) / TILE);
+  const bottom = Math.floor((y + height / 2 - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
       if (tileAt(world, tx, ty)) return true;
     }
   }
   return false;
+}
+
+function burstParticles(x, y, material, count = 8, spread = 55) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y, dx: (Math.random() - 0.5) * spread,
+      dy: (Math.random() - 0.65) * spread, life: 0.25 + Math.random() * 0.4, material,
+    });
+  }
 }
 
 function crabCollides(x, y) {
@@ -369,6 +383,80 @@ function stepMobs(dt, night) {
         mob.dy = 0;
         mob.grounded = true;
       }
+    } else if (enemySpecs[mob.kind]) {
+      const spec = enemySpecs[mob.kind];
+      mob.cooldown = Math.max(0, (mob.cooldown ?? 0) - dt);
+      const playerInWater = py > WATER + 6;
+      const toPlayerX = px - mob.x;
+      const toPlayerY = py - mob.y;
+      let targetDx = 0;
+      let targetDy = 0;
+
+      if (mob.flee > 0) {
+        targetDx = -(toPlayerX / dist) * (mob.speed * 1.6 + 24);
+        targetDy = -(toPlayerY / dist) * (mob.speed * 1.2 + 16);
+      } else if (mob.kind === 'jellyfish') {
+        const targetX = mob.homeX + Math.sin(time * 0.55 + mob.phase) * mob.span;
+        const targetY = mob.homeY + Math.sin(time * 1.5 + mob.phase * 1.7) * 16;
+        targetDx = clamp((targetX - mob.x) * 1.4, -mob.speed, mob.speed);
+        targetDy = clamp((targetY - mob.y) * 2.1, -mob.speed * 1.3, mob.speed * 1.3);
+      } else if (mob.kind === 'squid') {
+        const pulse = 0.3 + 0.95 * Math.pow(Math.max(0, Math.sin(time * 2.7 + mob.phase)), 2);
+        if (playerInWater && dist < 115 && mob.cooldown === 0) {
+          targetDx = (toPlayerX / dist) * mob.speed * 1.25 * pulse;
+          targetDy = (toPlayerY / dist) * mob.speed * 1.1 * pulse;
+        } else {
+          const targetX = mob.homeX + Math.sin(time * 0.75 + mob.phase) * mob.span;
+          const targetY = mob.homeY + Math.cos(time * 1.35 + mob.phase) * 15;
+          const toX = targetX - mob.x;
+          const toY = targetY - mob.y;
+          const toDist = Math.hypot(toX, toY) || 1;
+          targetDx = (toX / toDist) * mob.speed * pulse;
+          targetDy = (toY / toDist) * mob.speed * 0.75 * pulse;
+        }
+      } else if (mob.kind === 'shark') {
+        if (playerInWater && dist < 165 && Math.abs(px - mob.homeX) < mob.span + 95 && mob.cooldown === 0) {
+          targetDx = (toPlayerX / dist) * mob.speed * 1.18;
+          targetDy = (toPlayerY / dist) * mob.speed * 0.82;
+        } else {
+          if (mob.x > mob.homeX + mob.span) mob.facing = -1;
+          else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
+          targetDx = mob.facing * mob.speed;
+          const targetY = mob.homeY + Math.sin(time * 1.2 + mob.phase) * 9;
+          targetDy = clamp((targetY - mob.y) * 1.8, -26, 26);
+        }
+      }
+
+      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 5);
+      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * 5);
+      if (Math.abs(mob.dx) > 1.5 && mob.kind !== 'jellyfish') mob.facing = mob.dx < 0 ? -1 : 1;
+
+      const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
+      if (!fishCollides(nextX, mob.y, spec.width, spec.height)) {
+        mob.x = nextX;
+      } else {
+        mob.dx *= -0.75;
+        mob.facing = -mob.facing;
+      }
+
+      const nextY = Math.max(WATER + 12, mob.y + mob.dy * dt);
+      if (!fishCollides(mob.x, nextY, spec.width, spec.height)) {
+        mob.y = nextY;
+      } else {
+        mob.dy *= -0.75;
+      }
+
+      if (playerInWater && player.hurt <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < spec.radius + 7) {
+        player.hurt = 1.15;
+        mob.cooldown = 1.6;
+        if (mob.kind === 'squid') mob.flee = 1.8;
+        player.dx = (toPlayerX / dist) * 135;
+        player.dy = (toPlayerY / dist) * 105 - 18;
+        player.oxygen = Math.max(0, player.oxygen - spec.damage);
+        burstParticles(mob.x, mob.y, spec.material, mob.kind === 'squid' ? 14 : 9, 68);
+        notify(spec.message);
+        dirty = true;
+      }
     }
   }
   return hit;
@@ -384,6 +472,7 @@ function step(dt, night) {
   const horizontal = Number(right) - Number(left);
   const shoreJump = (up || jumpRequested) && !down && canJumpAshore(horizontal);
 
+  player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   if (horizontal) player.facing = horizontal;
   player.dx += (horizontal * (bodyInWater ? 102 : 112) - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   if (bodyInWater && !shoreJump) {
@@ -425,6 +514,16 @@ function step(dt, night) {
     player.oxygen = Math.max(0, player.oxygen - dt);
     if (player.oxygen === 0) {
       player = spawn();
+      for (const mob of world.mobs) {
+        if (enemySpecs[mob.kind]) {
+          mob.x = mob.homeX;
+          mob.y = mob.homeY;
+          mob.dx = 0;
+          mob.dy = 0;
+          mob.flee = 0;
+          mob.cooldown = 0;
+        }
+      }
       stopMining();
       notify('You washed back up on the island.');
       dirty = true;
@@ -691,6 +790,27 @@ canvas.addEventListener('pointerleave', (event) => {
   stopMining();
 });
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+function fendOffEnemy() {
+  if (!pointer.active) return false;
+  const wx = pointer.x + camera.x;
+  const wy = pointer.y + camera.y;
+  for (const mob of world.mobs) {
+    const spec = enemySpecs[mob.kind];
+    if (!spec) continue;
+    if (Math.hypot(wx - mob.x, wy - mob.y) <= spec.radius + 10 && Math.hypot(mob.x - player.x, mob.y - player.y - 11) <= 5 * TILE) {
+      const angle = Math.atan2(mob.y - (player.y + 11), mob.x - player.x);
+      mob.dx = Math.cos(angle) * 125;
+      mob.dy = Math.sin(angle) * 95;
+      mob.flee = 2.4;
+      mob.cooldown = 1.4;
+      burstParticles(mob.x, mob.y, spec.material, mob.kind === 'squid' ? 14 : 8, 64);
+      notify(mob.kind === 'squid' ? 'Startled squid jetted away in ink!' : 'Fended off ' + mob.kind + '!');
+      return true;
+    }
+  }
+  return false;
+}
+
 canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 && event.button !== 2) return;
   if (miningPointerId !== null && miningPointerId !== event.pointerId) return;
@@ -700,6 +820,10 @@ canvas.addEventListener('pointerdown', (event) => {
   if (event.button === 2 || (event.pointerType === 'touch' && placing)) {
     stopMining();
     placeBlock();
+    if (event.pointerType === 'touch') pointer.active = false;
+    return;
+  }
+  if (fendOffEnemy()) {
     if (event.pointerType === 'touch') pointer.active = false;
     return;
   }

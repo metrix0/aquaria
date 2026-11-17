@@ -489,6 +489,67 @@ export function createRenderer(canvas) {
         rect(1, -8 - bob, 1, 2, '#192b3e');
         rect(-2, -8 - bob, 1, 1, '#f1f3e5');
         rect(1, -8 - bob, 1, 1, '#f1f3e5');
+      } else if (mob.kind === 'jellyfish') {
+        const pulse = Math.round(Math.sin(time * 3.1 + mob.phase));
+        for (let i = 0; i < 4; i++) {
+          const baseX = -5 + i * 3;
+          const length = 9 + (i % 2) * 3;
+          for (let j = 0; j < length; j += 2) {
+            const sway = Math.round(Math.sin(time * 3.8 + mob.phase + j * 0.42 + i) * 1.6);
+            rect(baseX + sway, 2 + j, 1, 2, (i + j) % 2 ? '#a68aa0' : '#d3a8a4');
+          }
+        }
+        rect(-4, -8, 8, 2, '#d3a8a4');
+        rect(-6 - Math.max(0, pulse), -6, 12 + Math.max(0, pulse) * 2, 4, '#a68aa0');
+        rect(-7 - pulse, -2, 14 + pulse * 2, 3, '#786080');
+        rect(-3, -5, 6, 3, '#f2c9a0');
+        rect(-4, -6, 4, 1, '#f8dca5');
+        rect(-6, 1, 3, 1, '#d3a8a4');
+        rect(-1, 1, 3, 1, '#d3a8a4');
+        rect(4, 1, 3, 1, '#d3a8a4');
+      } else if (mob.kind === 'squid') {
+        ctx.scale(mob.facing, 1);
+        ctx.rotate(clamp(mob.dy * 0.0035, -0.25, 0.25) * mob.facing);
+        const pulse = Math.sin(time * 5.4 + mob.phase);
+        for (let i = 0; i < 4; i++) {
+          const ty = -4 + i * 2;
+          const len = i === 1 || i === 2 ? 9 : 7;
+          for (let j = 0; j < len; j += 2) {
+            const wave = Math.round(Math.sin(time * 6.2 + mob.phase + j * 0.5 + i) * (1 - pulse * 0.35));
+            rect(-4 - j, ty + wave, 2, 1, i % 2 ? '#b0667d' : '#da9292');
+          }
+        }
+        polygon([[4, -3], [8, -7], [10, -2]], '#7e4268');
+        polygon([[4, 3], [8, 7], [10, 2]], '#7e4268');
+        rect(-3, -4, 11, 8, '#7e4268');
+        rect(-2, -3, 10, 5, '#b0667d');
+        rect(7, -2, 4, 4, '#b0667d');
+        rect(10, -1, 2, 2, '#da9292');
+        rect(0, -3, 6, 1, '#da9292');
+        rect(3, -1, 2, 1, '#f0c88b');
+        rect(-2, -2, 2, 2, '#f1f3e5');
+        rect(-2, -1, 1, 1, '#192b3e');
+      } else if (mob.kind === 'shark') {
+        ctx.scale(mob.facing, 1);
+        ctx.rotate(clamp(mob.dy * 0.0022, -0.18, 0.18) * mob.facing);
+        const swish = Math.round(Math.sin(time * 6.4 + mob.phase) * 2);
+        polygon([[-2, -4], [2, -10], [5, -4]], '#263b51');
+        rect(1, -8, 2, 4, '#3e5b63');
+        rect(-13, -2 + Math.trunc(swish * 0.5), 4, 4, '#2f4858');
+        polygon([[-13, -1 + swish], [-19, -7 + swish], [-15, swish]], '#263b51');
+        polygon([[-13, 1 + swish], [-18, 6 + swish], [-15, 1 + swish]], '#3e5b63');
+        rect(-9, -4, 20, 5, '#2f4858');
+        rect(11, -3, 4, 3, '#2f4858');
+        rect(-6, -4, 16, 1, '#6d8884');
+        rect(-7, 1, 18, 3, '#a5bfb9');
+        rect(8, 1, 5, 1, '#192b3e');
+        rect(9, 1, 1, 1, '#f1f3e5');
+        rect(11, 1, 1, 1, '#f1f3e5');
+        rect(9, -2, 2, 2, '#111d2f');
+        rect(10, -2, 1, 1, '#efc27e');
+        rect(4, -2, 1, 3, '#192b3e');
+        rect(6, -2, 1, 3, '#192b3e');
+        polygon([[1, 2], [-3, 7], [4, 3]], '#263b51');
       }
 
       ctx.restore();
@@ -502,6 +563,7 @@ export function createRenderer(canvas) {
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0018, -.23, .23) * facing : 0;
     ctx.save();
+    if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
     ctx.translate(Math.round(player.x), Math.round(player.y));
     ctx.scale(facing, 1);
     if (swimming) ctx.rotate(tilt);
