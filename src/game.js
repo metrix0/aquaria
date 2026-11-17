@@ -2,7 +2,7 @@ import {
   COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN,
   buildCellFree, clamp, createWorld, doorAt, editTile, isDoorOpen, placeDoor, tileAt, treeAt,
 } from './world.js';
-import { createRenderer } from './render.js';
+import { APPEARANCE, createRenderer } from './render.js';
 import { worldConditions } from './environment.js';
 import { updateEnemySpawns } from './enemies.js';
 import { Inventory, ITEMS } from './inventory.js';
@@ -12,10 +12,13 @@ import { version } from './build-info.js';
 const byId = (id) => document.getElementById(id);
 const canvas = byId('scene');
 const renderer = createRenderer(canvas);
+const customizePanel = byId('customize-panel');
+const previewCanvas = byId('character-preview');
+const swatches = Array.from(customizePanel.querySelectorAll('.swatch'));
 const backpackPanel = byId('backpack-panel');
 const craftPanel = byId('craft-panel');
 const pausePanel = byId('pause-panel');
-const panels = [backpackPanel, craftPanel, pausePanel];
+const panels = [customizePanel, backpackPanel, craftPanel, pausePanel];
 const saveKey = 'aquaria.save';
 const saveFormat = 2;
 const legacyCols = 224;
@@ -57,6 +60,7 @@ const enemySpecs = {
 
 let world;
 let player;
+let appearance;
 let inventory;
 let tank;
 let selected = 0;
@@ -84,7 +88,7 @@ const inventoryUi = createInventoryUi(backpackPanel, {
 function spawn() {
   let y = SPAWN.y;
   while (y > 0 && collides(SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18, hurt: 0 };
+  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18, hurt: 0, appearance };
 }
 
 function startNewWorld() {
@@ -93,6 +97,7 @@ function startNewWorld() {
   weatherSeed = Math.floor(Math.random() * 0x80000000);
   enemies = { spawnIn: 5, hitCooldown: 0 };
   tank = false;
+  appearance = { skin: 0, shirt: 0, pants: 0 };
   inventory = new Inventory();
   player = spawn();
 }
@@ -111,6 +116,10 @@ function load() {
       weatherSeed = state.weatherSeed;
     }
     tank = state.tank === true;
+    for (const key of Object.keys(appearance)) {
+      const value = state.appearance?.[key];
+      if (Number.isInteger(value) && value >= 0 && value < APPEARANCE[key].length) appearance[key] = value;
+    }
     inventory = new Inventory(state.inventory);
     for (const edit of state.edits ?? []) {
       if (!Array.isArray(edit)) continue;
@@ -154,7 +163,7 @@ function save() {
   if (!dirty && worldTime === savedWorldTime) return;
   try {
     localStorage.setItem(saveKey, JSON.stringify({
-      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory,
+      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory, appearance,
       edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
       harvested: Array.from(world.harvested),
       worldTime, weatherSeed,
@@ -708,10 +717,22 @@ function openPanel(panel) {
   keys.clear();
   jumpRequested = false;
   stopMining();
+  if (panel === customizePanel) updateCustomize();
   if (panel === backpackPanel) byId('backpack-tank').hidden = !tank;
   if (panel === craftPanel) updateCraft();
   save();
   panel.showModal();
+}
+
+function updateCustomize() {
+  for (const part of Object.keys(APPEARANCE)) {
+    setText(part + '-name', APPEARANCE[part][appearance[part]].name);
+  }
+  for (const button of swatches) {
+    const active = appearance[button.dataset.part] === Number(button.dataset.index);
+    button.setAttribute('aria-pressed', String(active));
+  }
+  renderer.drawPreview(previewCanvas, appearance, tank);
 }
 
 function canCraftTank() {
@@ -783,9 +804,14 @@ function locatePointer(event) {
 window.addEventListener('keydown', (event) => {
   const code = event.code;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
-  if (code === 'Tab' && !event.shiftKey && !craftPanel.open && !pausePanel.open) {
+  if (code === 'Tab' && !event.shiftKey && !customizePanel.open && !craftPanel.open && !pausePanel.open) {
     event.preventDefault();
     if (!event.repeat) openPanel(backpackPanel);
+    return;
+  }
+  if (code === 'KeyV' && !event.repeat) {
+    event.preventDefault();
+    openPanel(customizePanel);
     return;
   }
   if (code === 'KeyC' && !event.repeat) {
@@ -905,6 +931,18 @@ byId('touch-mode').addEventListener('click', (event) => {
   event.currentTarget.textContent = placing ? 'Build' : 'Mine';
   event.currentTarget.setAttribute('aria-pressed', String(placing));
 });
+byId('customize').addEventListener('click', () => openPanel(customizePanel));
+for (const button of swatches) {
+  button.addEventListener('click', () => {
+    const { part, index } = button.dataset;
+    const next = Number(index);
+    if (!APPEARANCE[part]?.[next] || appearance[part] === next) return;
+    appearance[part] = next;
+    updateCustomize();
+    dirty = true;
+    save();
+  });
+}
 byId('backpack').addEventListener('click', () => openPanel(backpackPanel));
 byId('craft').addEventListener('click', () => openPanel(craftPanel));
 byId('pause').addEventListener('click', () => openPanel(pausePanel));

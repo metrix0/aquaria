@@ -34,6 +34,30 @@ const crabColors = [
   ['#513a3b', '#b0667d', '#da9292'],
 ];
 
+export const APPEARANCE = {
+  skin: [
+    { name: 'Sunlit', face: '#dcb484', shade: '#d8aa6e', arm: '#e8b57b', hand: '#e9ad81', eye: '#463d3e', hair: '#392e36', hairLight: '#56403c' },
+    { name: 'Seashell', face: '#eed2b5', shade: '#dfb792', arm: '#f5ddc3', hand: '#eac5a2', eye: '#463d3e', hair: '#4d3732', hairLight: '#6e4f44' },
+    { name: 'Sandbar', face: '#c69063', shade: '#ad784d', arm: '#d49f71', hand: '#c99365', eye: '#35292d', hair: '#2d242b', hairLight: '#49383e' },
+    { name: 'Driftwood', face: '#9a6444', shade: '#814f33', arm: '#a97250', hand: '#9e6847', eye: '#261c20', hair: '#241c22', hairLight: '#3d2e35' },
+    { name: 'Deep Bark', face: '#6b4230', shade: '#553122', arm: '#7b4f3b', hand: '#704633', eye: '#191215', hair: '#1a141b', hairLight: '#31262e' },
+  ],
+  shirt: [
+    { name: 'Coral', base: '#bc775a', wet: '#a76e59', light: '#df9b6b' },
+    { name: 'Lagoon', base: '#498b84', wet: '#3b7370', light: '#76bfb2' },
+    { name: 'Sunburst', base: '#c69853', wet: '#ab8045', light: '#ecc37d' },
+    { name: 'Reef Rose', base: '#98576f', wet: '#7f475d', light: '#c68096' },
+    { name: 'Storm', base: '#456a7d', wet: '#365668', light: '#6e96a8' },
+  ],
+  pants: [
+    { name: 'Slate', back: '#344956', front: '#52616a', light: '#6d8884' },
+    { name: 'Driftwood', back: '#4d3933', front: '#705448', light: '#8e6b51' },
+    { name: 'Sandbar', back: '#736047', front: '#988161', light: '#b89f7a' },
+    { name: 'Kelp', back: '#2d4b43', front: '#476d61', light: '#649282' },
+    { name: 'Abyss', back: '#202938', front: '#364459', light: '#4d5f78' },
+  ],
+};
+
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
 
@@ -421,15 +445,15 @@ export function createRenderer(canvas) {
     }
   }
 
-  function miningArm(targetX, targetY, tilt, phase) {
+  function miningArm(targetX, targetY, tilt, phase, shirt, skin) {
     const angle = clamp(Math.atan2(targetY - 12, targetX), -1.05, 1.15);
     const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
     ctx.save();
     ctx.translate(2, 12);
     ctx.rotate(angle - tilt - swing);
-    rect(-1, -2, 3, 4, '#df9b6b');
-    rect(1, -1, 6, 3, '#e8b57b');
-    rect(5, 0, 3, 2, '#e9ad81');
+    rect(-1, -2, 3, 4, shirt.light);
+    rect(1, -1, 6, 3, skin.arm);
+    rect(5, 0, 3, 2, skin.hand);
     rect(7, -1, 7, 2, '#85604c');
     rect(8, -1, 5, 1, '#d29c65');
     rect(12, -4, 3, 8, '#6e888a');
@@ -559,6 +583,9 @@ export function createRenderer(canvas) {
   function diver(player, tank, time, mining, reducedMotion) {
     const swimming = player.y + 11 > WATER;
     const stride = Math.abs(player.dx) > 9 ? Math.round(Math.sin(time * (swimming ? 13 : 24)) * 2) : 0;
+    const skin = APPEARANCE.skin[player.appearance?.skin] ?? APPEARANCE.skin[0];
+    const shirt = APPEARANCE.shirt[player.appearance?.shirt] ?? APPEARANCE.shirt[0];
+    const pants = APPEARANCE.pants[player.appearance?.pants] ?? APPEARANCE.pants[0];
     const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0018, -.23, .23) * facing : 0;
@@ -567,21 +594,21 @@ export function createRenderer(canvas) {
     ctx.translate(Math.round(player.x), Math.round(player.y));
     ctx.scale(facing, 1);
     if (swimming) ctx.rotate(tilt);
-    rect(-4, 1, 9, 7, '#392e36');
-    rect(-3, 0, 7, 3, '#56403c');
-    rect(-2, 4, 7, 5, '#dcb484');
-    rect(4, 5, 2, 3, '#dcb484');
-    rect(2, 5, 2, 1, '#463d3e');
-    rect(-3, 8, 8, 3, '#d8aa6e');
-    rect(-4, 10, 9, 7, swimming ? '#a76e59' : '#bc775a');
-    rect(-4, 10, 8, 2, '#df9b6b');
+    rect(-4, 1, 9, 7, skin.hair);
+    rect(-3, 0, 7, 3, skin.hairLight);
+    rect(-2, 4, 7, 5, skin.face);
+    rect(4, 5, 2, 3, skin.face);
+    rect(2, 5, 2, 1, skin.eye);
+    rect(-3, 8, 8, 3, skin.shade);
+    rect(-4, 10, 9, 7, swimming ? shirt.wet : shirt.base);
+    rect(-4, 10, 8, 2, shirt.light);
     if (!mining) {
-      rect(1, 12, 3, 4, '#e8b57b');
-      rect(3 + (swimming ? 2 : 0), 13, 3, 3, '#e9ad81');
+      rect(1, 12, 3, 4, skin.arm);
+      rect(3 + (swimming ? 2 : 0), 13, 3, 3, skin.hand);
     }
     rect(-4, 17, 8, 2, '#483d42');
-    rect(-4, 18, 3, 4 + stride, '#344956');
-    rect(1, 18, 3, 4 - stride, '#52616a');
+    rect(-4, 18, 3, 4 + stride, pants.back);
+    rect(1, 18, 3, 4 - stride, pants.front);
     rect(-4 - Number(swimming), 21 + stride, 4, 2, '#242f40');
     rect(1, 21 - stride, 4 + Number(swimming), 2, '#242f40');
     if (tank) {
@@ -592,7 +619,7 @@ export function createRenderer(canvas) {
     if (mining) {
       const targetY = (mining.ty + 0.5) * TILE - player.y;
       const swings = Math.round(mining.duration / 0.26);
-      miningArm(Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings);
+      miningArm(Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings, shirt, skin);
     }
     if (swimming) {
       for (let i = 0; i < 3; i++) {
@@ -626,6 +653,61 @@ export function createRenderer(canvas) {
         rect(x + 2, y + 23, TILE - 4, 2, dark);
         rect(x + 11, y + 16, 2, 2, brass);
       }
+    }
+  }
+
+  function drawPreview(previewCanvas, appearance, tank) {
+    const pctx = previewCanvas.getContext('2d', { alpha: false });
+    const { width, height } = previewCanvas;
+    const skyGrad = pctx.createLinearGradient(0, 0, 0, height);
+    for (const [pos, col] of [[0, '#2c4c63'], [.52, '#5a7e86'], [.78, '#c7a982'], [1, '#183f52']]) skyGrad.addColorStop(pos, col);
+    pctx.fillStyle = skyGrad;
+    pctx.fillRect(0, 0, width, height);
+    pctx.fillStyle = '#f8dca5';
+    pctx.fillRect(width - 11, 6, 5, 5);
+    pctx.fillStyle = '#307e83';
+    pctx.fillRect(0, height - 14, width, 14);
+    pctx.fillStyle = '#7cc4b1';
+    pctx.fillRect(0, height - 14, width, 1);
+    const [sandBase, sandLight, sandDark, sandBright] = palettes[MATERIAL.sand];
+    pctx.fillStyle = sandBase;
+    pctx.fillRect(4, height - 11, width - 8, 11);
+    pctx.fillStyle = sandLight;
+    pctx.fillRect(4, height - 11, width - 8, 2);
+    pctx.fillStyle = sandBright;
+    pctx.fillRect(9, height - 11, 12, 1);
+    pctx.fillStyle = sandDark;
+    pctx.fillRect(8, height - 6, 4, 2);
+    pctx.fillRect(24, height - 5, 5, 1);
+
+    const skin = APPEARANCE.skin[appearance?.skin] ?? APPEARANCE.skin[0];
+    const shirt = APPEARANCE.shirt[appearance?.shirt] ?? APPEARANCE.shirt[0];
+    const pants = APPEARANCE.pants[appearance?.pants] ?? APPEARANCE.pants[0];
+    const ox = Math.round(width / 2);
+    const oy = height - 34;
+    const fill = (x, y, w, h, color) => {
+      pctx.fillStyle = color;
+      pctx.fillRect(ox + x, oy + y, w, h);
+    };
+    fill(-4, 1, 9, 7, skin.hair);
+    fill(-3, 0, 7, 3, skin.hairLight);
+    fill(-2, 4, 7, 5, skin.face);
+    fill(4, 5, 2, 3, skin.face);
+    fill(2, 5, 2, 1, skin.eye);
+    fill(-3, 8, 8, 3, skin.shade);
+    fill(-4, 10, 9, 7, shirt.base);
+    fill(-4, 10, 8, 2, shirt.light);
+    fill(1, 12, 3, 4, skin.arm);
+    fill(3, 13, 3, 3, skin.hand);
+    fill(-4, 17, 8, 2, '#483d42');
+    fill(-4, 18, 3, 4, pants.back);
+    fill(1, 18, 3, 4, pants.front);
+    fill(-4, 21, 4, 2, '#242f40');
+    fill(1, 21, 4, 2, '#242f40');
+    if (tank) {
+      fill(-7, 9, 3, 10, '#7ebcb0');
+      fill(-7, 10, 1, 6, '#bed8ba');
+      fill(-6, 8, 2, 1, '#d2a673');
     }
   }
 
@@ -686,5 +768,5 @@ export function createRenderer(canvas) {
     }
   }
 
-  return { draw };
+  return { draw, drawPreview };
 }

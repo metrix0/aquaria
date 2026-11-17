@@ -60,9 +60,9 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .controls { display: flex; gap: 15px; flex-wrap: wrap; color: #b8cbc1; font-size: 11px; }
 .controls span { white-space: nowrap; }
 .controls kbd, .footer-actions kbd, .interact kbd { display: inline-block; border: 1px solid #aac5be54; border-radius: 3px; background: #182e37; padding: 3px 5px; color: #dde7db; font: 10px var(--mono); }
-.craft, .backpack { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
+.craft, .backpack, .customize { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
-.backpack { color: var(--mint); background: #152730; }
+.backpack, .customize { color: var(--mint); background: #152730; }
 .footer-actions kbd { margin-right: 4px; }
 .touch { display: none; }
 .interact, .feedback { position: absolute; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; background: #0a1824ee; padding: 7px 11px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; max-width: 86%; }
@@ -76,6 +76,16 @@ dialog::backdrop { background: #04101bb0; }
 .dialog-head button, .dialog-actions button { border: 1px solid var(--line); border-radius: 4px; background: #203843; padding: 7px 11px; }
 .dialog-head button { font-size: 18px; line-height: 1; }
 dialog p { font-size: 13px; color: var(--muted); }
+.character-customizer { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.character-preview-card { display: grid; place-items: center; background: #0b1d27; border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+#character-preview { width: 80px; height: 88px; display: block; image-rendering: pixelated; border: 1px solid #466169; border-radius: 3px; }
+.character-options { display: grid; gap: 11px; }
+.character-group-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; font: 700 10px var(--mono); letter-spacing: .14em; color: var(--muted); }
+.character-group-head strong { color: #e9f4e9; font-size: 11px; letter-spacing: .04em; text-transform: none; }
+.swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.swatch { height: 34px; padding: 0; display: grid; place-items: center; background: #172b35; border: 1px solid #466169; border-radius: 3px; }
+.swatch[aria-pressed="true"] { background: #413a2d; border-color: var(--gold); }
+.swatch-chip { display: block; width: 16px; height: 16px; background: var(--base); box-shadow: inset 3px 3px var(--light), inset -3px -3px var(--dark); }
 #backpack-panel { width: min(460px, calc(100% - 24px)); padding: clamp(12px, 4vw, 20px); }
 .backpack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 18px; }
 .backpack-layout h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
@@ -103,8 +113,10 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 @media (max-width: 670px) {
   .meters { top: max(10px, env(safe-area-inset-top)); right: 10px; width: 111px; padding: 8px; }
   .meter-heading { font-size: 9px; }
-  footer { padding-left: 10px; padding-right: 10px; }
+  footer { padding-left: 10px; padding-right: 10px; flex-wrap: wrap; gap: 6px; }
   .controls { gap: 5px 9px; }
+  .footer-actions { margin-left: auto; gap: 6px; }
+  .footer-actions kbd { display: none; }
   .feedback { top: max(125px, calc(env(safe-area-inset-top) + 115px)); }
 }
 @media (pointer: coarse) {
@@ -113,7 +125,7 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .touch button { min-width: 39px; min-height: 38px; padding: 0 4px; border: 1px solid #6e969b; border-radius: 4px; background: #122d3ae8; touch-action: none; }
   .touch button[aria-pressed="true"] { border-color: var(--gold); }
   .controls { display: none; }
-  .backpack kbd { display: none; }
+  .backpack kbd, .customize kbd { display: none; }
   footer { justify-content: flex-end; }
   .inventory { padding-bottom: 8px; }
   .interact { bottom: 184px; }
