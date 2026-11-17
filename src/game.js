@@ -4,7 +4,7 @@ import { worldConditions } from './environment.js';
 import { updateEnemySpawns } from './enemies.js';
 import { Inventory, ITEMS } from './inventory.js';
 import { createInventoryUi } from './inventory-ui.js';
-import { devTools, version } from './build-info.js';
+import { version } from './build-info.js';
 
 const byId = (id) => document.getElementById(id);
 const canvas = byId('scene');
@@ -875,25 +875,21 @@ byId('craft').addEventListener('click', () => openPanel(craftPanel));
 byId('pause').addEventListener('click', () => openPanel(pausePanel));
 byId('resume').addEventListener('click', () => pausePanel.close());
 for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
-if (devTools) {
-  const resetWorld = byId('reset-world');
-  resetWorld.hidden = false;
-  resetWorld.addEventListener('click', () => {
-    if (!confirm('Rebuild the world and erase all progress saved in this browser?')) return;
-    startNewWorld();
-    select(0);
-    pointer.active = false;
-    focusedItem = null;
-    particles.length = 0;
-    clearTimeout(toastTimer);
-    byId('feedback').hidden = true;
-    pausePanel.close();
-    updateCamera(1);
-    dirty = true;
-    save();
-    if (dirty) notify('World reset for this session. The browser could not save it.');
-  });
-}
+byId('reset-world').addEventListener('click', () => {
+  if (!confirm('Start a new game and erase the save in this browser?')) return;
+  startNewWorld();
+  select(0);
+  pointer.active = false;
+  focusedItem = null;
+  particles.length = 0;
+  clearTimeout(toastTimer);
+  byId('feedback').hidden = true;
+  pausePanel.close();
+  updateCamera(1);
+  dirty = true;
+  save();
+  if (dirty) notify('World reset for this session. The browser could not save it.');
+});
 byId('make-tank').addEventListener('click', () => {
   if (!canCraftTank()) return;
   inventory.spend('stone', tankCost.stone);
