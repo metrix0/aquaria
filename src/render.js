@@ -342,7 +342,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, particles }) {
+  function draw({ world, player, tank, camera, time, aim, mining, particles }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time);
@@ -360,6 +360,13 @@ export function createRenderer(canvas) {
       ctx.strokeStyle = '#f4d4a5ad';
       ctx.lineWidth = 1;
       ctx.strokeRect(aim.tx * TILE + .5, aim.ty * TILE + .5, TILE - 1, TILE - 1);
+    }
+    if (mining) {
+      const x = mining.tx * TILE + 2;
+      const y = (mining.ty + 1) * TILE - 5;
+      const width = TILE - 4;
+      rect(x - 1, y - 1, width + 2, 4, '#1b2733');
+      rect(x, y, Math.ceil(width * mining.progress), 2, '#f4d4a5');
     }
     ctx.restore();
 
