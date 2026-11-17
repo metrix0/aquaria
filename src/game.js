@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
 import { createRenderer } from './render.js';
 import { devTools, version } from './build-info.js';
 
@@ -79,8 +79,8 @@ function load() {
         editTile(world, index % COLS, Math.floor(index / COLS), material);
       }
     }
-    const validItems = new Set(world.items.map(({ id }) => id));
-    world.harvested = new Set((state.harvested ?? []).filter((id) => validItems.has(id)));
+    const harvestableIds = new Set([...world.items, ...world.trees].map(({ id }) => id));
+    world.harvested = new Set((state.harvested ?? []).filter((id) => harvestableIds.has(id)));
     player = spawn();
     if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
       const x = clamp(state.x, player.width, COLS * TILE - player.width);
@@ -241,7 +241,7 @@ function placeBlock() {
   const { tx, ty } = target;
   if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
   const block = SLOT_MATERIAL[selected];
-  if (!block || tileAt(world, tx, ty) || !inventory[drops[block]]) return;
+  if (!block || tileAt(world, tx, ty) || !inventory[drops[block]] || treeAt(world, tx, ty)) return;
   const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
   if (!touches || world.items.some((item) => !world.harvested.has(item.id) && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty)) return;
   editTile(world, tx, ty, block);
@@ -262,7 +262,9 @@ function stopMining() {
 function updateMining(dt) {
   if (miningPointerId === null) return;
   const target = aim();
-  const material = target?.reachable ? tileAt(world, target.tx, target.ty) : MATERIAL.air;
+  const tile = target?.reachable ? tileAt(world, target.tx, target.ty) : MATERIAL.air;
+  const tree = target?.reachable && tile === MATERIAL.air ? treeAt(world, target.tx, target.ty) : undefined;
+  const material = tree ? MATERIAL.wood : tile;
   const duration = breakSeconds[material];
   if (!duration) {
     mining = null;
@@ -270,15 +272,22 @@ function updateMining(dt) {
   }
 
   const { tx, ty } = target;
-  if (mining?.tx !== tx || mining.ty !== ty || mining.material !== material) {
-    mining = { tx, ty, material, duration, progress: 0 };
+  if (!mining || mining.tree !== tree || (!tree && (mining.tx !== tx || mining.ty !== ty || mining.material !== material))) {
+    mining = { tree, material, duration, progress: 0 };
   }
+  mining.tx = tx;
+  mining.ty = ty;
   mining.progress += dt / duration;
   if (mining.progress < 1) return;
 
   mining = null;
-  editTile(world, tx, ty, MATERIAL.air);
-  inventory[drops[material]]++;
+  if (tree) {
+    world.harvested.add(tree.id);
+    inventory.wood += Math.round(tree.height / TILE);
+  } else {
+    editTile(world, tx, ty, MATERIAL.air);
+    inventory[drops[material]]++;
+  }
   for (let i = 0; i < 8; i++) {
     particles.push({
       x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
@@ -299,7 +308,7 @@ function interact() {
     }
     completed = true;
     inventory.wood += 8;
-    notify('Wreck cache recovered. +8 driftwood');
+    notify('Wreck cache recovered. +8 wood');
   } else {
     inventory[item.kind] += item.amount;
     notify('+' + item.amount + ' ' + item.kind);

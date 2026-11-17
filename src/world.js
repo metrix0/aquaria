@@ -4,7 +4,7 @@ export const ROWS = 100;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: 63 * TILE + 8, y: 12 * TILE - 23 };
-export const SLOT_NAMES = ['Salvage tool', 'Sand', 'Stone', 'Driftwood'];
+export const SLOT_NAMES = ['Salvage tool', 'Sand', 'Stone', 'Wood'];
 export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, scrap: 4, wood: 5, bedrock: 6, soil: 7 });
 export const SLOT_MATERIAL = [MATERIAL.air, MATERIAL.sand, MATERIAL.stone, MATERIAL.wood];
 
@@ -70,12 +70,37 @@ export function createWorld() {
     items.push({ id: 'kelp-' + x, kind: 'kelp', amount: 1, x: x * TILE + 8, y: ground[x] * TILE - 12 });
   }
 
-  return { tiles, ground, items, edits: new Map(), harvested: new Set() };
+  const trees = [[49, 61, -1], [52, 46, 1], [58, 69, 1], [62, 48, -1]].map(([tx, height, direction]) => {
+    const ty = ground[tx];
+    const x = tx * TILE + 7;
+    const y = ty * TILE;
+    const trunk = [];
+    for (let rise = 0; rise < height; rise += 2) {
+      const lean = Math.floor(Math.pow(rise / height, 1.7) * 14) * direction;
+      trunk.push({ x: x + lean - 3, y: y - rise - 2, width: rise > height * .68 ? 4 : 6 });
+    }
+    return { id: 'palm-' + tx, tx, ty, x, y, height, direction, trunk };
+  });
+
+  return { tiles, ground, items, trees, edits: new Map(), harvested: new Set() };
 }
 
 export function tileAt(world, tx, ty) {
   if (tx < 0 || tx >= COLS || ty >= ROWS) return MATERIAL.bedrock;
   return ty < 0 ? MATERIAL.air : world.tiles[ty * COLS + tx];
+}
+
+export function isTreeStanding(world, tree) {
+  const { tx, ty, id } = tree;
+  return !world.harvested.has(id) && tileAt(world, tx, ty) && !tileAt(world, tx, ty - 1);
+}
+
+export function treeAt(world, tx, ty) {
+  const x = tx * TILE;
+  const y = ty * TILE;
+  return world.trees.find((tree) => isTreeStanding(world, tree) && tree.trunk.some((strip) =>
+    strip.x < x + TILE && strip.x + strip.width > x && strip.y < y + TILE && strip.y + 2 > y
+  ));
 }
 
 export function editTile(world, tx, ty, material) {

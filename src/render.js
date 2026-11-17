@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, MATERIAL, clamp, noise, tileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, MATERIAL, clamp, isTreeStanding, noise, tileAt } from './world.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -189,14 +189,13 @@ export function createRenderer(canvas) {
     }
   }
 
-  function palm(x, y, size, direction) {
-    for (let i = 0; i < size; i += 2) {
-      const lean = Math.floor(Math.pow(i / size, 1.7) * 14) * direction;
-      rect(x + lean - 3, y - i - 2, i > size * .68 ? 4 : 6, 2, i % 8 === 0 ? '#7f5b4a' : '#9d7557');
-      rect(x + lean - 3, y - i - 2, 2, 2, '#cca177');
+  function palm(tree) {
+    for (const [i, strip] of tree.trunk.entries()) {
+      rect(strip.x, strip.y, strip.width, 2, i % 4 === 0 ? '#7f5b4a' : '#9d7557');
+      rect(strip.x, strip.y, 2, 2, '#cca177');
     }
-    const topX = x + direction * 14;
-    const topY = y - size + 1;
+    const topX = tree.x + tree.direction * 14;
+    const topY = tree.y - tree.height + 1;
     const paths = [[-31, -5, -13], [-28, 11, -4], [-19, -15, -18], [14, -17, -18], [31, -5, -11], [32, 13, -2], [9, 18, 1]];
     for (const [dx, dy, arc] of paths) {
       for (let i = 0; i < 12; i++) {
@@ -237,9 +236,8 @@ export function createRenderer(canvas) {
         }
       }
     }
-    for (const [x, size, direction] of [[49, 61, -1], [52, 46, 1], [58, 69, 1], [62, 48, -1]]) {
-      const y = world.ground[x];
-      if (x >= left - 2 && x <= right + 2 && tileAt(world, x, y) && !tileAt(world, x, y - 1)) palm(x * TILE + 7, y * TILE, size, direction);
+    for (const tree of world.trees) {
+      if (tree.tx >= left - 2 && tree.tx <= right + 2 && isTreeStanding(world, tree)) palm(tree);
     }
 
     const wreckX = 111 * TILE + 8;
