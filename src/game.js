@@ -17,12 +17,14 @@ const legacyCols = 224;
 const legacyEditableRows = 98;
 const playerSize = { width: 12, height: 23 };
 const jumpSpeed = 217;
+const shortHopSpeed = 115;
 const swimSpeed = 94;
 const keys = new Set();
 const pointer = { x: 0, y: 0, active: false };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touch = matchMedia('(pointer: coarse)').matches;
-const moveKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
+const jumpKeys = ['Space', 'KeyW', 'ArrowUp'];
+const moveKeys = new Set(['KeyA', 'KeyD', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowDown', ...jumpKeys]);
 const drops = {
   [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand',
   [MATERIAL.reef]: 'stone', [MATERIAL.wood]: 'wood',
@@ -62,7 +64,7 @@ const particles = [];
 function spawn() {
   let y = SPAWN.y;
   while (y > 0 && collides(SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, facing: 1, oxygen: tank ? 42 : 18 };
+  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18 };
 }
 
 function startNewWorld() {
@@ -345,7 +347,7 @@ function stepMobs(dt) {
 function step(dt) {
   const left = pressed('KeyA', 'ArrowLeft');
   const right = pressed('KeyD', 'ArrowRight');
-  const up = pressed('Space', 'KeyW', 'ArrowUp');
+  const up = pressed(...jumpKeys);
   const down = pressed('KeyS', 'ArrowDown');
   const bodyInWater = player.y + player.height * 0.65 > WATER;
   const maxOxygen = tank ? 42 : 18;
@@ -355,10 +357,18 @@ function step(dt) {
   if (horizontal) player.facing = horizontal;
   player.dx += (horizontal * (bodyInWater ? 102 : 112) - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   if (bodyInWater && !shoreJump) {
+    player.canShortenJump = false;
     const vertical = Number(down) - Number(up);
     player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
   } else {
-    if (shoreJump || (jumpRequested && player.grounded)) player.dy = -jumpSpeed;
+    if (shoreJump || (jumpRequested && player.grounded)) {
+      player.dy = -jumpSpeed;
+      player.canShortenJump = !shoreJump;
+    }
+    if (player.canShortenJump && !up) {
+      player.dy = Math.max(player.dy, -shortHopSpeed);
+      player.canShortenJump = false;
+    }
     player.dy = Math.min(player.dy + 510 * dt, 245);
   }
   jumpRequested = false;
@@ -368,6 +378,7 @@ function step(dt) {
   const yCollision = moveAxis('y', player.dy * dt);
   player.grounded = yCollision && falling;
   if (yCollision) player.dy = 0;
+  if (player.dy >= 0) player.canShortenJump = false;
   if (player.y < 0) player.y = 0;
 
   stepMobs(dt);
@@ -613,7 +624,7 @@ window.addEventListener('keydown', (event) => {
   if (event.target instanceof HTMLButtonElement && code === 'Space') return;
   if (moveKeys.has(code)) {
     event.preventDefault();
-    if (!event.repeat && ['Space', 'KeyW', 'ArrowUp'].includes(code)) jumpRequested = true;
+    if (!event.repeat && jumpKeys.includes(code)) jumpRequested = true;
     keys.add(code);
   }
   if (event.repeat) return;
