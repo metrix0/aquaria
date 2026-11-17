@@ -271,7 +271,7 @@ function updateMining(dt) {
 
   const { tx, ty } = target;
   if (mining?.tx !== tx || mining.ty !== ty || mining.material !== material) {
-    mining = { tx, ty, material, progress: 0 };
+    mining = { tx, ty, material, duration, progress: 0 };
   }
   mining.progress += dt / duration;
   if (mining.progress < 1) return;
@@ -575,7 +575,7 @@ function frame(now) {
     updateMining(dt);
   }
   updateHud();
-  renderer.draw({ world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(), mining, particles });
+  renderer.draw({ world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(), mining, particles, reducedMotion });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

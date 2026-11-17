@@ -296,13 +296,33 @@ export function createRenderer(canvas) {
     }
   }
 
-  function diver(player, tank, time) {
+  function miningArm(targetX, targetY, tilt, phase) {
+    const angle = clamp(Math.atan2(targetY - 12, targetX), -1.05, 1.15);
+    const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
+    ctx.save();
+    ctx.translate(2, 12);
+    ctx.rotate(angle - tilt - swing);
+    rect(-1, -2, 3, 4, '#df9b6b');
+    rect(1, -1, 6, 3, '#e8b57b');
+    rect(5, 0, 3, 2, '#e9ad81');
+    rect(7, -1, 7, 2, '#85604c');
+    rect(8, -1, 5, 1, '#d29c65');
+    rect(12, -4, 3, 8, '#6e888a');
+    rect(13, -3, 2, 6, '#b5c6bd');
+    rect(12, -4, 2, 1, '#d9e1cf');
+    ctx.restore();
+  }
+
+  function diver(player, tank, time, mining, reducedMotion) {
     const swimming = player.y + 11 > WATER;
     const stride = Math.abs(player.dx) > 9 ? Math.round(Math.sin(time * (swimming ? 13 : 24)) * 2) : 0;
+    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
+    const facing = Math.sign(targetX) || player.facing;
+    const tilt = swimming ? clamp(player.dy * .0018, -.23, .23) * facing : 0;
     ctx.save();
     ctx.translate(Math.round(player.x), Math.round(player.y));
-    ctx.scale(player.facing, 1);
-    if (swimming) ctx.rotate(clamp(player.dy * .0018, -.23, .23) * player.facing);
+    ctx.scale(facing, 1);
+    if (swimming) ctx.rotate(tilt);
     rect(-4, 1, 9, 7, '#392e36');
     rect(-3, 0, 7, 3, '#56403c');
     rect(-2, 4, 7, 5, '#dcb484');
@@ -311,8 +331,10 @@ export function createRenderer(canvas) {
     rect(-3, 8, 8, 3, '#d8aa6e');
     rect(-4, 10, 9, 7, swimming ? '#a76e59' : '#bc775a');
     rect(-4, 10, 8, 2, '#df9b6b');
-    rect(1, 12, 3, 4, '#e8b57b');
-    rect(3 + (swimming ? 2 : 0), 13, 3, 3, '#e9ad81');
+    if (!mining) {
+      rect(1, 12, 3, 4, '#e8b57b');
+      rect(3 + (swimming ? 2 : 0), 13, 3, 3, '#e9ad81');
+    }
     rect(-4, 17, 8, 2, '#483d42');
     rect(-4, 18, 3, 4 + stride, '#344956');
     rect(1, 18, 3, 4 - stride, '#52616a');
@@ -322,6 +344,11 @@ export function createRenderer(canvas) {
       rect(-7, 9, 3, 10, '#7ebcb0');
       rect(-7, 10, 1, 6, '#bed8ba');
       rect(-6, 8, 2, 1, '#d2a673');
+    }
+    if (mining) {
+      const targetY = (mining.ty + 0.5) * TILE - player.y;
+      const swings = Math.round(mining.duration / 0.26);
+      miningArm(Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings);
     }
     if (swimming) {
       for (let i = 0; i < 3; i++) {
@@ -342,7 +369,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, particles }) {
+  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time);
@@ -355,7 +382,7 @@ export function createRenderer(canvas) {
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
     }
-    diver(player, tank, time);
+    diver(player, tank, time, mining, reducedMotion);
     if (aim?.reachable) {
       ctx.strokeStyle = '#f4d4a5ad';
       ctx.lineWidth = 1;
