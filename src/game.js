@@ -5,8 +5,11 @@ import { version } from './version.js';
 const byId = (id) => document.getElementById(id);
 const canvas = byId('scene');
 const renderer = createRenderer(canvas);
+const backpackPanel = byId('backpack-panel');
 const craftPanel = byId('craft-panel');
 const pausePanel = byId('pause-panel');
+const panels = [backpackPanel, craftPanel, pausePanel];
+const backpackCounts = backpackPanel.querySelectorAll('[data-item-count]');
 const slots = Array.from(document.querySelectorAll('.slot'));
 const saveKey = 'aquaria.save';
 const saveFormat = 1;
@@ -319,15 +322,20 @@ function select(slot) {
 }
 
 function openPanel(panel) {
-  const other = panel === craftPanel ? pausePanel : craftPanel;
-  if (other.open) other.close();
   if (panel.open) {
     panel.close();
     return;
   }
+  for (const other of panels) {
+    if (other.open) other.close();
+  }
   keys.clear();
   jumpRequested = false;
   stopMining();
+  if (panel === backpackPanel) {
+    for (const count of backpackCounts) count.textContent = inventory[count.dataset.itemCount];
+    byId('backpack-tank').hidden = !tank;
+  }
   if (panel === craftPanel) updateCraft();
   save();
   panel.showModal();
@@ -404,17 +412,23 @@ function locatePointer(event) {
 window.addEventListener('keydown', (event) => {
   const code = event.code;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (code === 'Tab' && !event.shiftKey && !craftPanel.open && !pausePanel.open) {
+    event.preventDefault();
+    if (!event.repeat) openPanel(backpackPanel);
+    return;
+  }
   if (code === 'KeyC' && !event.repeat) {
     event.preventDefault();
     openPanel(craftPanel);
     return;
   }
-  if (code === 'Escape' && !craftPanel.open && !pausePanel.open && !event.repeat) {
+  const panelOpen = panels.some((panel) => panel.open);
+  if (code === 'Escape' && !panelOpen && !event.repeat) {
     event.preventDefault();
     openPanel(pausePanel);
     return;
   }
-  if (craftPanel.open || pausePanel.open) return;
+  if (panelOpen) return;
   if (event.target instanceof HTMLButtonElement && code === 'Space') return;
   if (moveKeys.has(code)) {
     event.preventDefault();
@@ -500,6 +514,7 @@ byId('touch-mode').addEventListener('click', (event) => {
   event.currentTarget.textContent = placing ? 'Build' : 'Mine';
   event.currentTarget.setAttribute('aria-pressed', String(placing));
 });
+byId('backpack').addEventListener('click', () => openPanel(backpackPanel));
 byId('craft').addEventListener('click', () => openPanel(craftPanel));
 byId('pause').addEventListener('click', () => openPanel(pausePanel));
 byId('resume').addEventListener('click', () => pausePanel.close());
@@ -539,7 +554,7 @@ const timestep = 1 / 60;
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (!craftPanel.open && !pausePanel.open) {
+  if (!panels.some((panel) => panel.open)) {
     time += dt;
     accumulator += dt;
     while (accumulator >= timestep) {
