@@ -131,14 +131,18 @@ function generateOres(tiles) {
   const mineralize = (x, y) => {
     const index = y * COLS + x;
     const mineral = noise(x, y, 79);
-    if (tiles[index] === MATERIAL.air || mineral > 0.36) {
-      const seam = Math.sin(x * 0.86 + y * 0.32) + Math.cos(y * 0.51) * 0.65;
-      tiles[index] = mineral < 0.22 ? MATERIAL.stone : seam > 0.05 ? MATERIAL.copper : MATERIAL.iron;
+    const seam = Math.sin(x * 0.86 + y * 0.32) + Math.cos(y * 0.51) * 0.65;
+    if (seam > 0.05 && mineral > 0.48) {
+      tiles[index] = MATERIAL.copper;
+    } else if (seam <= 0.05 && mineral > 0.87) {
+      tiles[index] = MATERIAL.iron;
+    } else if (tiles[index] === MATERIAL.air) {
+      tiles[index] = MATERIAL.stone;
     }
   };
-  trace([[-25, 70, 7], [-27, 58, 6], [-33, 48, 5], [-31, 37, 4], [-25, 29, 3], [-25, 22, 1.5]], 77, mineralize);
-  trace([[-31, 42, 4], [-37, 39, 3], [-40, 32, 1.5]], 77, mineralize);
-  trace([[-28, 35, 3], [-20, 32, 2.5], [-16, 26, 1.5]], 77, mineralize);
+  trace([[-25, 66, 5], [-27, 58, 4.5], [-33, 48, 3.5], [-31, 37, 2.5], [-27, 32, 1.5]], 77, mineralize);
+  trace([[-31, 42, 2.5], [-36, 39, 2], [-38, 36, 1.5]], 77, mineralize);
+  trace([[-30, 37, 2], [-25, 34, 2], [-21, 32, 1.25]], 77, mineralize);
 }
 
 export function createWorld() {
