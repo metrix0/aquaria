@@ -115,10 +115,11 @@ function generateOres(tiles) {
   for (const { material, top, bottom, step, seed } of oreLayers) {
     for (let row = top; row < bottom; row += step) {
       for (let column = 0; column < COLS; column += step) {
+        if (noise(column, row, seed + 4) < 0.33) continue;
         const x = column + noise(column, row, seed) * step;
         const y = row + noise(column, row, seed + 1) * step;
-        const width = 2 + noise(column, row, seed + 2) * 3;
-        const height = 1.5 + noise(column, row, seed + 3) * 2;
+        const width = 1.25 + noise(column, row, seed + 2) * 1.85;
+        const height = 1 + noise(column, row, seed + 3) * 1.25;
         stamp(x, y, width, height, seed, (tx, ty) => {
           const index = ty * COLS + tx;
           if (ty >= top && ty < bottom && tiles[index] === MATERIAL.stone) tiles[index] = material;
@@ -140,9 +141,8 @@ function generateOres(tiles) {
       tiles[index] = MATERIAL.stone;
     }
   };
-  trace([[-25, 66, 5], [-27, 58, 4.5], [-33, 48, 3.5], [-31, 37, 2.5], [-27, 32, 1.5]], 77, mineralize);
-  trace([[-31, 42, 2.5], [-36, 39, 2], [-38, 36, 1.5]], 77, mineralize);
-  trace([[-30, 37, 2], [-25, 34, 2], [-21, 32, 1.25]], 77, mineralize);
+  trace([[-25, 65, 2.7], [-27, 58, 2.3], [-31, 51, 1.7], [-32, 47, 1]], 77, mineralize);
+  trace([[-29, 54, 1.6], [-33, 52, 1.35], [-34, 49, 1]], 77, mineralize);
 }
 
 export function createWorld() {
