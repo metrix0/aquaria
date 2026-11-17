@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, MATERIAL, clamp, isTreeStanding, noise, tileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, clamp, isTreeStanding, noise, tileAt } from './world.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -6,8 +6,13 @@ const palettes = {
   [MATERIAL.reef]: ['#436b6e', '#608781', '#315563', '#8eb096'],
   [MATERIAL.wood]: ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'],
   [MATERIAL.bedrock]: ['#192b3e', '#24374a', '#111d2f', '#35485a'],
+  [MATERIAL.copper]: ['#35464d', '#bc7659', '#704d4b', '#efae7c'],
+  [MATERIAL.iron]: ['#38484f', '#9baaa4', '#586970', '#dde3c9'],
+  [MATERIAL.cobalt]: ['#262e52', '#788ae9', '#434f99', '#bdceff'],
   [MATERIAL.soil]: ['#6f594e', '#8e6b51', '#513f46', '#ab8056'],
 };
+
+const oreMaterials = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 
 const coralColors = [
   ['#7e4268', '#b0667d', '#da9292'],
@@ -58,7 +63,8 @@ export function createRenderer(canvas) {
     if (surface <= 0) return;
     const { width } = camera;
     gradient(0, 0, width, surface, [[0, '#35536a'], [.43, '#62848a'], [.77, '#a9a28e'], [1, '#ebbf8c']], -camera.y, surface);
-    const sunX = Math.round(width * 0.76 - (camera.x - 550) * 0.12);
+    const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
+    const sunX = Math.round(width * 0.76 - (horizontalOffset - 550) * 0.12);
     const sunY = Math.round(WATER - 112 - camera.y);
     const glow = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 130);
     for (const [position, color] of [[0, '#ffdea4aa'], [.31, '#ffcb8e36'], [1, '#ffca8600']]) glow.addColorStop(position, color);
@@ -70,7 +76,7 @@ export function createRenderer(canvas) {
     }
     for (let i = -2; i < 18; i++) {
       const span = Math.max(960, width + 260);
-      const raw = i * 81 + noise(i, 12) * 240 - camera.x * 0.085 + time * (i % 2 ? 0.8 : 1.6);
+      const raw = i * 81 + noise(i, 12) * 240 - horizontalOffset * 0.085 + time * (i % 2 ? 0.8 : 1.6);
       const x = ((raw % span) + span) % span - 130;
       const y = 44 + noise(i, 19) * 153 - camera.y;
       const length = 32 + Math.floor(noise(i, 18) * 115);
@@ -80,7 +86,7 @@ export function createRenderer(canvas) {
       rect(x + length * 0.28, y + 4, length * 0.79, 1, '#ebc3a33f');
     }
     for (let x = -5; x < width + 10; x += 4) {
-      const wx = x + camera.x * 0.21;
+      const wx = x + horizontalOffset * 0.21;
       const y = surface - 8 - Math.pow(Math.max(0, Math.sin(wx * .0128) * Math.sin(wx * .0049 + 1)), 2) * 30;
       rect(x, y, 4, surface - y + 1, '#5f778067');
       const closer = surface - 3 - Math.pow(Math.max(0, Math.sin(wx * .017 + 1) * Math.cos(wx * .008 + 1)), 2) * 20;
@@ -94,12 +100,13 @@ export function createRenderer(canvas) {
     gradient(0, Math.max(0, surface), width, height - Math.max(0, surface),
       [[0, '#307e83'], [.10, '#236a77'], [.24, '#1a4b65'], [.49, '#12364e'], [1, '#081927']], surface, surface + 850);
 
+    const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, Math.max(0, surface), width, height);
     ctx.clip();
     for (let band = 0; band < 3; band++) {
-      const shift = camera.x * (0.17 + band * 0.17);
+      const shift = horizontalOffset * (0.17 + band * 0.17);
       const yShift = surface + 65 + band * 59;
       const color = ['#2c7180a8', '#245e72aa', '#1b4b62ae'][band];
       for (let x = 0; x < width; x += 5) {
@@ -111,7 +118,7 @@ export function createRenderer(canvas) {
     if (surface > -200) {
       for (let i = -2; i < 10; i++) {
         const span = Math.max(width + 190, 900);
-        const shift = (i * 124 - camera.x * .37 + Math.sin(time * .5 + i) * 15) % span;
+        const shift = (i * 124 - horizontalOffset * .37 + Math.sin(time * .5 + i) * 15) % span;
         const x = shift + (shift < -170 ? span : 0) - 45;
         polygon([[x, surface], [x + 16 + noise(i, 5) * 21, surface], [x - 57, surface + 224], [x - 112, surface + 210]], '#b0d8ad12');
         polygon([[x + 6, surface], [x + 13, surface], [x - 49, surface + 182], [x - 73, surface + 189]], '#b2dad015');
@@ -122,13 +129,13 @@ export function createRenderer(canvas) {
     for (let i = 0; i < 85; i++) {
       const px = noise(i, 141) * (width + 55);
       const py = noise(i, 128) * (height + 40);
-      const x = ((px - camera.x * .43 + time * (1 + noise(i, 55) * 4)) % (width + 55) + width + 55) % (width + 55) - 15;
+      const x = ((px - horizontalOffset * .43 + time * (1 + noise(i, 55) * 4)) % (width + 55) + width + 55) % (width + 55) - 15;
       const y = ((py - camera.y * .66 - time * (1 + noise(i, 11) * 2)) % (height + 40) + height + 40) % (height + 40);
       rect(x, y, 1 + (i % 9 === 0), 1, i % 5 ? '#a3cfb558' : '#d5e8c7ac');
     }
     for (let i = 0; i < 27; i++) {
       const span = width + 180;
-      const x = (((i * 73 - camera.x * .55 + time * (i % 2 ? 14 : -11)) % span + span) % span) - 90;
+      const x = (((i * 73 - horizontalOffset * .55 + time * (i % 2 ? 14 : -11)) % span + span) % span) - 90;
       const y = surface + 35 + noise(i, 12) * 410 + Math.sin(time * 1.9 + i) * 2;
       if (y < 0 || y > height) continue;
       const size = i % 5 === 0 ? 1.4 : 0.8;
@@ -145,7 +152,8 @@ export function createRenderer(canvas) {
     const x = tx * TILE;
     const y = ty * TILE;
     const [base, light, dark, bright] = palettes[material];
-    const variation = noise(tx, ty, 9);
+    const seed = tx - WEST_EXTENSION;
+    const variation = noise(seed, ty, 9);
     const top = !tileAt(world, tx, ty - 1);
     const left = !tileAt(world, tx - 1, ty);
     const right = !tileAt(world, tx + 1, ty);
@@ -159,9 +167,19 @@ export function createRenderer(canvas) {
       return;
     }
     for (let i = 0; i < 5; i++) {
-      const sx = 1 + Math.floor(noise(tx, ty, i * 2 + 31) * 12);
-      const sy = 2 + Math.floor(noise(tx, ty, i * 2 + 32) * 12);
-      rect(x + sx, y + sy, 1 + Math.floor(noise(tx, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 ? light : dark);
+      const sx = 1 + Math.floor(noise(seed, ty, i * 2 + 31) * 12);
+      const sy = 2 + Math.floor(noise(seed, ty, i * 2 + 32) * 12);
+      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 && !oreMaterials.has(material) ? light : dark);
+    }
+    if (oreMaterials.has(material)) {
+      for (let i = 0; i < 3; i++) {
+        const px = x + 2 + i * 4;
+        const py = y + 3 + Math.floor(noise(seed, ty, 85 + i) * 8);
+        const size = i === 1 ? 5 : 4;
+        polygon([[px, py + 2], [px + 2, py], [px + size, py + 1], [px + size - 1, py + 4], [px + 1, py + 5]], light);
+        rect(px + 2, py + 1, size - 2, 1, bright);
+        rect(px + 1, py + 4, size - 2, 1, dark);
+      }
     }
     if (variation < .29 && material !== MATERIAL.sand) {
       const h = 3 + Math.floor(variation * 25);
@@ -215,6 +233,43 @@ export function createRenderer(canvas) {
     rect(topX - 3, topY, 6, 4, '#745747');
   }
 
+  function caveWall(world, tx, ty) {
+    const x = tx * TILE;
+    const y = ty * TILE;
+    const detail = noise(tx, ty, 91);
+    const abyss = ty >= 113;
+    const [base, shadow, grain] = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
+    rect(x, y, TILE, TILE, base);
+    rect(x + Math.floor(detail * 8), y + 3, 6, 1, grain);
+    rect(x + 2, y + 10 + Math.floor(detail * 3), 9, 2, shadow);
+
+    if (detail > 0.69 && tileAt(world, tx, ty - 1)) {
+      const length = 4 + Math.floor(detail * 13);
+      polygon([[x + 2, y], [x + 12, y], [x + 8, y + length]], shadow);
+      polygon([[x + 2, y], [x + 6, y], [x + 8, y + length]], grain);
+    }
+    if (abyss && detail > 0.78 && tileAt(world, tx, ty + 1)) {
+      const floor = y + TILE;
+      polygon([[x + 2, floor], [x + 5, floor - 8], [x + 8, floor], [x + 10, floor - 13], [x + 14, floor]], '#55568e');
+      polygon([[x + 8, floor], [x + 10, floor - 13], [x + 11, floor - 6]], '#96a5db');
+      rect(x + 4, floor - 6, 1, 3, '#a7b2e5');
+    }
+  }
+
+  function airVent({ x, y }, time) {
+    rect(x - 8, y - 4, 16, 4, '#243840');
+    rect(x - 5, y - 10, 10, 6, '#395a63');
+    rect(x - 7, y - 12, 14, 3, '#64aa9f');
+    rect(x - 4, y - 12, 8, 1, '#a4d5b9');
+    for (let i = 0; i < 8; i++) {
+      const rise = (time * (14 + i % 3 * 2) + i * 6) % 43;
+      const offset = Math.sin(rise * 0.17 + i) * (2 + rise * 0.14);
+      const size = i % 3 + 2;
+      rect(x + offset, y - 14 - rise, size, size / 2, '#ade8cc');
+      rect(x + offset + size - 1, y - 13 - rise, 1, size / 2, '#61bcae');
+    }
+  }
+
   function terrain(world, camera, time) {
     const left = Math.max(0, Math.floor(camera.x / TILE) - 1);
     const right = Math.min(COLS, Math.ceil((camera.x + camera.width) / TILE) + 1);
@@ -224,20 +279,21 @@ export function createRenderer(canvas) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         if (material) drawTile(world, x, y, material);
+        else if (y >= world.ground[x]) caveWall(world, x, y);
       }
     }
 
     for (let x = left; x < right; x++) {
       const y = world.ground[x];
       if (y < top - 2 || y > bottom + 2 || !tileAt(world, x, y) || tileAt(world, x, y - 1)) continue;
-      const seed = noise(x, 44);
+      const seed = noise(x - WEST_EXTENSION, 44);
       if (y >= 17 && seed > .27) {
-        coral(x * TILE + 4 + seed * 8, y * TILE, x);
+        coral(x * TILE + 4 + seed * 8, y * TILE, x - WEST_EXTENSION);
         if (seed > .76) rect(x * TILE + 3, y * TILE - 3, 3, 2, '#d3a9a0');
       } else if (y < 15 && seed > .2) {
         for (let i = 0; i < 4; i++) {
           const bx = x * TILE + 2 + i * 3;
-          const h = 2 + Math.floor(noise(x, i, 8) * 5);
+          const h = 2 + Math.floor(noise(x - WEST_EXTENSION, i, 8) * 5);
           rect(bx, y * TILE - h, 1, h, i % 2 ? '#667654' : '#87915f');
         }
       }
@@ -246,8 +302,9 @@ export function createRenderer(canvas) {
       if (tree.tx >= left - 2 && tree.tx <= right + 2 && isTreeStanding(world, tree)) palm(tree);
     }
 
-    const wreckX = 111 * TILE + 8;
-    const wreckY = world.ground[111] * TILE;
+    const wreckColumn = 111 + WEST_EXTENSION;
+    const wreckX = wreckColumn * TILE + 8;
+    const wreckY = world.ground[wreckColumn] * TILE;
     if (wreckX > camera.x - 120 && wreckX < camera.x + camera.width + 120) {
       polygon([[wreckX - 61, wreckY - 44], [wreckX + 73, wreckY - 34], [wreckX + 53, wreckY - 10], [wreckX - 34, wreckY - 6]], '#213b48');
       polygon([[wreckX - 53, wreckY - 39], [wreckX + 61, wreckY - 30], [wreckX + 50, wreckY - 22], [wreckX - 43, wreckY - 22]], '#4d5450');
@@ -258,13 +315,19 @@ export function createRenderer(canvas) {
       polygon([[wreckX - 17, wreckY - 84], [wreckX + 21, wreckY - 70], [wreckX - 3, wreckY - 57]], '#527777');
       rect(wreckX - 52, wreckY - 40, 25, 2, '#8a7e62');
     }
-    const shelterX = 53 * TILE;
-    const shelterY = world.ground[53] * TILE;
-    if (tileAt(world, 53, world.ground[53])) {
+    const shelterColumn = 53 + WEST_EXTENSION;
+    const shelterX = shelterColumn * TILE;
+    const shelterY = world.ground[shelterColumn] * TILE;
+    if (tileAt(world, shelterColumn, world.ground[shelterColumn])) {
       polygon([[shelterX - 13, shelterY], [shelterX + 8, shelterY - 28], [shelterX + 25, shelterY], [shelterX + 13, shelterY - 1]], '#536e69');
       polygon([[shelterX - 13, shelterY], [shelterX + 8, shelterY - 28], [shelterX + 5, shelterY], [shelterX - 4, shelterY]], '#7d9690');
       polygon([[shelterX + 6, shelterY], [shelterX + 10, shelterY - 17], [shelterX + 18, shelterY]], '#243a42');
       rect(shelterX + 7, shelterY - 30, 2, 3, '#8d6c52');
+    }
+
+    for (const vent of world.vents) {
+      if (vent.x >= camera.x - TILE && vent.x <= camera.x + camera.width + TILE &&
+          vent.y >= camera.y && vent.y <= camera.y + camera.height + 60) airVent(vent, time);
     }
 
     for (const item of world.items) {
@@ -429,7 +492,7 @@ export function createRenderer(canvas) {
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time);
     ocean(camera, surface, time);
-    if (surface > -5 && surface < camera.height + 5) surfaceLine(camera.width, surface, Math.round(camera.x), time);
+    if (surface > -5 && surface < camera.height + 5) surfaceLine(camera.width, surface, Math.round(camera.x) - WEST_EXTENSION * TILE, time);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
@@ -455,7 +518,7 @@ export function createRenderer(canvas) {
 
     if (surface < camera.height) {
       const start = Math.max(0, surface);
-      gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#061526a3']], surface, surface + 980);
+      gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
     }
   }
 

@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
 import { createRenderer } from './render.js';
 import { devTools, version } from './build-info.js';
 
@@ -12,7 +12,9 @@ const panels = [backpackPanel, craftPanel, pausePanel];
 const backpackCounts = backpackPanel.querySelectorAll('[data-item-count]');
 const slots = Array.from(document.querySelectorAll('.slot'));
 const saveKey = 'aquaria.save';
-const saveFormat = 1;
+const saveFormat = 2;
+const legacyCols = 224;
+const legacyEditableRows = 98;
 const playerSize = { width: 12, height: 23 };
 const jumpSpeed = 217;
 const swimSpeed = 94;
@@ -21,7 +23,11 @@ const pointer = { x: 0, y: 0, active: false };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touch = matchMedia('(pointer: coarse)').matches;
 const moveKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
-const drops = { [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand', [MATERIAL.reef]: 'stone', [MATERIAL.wood]: 'wood' };
+const drops = {
+  [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand',
+  [MATERIAL.reef]: 'stone', [MATERIAL.wood]: 'wood',
+  [MATERIAL.copper]: 'copper', [MATERIAL.iron]: 'iron', [MATERIAL.cobalt]: 'cobalt',
+};
 const editableMaterials = new Set(Object.values(MATERIAL).filter((material) => material !== MATERIAL.bedrock));
 const breakSeconds = {
   [MATERIAL.sand]: 0.35,
@@ -29,6 +35,9 @@ const breakSeconds = {
   [MATERIAL.wood]: 0.5,
   [MATERIAL.reef]: 0.6,
   [MATERIAL.stone]: 0.7,
+  [MATERIAL.copper]: 0.85,
+  [MATERIAL.iron]: 1.05,
+  [MATERIAL.cobalt]: 1.3,
 };
 const prompts = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
 const tankCost = { stone: 3, kelp: 2 };
@@ -59,7 +68,7 @@ function spawn() {
 function startNewWorld() {
   world = createWorld();
   tank = false;
-  inventory = { sand: 0, stone: 0, wood: 3, kelp: 0 };
+  inventory = { sand: 0, stone: 0, wood: 3, kelp: 0, copper: 0, iron: 0, cobalt: 0 };
   player = spawn();
 }
 
@@ -67,14 +76,24 @@ function load() {
   startNewWorld();
   try {
     const state = JSON.parse(localStorage.getItem(saveKey));
-    if (state?.format !== saveFormat) return;
+    const legacy = state?.format === 1;
+    if (!legacy && state?.format !== saveFormat) return;
     tank = state.tank === true;
     for (const key of Object.keys(inventory)) {
       if (Number.isSafeInteger(state.inventory?.[key]) && state.inventory[key] >= 0) inventory[key] = state.inventory[key];
     }
-    for (const [index, material] of state.edits ?? []) {
-      if (Number.isInteger(index) && index >= 0 && index < COLS * (ROWS - 2) && editableMaterials.has(material)) {
-        editTile(world, index % COLS, Math.floor(index / COLS), material);
+    for (const edit of state.edits ?? []) {
+      if (!Array.isArray(edit)) continue;
+      if (legacy) {
+        const [index, material] = edit;
+        if (Number.isInteger(index) && index >= 0 && index < legacyCols * legacyEditableRows && editableMaterials.has(material)) {
+          editTile(world, index % legacyCols + WEST_EXTENSION, Math.floor(index / legacyCols), material);
+        }
+      } else {
+        const [x, y, material] = edit;
+        if (Number.isInteger(x) && Number.isInteger(y) && editableMaterials.has(material)) {
+          editTile(world, x + WEST_EXTENSION, y, material);
+        }
       }
     }
     const harvestableIds = new Set([...world.items, ...world.trees].map(({ id }) => id));
@@ -82,11 +101,13 @@ function load() {
     syncMobs();
     player = spawn();
     if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
-      const x = clamp(state.x, player.width, COLS * TILE - player.width);
+      const x = clamp(state.x + WEST_EXTENSION * TILE, player.width, COLS * TILE - player.width);
       const y = clamp(state.y, 0, ROWS * TILE - player.height);
       if (!collides(x, y)) Object.assign(player, { x, y });
     }
     if (Number.isFinite(state.oxygen)) player.oxygen = clamp(state.oxygen, 1, tank ? 42 : 18);
+    dirty = legacy;
+    save();
   } catch {
     // An invalid or unavailable save should never prevent a new game.
   }
@@ -96,8 +117,9 @@ function save() {
   if (!dirty) return;
   try {
     localStorage.setItem(saveKey, JSON.stringify({
-      format: saveFormat, x: player.x, y: player.y, oxygen: player.oxygen, tank, inventory,
-      edits: Array.from(world.edits), harvested: Array.from(world.harvested),
+      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory,
+      edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
+      harvested: Array.from(world.harvested),
     }));
     dirty = false;
   } catch {
@@ -350,7 +372,11 @@ function step(dt) {
 
   stepMobs(dt);
 
-  if (player.y + 5 > WATER) {
+  const atVent = world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
+  if (atVent) {
+    if (player.oxygen < maxOxygen) dirty = true;
+    player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
+  } else if (player.y + 5 > WATER) {
     player.oxygen = Math.max(0, player.oxygen - dt);
     if (player.oxygen === 0) {
       player = spawn();
