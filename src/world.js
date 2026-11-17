@@ -84,10 +84,3 @@ export function editTile(world, tx, ty, material) {
   world.tiles[index] = material;
   world.edits.set(index, material);
 }
-
-export function zoneAt(x, y) {
-  if (y < WATER + 6) return 'Castaway Island';
-  if (y > WATER + 620) return 'The Deep';
-  if (x > 99 * TILE) return 'Wreck Channel';
-  return 'Sunlit Reef';
-}

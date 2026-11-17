@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, zoneAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt } from './world.js';
 import { createRenderer } from './render.js';
 import { version } from './version.js';
 
@@ -305,7 +305,6 @@ function updateHud() {
   const depth = Math.max(0, Math.floor((player.y + 5 - WATER) / TILE));
   const air = Math.round(player.oxygen / (tank ? 42 : 18) * 100);
   const airValue = air + '%';
-  setText('zone', zoneAt(player.x, player.y + 5));
   setText('depth', depth + ' m');
   setText('air-label', airValue);
   const fill = byId('air-fill');
