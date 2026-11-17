@@ -83,15 +83,21 @@ export function createRenderer(canvas) {
     ctx.fillRect(x, y, w, h);
   }
 
-  function sky(camera, surface, time, darkness) {
+  function sky(camera, surface, time, { darkness, night, skyProgress, rain }) {
     if (surface <= 0) return;
     const { width } = camera;
-    gradient(0, 0, width, surface, [[0, '#35536a'], [.43, '#62848a'], [.77, '#a9a28e'], [1, '#ebbf8c']], -camera.y, surface);
     const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
+    const altitude = Math.sin(Math.PI * skyProgress);
+    const twilight = clamp(1 - altitude * 3, 0, 1) * (1 - darkness);
+    gradient(0, 0, width, surface, [[0, '#30485e'], [.43, '#4d6d7a'], [.77, '#788783'], [1, '#b0a387']], -camera.y, surface);
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, width, surface);
     ctx.clip();
+    if (twilight > 0) {
+      ctx.globalAlpha = twilight;
+      gradient(0, 0, width, surface, [[0, '#37465d'], [.56, '#665e71'], [.82, '#a27568'], [1, '#c19175']], -camera.y, surface);
+    }
     if (darkness > 0) {
       ctx.globalAlpha = darkness;
       gradient(0, 0, width, surface, [[0, '#10182e'], [.6, '#202f4b'], [1, '#455675']], -camera.y, surface);
@@ -103,27 +109,31 @@ export function createRenderer(canvas) {
         const size = i % 9 === 0 ? 2 : 1;
         rect(x, y, size, size, i % 4 === 0 ? '#e0e9dd' : '#9baed5ad');
       }
-      const moonX = Math.round(width * 0.34 - (horizontalOffset - 550) * 0.06);
-      const moonY = Math.round(WATER - 139 - camera.y);
-      for (let row = -12; row < 12; row++) {
-        const radius = Math.floor(Math.sqrt(144 - row * row));
-        rect(moonX - radius, moonY + row, radius * 2, 1, row < 5 ? '#e1e7d8' : '#c4d2d0');
-      }
-      rect(moonX - 6, moonY - 4, 4, 2, '#b3c3c5');
-      rect(moonX + 3, moonY + 3, 4, 3, '#b3c3c5');
     }
 
-    ctx.globalAlpha = 1 - darkness;
-    const sunX = Math.round(width * 0.76 - (horizontalOffset - 550) * 0.12);
-    const sunY = Math.round(WATER - 112 - camera.y);
-    const glow = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 130);
-    for (const [position, color] of [[0, '#ffdea4aa'], [.31, '#ffcb8e36'], [1, '#ffca8600']]) glow.addColorStop(position, color);
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, width, surface);
-    for (let row = -24; row < 24; row += 2) {
-      const radius = Math.floor(Math.sqrt(24 * 24 - row * row));
-      rect(sunX - radius, sunY + row, radius * 2, 2, row < 6 ? '#f8dca5' : '#efc692');
+    const bodyX = Math.round(width * (0.86 - 0.72 * skyProgress));
+    if (night) {
+      const moonY = Math.round(surface + 12 - 159 * altitude);
+      ctx.globalAlpha = darkness * (1 - rain * .58);
+      for (let row = -12; row < 12; row++) {
+        const radius = Math.floor(Math.sqrt(144 - row * row));
+        rect(bodyX - radius, moonY + row, radius * 2, 1, row < 5 ? '#e1e7d8' : '#c4d2d0');
+      }
+      rect(bodyX - 6, moonY - 4, 4, 2, '#b3c3c5');
+      rect(bodyX + 3, moonY + 3, 4, 3, '#b3c3c5');
+    } else {
+      const sunY = Math.round(surface + 20 - 178 * altitude);
+      ctx.globalAlpha = 1 - rain * .66;
+      const glow = ctx.createRadialGradient(bodyX, sunY, 5, bodyX, sunY, 94);
+      for (const [position, color] of [[0, '#f6cf9299'], [.34, '#eeb87c3c'], [1, '#eeb87c00']]) glow.addColorStop(position, color);
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, surface);
+      for (let row = -20; row < 20; row += 2) {
+        const radius = Math.floor(Math.sqrt(400 - row * row));
+        rect(bodyX - radius, sunY + row, radius * 2, 2, row < 6 ? '#f5d5a3' : '#e8bb8d');
+      }
     }
+
     ctx.globalAlpha = 1 - darkness * .65;
     for (let i = -2; i < 18; i++) {
       const span = Math.max(960, width + 260);
@@ -131,10 +141,10 @@ export function createRenderer(canvas) {
       const x = ((raw % span) + span) % span - 130;
       const y = 44 + noise(i, 19) * 153 - camera.y;
       const length = 32 + Math.floor(noise(i, 18) * 115);
-      rect(x, y, length, 2, '#f2c9a06e');
-      rect(x + length * 0.14, y - 3, length * 0.67, 3, '#e7c4a474');
-      rect(x + length * 0.24, y - 6, length * 0.43, 3, '#e7c4a449');
-      rect(x + length * 0.28, y + 4, length * 0.79, 1, '#ebc3a33f');
+      rect(x, y, length, 2, '#d5beaa5e');
+      rect(x + length * 0.14, y - 3, length * 0.67, 3, '#c9b6a964');
+      rect(x + length * 0.24, y - 6, length * 0.43, 3, '#c9b6a93d');
+      rect(x + length * 0.28, y + 4, length * 0.79, 1, '#cdb8a631');
     }
     for (let x = -5; x < width + 10; x += 4) {
       const wx = x + horizontalOffset * 0.21;
@@ -146,18 +156,57 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function surfaceWave(x, time) {
+    return Math.round(Math.sin(x * .062 + time * 1.8) * 1.6 + Math.sin(x * .026 - time * 1.4) * 1.4);
+  }
+
+  function rainSplashes(impacts, camera, time, intensity) {
+    const offset = Math.round(camera.x);
+    ctx.save();
+    ctx.strokeStyle = '#c3e5e9';
+    ctx.lineWidth = 1;
+    for (const { tx, y, water } of impacts) {
+      const interval = .58 + noise(tx, 281) * .62;
+      const elapsed = time + noise(tx, 282) * interval;
+      const strike = Math.floor(elapsed / interval);
+      const age = elapsed - strike * interval;
+      if (age >= .36) continue;
+
+      const x = tx * TILE + 4 + Math.floor(noise(tx, strike, 283) * 8);
+      const screenX = x - offset;
+      if (screenX < -7 || screenX > camera.width + 7) continue;
+      const progress = age / .36;
+      const spread = 1 + progress * (3 + noise(tx, strike, 284) * 3);
+      const rise = Math.sin(progress * Math.PI) * 5;
+      const surfaceY = water ? y + surfaceWave(x - WEST_EXTENSION * TILE, time) : y;
+      ctx.globalAlpha = intensity * (1 - progress) * .88;
+      if (water) {
+        ctx.beginPath();
+        ctx.ellipse(screenX, surfaceY, spread, .8 + progress, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      rect(screenX - spread, surfaceY - 1 - rise, 1, 2, '#d0e8eb');
+      rect(screenX + spread, surfaceY - 1 - rise * .7, 1, 2, '#d0e8eb');
+    }
+    ctx.restore();
+  }
+
   function rain(world, camera, surface, time, intensity) {
     if (intensity <= 0 || surface <= 0) return;
     const { width } = camera;
-    const left = Math.floor(camera.x / TILE);
-    const right = Math.min(COLS, Math.ceil((camera.x + width) / TILE));
+    const xOffset = Math.round(camera.x);
+    const left = Math.floor(xOffset / TILE);
+    const right = Math.min(COLS, Math.ceil((xOffset + width) / TILE));
+    const impacts = [];
     ctx.save();
     ctx.beginPath();
     for (let tx = left; tx < right; tx++) {
       let ty = 0;
       while (ty * TILE < WATER && !tileAt(world, tx, ty)) ty++;
       const height = ty * TILE - Math.round(camera.y);
-      if (height > 0) ctx.rect(tx * TILE - Math.round(camera.x), 0, TILE, height);
+      if (height <= 0) continue;
+      ctx.rect(tx * TILE - xOffset, 0, TILE, height);
+      if (height <= camera.height + 5) impacts.push({ tx, y: height, water: ty * TILE === WATER });
     }
     ctx.clip();
     ctx.globalAlpha = intensity * 0.74;
@@ -176,6 +225,7 @@ export function createRenderer(canvas) {
     }
     ctx.stroke();
     ctx.restore();
+    rainSplashes(impacts, camera, time, intensity);
   }
 
   function ocean(camera, surface, time, conditions) {
@@ -713,7 +763,7 @@ export function createRenderer(canvas) {
 
   function surfaceLine(width, y, xOffset, time) {
     for (let x = 0; x < width; x += 3) {
-      const dy = Math.round(Math.sin((x + xOffset) * .062 + time * 1.8) * 1.6 + Math.sin((x + xOffset) * .026 - time * 1.4) * 1.4);
+      const dy = surfaceWave(x + xOffset, time);
       rect(x, y + dy, 3, 1, '#c3e3c7b9');
       if (noise(Math.floor((x + xOffset) / 5), 9) > .68) rect(x, y + dy + 4, 3, 1, '#a0d5bc93');
     }
@@ -722,7 +772,7 @@ export function createRenderer(canvas) {
   function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
-    sky(camera, surface, time, conditions.darkness);
+    sky(camera, surface, time, conditions);
     ocean(camera, surface, time, conditions);
     if (surface > -5 && surface < camera.height + 5) surfaceLine(camera.width, surface, Math.round(camera.x) - WEST_EXTENSION * TILE, time);
 

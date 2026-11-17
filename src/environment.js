@@ -12,6 +12,7 @@ function smoothStep(progress) {
 
 export function worldConditions(seconds, weatherSeed) {
   const phase = seconds % cycleSeconds;
+  const night = phase >= daySeconds;
   const dusk = (phase - daySeconds + twilightSeconds) / twilightSeconds;
   const dawn = (cycleSeconds - phase) / twilightSeconds;
 
@@ -21,7 +22,8 @@ export function worldConditions(seconds, weatherSeed) {
   const rainTime = seconds % weatherWindow - start;
 
   return {
-    night: phase >= daySeconds,
+    night,
+    skyProgress: night ? (phase - daySeconds) / (cycleSeconds - daySeconds) : phase / daySeconds,
     darkness: smoothStep(Math.min(dusk, dawn)),
     rain: smoothStep(Math.min(rainTime, duration - rainTime) / 4),
   };
