@@ -1,5 +1,7 @@
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
 import { createRenderer } from './render.js';
+import { worldConditions } from './environment.js';
+import { updateEnemySpawns } from './enemies.js';
 import { devTools, version } from './build-info.js';
 
 const byId = (id) => document.getElementById(id);
@@ -54,6 +56,10 @@ let dirty = false;
 let toastTimer;
 let focusedItem;
 let time = 0;
+let worldTime;
+let savedWorldTime;
+let weatherSeed;
+let enemies;
 let jumpRequested = false;
 let miningPointerId = null;
 let mining = null;
@@ -69,6 +75,9 @@ function spawn() {
 
 function startNewWorld() {
   world = createWorld();
+  worldTime = 0;
+  weatherSeed = Math.floor(Math.random() * 0x80000000);
+  enemies = { spawnIn: 5, hitCooldown: 0 };
   tank = false;
   inventory = { sand: 0, stone: 0, wood: 3, kelp: 0, copper: 0, iron: 0, cobalt: 0 };
   player = spawn();
@@ -80,6 +89,13 @@ function load() {
     const state = JSON.parse(localStorage.getItem(saveKey));
     const legacy = state?.format === 1;
     if (!legacy && state?.format !== saveFormat) return;
+    if (Number.isFinite(state.worldTime) && state.worldTime >= 0) {
+      worldTime = state.worldTime;
+      savedWorldTime = worldTime;
+    }
+    if (Number.isInteger(state.weatherSeed) && state.weatherSeed >= 0 && state.weatherSeed < 0x80000000) {
+      weatherSeed = state.weatherSeed;
+    }
     tank = state.tank === true;
     for (const key of Object.keys(inventory)) {
       if (Number.isSafeInteger(state.inventory?.[key]) && state.inventory[key] >= 0) inventory[key] = state.inventory[key];
@@ -116,13 +132,15 @@ function load() {
 }
 
 function save() {
-  if (!dirty) return;
+  if (!dirty && worldTime === savedWorldTime) return;
   try {
     localStorage.setItem(saveKey, JSON.stringify({
       format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory,
       edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
       harvested: Array.from(world.harvested),
+      worldTime, weatherSeed,
     }));
+    savedWorldTime = worldTime;
     dirty = false;
   } catch {
     // The current session remains playable if storage is blocked or full.
@@ -246,10 +264,14 @@ function syncMobs() {
   }
 }
 
-function stepMobs(dt) {
+function stepMobs(dt, night) {
+  updateEnemySpawns(enemies, world.mobs, player, night, dt, fishCollides);
+  enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
+  const underwater = player.y + 5 > WATER;
   const px = player.x;
   const py = player.y + 11;
   const playerMoving = Math.hypot(player.dx, player.dy) > 14 || miningPointerId !== null;
+  let hit;
 
   for (const mob of world.mobs) {
     mob.flee = Math.max(0, mob.flee - dt);
@@ -258,14 +280,21 @@ function stepMobs(dt) {
     const dist = Math.hypot(diffX, diffY) || 1;
 
     if (mob.kind === 'fish') {
-      if (py > WATER && dist < 44 && playerMoving) {
+      if (!mob.enemyType && py > WATER && dist < 44 && playerMoving) {
         mob.flee = 1.1;
         if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
       }
 
       let targetDx;
       let targetDy;
-      if (mob.flee > 0) {
+      if (mob.enemyType && underwater && dist < 108 && mob.remainingLife > 2) {
+        targetDx = -diffX / dist * mob.speed;
+        targetDy = -diffY / dist * mob.speed;
+        if (enemies.hitCooldown === 0 && Math.abs(diffX) < 12 && Math.abs(diffY) < 10) {
+          enemies.hitCooldown = 3;
+          hit = mob.enemyType;
+        }
+      } else if (mob.flee > 0) {
         targetDx = mob.facing * mob.speed * 1.75;
         targetDy = clamp((diffY / dist) * mob.speed * 1.1, -mob.speed, mob.speed);
       } else {
@@ -342,9 +371,10 @@ function stepMobs(dt) {
       }
     }
   }
+  return hit;
 }
 
-function step(dt) {
+function step(dt, night) {
   const left = pressed('KeyA', 'ArrowLeft');
   const right = pressed('KeyD', 'ArrowRight');
   const up = pressed(...jumpKeys);
@@ -381,7 +411,11 @@ function step(dt) {
   if (player.dy >= 0) player.canShortenJump = false;
   if (player.y < 0) player.y = 0;
 
-  stepMobs(dt);
+  const hit = stepMobs(dt, night);
+  if (hit) {
+    player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
+    notify(hit.name + ' bite. −' + hit.airLoss + ' s of air.');
+  }
 
   const atVent = world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
   if (atVent) {
@@ -553,11 +587,12 @@ function setText(id, value) {
   if (element.textContent !== value) element.textContent = value;
 }
 
-function updateHud() {
+function updateHud(conditions) {
   const depth = Math.max(0, Math.floor((player.y + 5 - WATER) / TILE));
   const air = Math.round(player.oxygen / (tank ? 42 : 18) * 100);
   const airValue = air + '%';
   setText('depth', depth + ' m');
+  setText('world-conditions', (conditions.night ? 'Night' : 'Day') + (conditions.rain > 0 ? ' · Rain' : ' · Clear'));
   setText('air-label', airValue);
   const fill = byId('air-fill');
   if (fill.style.width !== airValue) {
@@ -640,6 +675,7 @@ window.addEventListener('blur', () => {
 });
 window.addEventListener('pagehide', save);
 document.addEventListener('visibilitychange', () => {
+  last = performance.now();
   if (!document.hidden) return;
   stopMining();
   save();
@@ -751,20 +787,27 @@ let last = performance.now();
 let accumulator = 0;
 const timestep = 1 / 60;
 function frame(now) {
-  const dt = Math.min((now - last) / 1000, 0.05);
+  const elapsed = Math.max(0, (now - last) / 1000);
+  const dt = Math.min(elapsed, 0.05);
   last = now;
-  if (!panels.some((panel) => panel.open)) {
+  const playing = !document.hidden && !panels.some((panel) => panel.open);
+  if (playing) worldTime += elapsed;
+  const conditions = worldConditions(worldTime, weatherSeed);
+  if (playing) {
     time += dt;
     accumulator += dt;
     while (accumulator >= timestep) {
-      step(timestep);
+      step(timestep, conditions.night);
       accumulator -= timestep;
     }
     updateCamera(dt);
     updateMining(dt);
   }
-  updateHud();
-  renderer.draw({ world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(), mining, particles, reducedMotion });
+  updateHud(conditions);
+  renderer.draw({
+    world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(),
+    mining, particles, reducedMotion, conditions,
+  });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

@@ -59,11 +59,37 @@ export function createRenderer(canvas) {
     ctx.fillRect(x, y, w, h);
   }
 
-  function sky(camera, surface, time) {
+  function sky(camera, surface, time, darkness) {
     if (surface <= 0) return;
     const { width } = camera;
     gradient(0, 0, width, surface, [[0, '#35536a'], [.43, '#62848a'], [.77, '#a9a28e'], [1, '#ebbf8c']], -camera.y, surface);
     const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, surface);
+    ctx.clip();
+    if (darkness > 0) {
+      ctx.globalAlpha = darkness;
+      gradient(0, 0, width, surface, [[0, '#10182e'], [.6, '#202f4b'], [1, '#455675']], -camera.y, surface);
+      for (let i = 0; i < 75; i++) {
+        const span = width + 12;
+        const offset = noise(i, 312) * span - horizontalOffset * 0.12;
+        const x = ((offset % span) + span) % span - 6;
+        const y = noise(i, 313) * (WATER - 35) - camera.y;
+        const size = i % 9 === 0 ? 2 : 1;
+        rect(x, y, size, size, i % 4 === 0 ? '#e0e9dd' : '#9baed5ad');
+      }
+      const moonX = Math.round(width * 0.34 - (horizontalOffset - 550) * 0.06);
+      const moonY = Math.round(WATER - 139 - camera.y);
+      for (let row = -12; row < 12; row++) {
+        const radius = Math.floor(Math.sqrt(144 - row * row));
+        rect(moonX - radius, moonY + row, radius * 2, 1, row < 5 ? '#e1e7d8' : '#c4d2d0');
+      }
+      rect(moonX - 6, moonY - 4, 4, 2, '#b3c3c5');
+      rect(moonX + 3, moonY + 3, 4, 3, '#b3c3c5');
+    }
+
+    ctx.globalAlpha = 1 - darkness;
     const sunX = Math.round(width * 0.76 - (horizontalOffset - 550) * 0.12);
     const sunY = Math.round(WATER - 112 - camera.y);
     const glow = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 130);
@@ -74,6 +100,7 @@ export function createRenderer(canvas) {
       const radius = Math.floor(Math.sqrt(24 * 24 - row * row));
       rect(sunX - radius, sunY + row, radius * 2, 2, row < 6 ? '#f8dca5' : '#efc692');
     }
+    ctx.globalAlpha = 1 - darkness * .65;
     for (let i = -2; i < 18; i++) {
       const span = Math.max(960, width + 260);
       const raw = i * 81 + noise(i, 12) * 240 - horizontalOffset * 0.085 + time * (i % 2 ? 0.8 : 1.6);
@@ -92,9 +119,42 @@ export function createRenderer(canvas) {
       const closer = surface - 3 - Math.pow(Math.max(0, Math.sin(wx * .017 + 1) * Math.cos(wx * .008 + 1)), 2) * 20;
       rect(x, closer, 4, surface - closer + 1, '#425e6c9c');
     }
+    ctx.restore();
   }
 
-  function ocean(camera, surface, time) {
+  function rain(world, camera, surface, time, intensity) {
+    if (intensity <= 0 || surface <= 0) return;
+    const { width } = camera;
+    const left = Math.floor(camera.x / TILE);
+    const right = Math.min(COLS, Math.ceil((camera.x + width) / TILE));
+    ctx.save();
+    ctx.beginPath();
+    for (let tx = left; tx < right; tx++) {
+      let ty = 0;
+      while (ty * TILE < WATER && !tileAt(world, tx, ty)) ty++;
+      const height = ty * TILE - Math.round(camera.y);
+      if (height > 0) ctx.rect(tx * TILE - Math.round(camera.x), 0, TILE, height);
+    }
+    ctx.clip();
+    ctx.globalAlpha = intensity * 0.74;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#bed9e0';
+    ctx.beginPath();
+    const span = width + 24;
+    const fall = surface + 28;
+    for (let i = 0; i < Math.ceil(width / 5); i++) {
+      const drift = noise(i, 271) * span - time * 33;
+      const x = ((drift % span) + span) % span - 12;
+      const speed = 140 + noise(i, 272) * 75;
+      const y = (noise(i, 273) * fall + time * speed) % fall;
+      ctx.moveTo(x, y - 12);
+      ctx.lineTo(x - 4, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function ocean(camera, surface, time, conditions) {
     const { width, height } = camera;
     if (surface >= height) return;
     gradient(0, Math.max(0, surface), width, height - Math.max(0, surface),
@@ -116,6 +176,7 @@ export function createRenderer(canvas) {
       }
     }
     if (surface > -200) {
+      ctx.globalAlpha = 1 - conditions.darkness * .8 - conditions.rain * (1 - conditions.darkness) * .65;
       for (let i = -2; i < 10; i++) {
         const span = Math.max(width + 190, 900);
         const shift = (i * 124 - horizontalOffset * .37 + Math.sin(time * .5 + i) * 15) % span;
@@ -125,6 +186,7 @@ export function createRenderer(canvas) {
       }
       gradient(0, Math.max(0, surface), width, 33, [[0, '#8ed6c15e'], [1, '#56a5a100']], surface, surface + 33);
       rect(0, surface + 2, width, 2, '#7cc4b1');
+      ctx.globalAlpha = 1;
     }
     for (let i = 0; i < 85; i++) {
       const px = noise(i, 141) * (width + 55);
@@ -384,7 +446,8 @@ export function createRenderer(canvas) {
       ctx.translate(Math.round(mob.x), Math.round(mob.y));
 
       if (mob.kind === 'fish') {
-        const [dark, mid, light, stripe] = fishColors[mob.variant % fishColors.length];
+        const [dark, mid, light, stripe] = mob.enemyType?.colors ?? fishColors[mob.variant % fishColors.length];
+        if (mob.enemyType) ctx.globalAlpha = clamp(mob.remainingLife / 2, 0, 1);
         const swish = Math.round(Math.sin(time * (mob.flee > 0 ? 14 : 7.5) + mob.phase) * 1.4);
         ctx.scale(mob.facing, 1);
         ctx.rotate(clamp(mob.dy * 0.003, -0.22, 0.22) * mob.facing);
@@ -401,6 +464,7 @@ export function createRenderer(canvas) {
         rect(-1, 1, 5, 1, light);
         rect(3, -1, 2, 2, '#f1f3e5');
         rect(4, -1, 1, 1, '#192b3e');
+        if (mob.enemyType) rect(4, 1, 3, 1, dark);
       } else if (mob.kind === 'crab') {
         const [dark, mid, light] = crabColors[mob.variant % crabColors.length];
         const moving = Math.abs(mob.dx) > 2;
@@ -487,11 +551,11 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion }) {
+  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
-    sky(camera, surface, time);
-    ocean(camera, surface, time);
+    sky(camera, surface, time, conditions.darkness);
+    ocean(camera, surface, time, conditions);
     if (surface > -5 && surface < camera.height + 5) surfaceLine(camera.width, surface, Math.round(camera.x) - WEST_EXTENSION * TILE, time);
 
     ctx.save();
@@ -502,6 +566,19 @@ export function createRenderer(canvas) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
     }
     diver(player, tank, time, mining, reducedMotion);
+    ctx.restore();
+
+    const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
+    if (shade > 0) {
+      ctx.save();
+      ctx.globalAlpha = shade;
+      rect(0, 0, camera.width, camera.height, '#111933');
+      ctx.restore();
+    }
+    rain(world, camera, surface, time, conditions.rain);
+
+    ctx.save();
+    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     if (aim?.reachable) {
       ctx.strokeStyle = '#f4d4a5ad';
       ctx.lineWidth = 1;

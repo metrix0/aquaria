@@ -6,8 +6,9 @@ const dist = new URL('dist/', root);
 const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
 const devTools = process.argv.includes('--dev') || process.env.VERCEL_ENV === 'preview';
 
-for (const file of ['game.js', 'world.js', 'render.js']) {
-  const result = spawnSync(process.execPath, ['--check', 'src/' + file], {
+const modules = ['src/game.js', 'src/world.js', 'src/render.js', 'src/environment.js', 'src/enemies.js'];
+for (const file of modules) {
+  const result = spawnSync(process.execPath, ['--check', file], {
     cwd: root,
     stdio: 'inherit',
   });
@@ -16,7 +17,7 @@ for (const file of ['game.js', 'world.js', 'render.js']) {
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(new URL('src/', dist), { recursive: true });
-for (const file of ['index.html', 'style.css', 'src/game.js', 'src/world.js', 'src/render.js']) {
+for (const file of ['index.html', 'style.css', ...modules]) {
   await cp(new URL(file, root), new URL(file, dist));
 }
 await writeFile(new URL('src/build-info.js', dist), [
