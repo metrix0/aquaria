@@ -75,8 +75,16 @@
 
     <dialog id="craft-panel" aria-labelledby="craft-title">
       <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
-      <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p>Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
-      <button id="make-tank" class="primary">Craft air tank</button>
+      <div class="craft-recipes">
+        <section>
+          <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p>Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
+          <button id="make-tank" class="primary">Craft air tank</button>
+        </section>
+        <section>
+          <div class="recipe"><span class="item item-door" aria-hidden="true"></span><div><h3>Wooden door</h3><p>Place above a solid floor with two blocks of clearance. Opens as you approach.</p><p id="door-cost"></p></div></div>
+          <button id="make-door" class="primary">Craft door</button>
+        </section>
+      </div>
     </dialog>
 
     <dialog id="pause-panel" aria-labelledby="pause-title">

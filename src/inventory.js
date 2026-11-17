@@ -8,6 +8,7 @@ export const ITEMS = {
   sand: { name: 'Sand', block: MATERIAL.sand, hotbar: 1 },
   stone: { name: 'Stone', block: MATERIAL.stone, hotbar: 2 },
   wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
+  door: { name: 'Wooden door' },
   kelp: { name: 'Kelp' },
   copper: { name: 'Copper ore' },
   iron: { name: 'Iron ore' },

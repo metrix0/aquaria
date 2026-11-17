@@ -251,12 +251,36 @@ export function createWorld() {
     };
   });
 
-  return { tiles, ground, items, trees, mobs, vents, edits: new Map(), harvested: new Set() };
+  return { tiles, ground, items, trees, mobs, vents, doors: new Map(), edits: new Map(), harvested: new Set() };
 }
 
 export function tileAt(world, tx, ty) {
   if (tx < 0 || tx >= COLS || ty >= ROWS) return MATERIAL.bedrock;
   return ty < 0 ? MATERIAL.air : world.tiles[ty * COLS + tx];
+}
+
+export function doorAt(world, tx, ty) {
+  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
+  return world.doors.get(ty * COLS + tx) ?? world.doors.get((ty + 1) * COLS + tx);
+}
+
+export function isDoorOpen(door, x, y, height) {
+  const center = (door.tx + .5) * TILE;
+  const top = (door.ty - 1) * TILE;
+  return Math.abs(x - center) <= 1.5 * TILE && y + height > top && y < top + 2 * TILE;
+}
+
+export function buildCellFree(world, tx, ty) {
+  return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS - 2
+    && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !treeAt(world, tx, ty)
+    && !world.items.some((item) => !world.harvested.has(item.id)
+      && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty);
+}
+
+export function placeDoor(world, tx, ty) {
+  if (!buildCellFree(world, tx, ty) || !buildCellFree(world, tx, ty - 1) || !tileAt(world, tx, ty + 1)) return false;
+  world.doors.set(ty * COLS + tx, { tx, ty });
+  return true;
 }
 
 export function isTreeStanding(world, tree) {

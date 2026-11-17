@@ -1,4 +1,7 @@
-import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
+import {
+  COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN,
+  buildCellFree, clamp, createWorld, doorAt, editTile, isDoorOpen, placeDoor, tileAt, treeAt,
+} from './world.js';
 import { createRenderer } from './render.js';
 import { worldConditions } from './environment.js';
 import { updateEnemySpawns } from './enemies.js';
@@ -45,6 +48,7 @@ const breakSeconds = {
 };
 const prompts = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
 const tankCost = { stone: 3, kelp: 2 };
+const doorCost = 3;
 const enemySpecs = {
   jellyfish: { width: 12, height: 18, radius: 11, damage: 4, message: 'Stung by a jellyfish. -4s oxygen', material: MATERIAL.reef },
   squid: { width: 16, height: 14, radius: 12, damage: 5, message: 'Struck by a reef squid. -5s oxygen', material: MATERIAL.bedrock },
@@ -124,7 +128,13 @@ function load() {
     }
     const harvestableIds = new Set([...world.items, ...world.trees].map(({ id }) => id));
     world.harvested = new Set((state.harvested ?? []).filter((id) => harvestableIds.has(id)));
-    syncMobs();
+    if (Array.isArray(state.doors)) {
+      for (const position of state.doors) {
+        if (!Array.isArray(position)) continue;
+        const [x, y] = position;
+        if (Number.isInteger(x) && Number.isInteger(y)) placeDoor(world, x + WEST_EXTENSION, y);
+      }
+    }
     player = spawn();
     if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
       const x = clamp(state.x + WEST_EXTENSION * TILE, player.width, COLS * TILE - player.width);
@@ -132,6 +142,7 @@ function load() {
       if (!collides(x, y)) Object.assign(player, { x, y });
     }
     if (Number.isFinite(state.oxygen)) player.oxygen = clamp(state.oxygen, 1, tank ? 42 : 18);
+    syncMobs();
     dirty = legacy;
     save();
   } catch {
@@ -147,12 +158,19 @@ function save() {
       edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
       harvested: Array.from(world.harvested),
       worldTime, weatherSeed,
+      doors: Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]),
     }));
     savedWorldTime = worldTime;
     dirty = false;
   } catch {
     // The current session remains playable if storage is blocked or full.
   }
+}
+
+function solidAt(tx, ty, x = player.x, y = player.y, height = player.height) {
+  if (tileAt(world, tx, ty)) return true;
+  const door = doorAt(world, tx, ty);
+  return Boolean(door && !isDoorOpen(door, x, y, height));
 }
 
 function collides(x, y) {
@@ -162,7 +180,7 @@ function collides(x, y) {
   const bottom = Math.floor((y + playerSize.height - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      if (tileAt(world, tx, ty)) return true;
+      if (solidAt(tx, ty, x, y, playerSize.height)) return true;
     }
   }
   return false;
@@ -228,7 +246,7 @@ function fishCollides(x, y, width = 12, height = 8) {
   const bottom = Math.floor((y + height / 2 - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      if (tileAt(world, tx, ty)) return true;
+      if (solidAt(tx, ty)) return true;
     }
   }
   return false;
@@ -250,7 +268,7 @@ function crabCollides(x, y) {
   const bottom = Math.floor((y - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      if (tileAt(world, tx, ty)) return true;
+      if (solidAt(tx, ty)) return true;
     }
   }
   return false;
@@ -259,7 +277,7 @@ function crabCollides(x, y) {
 function crabHasFloor(x, y) {
   const tx = Math.floor(x / TILE);
   const baseTy = Math.floor((y + 1) / TILE);
-  return Boolean(tileAt(world, tx, baseTy) || tileAt(world, tx, baseTy + 1));
+  return solidAt(tx, baseTy) || solidAt(tx, baseTy + 1);
 }
 
 function syncMobs() {
@@ -563,11 +581,18 @@ function placeBlock() {
   const target = aim();
   if (!target?.reachable) return;
   const { tx, ty } = target;
-  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
-  const block = ITEMS[inventory.hotbar[selected]?.id]?.block;
-  if (!block || tileAt(world, tx, ty) || treeAt(world, tx, ty)) return;
+  const item = inventory.hotbar[selected]?.id;
+  if (item === 'door') {
+    if (!placeDoor(world, tx, ty)) return;
+    inventory.consume(inventory.hotbar, selected, 1);
+    syncMobs();
+    inventoryChanged();
+    return;
+  }
+  const block = ITEMS[item]?.block;
+  if (!block || !buildCellFree(world, tx, ty)) return;
   const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
-  if (!touches || world.items.some((item) => !world.harvested.has(item.id) && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty)) return;
+  if (!touches) return;
   editTile(world, tx, ty, block);
   if (collides(player.x, player.y)) {
     editTile(world, tx, ty, MATERIAL.air);
@@ -587,8 +612,10 @@ function updateMining(dt) {
   if (miningPointerId === null) return;
   const target = aim();
   const tile = target?.reachable ? tileAt(world, target.tx, target.ty) : MATERIAL.air;
-  const tree = target?.reachable && tile === MATERIAL.air ? treeAt(world, target.tx, target.ty) : undefined;
-  const material = tree ? MATERIAL.wood : tile;
+  const door = target?.reachable ? doorAt(world, target.tx, target.ty) : undefined;
+  const tree = !door && target?.reachable && tile === MATERIAL.air ? treeAt(world, target.tx, target.ty) : undefined;
+  const structure = door ?? tree;
+  const material = structure ? MATERIAL.wood : tile;
   const duration = breakSeconds[material];
   if (!duration) {
     mining = null;
@@ -596,23 +623,29 @@ function updateMining(dt) {
   }
 
   const { tx, ty } = target;
-  if (!mining || mining.tree !== tree || (!tree && (mining.tx !== tx || mining.ty !== ty || mining.material !== material))) {
-    mining = { tree, material, duration, progress: 0 };
+  if (!mining || mining.structure !== structure || (!structure && (mining.tx !== tx || mining.ty !== ty || mining.material !== material))) {
+    mining = { structure, material, duration, progress: 0 };
   }
   mining.tx = tx;
   mining.ty = ty;
   mining.progress += dt / duration;
   if (mining.progress < 1) return;
 
-  const drop = tree ? 'wood' : drops[material];
-  if (!collect(drop, tree ? Math.round(tree.height / TILE) : 1)) {
+  const supportedDoor = structure ? undefined : doorAt(world, tx, ty - 1);
+  const rewards = supportedDoor ? new Inventory(inventory) : inventory;
+  const drop = door ? 'door' : drops[material];
+  if (!collect(drop, tree ? Math.round(tree.height / TILE) : 1, rewards)
+    || (supportedDoor && !collect('door', 1, rewards))) {
     stopMining();
     return;
   }
+  inventory = rewards;
   mining = null;
+  const removedDoor = door ?? supportedDoor;
+  if (removedDoor) world.doors.delete(removedDoor.ty * COLS + removedDoor.tx);
   if (tree) {
     world.harvested.add(tree.id);
-  } else {
+  } else if (!door) {
     editTile(world, tx, ty, MATERIAL.air);
   }
   for (let i = 0; i < 8; i++) {
@@ -639,8 +672,8 @@ function interact() {
   inventoryChanged();
 }
 
-function collect(id, count) {
-  if (inventory.add(id, count)) return true;
+function collect(id, count, destination = inventory) {
+  if (destination.add(id, count)) return true;
   notify('No room for more ' + ITEMS[id].name.toLowerCase() + '.');
   return false;
 }
@@ -690,6 +723,8 @@ function updateCraft() {
   button.disabled = !canCraftTank();
   button.textContent = tank ? 'Equipped' : 'Craft air tank';
   byId('recipe-cost').textContent = tank ? 'Air tank equipped' : `${tankCost.stone} stone · ${tankCost.kelp} kelp`;
+  byId('make-door').disabled = inventory.count('wood') < doorCost;
+  byId('door-cost').textContent = `${doorCost} wood`;
 }
 
 function setText(id, value) {
@@ -899,6 +934,16 @@ byId('make-tank').addEventListener('click', () => {
   inventoryChanged();
   craftPanel.close();
   notify('Air tank equipped.');
+});
+byId('make-door').addEventListener('click', () => {
+  if (inventory.count('wood') < doorCost) return;
+  const crafted = new Inventory(inventory);
+  crafted.spend('wood', doorCost);
+  if (!collect('door', 1, crafted)) return;
+  inventory = crafted;
+  inventoryChanged();
+  craftPanel.close();
+  notify('Door crafted. Equip it in the hotbar.');
 });
 
 byId('version').textContent = 'v' + version;

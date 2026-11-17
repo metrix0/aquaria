@@ -1,4 +1,4 @@
-import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, clamp, isTreeStanding, noise, tileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, clamp, isDoorOpen, isTreeStanding, noise, tileAt } from './world.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -605,6 +605,30 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function doors(world, player, camera) {
+    const [wood, light, dark, brass] = palettes[MATERIAL.wood];
+    for (const door of world.doors.values()) {
+      const x = door.tx * TILE;
+      const y = (door.ty - 1) * TILE;
+      const height = 2 * TILE;
+      if (x + TILE < camera.x || x > camera.x + camera.width || y + height < camera.y || y > camera.y + camera.height) continue;
+      const open = isDoorOpen(door, player.x, player.y, player.height);
+      rect(x, y, TILE, 2, dark);
+      rect(x, y + 2, 2, height - 2, dark);
+      rect(x + TILE - 2, y + 2, 2, height - 2, dark);
+      rect(x + 1, y, TILE - 2, 1, light);
+      rect(x + 2, y + 2, open ? 3 : TILE - 4, height - 2, wood);
+      rect(x + 2, y + 3, 1, height - 4, light);
+      if (!open) {
+        rect(x + 6, y + 3, 1, height - 4, dark);
+        rect(x + 10, y + 3, 1, height - 4, light);
+        rect(x + 2, y + 8, TILE - 4, 2, dark);
+        rect(x + 2, y + 23, TILE - 4, 2, dark);
+        rect(x + 11, y + 16, 2, 2, brass);
+      }
+    }
+  }
+
   function surfaceLine(width, y, xOffset, time) {
     for (let x = 0; x < width; x += 3) {
       const dy = Math.round(Math.sin((x + xOffset) * .062 + time * 1.8) * 1.6 + Math.sin((x + xOffset) * .026 - time * 1.4) * 1.4);
@@ -623,6 +647,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     terrain(world, camera, time);
+    doors(world, player, camera);
     mobs(world, camera, time);
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);

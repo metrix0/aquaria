@@ -45,6 +45,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-tool::before { content: ""; position: absolute; height: 5px; width: 15px; background: #b5c6bd; box-shadow: inset 0 -2px #6e888a; top: 0; left: -5px; }
 .item-stone { background: #4a747c; box-shadow: inset 3px 3px #739ba0, inset -3px -3px #253e56; }
 .item-wood { background: #845a48; box-shadow: inset 3px 3px #ab7955, inset -3px -3px #5a3b38; }
+.item-door { position: relative; width: 11px; height: 20px; background: #845a48; box-shadow: inset 2px 2px #bc8b62, inset -2px 0 #513a3b; }
+.item-door::after { content: ""; position: absolute; width: 2px; height: 2px; right: 3px; top: 10px; background: #e3ae72; }
 .item-kelp { background: #62b887; box-shadow: inset 3px 2px #9cd29b, inset -3px -2px #316e64; clip-path: polygon(43% 45%, 6% 32%, 0 7%, 30% 16%, 47% 44%, 67% 10%, 100% 0, 90% 33%, 65% 50%, 56% 100%, 39% 100%); }
 .item-copper, .item-iron, .item-cobalt { clip-path: polygon(29% 0, 76% 10%, 100% 49%, 69% 100%, 20% 87%, 0 45%); }
 .item-copper { background: #bd785b; box-shadow: inset 4px 3px #f2b17e, inset -5px -4px #8b4f4b; }
@@ -89,7 +91,9 @@ dialog p { font-size: 13px; color: var(--muted); }
 .gear-slots li { display: grid; grid-template-columns: 35px 1fr; gap: 7px; align-items: center; color: var(--muted); font-size: 12px; }
 #backpack-help { margin: 12px 0 0; }
 #backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
-.recipe { display: flex; align-items: center; gap: 16px; margin-bottom: 15px; padding: 13px; border: 1px solid var(--line); }
+.craft-recipes { display: grid; gap: 16px; }
+.recipe { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; padding: 13px; border: 1px solid var(--line); }
+.recipe .item { flex: none; }
 .recipe p { margin: 5px 0 0; }
 button.primary { background: #d7b47d; border: 1px solid #efc795; border-radius: 4px; color: #171a1c; font-weight: 700; padding: 8px 12px; }
 button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #536d73; cursor: default; }
