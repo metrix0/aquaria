@@ -7,7 +7,7 @@ const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
 
 const modules = [
   'src/game.js', 'src/world.js', 'src/render.js', 'src/environment.js', 'src/enemies.js',
-  'src/inventory.js', 'src/inventory-ui.js',
+  'src/inventory.js', 'src/inventory-ui.js', 'src/character.js', 'src/character-editor.js',
 ];
 for (const file of modules) {
   const result = spawnSync(process.execPath, ['--check', file], {

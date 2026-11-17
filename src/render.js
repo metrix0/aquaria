@@ -1,3 +1,4 @@
+import { createCharacterRenderer } from './character.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, clamp, isDoorOpen, isTreeStanding, noise, tileAt } from './world.js';
 
 const palettes = {
@@ -36,6 +37,7 @@ const crabColors = [
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
+  const drawCharacter = createCharacterRenderer(ctx);
 
   function rect(x, y, w, h, color) {
     ctx.fillStyle = color;
@@ -421,23 +423,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  function miningArm(targetX, targetY, tilt, phase) {
-    const angle = clamp(Math.atan2(targetY - 12, targetX), -1.05, 1.15);
-    const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
-    ctx.save();
-    ctx.translate(2, 12);
-    ctx.rotate(angle - tilt - swing);
-    rect(-1, -2, 3, 4, '#df9b6b');
-    rect(1, -1, 6, 3, '#e8b57b');
-    rect(5, 0, 3, 2, '#e9ad81');
-    rect(7, -1, 7, 2, '#85604c');
-    rect(8, -1, 5, 1, '#d29c65');
-    rect(12, -4, 3, 8, '#6e888a');
-    rect(13, -3, 2, 6, '#b5c6bd');
-    rect(12, -4, 2, 1, '#d9e1cf');
-    ctx.restore();
-  }
-
   function mobs(world, camera, time) {
     for (const mob of world.mobs ?? []) {
       if (mob.x < camera.x - 24 || mob.x > camera.x + camera.width + 24) continue;
@@ -556,55 +541,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  function diver(player, tank, time, mining, reducedMotion) {
-    const swimming = player.y + 11 > WATER;
-    const stride = Math.abs(player.dx) > 9 ? Math.round(Math.sin(time * (swimming ? 13 : 24)) * 2) : 0;
-    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
-    const facing = Math.sign(targetX) || player.facing;
-    const tilt = swimming ? clamp(player.dy * .0018, -.23, .23) * facing : 0;
-    ctx.save();
-    if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
-    ctx.translate(Math.round(player.x), Math.round(player.y));
-    ctx.scale(facing, 1);
-    if (swimming) ctx.rotate(tilt);
-    rect(-4, 1, 9, 7, '#392e36');
-    rect(-3, 0, 7, 3, '#56403c');
-    rect(-2, 4, 7, 5, '#dcb484');
-    rect(4, 5, 2, 3, '#dcb484');
-    rect(2, 5, 2, 1, '#463d3e');
-    rect(-3, 8, 8, 3, '#d8aa6e');
-    rect(-4, 10, 9, 7, swimming ? '#a76e59' : '#bc775a');
-    rect(-4, 10, 8, 2, '#df9b6b');
-    if (!mining) {
-      rect(1, 12, 3, 4, '#e8b57b');
-      rect(3 + (swimming ? 2 : 0), 13, 3, 3, '#e9ad81');
-    }
-    rect(-4, 17, 8, 2, '#483d42');
-    rect(-4, 18, 3, 4 + stride, '#344956');
-    rect(1, 18, 3, 4 - stride, '#52616a');
-    rect(-4 - Number(swimming), 21 + stride, 4, 2, '#242f40');
-    rect(1, 21 - stride, 4 + Number(swimming), 2, '#242f40');
-    if (tank) {
-      rect(-7, 9, 3, 10, '#7ebcb0');
-      rect(-7, 10, 1, 6, '#bed8ba');
-      rect(-6, 8, 2, 1, '#d2a673');
-    }
-    if (mining) {
-      const targetY = (mining.ty + 0.5) * TILE - player.y;
-      const swings = Math.round(mining.duration / 0.26);
-      miningArm(Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings);
-    }
-    if (swimming) {
-      for (let i = 0; i < 3; i++) {
-        const rise = (time * 18 + i * 9) % 27;
-        const dx = 6 + Math.sin(rise * .27 + i) * 3;
-        rect(dx, 5 - rise, 2, 1, '#a1d9cb');
-        rect(dx - 1, 6 - rise, 1, 1, '#7ebdbb');
-      }
-    }
-    ctx.restore();
-  }
-
   function doors(world, player, camera) {
     const [wood, light, dark, brass] = palettes[MATERIAL.wood];
     for (const door of world.doors.values()) {
@@ -637,7 +573,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions }) {
+  function draw({ world, player, appearance, tank, camera, time, aim, mining, particles, reducedMotion, conditions }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions.darkness);
@@ -652,7 +588,7 @@ export function createRenderer(canvas) {
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
     }
-    diver(player, tank, time, mining, reducedMotion);
+    drawCharacter(player, appearance, { tank, time, mining, reducedMotion });
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
