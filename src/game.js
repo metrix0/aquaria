@@ -1,6 +1,6 @@
 import { COLS, ROWS, TILE, WATER, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt } from './world.js';
 import { createRenderer } from './render.js';
-import { version } from './version.js';
+import { devTools, version } from './build-info.js';
 
 const byId = (id) => document.getElementById(id);
 const canvas = byId('scene');
@@ -56,13 +56,16 @@ function spawn() {
   return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, facing: 1, oxygen: tank ? 42 : 18 };
 }
 
-function load() {
+function startNewWorld() {
   world = createWorld();
   tank = false;
   completed = false;
   inventory = { sand: 0, stone: 0, wood: 3, scrap: 0, kelp: 0 };
   player = spawn();
+}
 
+function load() {
+  startNewWorld();
   try {
     const state = JSON.parse(localStorage.getItem(saveKey));
     if (state?.format !== saveFormat) return;
@@ -519,18 +522,25 @@ byId('craft').addEventListener('click', () => openPanel(craftPanel));
 byId('pause').addEventListener('click', () => openPanel(pausePanel));
 byId('resume').addEventListener('click', () => pausePanel.close());
 for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
-byId('restart').addEventListener('click', () => {
-  if (!confirm('Start a new game and erase the save in this browser?')) return;
-  try { localStorage.removeItem(saveKey); } catch {}
-  load();
-  select(0);
-  focusedItem = null;
-  particles.length = 0;
-  pausePanel.close();
-  updateCamera(1);
-  dirty = true;
-  save();
-});
+if (devTools) {
+  const resetWorld = byId('reset-world');
+  resetWorld.hidden = false;
+  resetWorld.addEventListener('click', () => {
+    if (!confirm('Rebuild the world and erase all progress saved in this browser?')) return;
+    startNewWorld();
+    select(0);
+    pointer.active = false;
+    focusedItem = null;
+    particles.length = 0;
+    clearTimeout(toastTimer);
+    byId('feedback').hidden = true;
+    pausePanel.close();
+    updateCamera(1);
+    dirty = true;
+    save();
+    if (dirty) notify('World reset for this session. The browser could not save it.');
+  });
+}
 byId('make-tank').addEventListener('click', () => {
   if (tank || inventory.scrap < 3 || inventory.kelp < 2) return;
   inventory.scrap -= 3;
