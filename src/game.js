@@ -21,22 +21,22 @@ const pointer = { x: 0, y: 0, active: false };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touch = matchMedia('(pointer: coarse)').matches;
 const moveKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
-const drops = { [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand', [MATERIAL.reef]: 'stone', [MATERIAL.scrap]: 'scrap', [MATERIAL.wood]: 'wood' };
+const drops = { [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand', [MATERIAL.reef]: 'stone', [MATERIAL.wood]: 'wood' };
+const editableMaterials = new Set(Object.values(MATERIAL).filter((material) => material !== MATERIAL.bedrock));
 const breakSeconds = {
   [MATERIAL.sand]: 0.35,
   [MATERIAL.soil]: 0.4,
   [MATERIAL.wood]: 0.5,
   [MATERIAL.reef]: 0.6,
   [MATERIAL.stone]: 0.7,
-  [MATERIAL.scrap]: 0.7,
 };
-const prompts = { scrap: 'Collect salvage', kelp: 'Harvest kelp', cache: 'Open wreck cache' };
+const prompts = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
+const tankCost = { stone: 3, kelp: 2 };
 
 let world;
 let player;
 let inventory;
 let tank;
-let completed;
 let selected = 0;
 let placing = false;
 let dirty = false;
@@ -59,8 +59,7 @@ function spawn() {
 function startNewWorld() {
   world = createWorld();
   tank = false;
-  completed = false;
-  inventory = { sand: 0, stone: 0, wood: 3, scrap: 0, kelp: 0 };
+  inventory = { sand: 0, stone: 0, wood: 3, kelp: 0 };
   player = spawn();
 }
 
@@ -70,12 +69,11 @@ function load() {
     const state = JSON.parse(localStorage.getItem(saveKey));
     if (state?.format !== saveFormat) return;
     tank = state.tank === true;
-    completed = state.completed === true;
     for (const key of Object.keys(inventory)) {
       if (Number.isSafeInteger(state.inventory?.[key]) && state.inventory[key] >= 0) inventory[key] = state.inventory[key];
     }
     for (const [index, material] of state.edits ?? []) {
-      if (Number.isInteger(index) && index >= 0 && index < COLS * (ROWS - 2) && Number.isInteger(material) && material >= 0 && material <= MATERIAL.soil && material !== MATERIAL.bedrock) {
+      if (Number.isInteger(index) && index >= 0 && index < COLS * (ROWS - 2) && editableMaterials.has(material)) {
         editTile(world, index % COLS, Math.floor(index / COLS), material);
       }
     }
@@ -97,7 +95,7 @@ function save() {
   if (!dirty) return;
   try {
     localStorage.setItem(saveKey, JSON.stringify({
-      format: saveFormat, x: player.x, y: player.y, oxygen: player.oxygen, tank, completed, inventory,
+      format: saveFormat, x: player.x, y: player.y, oxygen: player.oxygen, tank, inventory,
       edits: Array.from(world.edits), harvested: Array.from(world.harvested),
     }));
     dirty = false;
@@ -302,11 +300,6 @@ function interact() {
   const item = nearestItem();
   if (!item) return;
   if (item.kind === 'cache') {
-    if (!tank) {
-      notify('Craft an air tank before opening the wreck cache.');
-      return;
-    }
-    completed = true;
     inventory.wood += 8;
     notify('Wreck cache recovered. +8 wood');
   } else {
@@ -353,11 +346,15 @@ function openPanel(panel) {
   panel.showModal();
 }
 
+function canCraftTank() {
+  return !tank && inventory.stone >= tankCost.stone && inventory.kelp >= tankCost.kelp;
+}
+
 function updateCraft() {
   const button = byId('make-tank');
-  button.disabled = tank || inventory.scrap < 3 || inventory.kelp < 2;
+  button.disabled = !canCraftTank();
   button.textContent = tank ? 'Equipped' : 'Craft air tank';
-  byId('recipe-cost').textContent = tank ? 'Air tank equipped' : '3 scrap · 2 kelp';
+  byId('recipe-cost').textContent = tank ? 'Air tank equipped' : `${tankCost.stone} stone · ${tankCost.kelp} kelp`;
 }
 
 function setText(id, value) {
@@ -378,14 +375,6 @@ function updateHud() {
     fill.parentElement.setAttribute('aria-valuenow', String(air));
   }
   for (const name of ['sand', 'stone', 'wood']) setText(name + '-count', String(inventory[name]));
-  setText('objective-title', completed ? 'Beyond the wreck' : tank ? 'Into the channel' : 'Ashore');
-  setText('objective-text', completed ? 'The wreck cache is secure. Explore the caves beneath the reef.' : tank ? 'Follow the reef east and recover the cache from the wreck.' : 'The wreck drifted into the reef. Salvage enough to craft an air tank.');
-  byId('requirements').hidden = tank;
-  if (!tank) {
-    setText('scrap-goal', Math.min(inventory.scrap, 3) + ' / 3 scrap');
-    setText('kelp-goal', Math.min(inventory.kelp, 2) + ' / 2 kelp');
-  }
-
   const prompt = byId('interact');
   prompt.hidden = !focusedItem;
   if (focusedItem) {
@@ -551,9 +540,9 @@ if (devTools) {
   });
 }
 byId('make-tank').addEventListener('click', () => {
-  if (tank || inventory.scrap < 3 || inventory.kelp < 2) return;
-  inventory.scrap -= 3;
-  inventory.kelp -= 2;
+  if (!canCraftTank()) return;
+  inventory.stone -= tankCost.stone;
+  inventory.kelp -= tankCost.kelp;
   tank = true;
   player.oxygen = Math.min(42, player.oxygen + 24);
   dirty = true;

@@ -5,7 +5,8 @@ export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: 63 * TILE + 8, y: 12 * TILE - 23 };
 export const SLOT_NAMES = ['Salvage tool', 'Sand', 'Stone', 'Wood'];
-export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, scrap: 4, wood: 5, bedrock: 6, soil: 7 });
+// Tile ID 4 was used for scrap. Keep it reserved for older saves.
+export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7 });
 export const SLOT_MATERIAL = [MATERIAL.air, MATERIAL.sand, MATERIAL.stone, MATERIAL.wood];
 
 export function noise(x, y = 0, seed = 0) {
@@ -51,19 +52,12 @@ export function createWorld() {
         material = ground[x] < WATER_ROW || noise(x, 2) > 0.3 ? MATERIAL.sand : MATERIAL.reef;
       } else if (ground[x] < WATER_ROW && y < WATER_ROW + 1) {
         material = MATERIAL.soil;
-      } else if (y > 24 && depth < 11 && noise(x, y, 5) > 0.965) {
-        material = MATERIAL.scrap;
       }
       tiles[y * COLS + x] = material;
     }
   }
 
   const items = [
-    { id: 'washed-crate', kind: 'scrap', amount: 1, x: 65 * TILE + 8, y: ground[65] * TILE - 4 },
-    { id: 'reef-plank', kind: 'scrap', amount: 1, x: 74 * TILE + 8, y: ground[74] * TILE - 8 },
-    { id: 'reef-lantern', kind: 'scrap', amount: 1, x: 82 * TILE + 8, y: ground[82] * TILE - 8 },
-    { id: 'reef-keel', kind: 'scrap', amount: 2, x: 89 * TILE + 8, y: ground[89] * TILE - 9 },
-    { id: 'left-crate', kind: 'scrap', amount: 1, x: 38 * TILE + 8, y: ground[38] * TILE - 7 },
     { id: 'wreck-cache', kind: 'cache', x: 111 * TILE + 8, y: ground[111] * TILE - 9 },
   ];
   for (const x of [34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {

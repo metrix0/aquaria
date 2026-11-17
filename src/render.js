@@ -4,7 +4,6 @@ const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
   [MATERIAL.stone]: ['#2f4858', '#3e5b63', '#263b51', '#6d8884'],
   [MATERIAL.reef]: ['#436b6e', '#608781', '#315563', '#8eb096'],
-  [MATERIAL.scrap]: ['#3a4b54', '#c09662', '#273c4d', '#ddb186'],
   [MATERIAL.wood]: ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'],
   [MATERIAL.bedrock]: ['#192b3e', '#24374a', '#111d2f', '#35485a'],
   [MATERIAL.soil]: ['#6f594e', '#8e6b51', '#513f46', '#ab8056'],
@@ -146,12 +145,6 @@ export function createRenderer(canvas) {
       rect(x + 11, y + 8, 2, 3, dark);
       return;
     }
-    if (material === MATERIAL.scrap) {
-      rect(x + 3, y + 6, 7, 4, dark);
-      rect(x + 4, y + 7, 7, 2, light);
-      rect(x + 8, y + 5, 4, 2, bright);
-      rect(x + 11, y + 10, 3, 2, light);
-    }
     for (let i = 0; i < 5; i++) {
       const sx = 1 + Math.floor(noise(tx, ty, i * 2 + 31) * 12);
       const sy = 2 + Math.floor(noise(tx, ty, i * 2 + 32) * 12);
@@ -275,21 +268,17 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, '#8fb39a');
           }
         }
-      } else {
-        const cache = item.kind === 'cache';
-        const size = cache ? 19 : 13;
-        const base = cache ? '#9f7858' : '#8b6550';
-        const highlight = cache ? '#efd089' : '#cb9c68';
+      } else if (item.kind === 'cache') {
+        const size = 19;
+        const highlight = '#efd089';
         rect(x - size / 2, y - 5, size, 10, '#302d34');
-        rect(x - size / 2 + 1, y - 4, size - 2, 8, base);
+        rect(x - size / 2 + 1, y - 4, size - 2, 8, '#9f7858');
         rect(x - size / 2, y - 5, size, 2, highlight);
         rect(x - size / 2 + 3, y - 3, 2, 7, '#655449');
         rect(x + size / 2 - 5, y - 3, 2, 7, '#655449');
         rect(x - 1, y - 1, 3, 3, highlight);
-        if (cache || Math.sin(time * 2.3 + x) > .2) {
-          rect(x, y - 12, 1, 5, '#f1dca4');
-          rect(x - 2, y - 10, 5, 1, '#f1dca4');
-        }
+        rect(x, y - 12, 1, 5, '#f1dca4');
+        rect(x - 2, y - 10, 5, 1, '#f1dca4');
       }
     }
   }
