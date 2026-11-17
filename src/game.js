@@ -79,6 +79,7 @@ function load() {
     }
     const harvestableIds = new Set([...world.items, ...world.trees].map(({ id }) => id));
     world.harvested = new Set((state.harvested ?? []).filter((id) => harvestableIds.has(id)));
+    syncMobs();
     player = spawn();
     if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
       const x = clamp(state.x, player.width, COLS * TILE - player.width);
@@ -169,6 +170,156 @@ function canJumpAshore(direction) {
   return collides(shoreX, player.y) && !collides(player.x, clearanceY) && !collides(shoreX, clearanceY);
 }
 
+function fishCollides(x, y) {
+  if (y - 4 < WATER + 8) return true;
+  const left = Math.floor((x - 6) / TILE);
+  const right = Math.floor((x + 6 - 0.01) / TILE);
+  const top = Math.floor((y - 4) / TILE);
+  const bottom = Math.floor((y + 4 - 0.01) / TILE);
+  for (let ty = top; ty <= bottom; ty++) {
+    for (let tx = left; tx <= right; tx++) {
+      if (tileAt(world, tx, ty)) return true;
+    }
+  }
+  return false;
+}
+
+function crabCollides(x, y) {
+  const left = Math.floor((x - 6) / TILE);
+  const right = Math.floor((x + 6 - 0.01) / TILE);
+  const top = Math.floor((y - 8) / TILE);
+  const bottom = Math.floor((y - 0.01) / TILE);
+  for (let ty = top; ty <= bottom; ty++) {
+    for (let tx = left; tx <= right; tx++) {
+      if (tileAt(world, tx, ty)) return true;
+    }
+  }
+  return false;
+}
+
+function crabHasFloor(x, y) {
+  const tx = Math.floor(x / TILE);
+  const baseTy = Math.floor((y + 1) / TILE);
+  return Boolean(tileAt(world, tx, baseTy) || tileAt(world, tx, baseTy + 1));
+}
+
+function syncMobs() {
+  for (const mob of world.mobs) {
+    if (mob.kind === 'crab') {
+      while (mob.y > TILE && crabCollides(mob.x, mob.y)) mob.y -= TILE;
+    } else if (fishCollides(mob.x, mob.y)) {
+      for (let offset = 1; offset <= 4; offset++) {
+        if (!fishCollides(mob.x, mob.y - offset * TILE)) {
+          mob.y -= offset * TILE;
+          break;
+        }
+        if (!fishCollides(mob.x, mob.y + offset * TILE)) {
+          mob.y += offset * TILE;
+          break;
+        }
+      }
+    }
+  }
+}
+
+function stepMobs(dt) {
+  const px = player.x;
+  const py = player.y + 11;
+  const playerMoving = Math.hypot(player.dx, player.dy) > 14 || miningPointerId !== null;
+
+  for (const mob of world.mobs) {
+    mob.flee = Math.max(0, mob.flee - dt);
+    const diffX = mob.x - px;
+    const diffY = (mob.kind === 'crab' ? mob.y - 4 : mob.y) - py;
+    const dist = Math.hypot(diffX, diffY) || 1;
+
+    if (mob.kind === 'fish') {
+      if (py > WATER && dist < 44 && playerMoving) {
+        mob.flee = 1.1;
+        if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
+      }
+
+      let targetDx;
+      let targetDy;
+      if (mob.flee > 0) {
+        targetDx = mob.facing * mob.speed * 1.75;
+        targetDy = clamp((diffY / dist) * mob.speed * 1.1, -mob.speed, mob.speed);
+      } else {
+        if (mob.x > mob.homeX + mob.span) mob.facing = -1;
+        else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
+        if (fishCollides(mob.x + mob.facing * 12, mob.y)) mob.facing = -mob.facing;
+        targetDx = mob.facing * mob.speed * (0.85 + 0.25 * Math.sin(time * 2.1 + mob.phase));
+        const targetY = Math.max(WATER + 14, mob.homeY + Math.sin(time * 1.5 + mob.phase) * 10);
+        targetDy = clamp((targetY - mob.y) * 1.8, -mob.speed * 0.65, mob.speed * 0.65);
+      }
+
+      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 5);
+      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * 5);
+      if (Math.abs(mob.dx) > 1.5) mob.facing = mob.dx < 0 ? -1 : 1;
+
+      const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
+      if (!fishCollides(nextX, mob.y)) {
+        mob.x = nextX;
+      } else {
+        mob.facing = -mob.facing;
+        mob.dx *= -0.6;
+      }
+
+      const nextY = Math.max(WATER + 10, mob.y + mob.dy * dt);
+      if (!fishCollides(mob.x, nextY)) {
+        mob.y = nextY;
+      } else {
+        mob.dy *= -0.6;
+      }
+    } else if (mob.kind === 'crab') {
+      if (dist < 36 && playerMoving) {
+        mob.flee = 1;
+        if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
+      }
+
+      if (mob.x > mob.homeX + mob.span) mob.facing = -1;
+      else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
+
+      const scuttling = mob.flee > 0 || Math.sin(time * 1.15 + mob.phase * 2.1) > -0.55;
+      const targetDx = scuttling ? mob.facing * mob.speed * (mob.flee > 0 ? 1.65 : 1) : 0;
+      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 10);
+
+      if (Math.abs(mob.dx) > 0.5) {
+        const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
+        if (!crabCollides(nextX, mob.y)) {
+          if (!mob.grounded || crabHasFloor(nextX, mob.y)) {
+            mob.x = nextX;
+          } else {
+            mob.facing = -mob.facing;
+            mob.dx = 0;
+          }
+        } else {
+          const stepY = Math.floor((mob.y - 1) / TILE) * TILE;
+          if (mob.grounded && mob.y - stepY <= TILE && !crabCollides(mob.x, stepY) && !crabCollides(nextX, stepY)) {
+            mob.x = nextX;
+            mob.y = stepY;
+          } else {
+            mob.facing = -mob.facing;
+            mob.dx = 0;
+          }
+        }
+      }
+
+      const inWater = mob.y > WATER;
+      mob.dy = Math.min(mob.dy + (inWater ? 260 : 480) * dt, inWater ? 120 : 210);
+      const nextY = mob.y + mob.dy * dt;
+      if (!crabCollides(mob.x, nextY)) {
+        mob.y = nextY;
+        mob.grounded = false;
+      } else {
+        mob.y = Math.floor((nextY - 0.01) / TILE) * TILE;
+        mob.dy = 0;
+        mob.grounded = true;
+      }
+    }
+  }
+}
+
 function step(dt) {
   const left = pressed('KeyA', 'ArrowLeft');
   const right = pressed('KeyD', 'ArrowRight');
@@ -196,6 +347,8 @@ function step(dt) {
   player.grounded = yCollision && falling;
   if (yCollision) player.dy = 0;
   if (player.y < 0) player.y = 0;
+
+  stepMobs(dt);
 
   if (player.y + 5 > WATER) {
     player.oxygen = Math.max(0, player.oxygen - dt);
@@ -247,6 +400,7 @@ function placeBlock() {
     editTile(world, tx, ty, MATERIAL.air);
     return;
   }
+  syncMobs();
   inventory[drops[block]]--;
   dirty = true;
   save();

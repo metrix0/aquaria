@@ -76,7 +76,42 @@ export function createWorld() {
     return { id: 'palm-' + tx, tx, ty, x, y, height, direction, trunk };
   });
 
-  return { tiles, ground, items, trees, edits: new Map(), harvested: new Set() };
+  const mobs = [
+    { id: 'crab-island-west', kind: 'crab', x: 50 * TILE + 8, y: ground[50] * TILE, span: 48, speed: 22, variant: 0, phase: 0.4 },
+    { id: 'crab-island-east', kind: 'crab', x: 61 * TILE + 8, y: ground[61] * TILE, span: 44, speed: 24, variant: 1, phase: 1.7 },
+    { id: 'crab-shore-west', kind: 'crab', x: 40 * TILE + 8, y: ground[40] * TILE, span: 56, speed: 23, variant: 2, phase: 2.8 },
+    { id: 'crab-shore-east', kind: 'crab', x: 71 * TILE + 8, y: ground[71] * TILE, span: 56, speed: 25, variant: 0, phase: 3.9 },
+    { id: 'crab-west-floor', kind: 'crab', x: 34 * TILE + 8, y: ground[34] * TILE, span: 52, speed: 21, variant: 1, phase: 0.9 },
+    { id: 'crab-reef-west', kind: 'crab', x: 76 * TILE + 8, y: ground[76] * TILE, span: 56, speed: 23, variant: 2, phase: 2.1 },
+    { id: 'crab-reef-east', kind: 'crab', x: 88 * TILE + 8, y: ground[88] * TILE, span: 60, speed: 24, variant: 0, phase: 3.4 },
+    { id: 'crab-channel', kind: 'crab', x: 102 * TILE + 8, y: ground[102] * TILE, span: 54, speed: 22, variant: 1, phase: 4.6 },
+    { id: 'crab-wreck', kind: 'crab', x: 116 * TILE + 8, y: ground[116] * TILE, span: 58, speed: 25, variant: 2, phase: 5.3 },
+    { id: 'crab-deep', kind: 'crab', x: 135 * TILE + 8, y: ground[135] * TILE, span: 64, speed: 23, variant: 0, phase: 1.2 },
+    { id: 'fish-west-shallows', kind: 'fish', x: 35 * TILE, y: 18 * TILE, span: 42, speed: 34, variant: 0, phase: 0.3 },
+    { id: 'fish-west-reef', kind: 'fish', x: 30 * TILE, y: 23 * TILE, span: 56, speed: 38, variant: 1, phase: 1.8 },
+    { id: 'fish-west-deep', kind: 'fish', x: 22 * TILE, y: 27 * TILE, span: 64, speed: 32, variant: 2, phase: 3.1 },
+    { id: 'fish-reef-shallows', kind: 'fish', x: 77 * TILE, y: 18 * TILE, span: 38, speed: 35, variant: 0, phase: 0.7 },
+    { id: 'fish-reef-upper', kind: 'fish', x: 83 * TILE, y: 20 * TILE, span: 52, speed: 40, variant: 1, phase: 2.2 },
+    { id: 'fish-reef-mid', kind: 'fish', x: 89 * TILE, y: 24 * TILE, span: 58, speed: 36, variant: 2, phase: 3.6 },
+    { id: 'fish-reef-kelp', kind: 'fish', x: 95 * TILE, y: 21 * TILE, span: 54, speed: 42, variant: 3, phase: 4.9 },
+    { id: 'fish-channel-upper', kind: 'fish', x: 104 * TILE, y: 22 * TILE, span: 62, speed: 39, variant: 0, phase: 1.4 },
+    { id: 'fish-wreck-bow', kind: 'fish', x: 110 * TILE, y: 28 * TILE, span: 56, speed: 35, variant: 2, phase: 2.9 },
+    { id: 'fish-wreck-stern', kind: 'fish', x: 119 * TILE, y: 25 * TILE, span: 64, speed: 41, variant: 1, phase: 4.3 },
+    { id: 'fish-deep-slope', kind: 'fish', x: 132 * TILE, y: 31 * TILE, span: 70, speed: 37, variant: 3, phase: 5.5 },
+    { id: 'fish-cave-west', kind: 'fish', x: 99 * TILE, y: 56 * TILE, span: 46, speed: 31, variant: 3, phase: 1.9 },
+    { id: 'fish-cave-east', kind: 'fish', x: 153 * TILE, y: 69 * TILE, span: 52, speed: 33, variant: 1, phase: 3.7 },
+  ].map((mob, index) => ({
+    ...mob,
+    homeX: mob.x,
+    homeY: mob.y,
+    dx: 0,
+    dy: 0,
+    facing: index % 2 ? -1 : 1,
+    grounded: mob.kind === 'crab',
+    flee: 0,
+  }));
+
+  return { tiles, ground, items, trees, mobs, edits: new Map(), harvested: new Set() };
 }
 
 export function tileAt(world, tx, ty) {

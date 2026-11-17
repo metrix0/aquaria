@@ -16,6 +16,19 @@ const coralColors = [
   ['#74674e', '#a08a61', '#d5ab78'],
 ];
 
+const fishColors = [
+  ['#9c7a56', '#d5ab78', '#f0c88b', '#39797e'],
+  ['#315563', '#64a394', '#97c7ab', '#efc27e'],
+  ['#7e4268', '#b0667d', '#da9292', '#f0c88b'],
+  ['#263b51', '#436b6e', '#8bdfd0', '#f8dca5'],
+];
+
+const crabColors = [
+  ['#7e4268', '#bc775a', '#df9b6b'],
+  ['#85604c', '#c09662', '#e3ae72'],
+  ['#513a3b', '#b0667d', '#da9292'],
+];
+
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
 
@@ -300,6 +313,61 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function mobs(world, camera, time) {
+    for (const mob of world.mobs ?? []) {
+      if (mob.x < camera.x - 24 || mob.x > camera.x + camera.width + 24) continue;
+      if (mob.y < camera.y - 24 || mob.y > camera.y + camera.height + 24) continue;
+      ctx.save();
+      ctx.translate(Math.round(mob.x), Math.round(mob.y));
+
+      if (mob.kind === 'fish') {
+        const [dark, mid, light, stripe] = fishColors[mob.variant % fishColors.length];
+        const swish = Math.round(Math.sin(time * (mob.flee > 0 ? 14 : 7.5) + mob.phase) * 1.4);
+        ctx.scale(mob.facing, 1);
+        ctx.rotate(clamp(mob.dy * 0.003, -0.22, 0.22) * mob.facing);
+        rect(-7, -3 + swish, 2, 2, dark);
+        rect(-7, 1 + swish, 2, 2, dark);
+        rect(-5, -1 + Math.trunc(swish * 0.5), 2, 3, mid);
+        rect(-2, -4, 4, 1, dark);
+        rect(-1, -3, 4, 1, light);
+        rect(-1, 3, 3, 1, dark);
+        rect(-3, -2, 8, 5, mid);
+        rect(4, -1, 2, 3, mid);
+        rect(-2, -2, 6, 1, light);
+        rect(-2, 0, 5, 1, stripe);
+        rect(-1, 1, 5, 1, light);
+        rect(3, -1, 2, 2, '#f1f3e5');
+        rect(4, -1, 1, 1, '#192b3e');
+      } else if (mob.kind === 'crab') {
+        const [dark, mid, light] = crabColors[mob.variant % crabColors.length];
+        const moving = Math.abs(mob.dx) > 2;
+        const step = moving ? Math.round(Math.sin(time * (mob.flee > 0 ? 22 : 15) + mob.phase)) : 0;
+        const bob = moving ? Math.abs(step) : 0;
+        const pinch = Math.sin(time * 2.8 + mob.phase) > 0.65 ? 1 : 0;
+        rect(-6, -3 + step, 2, 2, dark);
+        rect(-7, -2 - step, 1, 2, dark);
+        rect(-5, -2 - step, 1, 2, dark);
+        rect(4, -3 - step, 2, 2, dark);
+        rect(6, -2 + step, 1, 2, dark);
+        rect(4, -2 + step, 1, 2, dark);
+        rect(-6 * mob.facing - 1, -6 - bob, 2, 2, mid);
+        rect(-7 * mob.facing - 1, -7 - bob + pinch, 2, 1, light);
+        rect(5 * mob.facing - 1, -6 - bob, 3, 2, mid);
+        rect(6 * mob.facing - 1, -8 - bob + pinch, 2, 2, light);
+        rect(-4, -5 - bob, 8, 3, dark);
+        rect(-3, -6 - bob, 6, 4, mid);
+        rect(-2, -6 - bob, 4, 1, light);
+        rect(-3, -2 - bob, 6, 1, '#d8aa6e');
+        rect(-2, -8 - bob, 1, 2, '#192b3e');
+        rect(1, -8 - bob, 1, 2, '#192b3e');
+        rect(-2, -8 - bob, 1, 1, '#f1f3e5');
+        rect(1, -8 - bob, 1, 1, '#f1f3e5');
+      }
+
+      ctx.restore();
+    }
+  }
+
   function diver(player, tank, time, mining, reducedMotion) {
     const swimming = player.y + 11 > WATER;
     const stride = Math.abs(player.dx) > 9 ? Math.round(Math.sin(time * (swimming ? 13 : 24)) * 2) : 0;
@@ -366,6 +434,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     terrain(world, camera, time);
+    mobs(world, camera, time);
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
     }
