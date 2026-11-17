@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#081a24">
+  <title>Aquaria</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&amp;family=Cinzel:wght@700&amp;display=swap">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./src/game.js"></script>
+</head>
+<body>
+  <main id="game">
+    <canvas id="scene" aria-label="Aquaria side-scrolling game world"></canvas>
+
+    <header class="top">
+      <a href="./" class="wordmark" aria-label="Aquaria home"><span class="mark" aria-hidden="true"><i></i></span>AQUARIA</a>
+      <div class="location" aria-label="Current zone"><span class="location-dot"></span><span id="zone">Castaway Island</span></div>
+      <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
+    </header>
+
+    <aside class="objective" aria-labelledby="objective-title">
+      <div class="objective-label"><span aria-hidden="true">◇</span> SURVIVOR'S LOG</div>
+      <h1 id="objective-title">Ashore</h1>
+      <p id="objective-text">The wreck drifted into the reef. Salvage enough to craft an air tank.</p>
+      <div id="requirements"><span id="scrap-goal">0 / 3 scrap</span><span id="kelp-goal">0 / 2 kelp</span></div>
+    </aside>
+
+    <section class="meters" aria-label="Diver status">
+      <div class="meter-heading"><span>DEPTH</span><strong id="depth">0 m</strong></div>
+      <div class="meter-heading air-heading"><span>OXYGEN</span><strong id="air-label">100%</strong></div>
+      <div class="air-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="air-fill"></div></div>
+    </section>
+
+    <div class="feedback" aria-live="polite" id="feedback" hidden></div>
+    <div class="interact" id="interact" hidden><kbd>E</kbd><span></span></div>
+
+    <div class="bottom">
+      <section class="inventory" aria-label="Hotbar">
+        <div class="inventory-title" id="selected">Salvage tool</div>
+        <div class="slots">
+          <button class="slot" data-slot="0" aria-label="1, Salvage tool" aria-pressed="true"><kbd>1</kbd><span class="item item-tool"></span></button>
+          <button class="slot" data-slot="1" aria-label="2, Sand" aria-pressed="false"><kbd>2</kbd><span class="item item-sand"></span><b id="sand-count">0</b></button>
+          <button class="slot" data-slot="2" aria-label="3, Stone" aria-pressed="false"><kbd>3</kbd><span class="item item-stone"></span><b id="stone-count">0</b></button>
+          <button class="slot" data-slot="3" aria-label="4, Driftwood" aria-pressed="false"><kbd>4</kbd><span class="item item-wood"></span><b id="wood-count">0</b></button>
+        </div>
+      </section>
+
+      <div class="touch" aria-label="Touch controls">
+        <div class="touch-group">
+          <button data-hold="KeyA" aria-label="Move left">←</button>
+          <button data-hold="KeyD" aria-label="Move right">→</button>
+        </div>
+        <div class="touch-group">
+          <button data-hold="KeyS" aria-label="Dive down">↓</button>
+          <button data-hold="Space" aria-label="Jump or swim up">↑</button>
+          <button id="grab" aria-label="Collect nearby salvage">Grab</button>
+          <button id="touch-mode" aria-label="Place blocks" aria-pressed="false">Mine</button>
+        </div>
+      </div>
+
+      <footer>
+        <div class="controls"><span><kbd>A</kbd> <kbd>D</kbd> Move</span><span><kbd>Space</kbd> Jump / swim</span><span><kbd>S</kbd> Dive</span><span><kbd>Click</kbd> Mine</span><span><kbd>Right click</kbd> Build</span></div>
+        <button id="craft" class="craft"><kbd>C</kbd> Crafting</button>
+      </footer>
+    </div>
+
+    <dialog id="craft-panel" aria-labelledby="craft-title">
+      <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
+      <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p>Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost">3 scrap · 2 kelp</p></div></div>
+      <button id="make-tank" class="primary">Craft air tank</button>
+    </dialog>
+
+    <dialog id="pause-panel" aria-labelledby="pause-title">
+      <div class="dialog-head"><h2 id="pause-title">Paused</h2><button data-close aria-label="Close pause menu">×</button></div>
+      <p>Your progress is saved in this browser.</p>
+      <div class="dialog-actions"><button id="resume" class="primary">Resume</button><button id="restart">Start over</button></div>
+      <p id="version"></p>
+    </dialog>
+  </main>
+</body>
+</html>
