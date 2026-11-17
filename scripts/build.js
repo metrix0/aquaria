@@ -8,7 +8,7 @@ const devTools = process.argv.includes('--dev') || process.env.VERCEL_ENV === 'p
 
 const modules = [
   'src/game.js', 'src/world.js', 'src/render.js', 'src/environment.js', 'src/enemies.js',
-  'src/inventory.js', 'src/inventory-ui.js',
+  'src/inventory.js', 'src/inventory-ui.js', 'src/character.js', 'src/character-editor.js',
 ];
 for (const file of modules) {
   const result = spawnSync(process.execPath, ['--check', file], {

@@ -47,6 +47,7 @@
         <div class="footer-actions">
           <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
           <button id="craft" class="craft"><kbd>C</kbd> Crafting</button>
+          <button id="character" class="character" aria-haspopup="dialog" aria-controls="character-panel" aria-keyshortcuts="V"><kbd>V</kbd> Character</button>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
         </div>
       </footer>
@@ -77,6 +78,20 @@
       <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
       <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p>Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
       <button id="make-tank" class="primary">Craft air tank</button>
+    </dialog>
+
+    <dialog id="character-panel" aria-labelledby="character-title">
+      <div class="dialog-head"><h2 id="character-title">Customize character</h2><button data-close aria-label="Close character editor" autofocus>×</button></div>
+      <form>
+        <div class="character-editor">
+          <div class="character-preview">
+            <canvas width="36" height="33" aria-label="Character preview" role="img"></canvas>
+            <button id="preview-walk" type="button" aria-pressed="false">Preview walk</button>
+          </div>
+          <div class="character-fields"></div>
+        </div>
+        <button type="submit" class="primary">Apply</button>
+      </form>
     </dialog>
 
     <dialog id="pause-panel" aria-labelledby="pause-title">

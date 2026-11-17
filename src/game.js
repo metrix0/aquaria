@@ -1,4 +1,6 @@
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
+import { normalizeAppearance, WALK_CYCLE_DISTANCE } from './character.js';
+import { createCharacterEditor } from './character-editor.js';
 import { createRenderer } from './render.js';
 import { worldConditions } from './environment.js';
 import { updateEnemySpawns } from './enemies.js';
@@ -12,7 +14,14 @@ const renderer = createRenderer(canvas);
 const backpackPanel = byId('backpack-panel');
 const craftPanel = byId('craft-panel');
 const pausePanel = byId('pause-panel');
-const panels = [backpackPanel, craftPanel, pausePanel];
+const characterPanel = byId('character-panel');
+const panels = [backpackPanel, craftPanel, characterPanel, pausePanel];
+const characterEditor = createCharacterEditor(characterPanel, (draft) => {
+  appearance = draft;
+  dirty = true;
+  save();
+  if (dirty) notify('Appearance updated for this session. The browser could not save it.');
+});
 const saveKey = 'aquaria.save';
 const saveFormat = 2;
 const legacyCols = 224;
@@ -55,6 +64,7 @@ let world;
 let player;
 let inventory;
 let tank;
+let appearance = normalizeAppearance();
 let selected = 0;
 let placing = false;
 let dirty = false;
@@ -80,7 +90,7 @@ const inventoryUi = createInventoryUi(backpackPanel, {
 function spawn() {
   let y = SPAWN.y;
   while (y > 0 && collides(SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18, hurt: 0 };
+  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, oxygen: tank ? 42 : 18, hurt: 0 };
 }
 
 function startNewWorld() {
@@ -106,6 +116,7 @@ function load() {
     if (Number.isInteger(state.weatherSeed) && state.weatherSeed >= 0 && state.weatherSeed < 0x80000000) {
       weatherSeed = state.weatherSeed;
     }
+    appearance = normalizeAppearance(state.appearance);
     tank = state.tank === true;
     inventory = new Inventory(state.inventory);
     for (const edit of state.edits ?? []) {
@@ -143,7 +154,7 @@ function save() {
   if (!dirty && worldTime === savedWorldTime) return;
   try {
     localStorage.setItem(saveKey, JSON.stringify({
-      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory,
+      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory, appearance,
       edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
       harvested: Array.from(world.harvested),
       worldTime, weatherSeed,
@@ -495,6 +506,7 @@ function step(dt, night) {
   }
   jumpRequested = false;
 
+  const previousX = player.x;
   if (moveAxis('x', player.dx * dt)) player.dx = 0;
   const falling = player.dy >= 0;
   const yCollision = moveAxis('y', player.dy * dt);
@@ -502,6 +514,9 @@ function step(dt, night) {
   if (yCollision) player.dy = 0;
   if (player.dy >= 0) player.canShortenJump = false;
   if (player.y < 0) player.y = 0;
+  if (player.grounded && !bodyInWater) {
+    player.walkPhase = (player.walkPhase + Math.abs(player.x - previousX) / WALK_CYCLE_DISTANCE) % 1;
+  }
 
   const hit = stepMobs(dt, night);
   if (hit) {
@@ -677,6 +692,7 @@ function openPanel(panel) {
   stopMining();
   if (panel === backpackPanel) byId('backpack-tank').hidden = !tank;
   if (panel === craftPanel) updateCraft();
+  if (panel === characterPanel) characterEditor.open(appearance);
   save();
   panel.showModal();
 }
@@ -747,7 +763,7 @@ function locatePointer(event) {
 
 window.addEventListener('keydown', (event) => {
   const code = event.code;
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.ctrlKey || event.metaKey || event.altKey || characterPanel.open) return;
   if (code === 'Tab' && !event.shiftKey && !craftPanel.open && !pausePanel.open) {
     event.preventDefault();
     if (!event.repeat) openPanel(backpackPanel);
@@ -759,6 +775,11 @@ window.addEventListener('keydown', (event) => {
     return;
   }
   const panelOpen = panels.some((panel) => panel.open);
+  if (code === 'KeyV' && !panelOpen && !event.repeat) {
+    event.preventDefault();
+    openPanel(characterPanel);
+    return;
+  }
   if (code === 'Escape' && !panelOpen && !event.repeat) {
     event.preventDefault();
     openPanel(pausePanel);
@@ -872,6 +893,7 @@ byId('touch-mode').addEventListener('click', (event) => {
 });
 byId('backpack').addEventListener('click', () => openPanel(backpackPanel));
 byId('craft').addEventListener('click', () => openPanel(craftPanel));
+byId('character').addEventListener('click', () => openPanel(characterPanel));
 byId('pause').addEventListener('click', () => openPanel(pausePanel));
 byId('resume').addEventListener('click', () => pausePanel.close());
 for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
@@ -933,7 +955,7 @@ function frame(now) {
   }
   updateHud(conditions);
   renderer.draw({
-    world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(),
+    world, player, appearance, tank, camera, time: reducedMotion ? 0 : time, aim: aim(),
     mining, particles, reducedMotion, conditions,
   });
   requestAnimationFrame(frame);
