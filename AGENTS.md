@@ -12,12 +12,15 @@ Aquaria is a 2D browser game in `metrix0/aquaria` with Vercel as its deployment 
 
 - Work from the current `main` by default. Before editing and before committing, verify the remote branch head and reread affected files if it moved. Incorporate concurrent work, resolve conflicts, and rerun affected checks. Never force-push.
 - Deliver one focused commit per task with a descriptive message. When the first playable release is ready, start at `0.1.0`. Use semantic versions and matching Git tags for releases. Keep the app version in one source of truth and keep documentation-only commits out of the release version.
-- Verify the commit, project, and environment before a Vercel deployment. Use the existing Git deployment workflow once configured and check the deployment for the exact commit when applicable.
+## Production deployment
+
+- The repository owner authorizes routine production deployments for Aquaria. After the relevant checks pass, land each completed change on `main` and let the existing Git integration deploy it to Vercel production. Proceed under that standing authorization in future tasks.
+- Verify the intended commit and Aquaria project, confirm Vercel marks the production deployment Ready, and check the affected behavior on https://aquaria.johnvitor.com before reporting completion. Resolve recoverable deployment failures and verify the result.
 
 ## Validation
 
 - Run the relevant existing checks and production build when the project provides them. For gameplay or UI changes, test the affected flow in a headless browser at applicable desktop and mobile sizes. Check supported inputs, resizing, and reload behavior where relevant.
-- Report the commit hash, changed files, and checks actually run. Include an affected page or preview URL when available and call out any validation that remains pending.
+- Report the commit hash, changed files, and checks actually run. Include the affected production URL when available and call out any validation that remains pending.
 
 ## Supabase
 
