@@ -1,7 +1,9 @@
-import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, SLOT_NAMES, SLOT_MATERIAL, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN, clamp, createWorld, editTile, tileAt, treeAt } from './world.js';
 import { createRenderer } from './render.js';
 import { worldConditions } from './environment.js';
 import { updateEnemySpawns } from './enemies.js';
+import { Inventory, ITEMS } from './inventory.js';
+import { createInventoryUi } from './inventory-ui.js';
 import { devTools, version } from './build-info.js';
 
 const byId = (id) => document.getElementById(id);
@@ -11,8 +13,6 @@ const backpackPanel = byId('backpack-panel');
 const craftPanel = byId('craft-panel');
 const pausePanel = byId('pause-panel');
 const panels = [backpackPanel, craftPanel, pausePanel];
-const backpackCounts = backpackPanel.querySelectorAll('[data-item-count]');
-const slots = Array.from(document.querySelectorAll('.slot'));
 const saveKey = 'aquaria.save';
 const saveFormat = 2;
 const legacyCols = 224;
@@ -71,6 +71,11 @@ let mining = null;
 
 const camera = { x: 0, y: 0, width: 0, height: 0 };
 const particles = [];
+const inventoryUi = createInventoryUi(backpackPanel, {
+  getInventory: () => inventory,
+  onMove: inventoryChanged,
+  onSelect: select,
+});
 
 function spawn() {
   let y = SPAWN.y;
@@ -84,7 +89,7 @@ function startNewWorld() {
   weatherSeed = Math.floor(Math.random() * 0x80000000);
   enemies = { spawnIn: 5, hitCooldown: 0 };
   tank = false;
-  inventory = { sand: 0, stone: 0, wood: 3, kelp: 0, copper: 0, iron: 0, cobalt: 0 };
+  inventory = new Inventory();
   player = spawn();
 }
 
@@ -102,9 +107,7 @@ function load() {
       weatherSeed = state.weatherSeed;
     }
     tank = state.tank === true;
-    for (const key of Object.keys(inventory)) {
-      if (Number.isSafeInteger(state.inventory?.[key]) && state.inventory[key] >= 0) inventory[key] = state.inventory[key];
-    }
+    inventory = new Inventory(state.inventory);
     for (const edit of state.edits ?? []) {
       if (!Array.isArray(edit)) continue;
       if (legacy) {
@@ -561,8 +564,8 @@ function placeBlock() {
   if (!target?.reachable) return;
   const { tx, ty } = target;
   if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
-  const block = SLOT_MATERIAL[selected];
-  if (!block || tileAt(world, tx, ty) || !inventory[drops[block]] || treeAt(world, tx, ty)) return;
+  const block = ITEMS[inventory.hotbar[selected]?.id]?.block;
+  if (!block || tileAt(world, tx, ty) || treeAt(world, tx, ty)) return;
   const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
   if (!touches || world.items.some((item) => !world.harvested.has(item.id) && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty)) return;
   editTile(world, tx, ty, block);
@@ -571,9 +574,8 @@ function placeBlock() {
     return;
   }
   syncMobs();
-  inventory[drops[block]]--;
-  dirty = true;
-  save();
+  inventory.consume(inventory.hotbar, selected, 1);
+  inventoryChanged();
 }
 
 function stopMining() {
@@ -602,13 +604,16 @@ function updateMining(dt) {
   mining.progress += dt / duration;
   if (mining.progress < 1) return;
 
+  const drop = tree ? 'wood' : drops[material];
+  if (!collect(drop, tree ? Math.round(tree.height / TILE) : 1)) {
+    stopMining();
+    return;
+  }
   mining = null;
   if (tree) {
     world.harvested.add(tree.id);
-    inventory.wood += Math.round(tree.height / TILE);
   } else {
     editTile(world, tx, ty, MATERIAL.air);
-    inventory[drops[material]]++;
   }
   for (let i = 0; i < 8; i++) {
     particles.push({
@@ -616,24 +621,28 @@ function updateMining(dt) {
       dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material,
     });
   }
-  dirty = true;
-  save();
+  inventoryChanged();
 }
 
 function interact() {
   const item = nearestItem();
   if (!item) return;
   if (item.kind === 'cache') {
-    inventory.wood += 8;
+    if (!collect('wood', 8)) return;
     notify('Wreck cache recovered. +8 wood');
   } else {
-    inventory[item.kind] += item.amount;
+    if (!collect(item.kind, item.amount)) return;
     notify('+' + item.amount + ' ' + item.kind);
   }
   world.harvested.add(item.id);
   focusedItem = nearestItem();
-  dirty = true;
-  save();
+  inventoryChanged();
+}
+
+function collect(id, count) {
+  if (inventory.add(id, count)) return true;
+  notify('No room for more ' + ITEMS[id].name.toLowerCase() + '.');
+  return false;
 }
 
 function notify(message) {
@@ -646,8 +655,13 @@ function notify(message) {
 
 function select(slot) {
   selected = slot;
-  byId('selected').textContent = SLOT_NAMES[slot];
-  for (const [index, element] of slots.entries()) element.setAttribute('aria-pressed', String(slot === index));
+  inventoryUi.render(selected);
+}
+
+function inventoryChanged() {
+  inventoryUi.render(selected);
+  dirty = true;
+  save();
 }
 
 function openPanel(panel) {
@@ -661,17 +675,14 @@ function openPanel(panel) {
   keys.clear();
   jumpRequested = false;
   stopMining();
-  if (panel === backpackPanel) {
-    for (const count of backpackCounts) count.textContent = inventory[count.dataset.itemCount];
-    byId('backpack-tank').hidden = !tank;
-  }
+  if (panel === backpackPanel) byId('backpack-tank').hidden = !tank;
   if (panel === craftPanel) updateCraft();
   save();
   panel.showModal();
 }
 
 function canCraftTank() {
-  return !tank && inventory.stone >= tankCost.stone && inventory.kelp >= tankCost.kelp;
+  return !tank && inventory.count('stone') >= tankCost.stone && inventory.count('kelp') >= tankCost.kelp;
 }
 
 function updateCraft() {
@@ -699,7 +710,6 @@ function updateHud(conditions) {
     fill.classList.toggle('low', air <= 25);
     fill.parentElement.setAttribute('aria-valuenow', String(air));
   }
-  for (const name of ['sand', 'stone', 'wood']) setText(name + '-count', String(inventory[name]));
   const prompt = byId('interact');
   prompt.hidden = !focusedItem;
   if (focusedItem) {
@@ -841,12 +851,6 @@ window.addEventListener('pointercancel', releaseMiningPointer);
 canvas.addEventListener('lostpointercapture', releaseMiningPointer);
 window.addEventListener('mouseup', (event) => { if (event.button === 0) stopMining(); });
 
-for (const [index, slot] of slots.entries()) {
-  slot.addEventListener('click', (event) => {
-    select(index);
-    if (event.detail) slot.blur();
-  });
-}
 for (const button of document.querySelectorAll('[data-hold]')) {
   const key = button.dataset.hold;
   button.addEventListener('pointerdown', (event) => {
@@ -892,18 +896,18 @@ if (devTools) {
 }
 byId('make-tank').addEventListener('click', () => {
   if (!canCraftTank()) return;
-  inventory.stone -= tankCost.stone;
-  inventory.kelp -= tankCost.kelp;
+  inventory.spend('stone', tankCost.stone);
+  inventory.spend('kelp', tankCost.kelp);
   tank = true;
   player.oxygen = Math.min(42, player.oxygen + 24);
-  dirty = true;
-  save();
+  inventoryChanged();
   craftPanel.close();
   notify('Air tank equipped.');
 });
 
 byId('version').textContent = 'v' + version;
 load();
+select(0);
 resize();
 setInterval(save, 4000);
 

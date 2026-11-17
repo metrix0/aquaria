@@ -5,13 +5,11 @@ export const ROWS = 176;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
-export const SLOT_NAMES = ['Salvage tool', 'Sand', 'Stone', 'Wood'];
 // Tile ID 4 was used for scrap. Keep it reserved for older saves.
 export const MATERIAL = Object.freeze({
   air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7,
   copper: 8, iron: 9, cobalt: 10,
 });
-export const SLOT_MATERIAL = [MATERIAL.air, MATERIAL.sand, MATERIAL.stone, MATERIAL.wood];
 
 export function noise(x, y = 0, seed = 0) {
   let value = Math.imul(x + 171, 1597334677) ^ Math.imul(y + 313, 3812015801) ^ Math.imul(seed, 122949829);

@@ -6,7 +6,10 @@ const dist = new URL('dist/', root);
 const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
 const devTools = process.argv.includes('--dev') || process.env.VERCEL_ENV === 'preview';
 
-const modules = ['src/game.js', 'src/world.js', 'src/render.js', 'src/environment.js', 'src/enemies.js'];
+const modules = [
+  'src/game.js', 'src/world.js', 'src/render.js', 'src/environment.js', 'src/enemies.js',
+  'src/inventory.js', 'src/inventory-ui.js',
+];
 for (const file of modules) {
   const result = spawnSync(process.execPath, ['--check', file], {
     cwd: root,

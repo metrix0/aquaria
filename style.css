@@ -74,10 +74,21 @@ dialog::backdrop { background: #04101bb0; }
 .dialog-head button, .dialog-actions button { border: 1px solid var(--line); border-radius: 4px; background: #203843; padding: 7px 11px; }
 .dialog-head button { font-size: 18px; line-height: 1; }
 dialog p { font-size: 13px; color: var(--muted); }
-.backpack-items { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
-.backpack-items li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 42px; padding: 3px 10px 3px 5px; border: 1px solid var(--line); border-radius: 4px; background: #172b35; }
-.backpack-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 3px; background: #0b1d27; }
-.backpack-items strong { color: var(--mint); font: 700 12px var(--mono); }
+#backpack-panel { width: min(460px, calc(100% - 24px)); padding: clamp(12px, 4vw, 20px); }
+.backpack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 18px; }
+.backpack-layout h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.backpack-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+#backpack-slots { margin-top: 12px; }
+#backpack-panel .slot { width: 100%; height: auto; aspect-ratio: 1; padding: 0; background: #0b1d27; border-color: #43616a; }
+#backpack-panel button.slot { touch-action: none; user-select: none; }
+#backpack-panel button.slot[data-filled] { background: #172e39; cursor: grab; }
+#backpack-panel button.slot[aria-pressed="true"] { border-color: var(--gold); }
+#backpack-panel button.slot[data-picked], #backpack-panel button.slot[data-drop-target] { border-color: var(--mint); box-shadow: inset 0 0 0 1px var(--mint); }
+#backpack-panel button.slot[data-picked] .item { opacity: .6; }
+.gear-slots { display: grid; gap: 5px; list-style: none; margin: 0; padding: 0; }
+.gear-slots li { display: grid; grid-template-columns: 35px 1fr; gap: 7px; align-items: center; color: var(--muted); font-size: 12px; }
+#backpack-help { margin: 12px 0 0; }
+#backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
 .recipe { display: flex; align-items: center; gap: 16px; margin-bottom: 15px; padding: 13px; border: 1px solid var(--line); }
 .recipe p { margin: 5px 0 0; }
 button.primary { background: #d7b47d; border: 1px solid #efc795; border-radius: 4px; color: #171a1c; font-weight: 700; padding: 8px 12px; }
@@ -103,9 +114,18 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .inventory { padding-bottom: 8px; }
   .interact { bottom: 184px; }
 }
+@media (max-width: 420px) {
+  .backpack-layout { grid-template-columns: 1fr; gap: 12px; }
+  .gear-slots { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+  .gear-slots li { grid-template-columns: 25px auto; gap: 5px; }
+  .gear-slots .item-tank { height: 19px; }
+}
 @media (max-height: 480px) {
   .meters { top: max(8px, env(safe-area-inset-top)); }
   .inventory { padding-bottom: 5px; }
   .slot { width: 39px; height: 32px; }
+  #backpack-panel .dialog-head { margin-bottom: 9px; }
+  .backpack-slots { grid-template-columns: repeat(6, minmax(0, 35px)); }
+  #backpack-slots { margin-top: 7px; }
   footer { min-height: 36px; padding-top: 3px; padding-bottom: 3px; }
 }
