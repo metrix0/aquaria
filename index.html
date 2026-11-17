@@ -56,11 +56,25 @@
       <footer>
         <div class="controls"><span><kbd>A</kbd> <kbd>D</kbd> Move</span><span><kbd>Space</kbd> Jump / swim</span><span><kbd>S</kbd> Dive</span><span><kbd>Click</kbd> Mine</span><span><kbd>Right click</kbd> Build</span></div>
         <div class="footer-actions">
+          <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
           <button id="craft" class="craft"><kbd>C</kbd> Crafting</button>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
         </div>
       </footer>
     </div>
+
+    <dialog id="backpack-panel" aria-labelledby="backpack-title">
+      <div class="dialog-head"><h2 id="backpack-title">Backpack</h2><button data-close aria-label="Close backpack">×</button></div>
+      <ul class="backpack-items">
+        <li><span class="backpack-icon"><span class="item item-tool" aria-hidden="true"></span></span><span>Salvage tool</span><strong>1</strong></li>
+        <li><span class="backpack-icon"><span class="item item-sand" aria-hidden="true"></span></span><span>Sand</span><strong data-item-count="sand">0</strong></li>
+        <li><span class="backpack-icon"><span class="item item-stone" aria-hidden="true"></span></span><span>Stone</span><strong data-item-count="stone">0</strong></li>
+        <li><span class="backpack-icon"><span class="item item-wood" aria-hidden="true"></span></span><span>Driftwood</span><strong data-item-count="wood">0</strong></li>
+        <li><span class="backpack-icon"><span class="item item-scrap" aria-hidden="true"></span></span><span>Scrap</span><strong data-item-count="scrap">0</strong></li>
+        <li><span class="backpack-icon"><span class="item item-kelp" aria-hidden="true"></span></span><span>Kelp</span><strong data-item-count="kelp">0</strong></li>
+        <li id="backpack-tank" hidden><span class="backpack-icon"><span class="item item-tank" aria-hidden="true"></span></span><span>Air tank</span><strong>Equipped</strong></li>
+      </ul>
+    </dialog>
 
     <dialog id="craft-panel" aria-labelledby="craft-title">
       <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
