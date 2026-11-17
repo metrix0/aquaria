@@ -22,6 +22,14 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touch = matchMedia('(pointer: coarse)').matches;
 const moveKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
 const drops = { [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand', [MATERIAL.reef]: 'stone', [MATERIAL.scrap]: 'scrap', [MATERIAL.wood]: 'wood' };
+const breakSeconds = {
+  [MATERIAL.sand]: 0.35,
+  [MATERIAL.soil]: 0.4,
+  [MATERIAL.wood]: 0.5,
+  [MATERIAL.reef]: 0.6,
+  [MATERIAL.stone]: 0.7,
+  [MATERIAL.scrap]: 0.7,
+};
 const prompts = { scrap: 'Collect salvage', kelp: 'Harvest kelp', cache: 'Open wreck cache' };
 
 let world;
@@ -36,6 +44,8 @@ let toastTimer;
 let focusedItem;
 let time = 0;
 let jumpRequested = false;
+let miningPointerId = null;
+let mining = null;
 
 const camera = { x: 0, y: 0, width: 0, height: 0 };
 const particles = [];
@@ -190,6 +200,7 @@ function step(dt) {
     player.oxygen = Math.max(0, player.oxygen - dt);
     if (player.oxygen === 0) {
       player = spawn();
+      stopMining();
       notify('You washed back up on the island.');
       dirty = true;
       save();
@@ -221,34 +232,55 @@ function aim() {
   return { tx, ty, reachable };
 }
 
-function tileAction(build) {
+function placeBlock() {
   const target = aim();
   if (!target?.reachable) return;
   const { tx, ty } = target;
   if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
-  const material = tileAt(world, tx, ty);
-  if (build) {
-    const block = SLOT_MATERIAL[selected];
-    if (!block || material || !inventory[drops[block]]) return;
-    const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
-    if (!touches || world.items.some((item) => !world.harvested.has(item.id) && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty)) return;
-    editTile(world, tx, ty, block);
-    if (collides(player.x, player.y)) {
-      editTile(world, tx, ty, MATERIAL.air);
-      return;
-    }
-    inventory[drops[block]]--;
-  } else {
-    const drop = drops[material];
-    if (!drop) return;
+  const block = SLOT_MATERIAL[selected];
+  if (!block || tileAt(world, tx, ty) || !inventory[drops[block]]) return;
+  const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
+  if (!touches || world.items.some((item) => !world.harvested.has(item.id) && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty)) return;
+  editTile(world, tx, ty, block);
+  if (collides(player.x, player.y)) {
     editTile(world, tx, ty, MATERIAL.air);
-    inventory[drop]++;
-    for (let i = 0; i < 8; i++) {
-      particles.push({
-        x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
-        dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material,
-      });
-    }
+    return;
+  }
+  inventory[drops[block]]--;
+  dirty = true;
+  save();
+}
+
+function stopMining() {
+  miningPointerId = null;
+  mining = null;
+}
+
+function updateMining(dt) {
+  if (miningPointerId === null) return;
+  const target = aim();
+  const material = target?.reachable ? tileAt(world, target.tx, target.ty) : MATERIAL.air;
+  const duration = breakSeconds[material];
+  if (!duration) {
+    mining = null;
+    return;
+  }
+
+  const { tx, ty } = target;
+  if (mining?.tx !== tx || mining.ty !== ty || mining.material !== material) {
+    mining = { tx, ty, material, progress: 0 };
+  }
+  mining.progress += dt / duration;
+  if (mining.progress < 1) return;
+
+  mining = null;
+  editTile(world, tx, ty, MATERIAL.air);
+  inventory[drops[material]]++;
+  for (let i = 0; i < 8; i++) {
+    particles.push({
+      x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
+      dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material,
+    });
   }
   dirty = true;
   save();
@@ -299,6 +331,7 @@ function openPanel(panel) {
   }
   keys.clear();
   jumpRequested = false;
+  stopMining();
   if (panel === backpackPanel) {
     for (const count of backpackCounts) count.textContent = inventory[count.dataset.itemCount];
     byId('backpack-tank').hidden = !tank;
@@ -365,6 +398,7 @@ function resize() {
   canvas.width = camera.width;
   canvas.height = camera.height;
   pointer.active = false;
+  stopMining();
   updateCamera(1);
 }
 
@@ -372,7 +406,7 @@ function locatePointer(event) {
   const rect = canvas.getBoundingClientRect();
   pointer.x = (event.clientX - rect.left) / rect.width * camera.width;
   pointer.y = (event.clientY - rect.top) / rect.height * camera.height;
-  pointer.active = true;
+  pointer.active = pointer.x >= 0 && pointer.x < camera.width && pointer.y >= 0 && pointer.y < camera.height;
 }
 
 window.addEventListener('keydown', (event) => {
@@ -409,23 +443,51 @@ window.addEventListener('keyup', ({ code }) => keys.delete(code));
 window.addEventListener('blur', () => {
   keys.clear();
   jumpRequested = false;
+  stopMining();
   save();
 });
 window.addEventListener('pagehide', save);
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  stopMining();
+  save();
+});
 window.addEventListener('resize', resize);
 
-canvas.addEventListener('pointermove', locatePointer);
-canvas.addEventListener('pointerleave', () => { pointer.active = false; });
+canvas.addEventListener('pointermove', (event) => {
+  if (miningPointerId === null || event.pointerId === miningPointerId) locatePointer(event);
+});
+canvas.addEventListener('pointerleave', (event) => {
+  if (miningPointerId !== null && event.pointerId !== miningPointerId) return;
+  pointer.active = false;
+  stopMining();
+});
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 && event.button !== 2) return;
+  if (miningPointerId !== null && miningPointerId !== event.pointerId) return;
   event.preventDefault();
   if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
   locatePointer(event);
-  tileAction(event.button === 2 || (event.pointerType === 'touch' && placing));
-  if (event.pointerType === 'touch') pointer.active = false;
+  if (event.button === 2 || (event.pointerType === 'touch' && placing)) {
+    stopMining();
+    placeBlock();
+    if (event.pointerType === 'touch') pointer.active = false;
+    return;
+  }
+  miningPointerId = event.pointerId;
+  mining = null;
 });
+function releaseMiningPointer(event) {
+  if (event.pointerId !== miningPointerId) return;
+  if (event.type === 'pointerup' && event.button !== 0) return;
+  if (event.pointerType === 'touch') pointer.active = false;
+  stopMining();
+}
+window.addEventListener('pointerup', releaseMiningPointer);
+window.addEventListener('pointercancel', releaseMiningPointer);
+canvas.addEventListener('lostpointercapture', releaseMiningPointer);
+window.addEventListener('mouseup', (event) => { if (event.button === 0) stopMining(); });
 
 for (const [index, slot] of slots.entries()) {
   slot.addEventListener('click', (event) => {
@@ -447,6 +509,7 @@ for (const button of document.querySelectorAll('[data-hold]')) {
 }
 byId('grab').addEventListener('click', interact);
 byId('touch-mode').addEventListener('click', (event) => {
+  stopMining();
   placing = !placing;
   event.currentTarget.textContent = placing ? 'Build' : 'Mine';
   event.currentTarget.setAttribute('aria-pressed', String(placing));
@@ -499,9 +562,10 @@ function frame(now) {
       accumulator -= timestep;
     }
     updateCamera(dt);
+    updateMining(dt);
   }
   updateHud();
-  renderer.draw({ world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(), particles });
+  renderer.draw({ world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(), mining, particles });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
