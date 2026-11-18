@@ -15,11 +15,11 @@ export function oxygenCapacity(game) {
   return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0);
 }
 
-function equipSnorkel(game, snorkel) {
+function equipSnorkel(game, snorkel, { allowDowngrade = false } = {}) {
   const bonus = equippedSnorkel(game)?.bonusSeconds ?? 0;
-  if (bonus >= snorkel.bonusSeconds) return false;
+  if (!allowDowngrade && bonus >= snorkel.bonusSeconds) return false;
   game.progress.snorkel = snorkel.id;
-  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + snorkel.bonusSeconds - bonus);
+  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + Math.max(0, snorkel.bonusSeconds - bonus));
   return true;
 }
 
@@ -358,7 +358,7 @@ function craftResult(inventory, { id, cost, amount = 1, station }, activeStation
   if (!materials.every(([item, count]) => inventory.count(item) >= count)) return null;
   const after = new Inventory(inventory);
   for (const [item, count] of materials) after.spend(item, count);
-  return after.add(id, amount) ? after : null;
+  return after.add(id, amount, { preferHotbar: true }) ? after : null;
 }
 
 export function equipmentCraftStatus(game, recipe) {
@@ -399,6 +399,22 @@ export function craftItem(game, recipe, station) {
   const inventory = craftResult(game.inventory, recipe, station);
   if (!inventory) return false;
   game.inventory = inventory;
+  game.dirty = true;
+  return true;
+}
+
+export function grantItem(game, id, count) {
+  if (!Number.isSafeInteger(count) || count < 1) return false;
+  if (Object.hasOwn(ARMOR, id)) {
+    game.player.armor = id;
+  } else if (Object.hasOwn(SNORKELS, id)) {
+    equipSnorkel(game, SNORKELS[id], { allowDowngrade: true });
+    if (id === SNORKEL.id) {
+      const slots = game.chests.get(SNORKEL.chestId);
+      const slot = slots.findIndex((stack) => stack?.id === id);
+      if (slot !== -1) equipChestLoot(game, SNORKEL.chestId, slot);
+    }
+  } else if (!game.inventory.add(id, count, { preferHotbar: true })) return false;
   game.dirty = true;
   return true;
 }

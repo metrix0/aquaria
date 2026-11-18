@@ -53,6 +53,7 @@
           <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
           <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
+          <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
           <button id="deploy" class="deploy" type="button">Deploy</button>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
         </div>
@@ -122,6 +123,18 @@
           <p id="craft-status" role="status"></p>
         </section>
       </div>
+    </dialog>
+
+    <dialog id="items-panel" aria-labelledby="items-title">
+      <div class="dialog-head"><h2 id="items-title">Items</h2><button type="button" data-close aria-label="Close items" autofocus>×</button></div>
+      <div class="items-filters">
+        <label for="item-search">Search items<input id="item-search" type="search" placeholder="Search by name" autocomplete="off"></label>
+        <label for="item-quantity">Quantity<input id="item-quantity" type="number" min="1" step="1" value="1" required></label>
+      </div>
+      <p class="items-help">Select an item to add it. Equipment goes straight into its slot.</p>
+      <div class="items-grid" id="items-grid"></div>
+      <p id="items-empty" hidden>No matching items.</p>
+      <p id="items-status" role="status"></p>
     </dialog>
 
     <dialog id="pause-panel" aria-labelledby="pause-title">

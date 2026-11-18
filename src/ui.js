@@ -4,6 +4,7 @@ import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi, setItemIcon } from './inventory-ui.js';
+import { createItemsMenu } from './items-menu.js';
 import { MAX_HEALTH } from './gameplay/player.js';
 import { areaDepth, equippedSnorkel, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
@@ -16,6 +17,7 @@ export function createUI(actions, version) {
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
   const craftingUI = createCraftingUi(byId('craft-panel'), actions);
+  createItemsMenu(byId('items-panel'), actions.giveItem);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
     getInventory: actions.getInventory,
@@ -57,6 +59,7 @@ export function createUI(actions, version) {
   byId('backpack').addEventListener('click', () => open('backpack-panel'));
   byId('customize').addEventListener('click', () => open('customize-panel'));
   byId('craft').addEventListener('click', () => open('craft-panel'));
+  byId('items').addEventListener('click', () => open('items-panel'));
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());

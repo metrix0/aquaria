@@ -10,7 +10,7 @@ import { stepWreckGhost } from '../src/gameplay/wreck-ghosts.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equipChestLoot, grantItem, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
@@ -426,6 +426,7 @@ test('mining uses the strongest carried pickaxe without changing the selected sl
   assert.equal(craftItem(game, COPPER_PICKAXE, WORKBENCH.id), true);
   assert.equal(game.inventory.count('copper'), 0);
   assert.equal(game.inventory.count('wood'), 1);
+  assert.equal(game.inventory.move({ group: 'hotbar', index: 1 }, { group: 'backpack', index: 0 }), true);
   assert.equal(game.inventory.backpack[0].id, COPPER_PICKAXE.id);
 
   editTile(game.world, tx, ty, MATERIAL.deepstone);
@@ -804,11 +805,8 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(craftItem(game, ARROW), true);
   assert.equal(game.inventory.count(ARROW.id), 4);
 
-  const spearSlot = game.inventory.backpack.findIndex((stack) => stack?.id === SPEAR.id);
   const bowSlot = game.inventory.backpack.findIndex((stack) => stack?.id === BOW.id);
-  assert.ok(spearSlot >= 0);
   assert.ok(bowSlot >= 0);
-  assert.ok(game.inventory.move({ group: 'backpack', index: spearSlot }, { group: 'hotbar', index: 1 }));
   assert.ok(game.inventory.move({ group: 'backpack', index: bowSlot }, { group: 'hotbar', index: 2 }));
   assert.equal(game.inventory.hotbar[1].id, SPEAR.id);
   assert.equal(game.inventory.hotbar[2].id, BOW.id);
@@ -977,8 +975,7 @@ test('a crafted workbench can be placed, used, saved, and mined back into invent
   assert.equal(craftItem(game, WORKBENCH), true);
   assert.equal(game.inventory.count('wood'), before - materials);
 
-  const slot = game.inventory.backpack.findIndex((stack) => stack?.id === WORKBENCH.id);
-  assert.equal(game.inventory.move({ group: 'backpack', index: slot }, { group: 'hotbar', index: 1 }), true);
+  assert.equal(game.inventory.hotbar[1]?.id, WORKBENCH.id);
   const tx = Math.floor(game.player.x / TILE) + 1;
   const ty = groundAt(tx) - 1;
   const target = targetTile(game, (tx + .5) * TILE, (ty + .5) * TILE);
@@ -1001,6 +998,44 @@ test('a crafted workbench can be placed, used, saved, and mined back into invent
   assert.equal(restored.inventory.count(WORKBENCH.id), 1);
   assert.equal(workbenchAt(restored, tx, ty), undefined);
   assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
+});
+
+test('crafting prefers an empty hotbar slot and falls back to backpack stacks', () => {
+  const game = createGame();
+  game.inventory.add('wood', 12);
+  game.inventory.add(WOODEN_DOOR.id, 2);
+
+  assert.equal(craftItem(game, WOODEN_DOOR), true);
+  assert.deepEqual(game.inventory.hotbar[1], { id: WOODEN_DOOR.id, count: 1 });
+  assert.deepEqual(game.inventory.backpack[0], { id: WOODEN_DOOR.id, count: 2 });
+  assert.equal(craftItem(game, WOODEN_DOOR), true);
+  assert.equal(game.inventory.hotbar[1].count, 2);
+
+  assert.equal(game.inventory.move({ group: 'hotbar', index: 1 }, { group: 'backpack', index: 0 }), true);
+  game.inventory.add('sand', 1);
+  game.inventory.add('stone', 1);
+  assert.equal(craftItem(game, WOODEN_DOOR), true);
+  assert.equal(game.inventory.backpack[0].count, 5);
+  assert.ok(game.inventory.hotbar.every((stack) => stack && stack.id !== WOODEN_DOOR.id));
+});
+
+test('items menu grants persist for both inventory stacks and equipped gear', () => {
+  const game = createGame();
+  assert.equal(grantItem(game, 'copper', 0), false);
+  assert.equal(grantItem(game, 'unknown', 1), false);
+  assert.equal(grantItem(game, 'copper', 12), true);
+  assert.deepEqual(game.inventory.hotbar[1], { id: 'copper', count: 12 });
+  assert.equal(grantItem(game, REINFORCED_SNORKEL.id, 1), true);
+  assert.equal(grantItem(game, 'cobalt-breastplate', 1), true);
+  assert.equal(game.chests.get(SNORKEL.chestId)[0]?.id, SNORKEL.id);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.inventory.count('copper'), 12);
+  assert.equal(restored.player.armor, 'cobalt-breastplate');
+  assert.equal(oxygenCapacity(restored), 46);
+  assert.equal(restored.player.oxygen, 46);
+  assert.equal(grantItem(restored, SNORKEL.id, 1), true);
+  assert.equal(restored.chests.get(SNORKEL.chestId)[0], null);
+  assert.equal(restored.player.oxygen, 32);
 });
 
 test('spear and pickaxe recipes require a workbench without consuming materials in default crafting', () => {

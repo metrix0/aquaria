@@ -4,7 +4,7 @@ import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equipChestLoot, equippedSnorkel, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equipChestLoot, equippedSnorkel, grantItem, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -217,6 +217,7 @@ function leaveRoom() {
 function switchView() {
   ui.close('backpack-panel');
   ui.close('craft-panel');
+  ui.close('items-panel');
   craftingBench = undefined;
   input.clear();
   input.pointer.active = false;
@@ -297,6 +298,11 @@ const ui = createUI({
     game.dirty = true;
     storeProgress();
     if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
+  },
+  giveItem(id, amount) {
+    if (editPending) return 'Wait for the terrain edit to finish.';
+    if (!grantItem(game, id, amount)) return 'No room in your inventory.';
+    inventoryChanged();
   },
   makeItem(recipe) {
     if (editPending || !craftItem(game, recipe, craftingStation())) return false;

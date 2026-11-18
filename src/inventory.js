@@ -1,4 +1,4 @@
-import { ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL, SPEAR, WORKBENCH } from './content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL, SNORKELS, SPEAR, WORKBENCH } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -27,6 +27,8 @@ export const ITEMS = {
   cobalt: { name: 'Cobalt ore' },
 };
 
+export const EQUIPMENT_ITEMS = { ...SNORKELS, ...ARMOR };
+
 const legacyIds = { tool: BROKEN_PICKAXE.id, 'swimming-helmet': SNORKEL.id };
 
 export function restoreSlots(slots, size) {
@@ -53,22 +55,23 @@ export class Inventory {
     }
   }
 
-  add(id, count) {
+  add(id, count, { preferHotbar = false } = {}) {
     if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(count) || count < 1) return false;
-    const existing = [...this.hotbar, ...this.backpack].find((stack) => stack?.id === id);
+    const preferred = ITEMS[id].hotbar;
+    const preferredFree = preferred !== undefined && this.hotbar[preferred] === null;
+    const hotbarSlot = preferredFree ? preferred : this.hotbar.indexOf(null);
+    const existing = this.hotbar.find((stack) => stack?.id === id) ??
+      ((!preferHotbar || hotbarSlot === -1) ? this.backpack.find((stack) => stack?.id === id) : undefined);
     if (existing) {
       if (!Number.isSafeInteger(existing.count + count)) return false;
       existing.count += count;
       return true;
     }
 
-    const preferred = ITEMS[id].hotbar;
-    const empty = this.backpack.indexOf(null);
-    const spare = this.hotbar.indexOf(null);
+    const backpackSlot = this.backpack.indexOf(null);
     const stack = { id, count };
-    if (preferred !== undefined && this.hotbar[preferred] === null) this.hotbar[preferred] = stack;
-    else if (empty !== -1) this.backpack[empty] = stack;
-    else if (spare !== -1) this.hotbar[spare] = stack;
+    if (hotbarSlot !== -1 && (preferHotbar || preferredFree || backpackSlot === -1)) this.hotbar[hotbarSlot] = stack;
+    else if (backpackSlot !== -1) this.backpack[backpackSlot] = stack;
     else return false;
     return true;
   }
