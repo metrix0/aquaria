@@ -8,21 +8,21 @@ export const ROWS = 176;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
-export const ISLAND_CAVE = { marker: 56, camp: 40, campFloor: 36 };
+export const ISLAND_CAVE = { center: 56, camp: 40, campFloor: 42 };
 
 const islandCaveProfile = [
   // Column from the original west edge, ceiling, floor.
-  [38, 30, 36],
-  [40, 26, ISLAND_CAVE.campFloor],
-  [44, 24, 32],
-  [49, 21, 27],
-  [54, 17, 22],
-  [ISLAND_CAVE.marker, 16, 22],
-  [59, 18, 24],
-  [64, 22, 29],
-  [69, 24, 34],
-  [72, 25, 36],
-  [74, 30, 36],
+  [38, 36, 42],
+  [ISLAND_CAVE.camp, 32, ISLAND_CAVE.campFloor],
+  [44, 30, 38],
+  [49, 27, 33],
+  [54, 23, 28],
+  [ISLAND_CAVE.center, 22, 28],
+  [59, 24, 30],
+  [64, 28, 35],
+  [69, 30, 40],
+  [72, 31, 42],
+  [74, 36, 42],
 ];
 const islandCaveColumns = new Map();
 for (let i = 1; i < islandCaveProfile.length; i++) {

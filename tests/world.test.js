@@ -82,15 +82,15 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
 
 test('the island cave expands below the surface with solid rock separating it from the ocean', () => {
   const world = createWorld();
-  const marker = WEST_EXTENSION + ISLAND_CAVE.marker;
-  const surface = groundAt(marker);
+  const center = WEST_EXTENSION + ISLAND_CAVE.center;
+  const surface = groundAt(center);
   let ceiling = surface;
-  while (tileAt(world, marker, ceiling)) ceiling++;
-  assert.equal(ceiling - surface, 5);
+  while (tileAt(world, center, ceiling)) ceiling++;
+  assert.equal(ceiling - surface, 11);
 
-  const cells = [[marker, ceiling]];
-  const visited = new Set([ceiling * COLS + marker]);
-  let left = marker, right = marker, deepest = ceiling;
+  const cells = [[center, ceiling]];
+  const visited = new Set([ceiling * COLS + center]);
+  let left = center, right = center, deepest = ceiling;
   for (const [x, y] of cells) {
     left = Math.min(left, x);
     right = Math.max(right, x);
@@ -108,17 +108,17 @@ test('the island cave expands below the surface with solid rock separating it fr
       }
     }
   }
-  assert.ok(left <= marker - 16 && right >= marker + 16);
-  assert.ok(deepest >= 34);
+  assert.ok(left <= center - 16 && right >= center + 16);
+  assert.ok(deepest >= 40);
 });
 
 test('after digging in, both island cave branches are walkable and the survey cache stays collected', () => {
   const game = createGame();
   const { world, player } = game;
-  const marker = WEST_EXTENSION + ISLAND_CAVE.marker;
-  const surface = groundAt(marker);
-  for (let y = surface; tileAt(world, marker, y); y++) editTile(world, marker, y, MATERIAL.air);
-  player.x = (marker + 0.5) * TILE;
+  const center = WEST_EXTENSION + ISLAND_CAVE.center;
+  const surface = groundAt(center);
+  for (let y = surface; tileAt(world, center, y); y++) editTile(world, center, y, MATERIAL.air);
+  player.x = (center + 0.5) * TILE;
   player.y = surface * TILE - player.height;
 
   function walkUntil(reached, { left = false, right = false, up = false } = {}) {
@@ -138,10 +138,10 @@ test('after digging in, both island cave branches are walkable and the survey ca
   assert.equal(collectItem(restored), undefined);
   assert.equal(restored.inventory.count('copper'), 2);
 
-  walkUntil(() => player.x >= marker * TILE, { right: true, up: true });
-  walkUntil(() => player.x >= (marker + 17.5) * TILE && player.grounded, { right: true });
-  assert.ok(player.y >= 33 * TILE);
-  walkUntil(() => player.x <= (marker + 0.5) * TILE, { left: true, up: true });
+  walkUntil(() => player.x >= center * TILE, { right: true, up: true });
+  walkUntil(() => player.x >= (center + 17.5) * TILE && player.grounded, { right: true });
+  assert.ok(player.y >= 39 * TILE);
+  walkUntil(() => player.x <= (center + 0.5) * TILE, { left: true, up: true });
 });
 
 test('underwater caches are above a flooded floor with an air vent nearby', () => {

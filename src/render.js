@@ -550,26 +550,20 @@ export function createRenderer(canvas) {
           vent.y >= camera.y && vent.y <= camera.y + camera.height + 60) airVent(vent, time);
     }
 
-    const marker = WEST_EXTENSION + ISLAND_CAVE.marker;
     const camp = WEST_EXTENSION + ISLAND_CAVE.camp;
-    for (const [tx, ty] of [[marker, groundAt(marker)], [camp, ISLAND_CAVE.campFloor]]) {
-      if (tx < left || tx >= right || ty < top || ty > bottom || !tileAt(world, tx, ty) || tileAt(world, tx, ty - 1)) continue;
-      const x = (tx + .5) * TILE;
-      const y = ty * TILE;
+    const floor = ISLAND_CAVE.campFloor;
+    if (camp >= left && camp < right && floor >= top && floor <= bottom &&
+        tileAt(world, camp, floor) && !tileAt(world, camp, floor - 1)) {
+      const x = (camp + .5) * TILE;
+      const y = floor * TILE;
       rect(x - 1, y - 17, 3, 17, '#664b43');
       rect(x - 6, y - 17, 9, 2, '#956749');
       rect(x - 12, y - 20, 14, 14, '#efb16430');
       rect(x - 8, y - 16, 6, 8, '#5f4d49');
       rect(x - 7, y - 15, 4, 5, '#f5be76');
       rect(x - 6, y - 15, 2, 3, '#ffe3a3');
-      if (tx === marker) {
-        rect(x - 1, y - 12, 11, 6, '#a8754c');
-        rect(x + 5, y - 11, 1, 4, '#efd194');
-        rect(x + 4, y - 9, 3, 1, '#efd194');
-      } else {
-        rect(x + 4, y - 4, 11, 4, '#71513e');
-        rect(x + 5, y - 4, 9, 1, '#b58259');
-      }
+      rect(x + 4, y - 4, 11, 4, '#71513e');
+      rect(x + 5, y - 4, 9, 1, '#b58259');
     }
 
     for (const item of world.items) {
