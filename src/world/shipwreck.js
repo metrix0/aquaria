@@ -56,7 +56,7 @@ export const shipwreckCaches = [
 
 export const shipwreckSkeletons = [['skeleton', left + 12, 53], ['skeleton', left + 20, 57]];
 export const shipwreckGhosts = [
-  { id: 'captains-ghost', column: left + 12, row: 50, phase: 0 },
+  { id: 'captains-ghost', column: left + 12, row: 50, phase: 0, resident: true },
   { id: 'sailors-ghost', column: left + 20, row: 55, phase: Math.PI },
 ];
 

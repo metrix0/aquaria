@@ -898,7 +898,7 @@ export function createRenderer(canvas) {
 
       if (mob.kind === 'ghost') {
         ctx.scale(mob.facing, 1);
-        ctx.globalAlpha *= Math.min(.82, mob.remainingLife * .45);
+        ctx.globalAlpha *= mob.resident ? .82 : Math.min(.82, mob.remainingLife * .45);
         const drift = Math.round(Math.sin(time * 4 + mob.phase) * 3);
         const tail = [[-7, -3], [-4, 6], [-10, 12 + drift], [-3, 11], [1, 5], [6, 1], [6, -5]];
         polygon([[-9, -8], [-4, -14], [5, -14], [10, -7], [8, 4], [-2, 15], [-12, 15]], '#67b8c035');

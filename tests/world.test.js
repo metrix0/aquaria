@@ -5,7 +5,7 @@ import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, REINFORCED_SNORKEL, SNORKEL, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
-import { damageMob } from '../src/gameplay/mobs.js';
+import { damageMob, stepMobs } from '../src/gameplay/mobs.js';
 import { stepWreckGhost } from '../src/gameplay/wreck-ghosts.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
@@ -935,39 +935,48 @@ test('western wreck bonus loot arrives once and preserves a full chest from an o
   assert.equal(restored.inventory.count(BOW.id), 1);
 });
 
-test('western wreck ghosts roll independently inside the hull, steal air and wait after defeat', (t) => {
+test('the captain haunts the wreck by default while the sailor still spawns rarely', (t) => {
   const game = createGame();
   const { world, player, effects } = game;
   const ghosts = world.mobs.filter((mob) => mob.kind === 'ghost');
   assert.equal(ghosts.length, 2);
+  const [captain, sailor] = ghosts;
+  assert.equal(captain.health, captain.maxHealth);
+  assert.ok(inWater(world, captain.x, captain.y));
+  assert.equal(sailor.health, 0);
+
   const random = t.mock.method(Math, 'random', () => 0);
-  for (const ghost of ghosts) stepWreckGhost(world, player, ghost, 1 / 60, 0, effects);
+  stepWreckGhost(world, player, captain, 43, 43, effects);
+  stepWreckGhost(world, player, sailor, 43, 43, effects);
+  assert.equal(captain.health, captain.maxHealth);
   assert.equal(random.mock.callCount(), 0);
 
-  const [captain, sailor] = ghosts;
-  Object.assign(player, { x: captain.x, y: captain.y - player.height / 2 });
+  Object.assign(player, { x: captain.homeX, y: captain.homeY - player.height / 2 });
   random.mock.mockImplementationOnce(() => .9);
-  stepWreckGhost(world, player, captain, 1 / 60, 0, effects);
-  stepWreckGhost(world, player, sailor, 1 / 60, 0, effects);
-  assert.equal(captain.health, 0);
+  stepWreckGhost(world, player, sailor, 1 / 60, 43, effects);
+  assert.equal(sailor.health, 0);
+  stepWreckGhost(world, player, sailor, 150, 193, effects);
   assert.equal(sailor.health, sailor.maxHealth);
   assert.ok(inWater(world, sailor.x, sailor.y));
 
   Object.assign(player, { x: sailor.x - 9, y: sailor.y - player.height / 2 });
   const oxygen = player.oxygen;
   const health = player.health;
-  for (let frame = 1; frame <= 80; frame++) stepWreckGhost(world, player, sailor, 1 / 60, frame / 60, effects);
+  for (let frame = 1; frame <= 80; frame++) stepWreckGhost(world, player, sailor, 1 / 60, 193 + frame / 60, effects);
   assert.equal(player.oxygen, oxygen - 3);
   assert.equal(player.health, health - 18);
-
-  damageMob(world, sailor, sailor.maxHealth, 0, 0, effects);
-  stepWreckGhost(world, player, sailor, 3, 4.3, effects);
+  stepWreckGhost(world, player, sailor, 43, 238, effects);
   assert.equal(sailor.health, 0);
-  assert.equal(random.mock.callCount(), 2);
-  stepWreckGhost(world, player, captain, 150, 154.3, effects);
-  assert.equal(captain.health, captain.maxHealth);
-  stepWreckGhost(world, player, captain, 43, 197.3, effects);
+
+  damageMob(world, captain, captain.maxHealth, 0, 0, effects);
   assert.equal(captain.health, 0);
+  world.mobs = ghosts;
+  game.enemies.spawnIn = 120;
+  stepMobs(world, player, 44, 282, false, false, game.enemies, effects);
+  assert.equal(captain.health, 0);
+  stepMobs(world, player, 1, 283, false, false, game.enemies, effects);
+  assert.equal(captain.health, captain.maxHealth);
+  assert.equal(random.mock.callCount(), 2);
 });
 
 test('a crafted workbench can be placed, used, saved, and mined back into inventory', () => {

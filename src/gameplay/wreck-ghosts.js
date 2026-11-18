@@ -30,7 +30,7 @@ export function stepWreckGhost(world, player, ghost, dt, time, effects) {
   ghost.spawnCheckIn = Math.max(0, ghost.spawnCheckIn - dt);
 
   if (ghost.health <= 0) {
-    if (!playerInWreck || ghost.spawnCheckIn > 0) return;
+    if (ghost.resident || !playerInWreck || ghost.spawnCheckIn > 0) return;
     ghost.spawnCheckIn = CHECK_INTERVAL;
     if (!inWater(world, ghost.homeX, ghost.homeY) || Math.random() >= SPAWN_CHANCE) return;
     Object.assign(ghost, {
@@ -41,10 +41,12 @@ export function stepWreckGhost(world, player, ghost, dt, time, effects) {
     return;
   }
 
-  ghost.remainingLife -= dt;
-  if (ghost.remainingLife <= 0) {
-    ghost.health = 0;
-    return;
+  if (!ghost.resident) {
+    ghost.remainingLife -= dt;
+    if (ghost.remainingLife <= 0) {
+      ghost.health = 0;
+      return;
+    }
   }
   ghost.cooldown = Math.max(0, ghost.cooldown - dt);
   ghost.flee = Math.max(0, ghost.flee - dt);

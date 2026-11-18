@@ -552,8 +552,8 @@ export function generateMobs() {
     ...islandMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .7,
     })),
-    ...shipwreckGhosts.map(({ id, column, row, phase }) => ({
-      id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, spawnCheckIn: 0,
+    ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
+      id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
   ].map((mob, index) => {
@@ -573,7 +573,7 @@ export function generateMobs() {
       flee: 0,
       cooldown: 0,
       maxHealth,
-      health: mob.kind === 'ghost' ? 0 : maxHealth,
+      health: mob.kind === 'ghost' && !mob.resident ? 0 : maxHealth,
       hurt: 0,
       respawn: 0,
       attackTimer: 1.4 + (mob.phase % 1.5),

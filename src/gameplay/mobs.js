@@ -128,10 +128,6 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
   for (const mob of world.mobs) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
-    if (mob.kind === 'ghost') {
-      stepWreckGhost(world, player, mob, dt, time, effects);
-      continue;
-    }
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
@@ -140,6 +136,10 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, minerSwing: null, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
         });
       }
+      continue;
+    }
+    if (mob.kind === 'ghost') {
+      stepWreckGhost(world, player, mob, dt, time, effects);
       continue;
     }
     if (mob.health <= 0) continue;
@@ -459,7 +459,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     if (mob.enemyType) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
-    } else if (mob.kind !== 'ghost') {
+    } else if (mob.kind !== 'ghost' || mob.resident) {
       mob.respawn = mob.respawnDelay ?? 45;
     }
     effect = { x: mob.x, y: cy, material: spec.material, color: spec.color, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
