@@ -1,11 +1,16 @@
-import { solidAt, TILE_NEIGHBORS } from '../world.js';
+import { hasOpenFace, solidAt, TILE_NEIGHBORS } from '../world.js';
 import { COLS, ROWS, TILE, groundAt } from './generation.js';
 
 const source = 72;
-const openFalloff = 4;
-const rockFalloff = 16;
+const openFalloff = 3;
+const rockFalloff = 10;
 const reach = Math.ceil(source / openFalloff);
 const size = reach * 2 + 1;
+
+export function caveAmbientAt(world, player, tx, ty) {
+  if (!solidAt(world, tx, ty, player)) return .34;
+  return hasOpenFace(world, tx, ty, player) ? .19 : 0;
+}
 
 export function createCaveLight() {
   const levels = new Uint8Array(size * size);
@@ -82,7 +87,7 @@ export function createCaveLight() {
   return { update, at };
 }
 
-const surfaceLevels = [0, .12, .38, .7, 1];
+const surfaceLevels = [0, .1, .22, .39, .59, .8, 1];
 const surfaceReach = surfaceLevels.length - 1;
 
 function hasDaylight(world, player, x, y, ground, westGround, eastGround) {

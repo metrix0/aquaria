@@ -3,7 +3,7 @@ import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
 import { hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
-import { createCaveLight, createSurfaceLight } from './world/lighting.js';
+import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -461,7 +461,7 @@ export function createRenderer(canvas) {
     return clamp((caveLight.at(tx, ty) - .1) / .45, 0, 1);
   }
 
-  function shadeCaves({ left, right, top, bottom }) {
+  function shadeCaves(world, player, { left, right, top, bottom }) {
     const width = right - left;
     const height = bottom - top;
     if (!lightPixels || lightPixels.width !== width || lightPixels.height !== height) {
@@ -470,16 +470,17 @@ export function createRenderer(canvas) {
       lightPixels = lightCtx.createImageData(width, height);
       const { data } = lightPixels;
       for (let i = 0; i < data.length; i += 4) {
-        data[i] = 5;
-        data[i + 1] = 9;
-        data[i + 2] = 18;
+        data[i] = 9;
+        data[i + 1] = 16;
+        data[i + 2] = 27;
       }
     }
     for (let x = left; x < right; x++) {
       let alpha = (x - left) * 4 + 3;
       for (let y = top; y < bottom; y++, alpha += width * 4) {
         const light = Math.max(surfaceLight.at(x, y), caveLight.at(x, y));
-        lightPixels.data[alpha] = (1 - light) * 245;
+        const ambient = light < 1 ? caveAmbientAt(world, player, x, y) : 0;
+        lightPixels.data[alpha] = (1 - light) * (1 - ambient) * 210;
       }
     }
     lightCtx.putImageData(lightPixels, 0, 0);
@@ -855,7 +856,7 @@ export function createRenderer(canvas) {
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
     drawCharacter(player, player.appearance, { tank, helmet, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
-    shadeCaves(bounds);
+    shadeCaves(world, player, bounds);
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
