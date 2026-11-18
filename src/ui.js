@@ -51,6 +51,45 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
+  const deployPanel = byId('deploy-panel');
+  const deployForm = byId('deploy-form');
+  const deployCode = byId('deploy-code');
+  const deployStatus = byId('deploy-status');
+  const deploySubmit = deployForm.querySelector('button[type="submit"]');
+  byId('deploy').addEventListener('click', () => open('deploy-panel'));
+  deployPanel.addEventListener('close', () => {
+    deployCode.value = '';
+    if (!deploySubmit.disabled) deployStatus.hidden = true;
+  });
+  deployForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (deploySubmit.disabled) return;
+    const code = deployCode.value;
+    deployCode.value = '';
+    deploySubmit.disabled = true;
+    deployStatus.hidden = false;
+    deployStatus.textContent = 'Requesting deployment…';
+    try {
+      const response = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + code },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (response.status === 202) {
+        deployStatus.textContent = 'Deployment queued on Vercel.';
+      } else if (response.status === 401) {
+        deployStatus.textContent = 'Incorrect deploy code.';
+      } else if ([404, 405, 503].includes(response.status)) {
+        deployStatus.textContent = 'Deploy is unavailable here.';
+      } else {
+        deployStatus.textContent = 'Vercel could not queue the deployment.';
+      }
+    } catch {
+      deployStatus.textContent = 'Could not confirm the request. Check Vercel before retrying.';
+    } finally {
+      deploySubmit.disabled = false;
+    }
+  });
   const godMode = byId('god-mode');
   godMode.addEventListener('click', actions.toggleGodMode);
   const shadows = byId('hide-cave-shadows');

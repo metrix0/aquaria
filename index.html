@@ -53,6 +53,7 @@
           <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
           <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
+          <button id="deploy" class="deploy" type="button" aria-haspopup="dialog" aria-controls="deploy-panel">Deploy</button>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
         </div>
       </footer>
@@ -129,6 +130,18 @@
       <p>Your progress is saved in this browser.</p>
       <div class="dialog-actions"><button id="resume" class="primary">Resume</button><button id="reset-world">Start over</button></div>
       <p id="version"></p>
+    </dialog>
+    <dialog id="deploy-panel" aria-labelledby="deploy-title">
+      <div class="dialog-head"><h2 id="deploy-title">Deploy Aquaria</h2><button type="button" data-close aria-label="Close deploy">×</button></div>
+      <p>Deploy the latest commit on <code>main</code> to production.</p>
+      <form id="deploy-form">
+        <label for="deploy-code">Deploy code</label>
+        <div class="dialog-actions">
+          <input id="deploy-code" type="password" required maxlength="128" pattern="[A-Za-z0-9_\-]{32,128}" autocomplete="off" autofocus>
+          <button type="submit" class="primary">Deploy</button>
+        </div>
+        <p id="deploy-status" role="status" hidden></p>
+      </form>
     </dialog>
     <dialog id="room-panel" aria-labelledby="room-title">
       <div class="dialog-head"><h2 id="room-title">Multiplayer</h2><button data-close aria-label="Close multiplayer">×</button></div>

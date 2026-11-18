@@ -78,10 +78,10 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .controls { display: flex; gap: 15px; flex-wrap: wrap; color: #b8cbc1; font-size: 11px; }
 .controls span { white-space: nowrap; }
 .controls kbd, .footer-actions kbd, .interact kbd { display: inline-block; border: 1px solid #aac5be54; border-radius: 3px; background: #182e37; padding: 3px 5px; color: #dde7db; font: 10px var(--mono); }
-.craft, .backpack, .customize, .shadows, .god-mode { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
+.craft, .backpack, .customize, .shadows, .god-mode, .deploy { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
 .backpack, .customize { color: var(--mint); background: #152730; }
-.shadows, .god-mode { color: #cbdad0; background: #152730; }
+.shadows, .god-mode, .deploy { color: #cbdad0; background: #152730; }
 .shadows[aria-pressed="true"], .god-mode[aria-pressed="true"] { color: var(--gold); background: #413a2d; border-color: var(--gold); }
 .footer-actions kbd { margin-right: 4px; }
 .touch { display: none; }
@@ -219,8 +219,8 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   border-radius: 4px; padding: 6px 9px; font-size: 12px; white-space: nowrap;
 }
 #room-join-form { margin-top: 16px; }
-#room-join-form label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
-#room-panel input {
+#room-join-form label, #deploy-form label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+#room-panel input, #deploy-form input {
   min-width: 0; width: 100%; padding: 7px 8px; color: inherit; background: #08171f;
   border: 1px solid var(--line); border-radius: 4px; font: inherit;
 }
