@@ -122,7 +122,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
         Object.assign(mob, {
-          x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth, grounded: mob.kind === 'crab',
+          x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, hurt: 0, health: mob.maxHealth, grounded: mob.kind === 'crab',
           attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
         });
       }
@@ -405,6 +405,58 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   return hit;
 }
 
+export function mobSpec(mob) {
+  return mobSpecs[mob.kind];
+}
+
+export function damageMob(world, mob, damage, angle, knockback, effects) {
+  const spec = mobSpecs[mob.kind];
+  if (!spec || mob.health <= 0 || mob.respawn > 0) return null;
+  const cy = mob.y + spec.centerY;
+  const dir = Math.cos(angle) >= 0 ? 1 : -1;
+  mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - damage);
+  mob.hurt = 0.32;
+
+  if (mob.kind === 'crab') {
+    mob.facing = dir;
+    mob.dx = dir * (knockback ?? 95);
+    mob.dy = -65;
+    mob.grounded = false;
+    mob.flee = 1.8;
+  } else if (mob.kind === 'fish') {
+    mob.facing = dir;
+    const force = knockback ?? 115;
+    mob.dx = Math.cos(angle) * force;
+    mob.dy = Math.sin(angle) * (force * 0.74);
+    mob.flee = 1.8;
+  } else {
+    const force = knockback ?? (mob.kind === 'shark' ? 85 : 115);
+    mob.dx = Math.cos(angle) * force;
+    mob.dy = Math.sin(angle) * (force * 0.75);
+    mob.flee = mob.kind === 'shark' ? 0.65 : 1.6;
+    mob.cooldown = Math.max(mob.cooldown ?? 0, 0.9);
+  }
+
+  const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
+  let effect;
+  if (mob.health <= 0) {
+    if (mob.enemyType) {
+      const index = world.mobs.indexOf(mob);
+      if (index !== -1) world.mobs.splice(index, 1);
+    } else {
+      mob.respawn = 45;
+    }
+    effect = { x: mob.x, y: cy, material: spec.material, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
+  } else {
+    effect = {
+      x: mob.x, y: cy, material: spec.material, count: mob.kind === 'squid' ? 12 : 7, spread: 58,
+      message: 'Hit ' + label + ' (' + mob.health + '/' + mob.maxHealth + ' HP)',
+    };
+  }
+  effects?.push(effect);
+  return effect;
+}
+
 export function targetMobAt({ world, player }, wx, wy) {
   let best = null;
   let bestDist = Infinity;
@@ -430,44 +482,8 @@ export function fendOffEnemy(game, wx, wy) {
   const spec = mobSpecs[mob.kind];
   const cy = mob.y + spec.centerY;
   const angle = Math.atan2(cy - (player.y + 11), mob.x - player.x);
-  const dir = mob.x >= player.x ? 1 : -1;
-  player.facing = dir;
-  mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - 1);
-  mob.hurt = 0.32;
-
-  if (mob.kind === 'crab') {
-    mob.facing = dir;
-    mob.dx = dir * 95;
-    mob.dy = -65;
-    mob.grounded = false;
-    mob.flee = 1.8;
-  } else if (mob.kind === 'fish') {
-    mob.facing = dir;
-    mob.dx = Math.cos(angle) * 115;
-    mob.dy = Math.sin(angle) * 85;
-    mob.flee = 1.8;
-  } else {
-    const knockback = mob.kind === 'shark' ? 85 : 115;
-    mob.dx = Math.cos(angle) * knockback;
-    mob.dy = Math.sin(angle) * (knockback * 0.75);
-    mob.flee = mob.kind === 'shark' ? 0.65 : 1.6;
-    mob.cooldown = Math.max(mob.cooldown ?? 0, 0.9);
-  }
-
-  const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
-  if (mob.health <= 0) {
-    if (mob.enemyType) {
-      const index = world.mobs.indexOf(mob);
-      if (index !== -1) world.mobs.splice(index, 1);
-    } else {
-      mob.respawn = 45;
-    }
-    return { x: mob.x, y: cy, material: spec.material, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
-  }
-  return {
-    x: mob.x, y: cy, material: spec.material, count: mob.kind === 'squid' ? 12 : 7, spread: 58,
-    message: 'Hit ' + label + ' (' + mob.health + '/' + mob.maxHealth + ' HP)',
-  };
+  player.facing = mob.x >= player.x ? 1 : -1;
+  return damageMob(world, mob, 1, angle);
 }
 
 export function resetHostiles(world) {

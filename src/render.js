@@ -1,6 +1,7 @@
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
+import { ITEMS } from './inventory.js';
 import { hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
@@ -602,6 +603,23 @@ export function createRenderer(canvas) {
     }
   }
 
+  function arrows(projectiles, camera) {
+    for (const arrow of projectiles ?? []) {
+      if (arrow.x < camera.x - 16 || arrow.x > camera.x + camera.width + 16) continue;
+      if (arrow.y < camera.y - 16 || arrow.y > camera.y + camera.height + 16) continue;
+      ctx.save();
+      ctx.translate(Math.round(arrow.x), Math.round(arrow.y));
+      ctx.rotate(Math.atan2(arrow.dy, arrow.dx));
+      rect(-6, -1, 10, 2, '#85604c');
+      rect(-5, -1, 8, 1, '#d29c65');
+      rect(-7, -2, 3, 1, '#bed8ba');
+      rect(-7, 1, 3, 1, '#7ebcb0');
+      polygon([[3, -3], [8, 0], [3, 3]], '#6e888a');
+      polygon([[4, -2], [7, 0], [4, 1]], '#d9e1cf');
+      ctx.restore();
+    }
+  }
+
   function mobs(world, camera, time, targetMob) {
     for (const mob of world.mobs ?? []) {
       if (mob.health <= 0 || mob.respawn > 0) continue;
@@ -828,7 +846,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -845,6 +863,7 @@ export function createRenderer(canvas) {
     doors(world, player, camera);
     mobs(world, camera, time, targetMob);
     projectiles(world, camera);
+    arrows(playerArrows, camera);
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, bit.color ?? palettes[bit.material][1]);
     }
@@ -855,7 +874,7 @@ export function createRenderer(canvas) {
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, helmet, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
+    drawCharacter(player, player.appearance, { tank, helmet, time, mining, attackSwing, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player) });
     if (!caveShadowsHidden) shadeCaves(world, player, bounds);
     ctx.restore();
 
@@ -870,7 +889,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    if (aim?.reachable) {
+    if (aim?.reachable && !ITEMS[held]?.weapon) {
       ctx.strokeStyle = '#f4d4a5ad';
       ctx.lineWidth = 1;
       ctx.strokeRect(aim.tx * TILE + .5, aim.ty * TILE + .5, TILE - 1, TILE - 1);

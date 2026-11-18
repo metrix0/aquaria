@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
+import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from '../src/content.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { movePlayer, playerInWater, PLAYER_SIZE } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
@@ -402,4 +402,73 @@ test('the wreck chest grants a swimming helmet that extends oxygen capacity', ()
   assert.equal(oxygenCapacity(reloadedGame), 32);
   assert.ok(reloadedGame.world.harvested.has('wreck-chest'));
   assert.equal(nearestItem(reloadedGame), undefined);
+});
+
+test('craftable spears and bow with arrows damage and defeat sea enemies', () => {
+  const game = createGame();
+  game.inventory.add('wood', 6);
+  game.inventory.add('stone', 2);
+  game.inventory.add('kelp', 1);
+  game.inventory.add('copper', 2);
+
+  assert.equal(craftItem(game, SPEAR), true);
+  assert.equal(craftItem(game, COPPER_SPEAR), true);
+  assert.equal(craftItem(game, BOW), true);
+  assert.equal(craftItem(game, ARROW), true);
+  assert.equal(game.inventory.count(ARROW.id), 4);
+
+  const spearSlot = game.inventory.backpack.findIndex((stack) => stack?.id === SPEAR.id);
+  const bowSlot = game.inventory.backpack.findIndex((stack) => stack?.id === BOW.id);
+  assert.ok(spearSlot >= 0);
+  assert.ok(bowSlot >= 0);
+  assert.ok(game.inventory.move({ group: 'backpack', index: spearSlot }, { group: 'hotbar', index: 1 }));
+  assert.ok(game.inventory.move({ group: 'backpack', index: bowSlot }, { group: 'hotbar', index: 2 }));
+  assert.equal(game.inventory.hotbar[1].id, SPEAR.id);
+  assert.equal(game.inventory.hotbar[2].id, BOW.id);
+
+  const shark = game.world.mobs.find((mob) => mob.kind === 'shark');
+  shark.x = game.player.x + 48;
+  shark.y = game.player.y + 11;
+  shark.homeX = shark.x;
+  shark.homeY = shark.y;
+
+  const thrust = useWeapon(game, 1, shark.x, shark.y);
+  assert.equal(thrust.handled, true);
+  assert.equal(game.attack.kind, SPEAR.id);
+  assert.equal(shark.health, 5);
+
+  const neutral = { left: false, right: false, up: false, down: false, jump: false };
+  for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
+  assert.equal(game.attack, null);
+
+  shark.x = game.player.x + 96;
+  shark.y = game.player.y + 11;
+  const shot = useWeapon(game, 2, shark.x, shark.y);
+  assert.equal(shot.handled, true);
+  assert.equal(shot.inventoryChanged, true);
+  assert.equal(game.inventory.count(ARROW.id), 3);
+  assert.equal(game.projectiles.length, 1);
+
+  for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
+  assert.equal(game.projectiles.length, 0);
+  assert.equal(shark.health, 3);
+
+  const copperSpearSlot = game.inventory.backpack.findIndex((stack) => stack?.id === COPPER_SPEAR.id);
+  assert.ok(game.inventory.move({ group: 'backpack', index: copperSpearSlot }, { group: 'hotbar', index: 1 }));
+  shark.x = game.player.x + 56;
+  shark.y = game.player.y + 11;
+  useWeapon(game, 1, shark.x, shark.y);
+  assert.equal(shark.health, 0);
+  assert.ok(shark.respawn > 0);
+  assert.ok(game.effects.some((effect) => effect.message === 'Defeated shark!'));
+
+  for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
+  game.inventory.spend(ARROW.id, 3);
+  const dryFire = useWeapon(game, 2, shark.x, shark.y);
+  assert.equal(dryFire.handled, true);
+  assert.match(dryFire.message, /Out of arrows/);
+
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.inventory.hotbar[1].id, COPPER_SPEAR.id);
+  assert.equal(restored.inventory.hotbar[2].id, BOW.id);
 });

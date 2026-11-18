@@ -1,9 +1,9 @@
-import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
-import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_SPEAR, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
+import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, inWater, isEditableTile, placeDoor, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
-import { resetHostiles, stepMobs, syncMobs } from './mobs.js';
+import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
 export function oxygenCapacity(game) {
   return (game.progress.airTank ? AIR_TANK.breathSeconds : BREATH_SECONDS) +
@@ -20,6 +20,8 @@ export function createGame(snapshot) {
     worldTime: snapshot?.worldTime ?? 0,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
     enemies: { spawnIn: 14, hitCooldown: 0 },
+    attack: null,
+    projectiles: [],
     effects: [],
   };
   const { world } = game;
@@ -67,17 +69,121 @@ export function resetRoomProgress(previous) {
     worldTime: previous.worldTime,
     weatherSeed: previous.weatherSeed,
     enemies: { spawnIn: 14, hitCooldown: 0 },
+    attack: null,
+    projectiles: [],
     effects: [],
   };
+}
+
+function stepProjectiles(game, dt) {
+  const { world, projectiles, effects } = game;
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const arrow = projectiles[i];
+    arrow.life -= dt;
+    if (arrow.life <= 0) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+    if (inWater(world, arrow.x, arrow.y)) {
+      const drag = Math.exp(-1.1 * dt);
+      arrow.dx *= drag;
+      arrow.dy = arrow.dy * drag + 45 * dt;
+    } else {
+      arrow.dy += 140 * dt;
+    }
+    const travel = Math.hypot(arrow.dx * dt, arrow.dy * dt);
+    const steps = Math.max(1, Math.ceil(travel / 6));
+    let removed = false;
+    for (let step = 0; step < steps; step++) {
+      arrow.x += (arrow.dx * dt) / steps;
+      arrow.y += (arrow.dy * dt) / steps;
+      const tx = Math.floor(arrow.x / TILE);
+      const ty = Math.floor(arrow.y / TILE);
+      if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS || solidAt(world, tx, ty)) {
+        effects.push({ x: arrow.x, y: arrow.y, material: tileAt(world, tx, ty) || MATERIAL.wood, count: 4, spread: 42 });
+        removed = true;
+        break;
+      }
+      for (const mob of world.mobs) {
+        if (mob.health <= 0 || mob.respawn > 0) continue;
+        const spec = mobSpec(mob);
+        if (!spec) continue;
+        if (Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius + 4) {
+          damageMob(world, mob, arrow.damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects);
+          removed = true;
+          break;
+        }
+      }
+      if (removed) break;
+    }
+    if (removed) projectiles.splice(i, 1);
+  }
+}
+
+export function useWeapon(game, slot, wx, wy) {
+  const itemId = game.inventory.hotbar[slot]?.id;
+  const weapon = ITEMS[itemId]?.weapon;
+  if (!weapon) return null;
+  if (game.attack) return { handled: true };
+
+  const ox = game.player.x;
+  const oy = game.player.y + Math.ceil(game.player.height / 2);
+  const angle = wx === ox && wy === oy ? (game.player.facing < 0 ? Math.PI : 0) : Math.atan2(wy - oy, wx - ox);
+  const dirX = Math.cos(angle);
+  const dirY = Math.sin(angle);
+  game.player.facing = dirX < 0 ? -1 : 1;
+
+  if (weapon.id === SPEAR.id || weapon.id === COPPER_SPEAR.id) {
+    game.attack = { kind: weapon.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
+    for (let i = game.world.mobs.length - 1; i >= 0; i--) {
+      const mob = game.world.mobs[i];
+      if (mob.health <= 0 || mob.respawn > 0) continue;
+      const spec = mobSpec(mob);
+      if (!spec) continue;
+      const mx = mob.x - ox;
+      const my = mob.y + spec.centerY - oy;
+      const along = mx * dirX + my * dirY;
+      const across = Math.abs(mx * -dirY + my * dirX);
+      if ((along >= -6 && along <= weapon.reach + spec.radius && across <= spec.radius + 12) || Math.hypot(mx, my) <= spec.radius + 10) {
+        damageMob(game.world, mob, weapon.damage, angle, weapon.knockback, game.effects);
+      }
+    }
+    return { handled: true };
+  }
+
+  if (weapon.id === BOW.id) {
+    if (game.inventory.count(ARROW.id) < 1) {
+      return { handled: true, message: 'Out of arrows. Craft more in Crafting.' };
+    }
+    game.inventory.spend(ARROW.id, 1);
+    game.dirty = true;
+    game.attack = { kind: BOW.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
+    game.projectiles.push({
+      x: ox + dirX * 10,
+      y: oy + dirY * 10,
+      dx: dirX * ARROW.speed,
+      dy: dirY * ARROW.speed,
+      damage: ARROW.damage,
+      knockback: ARROW.knockback,
+      life: 2.5,
+    });
+    return { handled: true, inventoryChanged: true };
+  }
+  return null;
 }
 
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
+  if (game.attack) {
+    game.attack.timer -= dt;
+    if (game.attack.timer <= 0) game.attack = null;
+  }
   movePlayer(world, player, input, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  stepProjectiles(game, dt);
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
     player.health = Math.max(0, player.health - (hit.healthLoss ?? 10));
@@ -85,6 +191,8 @@ export function stepGame(game, input, dt) {
   }
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance);
+    game.attack = null;
+    game.projectiles.length = 0;
     resetHostiles(world);
     game.dirty = true;
     return 'You washed back up on the island.';
@@ -142,12 +250,12 @@ export function craftTank(game) {
   return true;
 }
 
-function craftResult(inventory, { id, cost }) {
+function craftResult(inventory, { id, cost, amount = 1 }) {
   const materials = Object.entries(cost);
   if (!materials.every(([item, count]) => inventory.count(item) >= count)) return null;
   const after = new Inventory(inventory);
   for (const [item, count] of materials) after.spend(item, count);
-  return after.add(id, 1) ? after : null;
+  return after.add(id, amount) ? after : null;
 }
 
 export function canCraftItem(game, recipe) {

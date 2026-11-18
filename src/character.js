@@ -152,14 +152,53 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, mining = null, attackSwing = null, reducedMotion = false, swimming = false } = {}) {
+  function weaponArm(x, y, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion) {
+    const active = attack?.kind === weapon;
+    const baseAngle = active
+      ? clamp(Math.atan2(Math.sin(attack.angle), Math.max(0.15, Math.abs(Math.cos(attack.angle)))), -1.15, 1.15) - tilt
+      : (weapon === 'bow' ? 0 : (swimming ? 0.08 : -0.18));
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(baseAngle);
+    rect(-2, -2, 6, 4, shirt.wet);
+    rect(-1, -1, 4, 3, shirt.base);
+    rect(2, -1, 5, 3, skin.face);
+    rect(5, -1, 2, 2, skin.arm);
+    if (weapon === 'spear' || weapon === 'copper-spear') {
+      const copper = weapon === 'copper-spear';
+      const progress = active ? 1 - attack.timer / attack.duration : 0;
+      const thrust = active ? (reducedMotion ? 5 : Math.round(Math.sin(progress * Math.PI) * 9)) : 0;
+      rect(-3 + thrust, -1, 18, 2, '#85604c');
+      rect(-1 + thrust, -1, 14, 1, '#d29c65');
+      rect(4 + thrust, -1, 3, 2, '#483d42');
+      rect(14 + thrust, -2, 4, 4, copper ? '#a35646' : '#6e888a');
+      rect(15 + thrust, -1, 5, 2, copper ? '#e09b71' : '#b5c6bd');
+      rect(18 + thrust, -1, 3, 1, copper ? '#ffd3a0' : '#d9e1cf');
+      if (active) rect(9 + thrust, -2, 6, 1, '#f4d4a5a8');
+    } else if (weapon === 'bow') {
+      const pull = active && !reducedMotion ? Math.round((attack.timer / attack.duration) * 3) : 0;
+      rect(5 - pull, -6, 1, 12, '#bed8ba');
+      rect(5, -7, 2, 2, '#85604c');
+      rect(5, 5, 2, 2, '#85604c');
+      rect(7, -6, 2, 12, '#85604c');
+      rect(8, -5, 1, 10, '#d29c65');
+      rect(7, -1, 2, 3, '#483d42');
+      if (hasArrow && !active) {
+        rect(5, -1, 8, 1, '#d29c65');
+        rect(12, -2, 3, 3, '#b5c6bd');
+      }
+    }
+    ctx.restore();
+  }
+
+  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, mining = null, attackSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
     const crawling = player.height === CRAWL_HEIGHT;
     const speed = Math.abs(player.dx);
     const strideWeight = !reducedMotion && player.grounded && !swimming
       ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
     const angle = phase * turn;
-    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : attackSwing ? attackSwing.x - player.x : 0;
+    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : attack ? Math.cos(attack.angle) : attackSwing ? attackSwing.x - player.x : 0;
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0022, -.3, .3) * facing : 0;
     const armSwing = Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
@@ -182,6 +221,7 @@ export function createCharacterRenderer(ctx) {
       : attackSwing
         ? (reducedMotion ? 0.5 : attackSwing.elapsed / attackSwing.duration)
         : 0;
+    const weapon = attack?.kind ?? (held === 'spear' || held === 'copper-spear' || held === 'bow' ? held : null);
 
     ctx.save();
     if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
@@ -204,6 +244,7 @@ export function createCharacterRenderer(ctx) {
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
       if (helmet) divingHelmet(3, 2);
       if (mining || attackSwing) miningArm(1, 10, Math.abs(targetX), targetY, 0, swingPhase, skin, shirt, mining?.tier ?? 1);
+      else if (weapon) weaponArm(1, 10, weapon, attack, swimming, 0, skin, shirt, hasArrow, reducedMotion);
       else arm(1, 9, 2 - shuffle, skin, shirt, false);
       ctx.restore();
       return;
@@ -237,6 +278,8 @@ export function createCharacterRenderer(ctx) {
 
     if (mining || attackSwing) {
       miningArm(shoulderX, 11, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining?.tier ?? 1);
+    } else if (weapon) {
+      weaponArm(shoulderX, 11, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion);
     } else {
       arm(shoulderX, 11, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
     }

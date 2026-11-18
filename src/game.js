@@ -1,9 +1,10 @@
 import { Inventory, ITEMS } from './inventory.js';
+import { ARROW } from './content.js';
 import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -265,7 +266,8 @@ const ui = createUI({
     if (editPending || !craftItem(game, recipe)) return;
     inventoryChanged();
     ui.updateCraft(game);
-    ui.notify(ITEMS[recipe.id].name + ' crafted.');
+    const label = (recipe.amount ?? 1) > 1 ? recipe.amount + ' × ' + ITEMS[recipe.id].name : ITEMS[recipe.id].name;
+    ui.notify(label + ' crafted.');
   },
   makeTank() {
     if (editPending || !craftTank(game)) return;
@@ -286,6 +288,18 @@ const input = bindInput(canvas, {
     }
   },
   fend() {
+    if (editPending || game.player.stun > 0) return false;
+    const { pointer } = input;
+    const wx = pointer.x + camera.x;
+    const wy = pointer.y + camera.y;
+    const result = useWeapon(game, selected, wx, wy);
+    if (result) {
+      for (const effect of game.effects) emitEffect(effect);
+      game.effects.length = 0;
+      if (result.inventoryChanged) inventoryChanged();
+      if (result.message) ui.notify(result.message);
+      return true;
+    }
     if (attackCooldown > 0) return Boolean(aimedMob());
     return performAttack();
   },
@@ -380,9 +394,12 @@ function frame(now) {
     }
     updateParticles(dt);
     updateCamera(dt);
+    const heldItem = game.inventory.hotbar[selected]?.id;
     if (game.player.stun > 0) {
       mining = null;
       input.stopMining();
+    } else if (ITEMS[heldItem]?.weapon) {
+      mining = null;
     } else if (input.holdingMine() && !editPending) {
       if (aimedMob()) {
         mining = null;
@@ -402,11 +419,14 @@ function frame(now) {
   ui.update(game, conditions);
   const tank = game.progress.airTank;
   const helmet = game.progress.swimmingHelmet;
+  const held = game.inventory.hotbar[selected]?.id;
   const peers = room?.tick(now, dt, game.player, tank, helmet);
   const targetMob = aimedMob();
   renderer.draw({
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
-    aim: targetMob ? null : aimedTile(), mining, attackSwing, targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden,
+    aim: targetMob ? null : aimedTile(), mining, attackSwing, held, attack: game.attack,
+    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
+    targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden,
   });
   requestAnimationFrame(frame);
 }

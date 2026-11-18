@@ -1,11 +1,18 @@
 import { createCharacterEditor } from './character-editor.js';
-import { AIR_TANK, BREATH_SECONDS, COPPER_PICKAXE, ITEM_PROMPTS, SWIMMING_HELMET, WOODEN_DOOR } from './content.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_PICKAXE, COPPER_SPEAR, ITEM_PROMPTS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from './content.js';
 import { ITEMS } from './inventory.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { MAX_HEALTH } from './gameplay/player.js';
 import { areaDepth, canCraftItem, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
-const itemRecipes = [[WOODEN_DOOR, 'door'], [COPPER_PICKAXE, 'pickaxe']];
+const itemRecipes = [
+  [WOODEN_DOOR, 'door'],
+  [COPPER_PICKAXE, 'pickaxe'],
+  [SPEAR, 'spear'],
+  [COPPER_SPEAR, 'copper-spear'],
+  [BOW, 'bow'],
+  [ARROW, 'arrow'],
+];
 const formatCost = (cost) => Object.entries(cost).map(([id, count]) => count + ' ' + ITEMS[id].name.toLowerCase()).join(' · ');
 
 export function createUI(actions, version) {

@@ -1,4 +1,4 @@
-import { COPPER_PICKAXE, MATERIAL } from './content.js';
+import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -6,6 +6,10 @@ export const BACKPACK_SIZE = 24;
 export const ITEMS = {
   tool: { name: 'Salvage tool', hotbar: 0, pickaxe: 1 },
   [COPPER_PICKAXE.id]: { name: 'Copper pickaxe', pickaxe: 2 },
+  [SPEAR.id]: { name: 'Spear', weapon: SPEAR },
+  [COPPER_SPEAR.id]: { name: 'Copper spear', weapon: COPPER_SPEAR },
+  [BOW.id]: { name: 'Bow', weapon: BOW },
+  [ARROW.id]: { name: 'Arrow' },
   sand: { name: 'Sand', block: MATERIAL.sand, hotbar: 1 },
   stone: { name: 'Stone', block: MATERIAL.stone, hotbar: 2 },
   wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
