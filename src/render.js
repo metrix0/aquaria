@@ -19,6 +19,8 @@ const palettes = {
   [MATERIAL.soil]: ['#6f594e', '#8e6b51', '#513f46', '#ab8056'],
 };
 
+const rockMaterials = new Set([MATERIAL.stone, MATERIAL.reef, MATERIAL.deepstone, MATERIAL.bedrock]);
+
 const coralColors = [
   ['#7e4268', '#b0667d', '#da9292'],
   ['#39797e', '#64a394', '#97c7ab'],
@@ -308,6 +310,17 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function drawRockEdge(x, y, dx, dy, color) {
+    const startX = x + (dx > 0 ? TILE : 0);
+    const startY = y + (dy > 0 ? TILE : 0);
+    const edge = ctx.createLinearGradient(startX, startY, startX - dx * TILE, startY - dy * TILE);
+    edge.addColorStop(0, color + 'bf');
+    edge.addColorStop(.42, color + '54');
+    edge.addColorStop(1, color + '00');
+    ctx.fillStyle = edge;
+    ctx.fillRect(x, y, TILE, TILE);
+  }
+
   function drawTile(world, tx, ty, material, oreOpacity) {
     const x = tx * TILE;
     const y = ty * TILE;
@@ -338,12 +351,19 @@ export function createRenderer(canvas) {
       rect(x + 2, y + h, 9, 1, dark);
       rect(x + 7, y + h + 1, 6, 1, dark);
     }
-    if (top) {
-      rect(x, y, 16, 2, light);
-      rect(x + Math.floor(variation * 6), y, 5 + Math.floor(variation * 5), 1, bright);
+    if (rockMaterials.has(rock)) {
+      if (top) drawRockEdge(x, y, 0, -1, bright);
+      if (left) drawRockEdge(x, y, -1, 0, bright);
+      if (right) drawRockEdge(x, y, 1, 0, bright);
+      if (!tileAt(world, tx, ty + 1)) drawRockEdge(x, y, 0, 1, bright);
+    } else {
+      if (top) {
+        rect(x, y, 16, 2, light);
+        rect(x + Math.floor(variation * 6), y, 5 + Math.floor(variation * 5), 1, bright);
+      }
+      if (left) rect(x, y + 2, 1, 14, light);
+      if (right) rect(x + 14, y + 2, 2, 14, dark);
     }
-    if (left) rect(x, y + 2, 1, 14, light);
-    if (right) rect(x + 14, y + 2, 2, 14, dark);
     if (oreOpacity > 0) {
       const [, mineral, shadow, glint] = palettes[material];
       ctx.globalAlpha = oreOpacity;
