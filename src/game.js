@@ -1,10 +1,6 @@
 import { Inventory, ITEMS } from './inventory.js';
-<<<<<<< HEAD
-import { fendOffEnemy } from './gameplay/mobs.js';
-import { PLAYER_SIZE } from './gameplay/player.js';
-=======
 import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
->>>>>>> b53582c (Add PvE combat with tiered mob health)
+import { PLAYER_SIZE } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
