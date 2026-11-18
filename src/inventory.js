@@ -1,4 +1,4 @@
-import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from './content.js';
+import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -14,13 +14,14 @@ export const ITEMS = {
   stone: { name: 'Stone', block: MATERIAL.stone, hotbar: 2 },
   wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
   door: { name: 'Wooden door' },
+  [SWIMMING_HELMET.id]: { name: 'Swimming helmet', icon: 'helmet' },
   kelp: { name: 'Kelp' },
   copper: { name: 'Copper ore' },
   iron: { name: 'Iron ore' },
   cobalt: { name: 'Cobalt ore' },
 };
 
-function restoreSlots(slots, size) {
+export function restoreSlots(slots, size) {
   return Array.from({ length: size }, (_, index) => {
     const stack = slots?.[index];
     if (!stack || !Object.hasOwn(ITEMS, stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1) return null;
@@ -92,17 +93,24 @@ export class Inventory {
   move(from, to) {
     const source = this[from.group];
     const target = this[to.group];
-    const stack = source[from.index];
-    const replacement = target[to.index];
-    if (!stack || stack === replacement) return false;
-    if (stack.id === replacement?.id) {
-      if (!Number.isSafeInteger(stack.count + replacement.count)) return false;
-      replacement.count += stack.count;
-      source[from.index] = null;
-    } else {
-      target[to.index] = stack;
-      source[from.index] = replacement;
-    }
-    return true;
+    return moveStack(source, from.index, target, to.index);
   }
+}
+
+export function moveStack(source, sourceIndex, target, targetIndex) {
+  if (!source || !target ||
+      !Number.isInteger(sourceIndex) || sourceIndex < 0 || sourceIndex >= source.length ||
+      !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= target.length) return false;
+  const stack = source[sourceIndex];
+  const replacement = target[targetIndex];
+  if (!stack || stack === replacement) return false;
+  if (stack.id === replacement?.id) {
+    if (!Number.isSafeInteger(stack.count + replacement.count)) return false;
+    replacement.count += stack.count;
+    source[sourceIndex] = null;
+  } else {
+    target[targetIndex] = stack;
+    source[sourceIndex] = replacement;
+  }
+  return true;
 }

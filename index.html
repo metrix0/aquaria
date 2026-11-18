@@ -39,7 +39,7 @@
         <div class="touch-group">
           <button data-hold="KeyS" aria-label="Crawl or dive down">↓</button>
           <button data-hold="Space" aria-label="Jump or swim up">↑</button>
-          <button id="grab" aria-label="Collect nearby item">Grab</button>
+          <button id="grab" aria-label="Interact with nearby objects">Use</button>
           <button id="touch-mode" aria-label="Place blocks" aria-pressed="false">Mine</button>
         </div>
       </div>
@@ -50,7 +50,7 @@
           <button id="multiplayer" class="room-button">Multiplayer</button>
           <button id="customize" class="customize" aria-haspopup="dialog" aria-controls="customize-panel" aria-keyshortcuts="V"><kbd>V</kbd> Character</button>
           <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
-          <button id="craft" class="craft"><kbd>C</kbd> Crafting</button>
+          <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
           <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
@@ -73,7 +73,16 @@
     </dialog>
 
     <dialog id="backpack-panel" aria-labelledby="backpack-title" aria-describedby="backpack-help">
-      <div class="dialog-head"><h2 id="backpack-title">Backpack</h2><button data-close aria-label="Close backpack">×</button></div>
+      <div class="dialog-head"><h2 id="backpack-title">Backpack</h2><button data-close aria-label="Close inventory" autofocus>×</button></div>
+      <section class="chest-storage" id="chest-storage" aria-labelledby="chest-storage-title" hidden>
+        <div class="chest-storage-head">
+          <h3 id="chest-storage-title">Chest storage</h3><span id="chest-count"></span>
+        </div>
+        <div id="chest-slots" class="backpack-slots"></div>
+        <p id="chest-equip-hint" hidden>Select the swimming helmet to equip it.</p>
+        <p id="chest-notice" role="status" hidden></p>
+      </section>
+      <h3 class="chest-backpack-label" id="chest-backpack-label" hidden>Your backpack</h3>
       <div class="backpack-layout">
         <div class="backpack-storage">
           <section aria-labelledby="backpack-hotbar-label"><h3 id="backpack-hotbar-label">Hotbar</h3><div id="backpack-hotbar" class="backpack-slots"></div></section>
@@ -97,34 +106,20 @@
 
     <dialog id="craft-panel" aria-labelledby="craft-title">
       <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
-      <div class="craft-recipes">
-        <section>
-          <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p id="recipe-desc">Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
-          <button id="make-tank" class="primary">Craft air tank</button>
+      <div class="craft-layout">
+        <section class="craft-library" aria-labelledby="recipe-list-title">
+          <h3 id="recipe-list-title">Recipes</h3>
+          <div id="craft-recipes" class="craft-recipes"></div>
         </section>
-        <section>
-          <div class="recipe"><span class="item item-door" aria-hidden="true"></span><div><h3>Wooden door</h3><p>Place above a solid floor with two blocks of clearance. Opens as you approach.</p><p id="door-cost"></p></div></div>
-          <button id="make-door" class="primary">Craft door</button>
-        </section>
-        <section>
-          <div class="recipe"><span class="item item-copper-pickaxe" aria-hidden="true"></span><div><h3>Copper pickaxe</h3><p>Select it in the hotbar to mine Deepstone and cobalt ore.</p><p id="pickaxe-cost"></p></div></div>
-          <button id="make-pickaxe" class="primary">Craft copper pickaxe</button>
-        </section>
-        <section>
-          <div class="recipe"><span class="item item-spear" aria-hidden="true"></span><div><h3>Spear</h3><p>Thrust at nearby sea creatures to damage and drive them back.</p><p id="spear-cost"></p></div></div>
-          <button id="make-spear" class="primary">Craft spear</button>
-        </section>
-        <section>
-          <div class="recipe"><span class="item item-copper-spear" aria-hidden="true"></span><div><h3>Copper spear</h3><p>Longer reach and heavier damage against deep sea threats.</p><p id="copper-spear-cost"></p></div></div>
-          <button id="make-copper-spear" class="primary">Craft copper spear</button>
-        </section>
-        <section>
-          <div class="recipe"><span class="item item-bow" aria-hidden="true"></span><div><h3>Bow</h3><p>Fires arrows toward your cursor across air and water.</p><p id="bow-cost"></p></div></div>
-          <button id="make-bow" class="primary">Craft bow</button>
-        </section>
-        <section>
-          <div class="recipe"><span class="item item-arrow" aria-hidden="true"></span><div><h3>Arrows</h3><p>Crafts a bundle of 4 arrows for the bow.</p><p id="arrow-cost"></p></div></div>
-          <button id="make-arrow" class="primary">Craft 4 arrows</button>
+        <section class="craft-detail" aria-labelledby="recipe-title">
+          <div class="craft-preview">
+            <span class="craft-preview-icon" aria-hidden="true"><span id="recipe-icon"></span></span>
+            <div><h3 id="recipe-title"></h3><p id="recipe-desc"></p></div>
+          </div>
+          <h4>Materials</h4>
+          <ul id="recipe-cost"></ul>
+          <button id="craft-recipe" type="button" class="primary"></button>
+          <p id="craft-status" role="status"></p>
         </section>
       </div>
     </dialog>

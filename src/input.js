@@ -35,7 +35,7 @@ export function bindInput(canvas, actions) {
     const code = event.code;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const panel = actions.blocked();
-    if (code === 'Tab' && !event.shiftKey && (!panel || panel === 'backpack-panel')) {
+    if (code === 'Tab' && !event.shiftKey && (!panel || (panel === 'backpack-panel' && !actions.chestOpen()))) {
       event.preventDefault();
       if (!event.repeat) actions.backpack();
       return;
@@ -62,7 +62,7 @@ export function bindInput(canvas, actions) {
       keys.add(code);
     }
     if (event.repeat) return;
-    if (code === 'KeyE') actions.collect();
+    if (code === 'KeyE') actions.interact();
     if (/^Digit[1-4]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
   });
   window.addEventListener('keyup', ({ code }) => keys.delete(code));
@@ -83,6 +83,11 @@ export function bindInput(canvas, actions) {
     event.preventDefault();
     if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
     locate(event);
+    if (event.button === 0 && actions.interactAtPointer()) {
+      stopMining();
+      if (event.pointerType === 'touch') pointer.active = false;
+      return;
+    }
     if (event.button === 2 || (event.pointerType === 'touch' && placing)) {
       stopMining();
       actions.place();
@@ -120,7 +125,7 @@ export function bindInput(canvas, actions) {
       button.addEventListener(event, () => keys.delete(key));
     }
   }
-  document.getElementById('grab').addEventListener('click', actions.collect);
+  document.getElementById('grab').addEventListener('click', actions.interact);
   document.getElementById('touch-mode').addEventListener('click', (event) => {
     stopMining();
     placing = !placing;

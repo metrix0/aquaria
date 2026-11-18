@@ -1,32 +1,24 @@
 import { createCharacterEditor } from './character-editor.js';
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_PICKAXE, COPPER_SPEAR, ITEM_PROMPTS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from './content.js';
-import { ITEMS } from './inventory.js';
+import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { MAX_HEALTH } from './gameplay/player.js';
-import { areaDepth, canCraftItem, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
-
-const itemRecipes = [
-  [WOODEN_DOOR, 'door'],
-  [COPPER_PICKAXE, 'pickaxe'],
-  [SPEAR, 'spear'],
-  [COPPER_SPEAR, 'copper-spear'],
-  [BOW, 'bow'],
-  [ARROW, 'arrow'],
-];
-const formatCost = (cost) => Object.entries(cost).map(([id, count]) => count + ' ' + ITEMS[id].name.toLowerCase()).join(' · ');
+import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
     'depth', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
-    'interact', 'selected', 'feedback', 'backpack-head-label', 'recipe-desc',
-    'make-tank', 'recipe-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
+    'interact', 'feedback', 'backpack-head-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
+  const craftingUI = createCraftingUi(byId('craft-panel'), actions);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
     getInventory: actions.getInventory,
+    getChest: actions.getChest,
+    moveChestStack: actions.moveChestStack,
+    equipChestLoot: actions.equipChestLoot,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,
@@ -39,24 +31,16 @@ export function createUI(actions, version) {
     if (element && element.textContent !== value) element.textContent = value;
   }
 
-  function open(id) {
+  function open(id, chest) {
     const panel = byId(id);
     if (panel.open) {
       panel.close();
       return;
     }
     for (const other of panels) if (other.open) other.close();
+    if (id === 'backpack-panel') inventoryUI.showChest(chest);
     actions.beforePanel(id);
     panel.showModal();
-  }
-
-  function updateCraft(game) {
-    for (const [recipe, control] of itemRecipes) byId('make-' + control).disabled = !canCraftItem(game, recipe);
-    fields['make-tank'].disabled = !canCraftTank(game);
-    const bonus = game.progress.swimmingHelmet ? SWIMMING_HELMET.bonusSeconds : 0;
-    setText('recipe-desc', `Extends a dive from ${BREATH_SECONDS + bonus} to ${AIR_TANK.breathSeconds + bonus} seconds.`);
-    setText('make-tank', game.progress.airTank ? 'Equipped' : 'Craft air tank');
-    setText('recipe-cost', game.progress.airTank ? 'Air tank equipped' : formatCost(AIR_TANK.cost));
   }
 
   byId('version').textContent = 'v' + version;
@@ -75,11 +59,6 @@ export function createUI(actions, version) {
     shadows.setAttribute('aria-pressed', String(hidden));
     actions.hideCaveShadows(hidden);
   });
-  byId('make-tank').addEventListener('click', actions.makeTank);
-  for (const [recipe, control] of itemRecipes) {
-    byId(control + '-cost').textContent = formatCost(recipe.cost);
-    byId('make-' + control).addEventListener('click', () => actions.makeItem(recipe));
-  }
   byId('room-create').addEventListener('click', () => actions.enterRoom());
   byId('room-join-form').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -93,7 +72,9 @@ export function createUI(actions, version) {
     godMode: (enabled) => godMode.setAttribute('aria-pressed', String(enabled)),
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
-    updateCraft,
+    updateCraft: craftingUI.render,
+    openChestId: inventoryUI.openChestId,
+    chestNotice: inventoryUI.notice,
     updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank, game.progress.swimmingHelmet),
     updateBackpack(game) {
       byId('backpack-helmet').hidden = !game.progress.swimmingHelmet;
@@ -149,12 +130,12 @@ export function createUI(actions, version) {
         fill.parentElement.setAttribute('aria-valuenow', String(air));
       }
       const prompt = fields.interact;
-      const focusedItem = nearestItem(game);
+      const focusedItem = inventoryUI.openChestId() ? null : nearestItem(game);
       prompt.hidden = !focusedItem;
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;
         const label = prompt.querySelector('span');
-        const action = focusedItem.kind === 'cache' ? 'Open ' + focusedItem.name.toLowerCase() : ITEM_PROMPTS[focusedItem.kind];
+        const action = focusedItem.kind === 'chest' ? 'Open ' + focusedItem.name.toLowerCase() : 'Harvest kelp';
         if (label.textContent !== action) label.textContent = action;
       }
     },

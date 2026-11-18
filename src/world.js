@@ -89,7 +89,7 @@ export function isDoorOpen(door, x, y, height) {
 export function buildCellFree(world, tx, ty) {
   return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS - 2
     && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !treeAt(world, tx, ty)
-    && !world.items.some((item) => !world.harvested.has(item.id)
+    && !world.items.some((item) => (item.kind === 'chest' || !world.harvested.has(item.id))
       && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty);
 }
 

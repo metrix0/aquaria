@@ -514,7 +514,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function terrain(world, player, camera, time, { left, right, top, bottom }) {
+  function terrain(world, player, camera, time, { left, right, top, bottom }, openChestId) {
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
@@ -604,7 +604,7 @@ export function createRenderer(canvas) {
     }
 
     for (const item of world.items) {
-      if (world.harvested.has(item.id)) continue;
+      if (item.kind !== 'chest' && world.harvested.has(item.id)) continue;
       if (item.x < camera.x - 24 || item.x > camera.x + camera.width + 24) continue;
       const { x, y } = item;
       if (item.kind === 'kelp') {
@@ -617,21 +617,43 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, '#8fb39a');
           }
         }
-      } else if (item.kind === 'cache' || item.kind === 'helmet') {
-        const cache = item.kind === 'cache';
-        const size = cache ? 19 : 17;
-        const base = cache ? '#9f7858' : '#8c6d53';
-        const highlight = '#efd089';
-        rect(x - size / 2, y - 5, size, 10, '#302d34');
-        rect(x - size / 2 + 1, y - 4, size - 2, 8, base);
-        rect(x - size / 2, y - 5, size, 2, highlight);
-        rect(x - size / 2 + 3, y - 3, 2, 7, '#655449');
-        rect(x + size / 2 - 5, y - 3, 2, 7, '#655449');
-        rect(x - 1, y - 1, 3, 3, cache ? highlight : '#8bdfd0');
-        rect(x, y - 12, 1, 5, '#f1dca4');
-        rect(x - 2, y - 10, 5, 1, '#f1dca4');
+      } else if (item.kind === 'chest') {
+        drawChest(x, y, item.id === openChestId);
       }
     }
+  }
+
+  function drawChest(x, y, open) {
+    const frame = '#332c30';
+    const iron = '#716f65';
+    const edge = '#b5aa87';
+    if (open) {
+      rect(x - 10, y - 11, 20, 11, frame);
+      rect(x - 8, y - 9, 16, 8, '#744c3a');
+      rect(x - 8, y - 9, 16, 2, '#b38051');
+      rect(x - 6, y - 8, 12, 6, '#392a2b');
+      rect(x - 11, y - 3, 22, 4, '#2c262b');
+      rect(x - 10, y - 3, 20, 1, '#bb8656');
+    } else {
+      rect(x - 9, y - 8, 18, 2, frame);
+      rect(x - 11, y - 6, 22, 7, frame);
+      rect(x - 9, y - 6, 18, 5, '#ac7649');
+      rect(x - 8, y - 6, 16, 2, '#d0a06a');
+      rect(x - 8, y - 2, 16, 1, '#81513d');
+      rect(x - 8, y - 6, 2, 5, iron);
+      rect(x + 6, y - 6, 2, 5, iron);
+    }
+    rect(x - 11, y, 22, 8, frame);
+    rect(x - 9, y + 1, 18, 6, '#935c3e');
+    rect(x - 9, y + 1, 18, 2, '#b27b4c');
+    rect(x - 9, y + 5, 18, 1, '#784532');
+    for (const band of [-8, 6]) {
+      rect(x + band, y + 1, 2, 6, iron);
+      rect(x + band, y + 2, 1, 1, edge);
+    }
+    rect(x - 2, y - 1, 4, 5, '#bc8b56');
+    rect(x - 1, y, 2, 1, '#edd09a');
+    rect(x, y + 2, 1, 1, frame);
   }
 
   function arrows(projectiles, camera) {
@@ -889,7 +911,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -902,7 +924,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    terrain(world, player, camera, time, bounds);
+    terrain(world, player, camera, time, bounds, openChestId);
     doors(world, player, camera);
     mobs(world, camera, time, targetMob);
     projectiles(world, camera);

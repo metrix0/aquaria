@@ -452,8 +452,15 @@ export function generateFixtures() {
     ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
     { id: 'western-grotto-cache', name: 'Grotto cache', column: 20, floor: 62, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 90, floor: 118, resource: 'iron', amount: 3 },
-  ].map(({ column, floor, ...cache }) => ({ kind: 'cache', ...cache, x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 9 }));
-  items.push({ id: SWIMMING_HELMET.chestId, kind: 'helmet', x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 5 });
+  ].map(({ id, name, column, floor, resource, amount }) => ({
+    id, name, kind: 'chest', loot: { id: resource, count: amount },
+    x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
+  }));
+  items.push({
+    id: SWIMMING_HELMET.chestId, name: 'Wreck chest', kind: 'chest',
+    loot: { id: SWIMMING_HELMET.id, count: 1 },
+    x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
+  });
   for (const x of [34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {
     items.push({ id: 'kelp-' + x, kind: 'kelp', amount: 1, x: (x + WEST_EXTENSION) * TILE + 8, y: groundAt(x + WEST_EXTENSION) * TILE - 12 });
   }

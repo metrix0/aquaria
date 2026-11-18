@@ -1,7 +1,7 @@
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_SPEAR, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, INTERACTION_RANGE, CHEST_SIZE, COPPER_SPEAR, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, inWater, isEditableTile, placeDoor, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
-import { Inventory, ITEMS } from '../inventory.js';
+import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
@@ -33,6 +33,7 @@ export function createGame(snapshot) {
     game.progress.swimmingHelmet = true;
     world.harvested.add(SWIMMING_HELMET.chestId);
   }
+  game.chests = restoreChests(world, game.progress, snapshot?.world.chests);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance);
 
@@ -62,6 +63,7 @@ export function resetRoomProgress(previous) {
   return {
     world,
     inventory: new Inventory(),
+    chests: restoreChests(world),
     progress: { airTank: false, swimmingHelmet: false },
     player,
     dirty: true,
@@ -201,13 +203,63 @@ export function stepGame(game, input, dt) {
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
 }
 
+function restoreChests(world, progress, saved) {
+  const chests = new Map();
+  for (const item of world.items) {
+    if (item.kind !== 'chest') continue;
+    const slots = restoreSlots(Array.isArray(saved?.[item.id])
+      ? saved[item.id]
+      : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
+    if (progress?.swimmingHelmet) {
+      for (const [index, stack] of slots.entries()) {
+        if (stack?.id === SWIMMING_HELMET.id) slots[index] = null;
+      }
+    }
+    chests.set(item.id, slots);
+  }
+  return chests;
+}
+
+function itemDistance(player, item) {
+  return Math.hypot(item.x - player.x, item.y - player.y - Math.ceil(player.height / 2));
+}
+
+export function chestAt(game, x, y) {
+  return game.world.items.find((item) => item.kind === 'chest' &&
+    Math.abs(x - item.x) < 12 && y >= item.y - 11 && y < item.y + 8 &&
+    itemDistance(game.player, item) < INTERACTION_RANGE);
+}
+
+export function moveChestStack(game, chestId, from, to) {
+  const slots = game.chests.get(chestId);
+  if (!slots) return false;
+  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots };
+  const source = groups[from.group];
+  const target = groups[to.group];
+  if (source?.[from.index]?.id === SWIMMING_HELMET.id || target?.[to.index]?.id === SWIMMING_HELMET.id) return false;
+  if (!moveStack(source, from.index, target, to.index)) return false;
+  game.dirty = true;
+  return true;
+}
+
+export function equipChestLoot(game, chestId, slot) {
+  const slots = game.chests.get(chestId);
+  if (game.progress.swimmingHelmet || slots?.[slot]?.id !== SWIMMING_HELMET.id) return;
+  slots[slot] = null;
+  game.world.harvested.add(chestId);
+  game.progress.swimmingHelmet = true;
+  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + SWIMMING_HELMET.bonusSeconds);
+  game.dirty = true;
+  return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
+}
+
 export function nearestItem(game) {
   const { player, world } = game;
   let result;
-  let distance = 35;
+  let distance = INTERACTION_RANGE;
   for (const item of world.items) {
-    if (world.harvested.has(item.id)) continue;
-    const difference = Math.hypot(item.x - player.x, item.y - player.y - Math.ceil(player.height / 2));
+    if (item.kind !== 'chest' && world.harvested.has(item.id)) continue;
+    const difference = itemDistance(player, item);
     if (difference < distance) {
       distance = difference;
       result = item;
@@ -216,25 +268,13 @@ export function nearestItem(game) {
   return result;
 }
 
-export function collectItem(game) {
-  const item = nearestItem(game);
-  if (!item) return;
+export function collectItem(game, item = nearestItem(game)) {
+  if (item?.kind !== 'kelp') return;
 
-  if (item.kind === 'helmet') {
-    game.world.harvested.add(item.id);
-    game.progress.swimmingHelmet = true;
-    game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + SWIMMING_HELMET.bonusSeconds);
-    game.dirty = true;
-    return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
-  }
-
-  const { resource = item.kind, amount } = item;
-  const name = ITEMS[resource].name.toLowerCase();
-  if (!game.inventory.add(resource, amount)) return 'No room for more ' + name + '.';
+  if (!game.inventory.add('kelp', item.amount)) return 'No room for more kelp.';
   game.world.harvested.add(item.id);
   game.dirty = true;
-  const reward = '+' + amount + ' ' + name;
-  return item.kind === 'cache' ? item.name + ' recovered. ' + reward : reward;
+  return '+' + item.amount + ' kelp';
 }
 
 export function canCraftTank(game) {

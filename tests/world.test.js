@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from '../src/content.js';
+import { ARROW, BOW, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, chestAt, collectItem, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, resetRoomProgress, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
-import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
+import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
@@ -183,7 +183,7 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
   }
 });
 
-test('after digging in, the expanded island cave is walkable and the survey cache stays collected', () => {
+test('after digging in, the expanded island cave is walkable and the survey cache persists', () => {
   const game = createGame();
   const { world, player } = game;
   const center = WEST_EXTENSION + ISLAND_CAVE.center;
@@ -203,11 +203,16 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.grounded && player.y > WATER);
   const cache = world.items.find(({ id }) => id === 'island-cave-cache');
   walkUntil(() => player.grounded && Math.abs(player.x - cache.x) < TILE / 4, { left: true });
-  assert.match(collectItem(game), /Survey cache recovered/);
+  assert.equal(nearestItem(game), cache);
+  assert.equal(chestAt(game, cache.x, cache.y), cache);
+  assert.equal(collectItem(game), undefined);
+  assert.equal(moveChestStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), true);
   assert.equal(game.inventory.count('copper'), 2);
   const restored = createGame(decodeSave(encodeSave(game)));
-  assert.equal(collectItem(restored), undefined);
+  assert.equal(nearestItem(restored)?.id, cache.id);
+  assert.deepEqual(restored.chests.get(cache.id), Array(CHEST_SIZE).fill(null));
   assert.equal(restored.inventory.count('copper'), 2);
+  assert.equal(buildCellFree(restored.world, Math.floor(cache.x / TILE), Math.floor(cache.y / TILE)), false);
 
   const chamberX = (column) => (column + WEST_EXTENSION + .5) * TILE;
   walkUntil(() => player.x <= chamberX(35), { left: true });
@@ -504,21 +509,26 @@ test('mob generation and dynamic enemy spawns stay sparse across friendly and ho
   assert.equal(peakDynamic, 1);
 });
 
-test('the wreck chest grants a swimming helmet that extends oxygen capacity', () => {
+test('the wreck chest opens before equipping the swimming helmet and stays available after reload', () => {
   const game = createGame();
   assert.equal(oxygenCapacity(game), 18);
 
   const chest = game.world.items.find((item) => item.id === 'wreck-chest');
   const wreckCache = game.world.items.find((item) => item.id === 'wreck-cache');
   assert.ok(chest && wreckCache);
-  assert.equal(chest.kind, 'helmet');
+  assert.equal(chest.kind, 'chest');
   assert.ok(chest.y > WATER);
   assert.ok(Math.abs(chest.x - wreckCache.x) <= 5 * TILE);
   assert.ok(Math.hypot(chest.x - wreckCache.x, chest.y - wreckCache.y) >= 35);
 
   game.player.x = chest.x;
-  game.player.y = chest.y - Math.ceil(game.player.height / 2);
-  assert.equal(collectItem(game), 'Swimming helmet equipped. +14s oxygen');
+  game.player.y = chest.y + 8 - game.player.height;
+  assert.equal(nearestItem(game), chest);
+  assert.equal(collectItem(game), undefined);
+  assert.equal(oxygenCapacity(game), 18);
+  assert.equal(game.chests.get(chest.id)[0].id, SWIMMING_HELMET.id);
+  assert.equal(moveChestStack(game, chest.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), false);
+  assert.equal(equipChestLoot(game, chest.id, 0), 'Swimming helmet equipped. +14s oxygen');
   assert.equal(game.progress.swimmingHelmet, true);
   assert.equal(oxygenCapacity(game), 32);
   assert.equal(game.player.oxygen, 32);
@@ -531,7 +541,40 @@ test('the wreck chest grants a swimming helmet that extends oxygen capacity', ()
   assert.equal(reloadedGame.progress.swimmingHelmet, true);
   assert.equal(oxygenCapacity(reloadedGame), 32);
   assert.ok(reloadedGame.world.harvested.has('wreck-chest'));
-  assert.equal(nearestItem(reloadedGame), undefined);
+  assert.equal(nearestItem(reloadedGame)?.id, chest.id);
+  assert.equal(reloadedGame.chests.get(chest.id)[0], null);
+  assert.equal(equipChestLoot(reloadedGame, chest.id, 0), undefined);
+});
+
+test('chest transfers, legacy loot, and room progress survive the appropriate save boundaries', () => {
+  const fresh = encodeSave(createGame());
+  delete fresh.world.chests;
+  fresh.world.harvested = ['wreck-cache', 'wreck-chest'];
+  const game = createGame(decodeSave(fresh));
+  const id = 'wreck-cache';
+  const chest = { group: 'chest', index: CHEST_SIZE - 1 };
+  const wood = { group: 'hotbar', index: 3 };
+  const tool = { group: 'hotbar', index: 0 };
+
+  assert.deepEqual(game.chests.get(id), Array(CHEST_SIZE).fill(null));
+  assert.equal(game.progress.swimmingHelmet, true);
+  assert.equal(game.chests.get('wreck-chest')[0], null);
+  assert.equal(chestAt(game, game.world.items.find((item) => item.id === id).x, 0), undefined);
+  assert.equal(moveChestStack(game, id, wood, { group: 'chest', index: CHEST_SIZE }), false);
+  assert.equal(moveChestStack(game, id, wood, chest), true);
+  assert.equal(moveChestStack(game, id, tool, chest), true);
+  assert.equal(game.inventory.hotbar[0].id, 'wood');
+  assert.deepEqual(game.chests.get(id)[chest.index], { id: 'tool', count: 1 });
+
+  const roomSnapshot = encodeSave(game, false);
+  const restored = createGame(decodeSave(roomSnapshot));
+  assert.deepEqual(encodeSave(restored, false), roomSnapshot);
+  assert.equal(moveChestStack(restored, id, chest, wood), true);
+  assert.equal(restored.inventory.hotbar[3].id, 'tool');
+  assert.equal(restored.chests.get(id)[chest.index], null);
+  const reset = resetRoomProgress(restored);
+  assert.deepEqual(reset.chests.get(id)[0], { id: 'wood', count: 8 });
+  assert.equal(reset.chests.get('wreck-chest')[0].id, SWIMMING_HELMET.id);
 });
 
 test('craftable spears and bow with arrows damage and defeat sea enemies', () => {

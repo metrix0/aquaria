@@ -4,7 +4,7 @@ import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectItem, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -91,6 +91,7 @@ function showTileEffect({ tx, ty, before, amount }) {
 
 function inventoryChanged() {
   ui.select(selected);
+  if (ui.activePanel() === 'craft-panel') ui.updateCraft(game);
   game.dirty = true;
   storeProgress();
 }
@@ -208,6 +209,7 @@ function leaveRoom() {
 }
 
 function switchView() {
+  ui.close('backpack-panel');
   input.clear();
   input.pointer.active = false;
   ui.godMode(false);
@@ -249,7 +251,10 @@ const ui = createUI({
   beforePanel(id) {
     input.clear();
     if (id === 'craft-panel') ui.updateCraft(game);
-    if (id === 'backpack-panel') ui.updateBackpack(game);
+    if (id === 'backpack-panel') {
+      ui.updateBackpack(game);
+      ui.select(selected);
+    }
     if (id === 'customize-panel') ui.updateCustomize(game);
     storeProgress();
   },
@@ -267,7 +272,16 @@ const ui = createUI({
     }
   },
   getInventory: () => game.inventory,
+  getChest: (id) => game.chests.get(id),
   canMoveInventory: () => !editPending,
+  moveChestStack: (id, from, to) => moveChestStack(game, id, from, to),
+  equipChestLoot(id, slot) {
+    const note = equipChestLoot(game, id, slot);
+    if (!note) return;
+    inventoryChanged();
+    ui.updateBackpack(game);
+    ui.chestNotice(note);
+  },
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
@@ -275,29 +289,39 @@ const ui = createUI({
     if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
   },
   makeItem(recipe) {
-    if (editPending || !craftItem(game, recipe)) return;
+    if (editPending || !craftItem(game, recipe)) return false;
     inventoryChanged();
-    ui.updateCraft(game);
-    const label = (recipe.amount ?? 1) > 1 ? recipe.amount + ' × ' + ITEMS[recipe.id].name : ITEMS[recipe.id].name;
-    ui.notify(label + ' crafted.');
+    return true;
   },
   makeTank() {
-    if (editPending || !craftTank(game)) return;
-    ui.close('craft-panel');
+    if (editPending || !craftTank(game)) return false;
     inventoryChanged();
-    ui.notify('Air tank equipped.');
+    return true;
   },
 }, version);
 
 const input = bindInput(canvas, {
   blocked: ui.activePanel,
-  collect() {
+  chestOpen: ui.openChestId,
+  interact() {
     if (editPending) return;
-    const note = collectItem(game);
+    const item = nearestItem(game);
+    if (item?.kind === 'chest') {
+      ui.open('backpack-panel', item);
+      return;
+    }
+    const note = collectItem(game, item);
     if (note) {
       inventoryChanged();
       ui.notify(note);
     }
+  },
+  interactAtPointer() {
+    const { pointer } = input;
+    const chest = chestAt(game, pointer.x + camera.x, pointer.y + camera.y);
+    if (!chest) return false;
+    if (!editPending) ui.open('backpack-panel', chest);
+    return true;
   },
   fend() {
     if (editPending || game.player.stun > 0) return false;
@@ -438,7 +462,7 @@ function frame(now) {
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
     aim: targetMob ? null : aimedTile(), mining, attackSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
-    targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden,
+    targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden, openChestId: ui.openChestId(),
   });
   requestAnimationFrame(frame);
 }

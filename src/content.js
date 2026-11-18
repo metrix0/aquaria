@@ -25,7 +25,8 @@ export const MINING_RULES = {
   [MATERIAL.deepstone]: { name: 'Deepstone', tier: 2, pickaxe: 1.7 },
 };
 
-export const ITEM_PROMPTS = { kelp: 'Harvest kelp', helmet: 'Open chest' };
+export const CHEST_SIZE = 8;
+export const INTERACTION_RANGE = 35;
 export const BREATH_SECONDS = 18;
 
 export const SWIMMING_HELMET = {
