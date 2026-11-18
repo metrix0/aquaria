@@ -1,4 +1,4 @@
-import { APPEARANCE, WALK_CYCLE_DISTANCE } from './content.js';
+import { APPEARANCE } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { TILE, clamp } from './world/generation.js';
 
@@ -15,16 +15,19 @@ const bodies = [
 ];
 const hairStyles = ['swept', 'cropped', 'bob', 'ponytail', 'shaved'];
 
-function walkFoot(phase, weight, restX) {
-  const stance = 0.54;
-  const reach = WALK_CYCLE_DISTANCE * stance / 2;
+function walkFoot(phase, weight, restX, direction) {
+  const stance = 0.55;
+  const reach = 6;
   const swing = clamp((phase - stance) / (1 - stance), 0, 1);
-  // Move the planted foot backward at the same speed the player moves forward.
   const travel = phase < stance
-    ? reach - phase * WALK_CYCLE_DISTANCE
+    ? reach * (1 - 2 * phase / stance)
     : reach * (2 * swing * swing * (3 - 2 * swing) - 1);
-  const lift = 2 * Math.sin(swing * Math.PI) ** 1.4;
-  return [Math.round(restX + (travel - restX) * weight), 22 - Math.round(lift * weight)];
+  const lift = Math.sin(swing * Math.PI) ** 1.4 * weight;
+  return [
+    restX + (travel * direction - restX) * weight,
+    22 - Math.round(2.5 * lift),
+    (0.8 + 1.8 * lift) * weight,
+  ];
 }
 
 export function createCharacterRenderer(ctx) {
@@ -36,7 +39,7 @@ export function createCharacterRenderer(ctx) {
   function pixelLine(from, to, width, color) {
     const dx = to[0] - from[0];
     const dy = to[1] - from[1];
-    const steps = Math.max(1, Math.abs(dx), Math.abs(dy));
+    const steps = Math.ceil(Math.max(1, Math.abs(dx), Math.abs(dy)));
     const offset = Math.floor(width / 2);
     for (let i = 0; i <= steps; i++) {
       rect(from[0] + i * dx / steps - offset, from[1] + i * dy / steps - offset, width, width, color);
@@ -44,9 +47,15 @@ export function createCharacterRenderer(ctx) {
   }
 
   function leg(hip, foot, pants, far) {
-    const [x, y] = foot;
-    const knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
+    const [x, y, bend = 0] = foot;
     const ankle = [x, y - 1];
+    let knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
+    if (bend) {
+      const dx = x - hip[0];
+      const dy = ankle[1] - hip[1];
+      const offset = bend / Math.hypot(dx, dy);
+      knee = [hip[0] + dx / 2 + dy * offset, hip[1] + dy / 2 - dx * offset];
+    }
     pixelLine(hip, knee, 3, pants.back);
     pixelLine(knee, ankle, 3, pants.back);
     const trimWidth = far ? 1 : 2;
@@ -161,12 +170,12 @@ export function createCharacterRenderer(ctx) {
     const shirt = APPEARANCE.shirt[appearance.shirt];
     const pants = APPEARANCE.pants[appearance.pants];
     const shoulderX = (shoulder - 5) / 2;
-    const nearPhase = facing === player.facing ? phase : (1 - phase) % 1;
+    const walkDirection = player.dx * facing < 0 ? -1 : 1;
     const rising = player.dy < -35;
     const nearFoot = swimming ? [-2 + kick, 21 - Math.max(kick, 0)]
-      : player.grounded ? walkFoot(nearPhase, strideWeight, 2) : [3, rising ? 19 : 21];
+      : player.grounded ? walkFoot(phase, strideWeight, 2, walkDirection) : [3, rising ? 19 : 21];
     const farFoot = swimming ? [-5 - kick, 22 + Math.min(kick, 0)]
-      : player.grounded ? walkFoot((nearPhase + 0.5) % 1, strideWeight, -3) : [-4, rising ? 20 : 22];
+      : player.grounded ? walkFoot((phase + 0.5) % 1, strideWeight, -3, walkDirection) : [-4, rising ? 20 : 22];
     const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : attackSwing ? attackSwing.y - player.y : 0;
     const swingPhase = mining && !reducedMotion
       ? mining.progress * Math.round(mining.duration / 0.26)
@@ -201,6 +210,7 @@ export function createCharacterRenderer(ctx) {
     }
     if (swimming) ctx.rotate(tilt);
     leg([-2, 17], farFoot, pants, true);
+    if (strideWeight) leg([1, 17], nearFoot, pants, false);
     arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     if (tank) {
@@ -219,7 +229,7 @@ export function createCharacterRenderer(ctx) {
     rect(0, 13, 2, 1, shirt.light);
     rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
     rect(-1, 16, 2, 1, '#d9ac75');
-    leg([1, 17], nearFoot, pants, false);
+    if (!strideWeight) leg([1, 17], nearFoot, pants, false);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
     if (helmet) divingHelmet(0, 0);
     rect(-2, 9, 5, 1, '#efc48d');
