@@ -689,7 +689,7 @@ export function createRenderer(canvas) {
       const fromChest = column - HELMET_WRECK_COLUMN;
       if (fromChest === -2 || fromChest === 3) {
         drawGlowCoral((x + .5) * TILE, y * TILE, fromChest < 0);
-      } else if (y >= WATER_ROW + 4 && Math.abs(fromChest) > 10 && noise(column, 184) > .98) {
+      } else if (y >= WATER_ROW + 4 && Math.abs(fromChest) > 10 && noise(column, 184) > .995) {
         drawGlowCoral((x + .5) * TILE, y * TILE, seed > .5);
       } else if (y >= WATER_ROW + 1 && seed > .79 && Math.abs(fromChest) > 5) {
         coral(x * TILE + 4 + seed * 8, y * TILE, column);
