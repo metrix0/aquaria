@@ -1,4 +1,4 @@
-import { WATER } from './world/generation.js';
+import { MOB_HEALTH, WATER } from './world/generation.js';
 
 const species = [
   {
@@ -45,6 +45,7 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
       kind: 'fish', enemyType, x, y, facing, dx: 0, dy: 0, flee: 0,
       homeX: x, homeY: y, span: 52, speed: enemyType.speed,
       phase: Math.random() * Math.PI * 2, remainingLife: 35 + Math.random() * 20,
+      maxHealth: MOB_HEALTH.fish, health: MOB_HEALTH.fish, hurt: 0, respawn: 0,
     });
     return;
   }

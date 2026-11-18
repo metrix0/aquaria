@@ -8,6 +8,13 @@ export const ROWS = 176;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
+export const MOB_HEALTH = Object.freeze({
+  crab: 2,
+  fish: 2,
+  jellyfish: 2,
+  squid: 4,
+  shark: 7,
+});
 
 export function noise(x, y = 0, seed = 0) {
   let value = Math.imul(x + 171, 1597334677) ^ Math.imul(y + 313, 3812015801) ^ Math.imul(seed, 122949829);
@@ -246,6 +253,7 @@ export function generateMobs() {
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? groundAt(Math.floor(x / TILE)) * TILE : mob.y;
+    const maxHealth = MOB_HEALTH[mob.kind] ?? 2;
     return {
       ...mob,
       x,
@@ -258,6 +266,10 @@ export function generateMobs() {
       grounded: mob.kind === 'crab',
       flee: 0,
       cooldown: 0,
+      maxHealth,
+      health: maxHealth,
+      hurt: 0,
+      respawn: 0,
     };
   });
 }

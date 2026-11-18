@@ -93,6 +93,7 @@ export function bindInput(canvas, actions) {
     if (actions.fend()) {
       stopMining();
       if (event.pointerType === 'touch') pointer.active = false;
+      else miningPointer = event.pointerId;
       return;
     }
     miningPointer = event.pointerId;

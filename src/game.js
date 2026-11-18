@@ -1,6 +1,10 @@
 import { Inventory, ITEMS } from './inventory.js';
+<<<<<<< HEAD
 import { fendOffEnemy } from './gameplay/mobs.js';
 import { PLAYER_SIZE } from './gameplay/player.js';
+=======
+import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
+>>>>>>> b53582c (Add PvE combat with tiered mob health)
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
@@ -26,6 +30,8 @@ let room;
 let busy = false;
 let editPending = false;
 let mining = null;
+let attackCooldown = 0;
+let attackSwing = null;
 let selected = 0;
 let count = 1;
 let time = 0;
@@ -58,6 +64,21 @@ function showAndSave(note) {
 function aimedTile() {
   const { pointer } = input;
   return pointer.active ? targetTile(game, pointer.x + camera.x, pointer.y + camera.y) : null;
+}
+
+function aimedMob() {
+  const { pointer } = input;
+  return pointer.active ? targetMobAt(game, pointer.x + camera.x, pointer.y + camera.y) : null;
+}
+
+function performAttack() {
+  const { pointer } = input;
+  const effect = fendOffEnemy(game, pointer.x + camera.x, pointer.y + camera.y);
+  if (!effect) return false;
+  attackCooldown = 0.28;
+  attackSwing = { x: effect.x, y: effect.y, elapsed: 0, duration: 0.24 };
+  emitEffect(effect);
+  return true;
 }
 
 function showTileEffect({ tx, ty, before, amount }) {
@@ -191,6 +212,8 @@ function leaveRoom() {
 function switchView() {
   input.clear();
   input.pointer.active = false;
+  attackCooldown = 0;
+  attackSwing = null;
   particles.length = 0;
   select(0);
   updateCamera(1);
@@ -265,11 +288,8 @@ const input = bindInput(canvas, {
     }
   },
   fend() {
-    const { pointer } = input;
-    const effect = fendOffEnemy(game, pointer.x + camera.x, pointer.y + camera.y);
-    if (!effect) return false;
-    emitEffect(effect);
-    return true;
+    if (attackCooldown > 0) return Boolean(aimedMob());
+    return performAttack();
   },
   place: () => void editTile(planTileAction(game, aimedTile(), true, selected)),
   stopMining: () => { mining = null; },
@@ -345,6 +365,11 @@ function frame(now) {
   const conditions = worldConditions(room?.worldAge(now) ?? game.worldTime, game.weatherSeed);
   if (playing) {
     time += dt;
+    attackCooldown = Math.max(0, attackCooldown - dt);
+    if (attackSwing) {
+      attackSwing.elapsed += dt;
+      if (attackSwing.elapsed >= attackSwing.duration) attackSwing = null;
+    }
     accumulator += dt;
     while (accumulator >= timestep) {
       const previousPlayer = game.player;
@@ -358,20 +383,29 @@ function frame(now) {
     updateParticles(dt);
     updateCamera(dt);
     if (input.holdingMine() && !editPending) {
-      mining = advanceMining(game, aimedTile(), mining, dt, selected);
-      if (mining?.blocked) {
-        ui.notify(mining.blocked);
-        input.stopMining();
-      } else if (mining?.progress >= 1) {
-        void editTile(mining.action);
+      if (aimedMob()) {
         mining = null;
+        if (attackCooldown <= 0) performAttack();
+      } else {
+        mining = advanceMining(game, aimedTile(), mining, dt, selected);
+        if (mining?.blocked) {
+          ui.notify(mining.blocked);
+          input.stopMining();
+        } else if (mining?.progress >= 1) {
+          void editTile(mining.action);
+          mining = null;
+        }
       }
     }
   }
   ui.update(game, conditions);
   const tank = game.progress.airTank;
   const peers = room?.tick(now, dt, game.player, tank);
-  renderer.draw({ world: game.world, player: game.player, tank, camera, time: reducedMotion ? 0 : time, aim: aimedTile(), mining, particles, peers, reducedMotion, conditions });
+  const targetMob = aimedMob();
+  renderer.draw({
+    world: game.world, player: game.player, tank, camera, time: reducedMotion ? 0 : time,
+    aim: targetMob ? null : aimedTile(), mining, attackSwing, targetMob, particles, peers, reducedMotion, conditions,
+  });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

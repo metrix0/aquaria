@@ -540,12 +540,15 @@ export function createRenderer(canvas) {
     }
   }
 
-  function mobs(world, camera, time) {
+  function mobs(world, camera, time, targetMob) {
     for (const mob of world.mobs ?? []) {
-      if (mob.x < camera.x - 24 || mob.x > camera.x + camera.width + 24) continue;
-      if (mob.y < camera.y - 24 || mob.y > camera.y + camera.height + 24) continue;
+      if (mob.health <= 0 || mob.respawn > 0) continue;
+      if (mob.x < camera.x - 32 || mob.x > camera.x + camera.width + 32) continue;
+      if (mob.y < camera.y - 32 || mob.y > camera.y + camera.height + 32) continue;
       ctx.save();
       ctx.translate(Math.round(mob.x), Math.round(mob.y));
+      ctx.save();
+      if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0) ctx.globalAlpha = 0.6;
 
       if (mob.kind === 'fish') {
         const [dark, mid, light, stripe] = mob.enemyType?.colors ?? fishColors[mob.variant % fishColors.length];
@@ -653,6 +656,17 @@ export function createRenderer(canvas) {
         rect(6, -2, 1, 3, '#192b3e');
         polygon([[1, 2], [-3, 7], [4, 3]], '#263b51');
       }
+      ctx.restore();
+
+      if (mob.maxHealth && (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)) {
+        const barWidth = mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
+        const barX = -Math.floor(barWidth / 2);
+        const barY = mob.kind === 'crab' ? -13 : mob.kind === 'jellyfish' ? -13 : mob.kind === 'shark' ? -14 : -10;
+        const hostile = Boolean(mob.enemyType || mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
+        rect(barX - 1, barY - 1, barWidth + 2, 4, '#111d2f');
+        rect(barX, barY, barWidth, 2, '#283c44');
+        rect(barX, barY, Math.ceil(barWidth * (mob.health / mob.maxHealth)), 2, hostile ? '#e57866' : '#efc27e');
+      }
 
       ctx.restore();
     }
@@ -697,7 +711,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions, peers = [] }) {
+  function draw({ world, player, tank, camera, time, aim, mining, attackSwing, targetMob, particles, reducedMotion, conditions, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -711,7 +725,7 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     terrain(world, player, camera, time, bounds);
     doors(world, player, camera);
-    mobs(world, camera, time);
+    mobs(world, camera, time, targetMob);
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
     }
@@ -722,7 +736,7 @@ export function createRenderer(canvas) {
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, time, mining, reducedMotion, swimming: playerInWater(world, player) });
+    drawCharacter(player, player.appearance, { tank, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
     shadeCaves(world, player, bounds);
     ctx.restore();
 

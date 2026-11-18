@@ -132,7 +132,7 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, reducedMotion = false, swimming = false } = {}) {
+  return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, attackSwing = null, reducedMotion = false, swimming = false } = {}) {
     const crawling = player.height === CRAWL_HEIGHT;
     const speed = Math.abs(player.dx);
     const strideWeight = !reducedMotion && player.grounded && !swimming
@@ -140,7 +140,7 @@ export function createCharacterRenderer(ctx) {
     const phase = player.walkPhase;
     const angle = phase * turn;
     const bob = Math.round(-(Math.sin(angle) ** 2) * strideWeight);
-    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
+    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : attackSwing ? attackSwing.x - player.x : 0;
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0022, -.3, .3) * facing : 0;
     const lean = Number(strideWeight > 0.5 && facing === player.facing);
@@ -159,8 +159,12 @@ export function createCharacterRenderer(ctx) {
       : player.grounded ? walkFoot(nearPhase, strideWeight, 2) : [3, rising ? 19 : 21];
     const farFoot = swimming ? [-5 - kick, 22 + Math.min(kick, 0)]
       : player.grounded ? walkFoot((nearPhase + 0.5) % 1, strideWeight, -3) : [-4, rising ? 20 : 22];
-    const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : 0;
-    const swingPhase = mining && !reducedMotion ? mining.progress * Math.round(mining.duration / 0.26) : 0;
+    const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : attackSwing ? attackSwing.y - player.y : 0;
+    const swingPhase = mining && !reducedMotion
+      ? mining.progress * Math.round(mining.duration / 0.26)
+      : attackSwing
+        ? (reducedMotion ? 0.5 : attackSwing.elapsed / attackSwing.duration)
+        : 0;
 
     ctx.save();
     if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
@@ -180,7 +184,7 @@ export function createCharacterRenderer(ctx) {
         rect(-6, 5, 4, 1, '#bed8ba');
       }
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
-      if (mining) miningArm(1, 10, Math.abs(targetX), targetY, 0, swingPhase, skin, shirt, mining.tier);
+      if (mining || attackSwing) miningArm(1, 10, Math.abs(targetX), targetY, 0, swingPhase, skin, shirt, mining?.tier ?? 1);
       else arm(1, 9, 2 - shuffle, skin, shirt, false);
       ctx.restore();
       return;
@@ -210,8 +214,8 @@ export function createCharacterRenderer(ctx) {
     rect(lean - 2, 9 + bob, 5, 1, '#efc48d');
     rect(lean - 2, 10 + bob, 2, 1, '#b4755a');
 
-    if (mining) {
-      miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining.tier);
+    if (mining || attackSwing) {
+      miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining?.tier ?? 1);
     } else {
       arm(shoulderX, 11 + bob, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
     }

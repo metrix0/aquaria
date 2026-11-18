@@ -1,12 +1,17 @@
 import { MATERIAL } from '../content.js';
 import { updateEnemySpawns } from '../enemies.js';
 import { inWater, solidAt, waterTileAt } from '../world.js';
-import { COLS, TILE, WATER, clamp } from '../world/generation.js';
+import { COLS, MOB_HEALTH, TILE, WATER, clamp } from '../world/generation.js';
 
 const enemySpecs = {
-  jellyfish: { width: 12, height: 18, radius: 11, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish. −16 health', material: MATERIAL.reef },
-  squid: { width: 16, height: 14, radius: 12, damage: 4, healthDamage: 22, message: 'Struck by a reef squid. −22 health', material: MATERIAL.bedrock },
-  shark: { width: 30, height: 14, radius: 15, damage: 5, healthDamage: 34, message: 'Bitten by a shark! −34 health', material: MATERIAL.stone },
+  jellyfish: { name: 'jellyfish', width: 12, height: 18, radius: 11, centerY: 0, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish. −16 health', material: MATERIAL.reef, maxHealth: MOB_HEALTH.jellyfish },
+  squid: { name: 'reef squid', width: 16, height: 14, radius: 12, centerY: 0, damage: 4, healthDamage: 22, message: 'Struck by a reef squid. −22 health', material: MATERIAL.bedrock, maxHealth: MOB_HEALTH.squid },
+  shark: { name: 'shark', width: 30, height: 14, radius: 15, centerY: 0, damage: 5, healthDamage: 34, message: 'Bitten by a shark! −34 health', material: MATERIAL.stone, maxHealth: MOB_HEALTH.shark },
+};
+const mobSpecs = {
+  crab: { name: 'crab', width: 12, height: 8, radius: 10, centerY: -4, material: MATERIAL.sand, maxHealth: MOB_HEALTH.crab },
+  fish: { name: 'fish', width: 12, height: 8, radius: 10, centerY: 0, material: MATERIAL.sand, maxHealth: MOB_HEALTH.fish },
+  ...enemySpecs,
 };
 
 function fishCollides(world, player, x, y, width = 12, height = 8) {
@@ -72,6 +77,15 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   let hit;
 
   for (const mob of world.mobs) {
+    mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
+    if (mob.respawn > 0) {
+      mob.respawn = Math.max(0, mob.respawn - dt);
+      if (mob.respawn === 0) {
+        Object.assign(mob, { x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth, grounded: mob.kind === 'crab' });
+      }
+      continue;
+    }
+    if (mob.health <= 0) continue;
     mob.flee = Math.max(0, mob.flee - dt);
     const diffX = mob.x - px;
     const diffY = (mob.kind === 'crab' ? mob.y - 4 : mob.y) - py;
@@ -244,24 +258,75 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   return hit;
 }
 
-export function fendOffEnemy({ world, player }, wx, wy) {
+export function targetMobAt({ world, player }, wx, wy) {
+  let best = null;
+  let bestDist = Infinity;
   for (const mob of world.mobs) {
-    const spec = enemySpecs[mob.kind];
+    if (mob.health <= 0 || mob.respawn > 0) continue;
+    const spec = mobSpecs[mob.kind];
     if (!spec) continue;
-    if (Math.hypot(wx - mob.x, wy - mob.y) <= spec.radius + 10 && Math.hypot(mob.x - player.x, mob.y - player.y - 11) <= 5 * TILE) {
-      const angle = Math.atan2(mob.y - (player.y + 11), mob.x - player.x);
-      mob.dx = Math.cos(angle) * 125;
-      mob.dy = Math.sin(angle) * 95;
-      mob.flee = 2.4;
-      mob.cooldown = 1.4;
-      return { x: mob.x, y: mob.y, material: spec.material, count: mob.kind === 'squid' ? 14 : 8, spread: 64,
-        message: mob.kind === 'squid' ? 'Startled squid jetted away in ink!' : 'Fended off ' + mob.kind + '!' };
+    const cy = mob.y + spec.centerY;
+    const pointerDist = Math.hypot(wx - mob.x, wy - cy);
+    const playerDist = Math.hypot(mob.x - player.x, cy - (player.y + 11));
+    if (pointerDist <= spec.radius + 12 && playerDist <= 5 * TILE && pointerDist < bestDist) {
+      best = mob;
+      bestDist = pointerDist;
     }
   }
+  return best;
+}
+
+export function fendOffEnemy(game, wx, wy) {
+  const mob = targetMobAt(game, wx, wy);
+  if (!mob) return;
+  const { world, player } = game;
+  const spec = mobSpecs[mob.kind];
+  const cy = mob.y + spec.centerY;
+  const angle = Math.atan2(cy - (player.y + 11), mob.x - player.x);
+  const dir = mob.x >= player.x ? 1 : -1;
+  player.facing = dir;
+  mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - 1);
+  mob.hurt = 0.32;
+
+  if (mob.kind === 'crab') {
+    mob.facing = dir;
+    mob.dx = dir * 95;
+    mob.dy = -65;
+    mob.grounded = false;
+    mob.flee = 1.8;
+  } else if (mob.kind === 'fish') {
+    mob.facing = dir;
+    mob.dx = Math.cos(angle) * 115;
+    mob.dy = Math.sin(angle) * 85;
+    mob.flee = 1.8;
+  } else {
+    const knockback = mob.kind === 'shark' ? 85 : 115;
+    mob.dx = Math.cos(angle) * knockback;
+    mob.dy = Math.sin(angle) * (knockback * 0.75);
+    mob.flee = mob.kind === 'shark' ? 0.65 : 1.6;
+    mob.cooldown = Math.max(mob.cooldown ?? 0, 0.9);
+  }
+
+  const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
+  if (mob.health <= 0) {
+    if (mob.enemyType) {
+      const index = world.mobs.indexOf(mob);
+      if (index !== -1) world.mobs.splice(index, 1);
+    } else {
+      mob.respawn = 45;
+    }
+    return { x: mob.x, y: cy, material: spec.material, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
+  }
+  return {
+    x: mob.x, y: cy, material: spec.material, count: mob.kind === 'squid' ? 12 : 7, spread: 58,
+    message: 'Hit ' + label + ' (' + mob.health + '/' + mob.maxHealth + ' HP)',
+  };
 }
 
 export function resetHostiles(world) {
   for (const mob of world.mobs) {
-    if (enemySpecs[mob.kind]) Object.assign(mob, { x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0 });
+    if (enemySpecs[mob.kind] && !(mob.respawn > 0)) {
+      Object.assign(mob, { x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth });
+    }
   }
 }
