@@ -27,6 +27,7 @@ let room;
 let busy = false;
 let editPending = false;
 let mining = null;
+let miningSwing = null;
 let selected = 0;
 let count = 1;
 let time = 0;
@@ -65,6 +66,11 @@ function aimedTile() {
 function aimedMob() {
   const { pointer } = input;
   return pointer.active ? targetMobAt(game, pointer.x + camera.x, pointer.y + camera.y) : null;
+}
+
+function startMiningSwing({ tx, ty, tier, duration }) {
+  const cycles = Math.max(1, Math.round(duration / 0.26));
+  miningSwing = { tx, ty, tier, duration: duration / cycles, phase: 0 };
 }
 
 function showTileEffect({ tx, ty, before, amount, item }) {
@@ -201,6 +207,7 @@ function switchView() {
   ui.close('backpack-panel');
   input.clear();
   input.pointer.active = false;
+  miningSwing = null;
   ui.godMode(false);
   particles.length = 0;
   select(0);
@@ -308,7 +315,17 @@ const input = bindInput(canvas, {
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
     const held = game.inventory.hotbar[selected]?.id;
-    if (!ITEMS[held]?.weapon && !aimedMob() && planTileAction(game, aimedTile(), false)) return false;
+    if (!ITEMS[held]?.weapon && !aimedMob()) {
+      const next = advanceMining(game, aimedTile(), null, 0, selected);
+      if (next) {
+        if (!next.blocked && !miningSwing && !game.attack) {
+          mining = next;
+          startMiningSwing(next);
+        }
+        return false;
+      }
+    }
+    if (miningSwing) return true;
     const result = useWeapon(game, selected, wx, wy);
     if (result.inventoryChanged) inventoryChanged();
     if (result.message) ui.notify(result.message);
@@ -394,30 +411,40 @@ function frame(now) {
       const note = stepGame(game, { ...input.sample(), mining: input.holdingMine(), night: conditions.night }, timestep);
       for (const effect of game.effects) emitEffect(effect);
       game.effects.length = 0;
-      if (game.player !== previousPlayer) input.stopMining();
+      if (game.player !== previousPlayer) {
+        input.stopMining();
+        miningSwing = null;
+      }
       if (note) showAndSave(note);
       accumulator -= timestep;
     }
     updateParticles(dt);
     updateCamera(dt);
+    if (miningSwing) {
+      miningSwing.phase += dt / miningSwing.duration;
+      if (miningSwing.phase >= 1) miningSwing = null;
+    }
     const heldItem = game.inventory.hotbar[selected]?.id;
     if (game.player.stun > 0) {
-      mining = null;
       input.stopMining();
+      miningSwing = null;
     } else if (game.attack || ITEMS[heldItem]?.weapon) {
       mining = null;
     } else if (input.holdingMine() && !editPending) {
       if (aimedMob()) {
         mining = null;
-        useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
-      } else {
+        if (!miningSwing) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
+      } else if (mining || !miningSwing) {
         mining = advanceMining(game, aimedTile(), mining, dt, selected);
         if (mining?.blocked) {
           ui.notify(mining.blocked);
           input.stopMining();
-        } else if (mining?.progress >= 1) {
-          void editTile(mining.action);
-          mining = null;
+        } else if (mining) {
+          if (!miningSwing) startMiningSwing(mining);
+          if (mining.progress >= 1) {
+            void editTile(mining.action);
+            mining = null;
+          }
         }
       }
     }
@@ -430,7 +457,7 @@ function frame(now) {
   const targetMob = aimedMob();
   renderer.draw({
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
-    aim: targetMob ? null : aimedTile(), mining, held, attack: game.attack,
+    aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden, openChestId: ui.openChestId(),
   });

@@ -921,7 +921,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, aim, mining, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -949,7 +949,7 @@ export function createRenderer(canvas) {
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, helmet, time, mining, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player) });
+    drawCharacter(player, player.appearance, { tank, helmet, time, miningSwing, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player) });
     if (!caveShadowsHidden) shadeCaves(world, player, bounds);
     ctx.restore();
 
