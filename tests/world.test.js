@@ -176,6 +176,11 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
       assert.equal(waterTileAt(world, x, y), false, `old flooded chamber remains at ${x},${y}`);
     }
   }
+  for (let x = WEST_EXTENSION + 43; x <= WEST_EXTENSION + 80; x++) {
+    for (let y = 74; y < 134; y++) {
+      if (!waterwayAt(x, y)) assert.equal(waterTileAt(world, x, y), false);
+    }
+  }
 });
 
 test('after digging in, the expanded island cave is walkable and the survey cache stays collected', () => {

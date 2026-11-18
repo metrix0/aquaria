@@ -71,7 +71,10 @@ for (const [left, right, row] of [
 }
 
 export function protectsIslandCave(x, y) {
-  return rockShell.get(x)?.has(y) || (x >= 40 && x <= 76 && y >= 20 && y < 60);
+  // Keep the rock between the authored galleries free of old procedural water pockets.
+  const core = x >= 43 && x <= 80 && y >= 74 && y < 134;
+  const oldTunnel = x >= 40 && x <= 76 && y >= 20 && y < 60;
+  return core || oldTunnel || rockShell.get(x)?.has(y);
 }
 
 export function isIslandWaterway(x, y) {
