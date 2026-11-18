@@ -2,9 +2,12 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, MATERIAL, REINFORCED_HELMET, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, REINFORCED_HELMET, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
+import { damageMob } from '../src/gameplay/mobs.js';
+import { stepWreckGhost } from '../src/gameplay/wreck-ghosts.js';
+import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
@@ -857,12 +860,19 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(restored.inventory.hotbar[2].id, BOW.id);
 });
 
-test('the western wreck has flooded holds, mineable timber and three persistent wood caches', () => {
+test('the western wreck has flooded holds, mineable timber, skeletons and persistent distinct loot', () => {
   const game = createGame();
   const { world, player } = game;
   const startingWood = game.inventory.count('wood');
   const caches = world.items.filter(({ id }) => id.startsWith('western-wreck-'));
   assert.equal(caches.length, 3);
+  const skeletons = world.caveStructures.filter(({ kind, tx, floor }) =>
+    kind === 'skeleton' && isInsideShipwreck(tx - WEST_EXTENSION, floor - 1));
+  assert.equal(skeletons.length, 2);
+  for (const { tx, floor } of skeletons) {
+    assert.ok(waterTileAt(world, tx, floor - 1));
+    assert.equal(tileAt(world, tx, floor), MATERIAL.wood);
+  }
   for (const cache of caches) {
     const tx = Math.floor(cache.x / TILE);
     const ty = Math.floor(cache.y / TILE);
@@ -890,7 +900,70 @@ test('the western wreck has flooded holds, mineable timber and three persistent 
   const reloaded = createGame(decodeSave(encodeSave(game)));
   assert.ok(waterTileAt(reloaded.world, tx, ty));
   assert.equal(reloaded.inventory.count('wood'), startingWood + 77);
-  assert.ok(caches.every(({ id }) => reloaded.chests.get(id).every((stack) => !stack)));
+  assert.deepEqual(caches.map(({ id }) => reloaded.chests.get(id).filter(Boolean)), [
+    [{ id: CAPTAINS_CUTLASS.id, count: 1 }],
+    [{ id: BOW.id, count: 1 }, { id: ARROW.id, count: 8 }],
+    [{ id: 'copper', count: 4 }, { id: KELP_DRESSING.id, count: 2 }],
+  ]);
+});
+
+test('western wreck bonus loot arrives once and preserves a full chest from an older save', () => {
+  const saved = encodeSave(createGame());
+  delete saved.world.pendingWreckLoot;
+  const id = 'western-wreck-deck';
+  const stored = Array.from({ length: CHEST_SIZE }, (_, index) => ({ id: 'stone', count: index + 1 }));
+  saved.world.chests[id] = stored;
+  const game = createGame(decodeSave(saved));
+  assert.deepEqual(game.chests.get(id), stored);
+
+  for (const index of [0, 1]) {
+    const backpack = game.inventory.backpack.findIndex((stack) => !stack);
+    assert.ok(moveChestStack(game, id, { group: 'chest', index }, { group: 'backpack', index: backpack }));
+  }
+  let restored = createGame(decodeSave(encodeSave(game)));
+  assert.deepEqual(restored.chests.get(id).slice(0, 2), [{ id: BOW.id, count: 1 }, { id: ARROW.id, count: 8 }]);
+  assert.deepEqual(restored.chests.get(id).slice(2), stored.slice(2));
+
+  const backpack = restored.inventory.backpack.findIndex((stack) => !stack);
+  assert.ok(moveChestStack(restored, id, { group: 'chest', index: 0 }, { group: 'backpack', index: backpack }));
+  restored = createGame(decodeSave(encodeSave(restored)));
+  assert.equal(restored.chests.get(id)[0], null);
+  assert.equal(restored.inventory.count(BOW.id), 1);
+});
+
+test('western wreck ghosts roll independently inside the hull, steal air and wait after defeat', (t) => {
+  const game = createGame();
+  const { world, player, effects } = game;
+  const ghosts = world.mobs.filter((mob) => mob.kind === 'ghost');
+  assert.equal(ghosts.length, 2);
+  const random = t.mock.method(Math, 'random', () => 0);
+  for (const ghost of ghosts) stepWreckGhost(world, player, ghost, 1 / 60, 0, effects);
+  assert.equal(random.mock.callCount(), 0);
+
+  const [captain, sailor] = ghosts;
+  Object.assign(player, { x: captain.x, y: captain.y - player.height / 2 });
+  random.mock.mockImplementationOnce(() => .9);
+  stepWreckGhost(world, player, captain, 1 / 60, 0, effects);
+  stepWreckGhost(world, player, sailor, 1 / 60, 0, effects);
+  assert.equal(captain.health, 0);
+  assert.equal(sailor.health, sailor.maxHealth);
+  assert.ok(inWater(world, sailor.x, sailor.y));
+
+  Object.assign(player, { x: sailor.x - 9, y: sailor.y - player.height / 2 });
+  const oxygen = player.oxygen;
+  const health = player.health;
+  for (let frame = 1; frame <= 80; frame++) stepWreckGhost(world, player, sailor, 1 / 60, frame / 60, effects);
+  assert.equal(player.oxygen, oxygen - 3);
+  assert.equal(player.health, health - 18);
+
+  damageMob(world, sailor, sailor.maxHealth, 0, 0, effects);
+  stepWreckGhost(world, player, sailor, 3, 4.3, effects);
+  assert.equal(sailor.health, 0);
+  assert.equal(random.mock.callCount(), 2);
+  stepWreckGhost(world, player, captain, 150, 154.3, effects);
+  assert.equal(captain.health, captain.maxHealth);
+  stepWreckGhost(world, player, captain, 43, 197.3, effects);
+  assert.equal(captain.health, 0);
 });
 
 test('a crafted workbench can be placed, used, saved, and mined back into inventory', () => {
@@ -985,13 +1058,14 @@ test('breastplates upgrade in order, mitigate damage and survive respawn and rel
   assert.equal(oxygenCapacity(restored), 18);
 });
 
-test('iron sword hits through its swing arc and cobalt spear reaches farther than copper', () => {
+test('blades hit through their swing arcs and cobalt spear reaches farther than copper', () => {
   const game = createGame();
   const { player, world } = game;
   toggleGodMode(world, player);
   const crab = world.mobs.find((mob) => mob.kind === 'crab');
   const cases = [
     [IRON_SWORD, { x: player.x + 12, y: player.y + 3 }, 5],
+    [CAPTAINS_CUTLASS, { x: player.x + 12, y: player.y + 3 }, 4],
     [COPPER_SPEAR, { x: player.x + 42, y: player.y + 15 }, 0],
     [COBALT_SPEAR, { x: player.x + 42, y: player.y + 15 }, 6],
   ];

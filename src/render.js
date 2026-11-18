@@ -841,7 +841,27 @@ export function createRenderer(canvas) {
       ctx.save();
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0) ctx.globalAlpha = 0.6;
 
-      if (mob.respawnDelay) {
+      if (mob.kind === 'ghost') {
+        ctx.scale(mob.facing, 1);
+        ctx.globalAlpha *= Math.min(.82, mob.remainingLife * .45);
+        const drift = Math.round(Math.sin(time * 4 + mob.phase) * 3);
+        const tail = [[-7, -3], [-4, 6], [-10, 12 + drift], [-3, 11], [1, 5], [6, 1], [6, -5]];
+        polygon([[-9, -8], [-4, -14], [5, -14], [10, -7], [8, 4], [-2, 15], [-12, 15]], '#67b8c035');
+        polygon(tail, '#64adb3');
+        polygon([[-6, 1], [-2, 5], [-9, 12 + drift], [-5, 11], [3, 5], [6, 0]], '#97ded1');
+        rect(-5, -10, 9, 13, '#9ce0d5');
+        rect(-3, -12, 7, 3, '#ccf2df');
+        rect(4, -8, 3, 6, '#d5f9e7');
+        rect(0, -7, 2, 3, '#26485c');
+        rect(4, -7, 2, 3, '#26485c');
+        rect(2, -2, 3, 1, '#477f8d');
+        rect(-10, 1, 2, 1, '#afeee1');
+        rect(-12, 6 + drift, 1, 1, '#a6e9df');
+        if (mob.id === 'captains-ghost') {
+          polygon([[-9, -9], [-6, -12], [-4, -16], [4, -16], [7, -11], [10, -10], [6, -8], [-5, -8]], '#416b79');
+          rect(-6, -10, 12, 1, '#b3ede0');
+        }
+      } else if (mob.respawnDelay) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === 'fish') {
         const [dark, mid, light, stripe] = mob.enemyType?.colors ?? fishColors[mob.variant % fishColors.length];
@@ -994,8 +1014,9 @@ export function createRenderer(canvas) {
       if (mob.maxHealth && (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)) {
         const barWidth = mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
         const barX = -Math.floor(barWidth / 2);
-        const barY = mob.respawnDelay ? (mob.kind === 'spider' ? -15 : -31) : mob.kind === 'crab' ? -13 : mob.kind === 'jellyfish' ? -13 : mob.kind === 'shark' ? -14 : -10;
-        const hostile = Boolean(mob.respawnDelay || mob.enemyType || mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
+        const ghost = mob.kind === 'ghost';
+        const barY = ghost ? -21 : mob.respawnDelay ? (mob.kind === 'spider' ? -15 : -31) : mob.kind === 'crab' ? -13 : mob.kind === 'jellyfish' ? -13 : mob.kind === 'shark' ? -14 : -10;
+        const hostile = Boolean(ghost || mob.respawnDelay || mob.enemyType || mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
         rect(barX - 1, barY - 1, barWidth + 2, 4, '#111d2f');
         rect(barX, barY, barWidth, 2, '#283c44');
         rect(barX, barY, Math.ceil(barWidth * (mob.health / mob.maxHealth)), 2, hostile ? '#e57866' : '#efc27e');

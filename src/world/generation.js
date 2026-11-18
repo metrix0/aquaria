@@ -1,6 +1,6 @@
 import { MATERIAL, SWIMMING_HELMET } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
-import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckVentColumn } from './shipwreck.js';
+import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
 
 export { ISLAND_CAVE };
 
@@ -24,6 +24,7 @@ export const MOB_HEALTH = Object.freeze({
   jellyfish: 2,
   squid: 4,
   shark: 7,
+  ghost: 5,
   spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9,
 });
 
@@ -481,8 +482,8 @@ export function generateFixtures() {
     ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
     { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
-  ].map(({ id, name, column, floor, resource, amount }) => ({
-    id, name, kind: 'chest', loot: { id: resource, count: amount },
+  ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
+    id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
   }));
   items.push({
@@ -548,6 +549,9 @@ export function generateMobs() {
     ...islandMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .7,
     })),
+    ...shipwreckGhosts.map(({ id, column, row, phase }) => ({
+      id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, spawnCheckIn: 0,
+    })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
@@ -566,7 +570,7 @@ export function generateMobs() {
       flee: 0,
       cooldown: 0,
       maxHealth,
-      health: maxHealth,
+      health: mob.kind === 'ghost' ? 0 : maxHealth,
       hurt: 0,
       respawn: 0,
       attackTimer: 1.4 + (mob.phase % 1.5),

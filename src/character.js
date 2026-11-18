@@ -1,5 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { APPEARANCE, ARMOR, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, IRON_SWORD, REINFORCED_HELMET, SPEAR } from './content.js';
+import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, REINFORCED_HELMET, SPEAR } from './content.js';
 import { characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
@@ -207,8 +207,18 @@ export function createCharacterRenderer(ctx) {
     rect(2, -1, 5, 3, skin.face);
     if (weapon === 'melee') pickaxeGrip(attack.tier, skin);
     else rect(5, -1, 2, 2, skin.arm);
-    if (weapon === IRON_SWORD.id) {
-      const [left, top, width, height] = IRON_SWORD.blade;
+    const blade = ITEMS[weapon]?.weapon?.blade;
+    if (weapon === CAPTAINS_CUTLASS.id) {
+      const [left, top, width, height] = blade;
+      rect(5, -1, 4, 2, '#65483f');
+      rect(5, 2, 5, 1, '#bd9659');
+      rect(8, 3, 2, 1, '#bd9659');
+      rect(8, -1, 2, 5, '#d8b872');
+      rect(left, top + 2, width - 2, height - 2, '#638188');
+      rect(left + 2, top + 1, width - 3, 2, '#a7c4bc');
+      rect(left + width - 4, top, 4, 2, '#dce7c9');
+    } else if (blade) {
+      const [left, top, width, height] = blade;
       rect(5, -1, 4, 2, '#85604c');
       rect(7, -3, 2, 6, '#d5a467');
       rect(left, top, width - 1, height, '#637985');

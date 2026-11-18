@@ -83,6 +83,10 @@ export const IRON_SWORD = {
   id: 'iron-sword', station: WORKBENCH.id, cost: { iron: 4, wood: 1 }, damage: 5, cooldown: 0.42, knockback: 205,
   blade: [8, -2, 12, 4],
 };
+export const CAPTAINS_CUTLASS = {
+  id: 'captains-cutlass', name: "Captain's cutlass", damage: 4, cooldown: 0.35, knockback: 175,
+  blade: [8, -3, 10, 5],
+};
 export const COBALT_SPEAR = {
   id: 'cobalt-spear', station: WORKBENCH.id, cost: { cobalt: 4, iron: 1, wood: 2 }, damage: 6, cooldown: 0.4, knockback: 250, reach: 6,
 };

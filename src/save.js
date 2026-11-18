@@ -50,7 +50,7 @@ export function decodeSave(data) {
       swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true ||
         harvested.includes(SWIMMING_HELMET.chestId) || harvested.includes('shore-chest'),
     },
-    world: { edits, doors, harvested, chests: world.chests },
+    world: { edits, doors, harvested, chests: world.chests, pendingWreckLoot: world.pendingWreckLoot },
   };
 }
 
@@ -76,6 +76,7 @@ export function encodeSave(game, saveTerrain = true) {
     },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
+      pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),
       chests: Object.fromEntries(Array.from(game.chests, ([id, slots]) => [id, slots.map((stack) => stack && { ...stack })])),
     },
   };

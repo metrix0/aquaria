@@ -57,6 +57,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-spear::after, .item-copper-spear::after, .item-cobalt-spear::after { content: ""; position: absolute; width: 5px; height: 3px; top: 4px; left: -1px; background: #483d42; }
 .item-cobalt-spear { height: 24px; }
 .item-cobalt-spear::before { background: #768de5; box-shadow: inset 2px 0 #c4d8ff, inset -2px 0 #455294; }
+.item-captains-cutlass { position: relative; width: 4px; height: 22px; background: #65483f; box-shadow: inset 1px 0 #ad8055; transform: rotate(42deg); }
+.item-captains-cutlass::before { content: ""; position: absolute; inset: 0 -3px 6px -2px; background: #a7c4bc; box-shadow: inset 2px 0 #dce7c9, inset -2px 0 #638188; clip-path: polygon(100% 0, 78% 30%, 72% 67%, 64% 100%, 0 100%, 0 61%, 16% 28%, 43% 11%); }
+.item-captains-cutlass::after { content: ""; position: absolute; left: -3px; bottom: 0; width: 9px; height: 7px; border: 2px solid #c5a05c; border-right: 0; border-radius: 2px 0 0 3px; }
 .item-iron-sword { position: relative; width: 4px; height: 23px; background: #8a644e; box-shadow: inset 1px 0 #d29c65; transform: rotate(42deg); }
 .item-iron-sword::before { content: ""; position: absolute; inset: 0 -1px 6px; background: #b2c2c4; box-shadow: inset 2px 0 #e4e5cf, inset -2px 0 #536874; clip-path: polygon(50% 0, 100% 24%, 100% 100%, 0 100%, 0 24%); }
 .item-iron-sword::after { content: ""; position: absolute; width: 10px; height: 2px; left: -3px; bottom: 5px; background: #d5a467; }

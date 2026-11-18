@@ -40,7 +40,7 @@ export function createGame(snapshot) {
     game.progress.swimmingHelmet = true;
     world.harvested.add(SWIMMING_HELMET.chestId);
   }
-  game.chests = restoreChests(world, game.progress, snapshot?.world.chests);
+  game.chests = restoreChests(world, game.progress, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
     Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null);
@@ -238,17 +238,36 @@ export function stepGame(game, input, dt) {
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
 }
 
-function restoreChests(world, progress, saved) {
+function stockWreckLoot(world, item, slots, remaining) {
+  const first = item.bonusLoot.length - remaining;
+  for (let index = first; index < item.bonusLoot.length; index++) {
+    const emptySlot = slots.indexOf(null);
+    if (emptySlot < 0) break;
+    slots[emptySlot] = { ...item.bonusLoot[index] };
+    remaining--;
+  }
+  if (remaining > 0) world.pendingWreckLoot.set(item.id, remaining);
+  else world.pendingWreckLoot.delete(item.id);
+}
+
+function restoreChests(world, progress, saved, pendingWreckLoot) {
   const chests = new Map();
+  world.pendingWreckLoot.clear();
   for (const item of world.items) {
     if (item.kind !== 'chest') continue;
-    const slots = restoreSlots(Array.isArray(saved?.[item.id])
-      ? saved[item.id]
-      : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
+    const savedSlots = saved?.[item.id];
+    const hasSavedSlots = Array.isArray(savedSlots);
+    const slots = restoreSlots(hasSavedSlots ? savedSlots : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
     if (progress?.swimmingHelmet) {
       for (const [index, stack] of slots.entries()) {
         if (stack?.id === SWIMMING_HELMET.id) slots[index] = null;
       }
+    }
+    if (item.bonusLoot) {
+      const savedCount = pendingWreckLoot?.[item.id];
+      const remaining = !pendingWreckLoot || !hasSavedSlots ? item.bonusLoot.length
+        : Number.isInteger(savedCount) ? clamp(savedCount, 0, item.bonusLoot.length) : 0;
+      if (remaining) stockWreckLoot(world, item, slots, remaining);
     }
     chests.set(item.id, slots);
   }
@@ -273,6 +292,11 @@ export function moveChestStack(game, chestId, from, to) {
   const target = groups[to.group];
   if (source?.[from.index]?.id === SWIMMING_HELMET.id || target?.[to.index]?.id === SWIMMING_HELMET.id) return false;
   if (!moveStack(source, from.index, target, to.index)) return false;
+  const remaining = game.world.pendingWreckLoot.get(chestId);
+  if (remaining && from.group === 'chest') {
+    const item = game.world.items.find(({ id }) => id === chestId);
+    stockWreckLoot(game.world, item, slots, remaining);
+  }
   game.dirty = true;
   return true;
 }

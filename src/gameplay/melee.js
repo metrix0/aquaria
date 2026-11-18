@@ -1,4 +1,5 @@
-import { CHARACTER_BODIES, COBALT_SPEAR, IRON_SWORD } from '../content.js';
+import { CHARACTER_BODIES, COBALT_SPEAR } from '../content.js';
+import { ITEMS } from '../inventory.js';
 import { clamp } from '../world/generation.js';
 import { CRAWL_HEIGHT } from './player.js';
 
@@ -30,7 +31,8 @@ export function meleePose(attack) {
   const phase = clamp(1 - attack.timer / attack.duration, 0, 1);
   const aim = Math.atan2(Math.sin(attack.angle), Math.abs(Math.cos(attack.angle)));
   if (attack.tier) return pickaxePose(phase, aim, attack.tier);
-  if (attack.kind === IRON_SWORD.id) return swingPose(phase, aim, IRON_SWORD.blade);
+  const blade = ITEMS[attack.kind]?.weapon?.blade;
+  if (blade) return swingPose(phase, aim, blade);
 
   const spear = attack.kind !== 'melee';
   const thrust = Math.round(Math.sin(phase * Math.PI) * (spear ? 9 : 5));

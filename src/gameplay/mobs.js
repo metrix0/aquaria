@@ -1,5 +1,6 @@
 import { MATERIAL } from '../content.js';
 import { takeDamage } from './player.js';
+import { stepWreckGhost, wreckGhostSpec } from './wreck-ghosts.js';
 import { updateEnemySpawns } from '../enemies.js';
 import { inWater, solidAt, waterTileAt } from '../world.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from './cave-enemies.js';
@@ -15,6 +16,7 @@ const mobSpecs = {
   fish: { name: 'fish', width: 12, height: 8, radius: 10, centerY: 0, material: MATERIAL.sand, maxHealth: MOB_HEALTH.fish },
   ...enemySpecs,
   ...caveEnemySpecs,
+  ghost: wreckGhostSpec,
 };
 const paintColors = ['#7e4268', '#b0667d', '#da9292'];
 
@@ -96,7 +98,7 @@ function crabHasFloor(world, player, x, y) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
-    if (caveEnemySpecs[mob.kind]) continue;
+    if (caveEnemySpecs[mob.kind] || mob.kind === 'ghost') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
     } else if (fishCollides(world, player, mob.x, mob.y)) {
@@ -126,6 +128,10 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
   for (const mob of world.mobs) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
+    if (mob.kind === 'ghost') {
+      stepWreckGhost(world, player, mob, dt, time, effects);
+      continue;
+    }
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
@@ -453,13 +459,13 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     if (mob.enemyType) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
-    } else {
+    } else if (mob.kind !== 'ghost') {
       mob.respawn = mob.respawnDelay ?? 45;
     }
-    effect = { x: mob.x, y: cy, material: spec.material, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
+    effect = { x: mob.x, y: cy, material: spec.material, color: spec.color, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
   } else {
     effect = {
-      x: mob.x, y: cy, material: spec.material, count: mob.kind === 'squid' ? 12 : 7, spread: 58,
+      x: mob.x, y: cy, material: spec.material, color: spec.color, count: mob.kind === 'squid' ? 12 : 7, spread: 58,
       message: 'Hit ' + label + ' (' + mob.health + '/' + mob.maxHealth + ' HP)',
     };
   }

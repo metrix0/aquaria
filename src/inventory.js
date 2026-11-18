@@ -1,4 +1,4 @@
-import { ARROW, BOW, BROKEN_PICKAXE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SPEAR, SWIMMING_HELMET, WORKBENCH } from './content.js';
+import { ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SPEAR, SWIMMING_HELMET, WORKBENCH } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -8,6 +8,7 @@ export const ITEMS = {
   [COPPER_PICKAXE.id]: { name: 'Copper pickaxe', pickaxe: 2 },
   [IRON_PICKAXE.id]: { name: 'Iron pickaxe', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime },
   [KELP_DRESSING.id]: { name: 'Kelp dressing' },
+  [CAPTAINS_CUTLASS.id]: { name: CAPTAINS_CUTLASS.name, weapon: CAPTAINS_CUTLASS },
   [IRON_SWORD.id]: { name: 'Iron sword', weapon: IRON_SWORD },
   [COBALT_SPEAR.id]: { name: 'Cobalt spear', weapon: COBALT_SPEAR },
   [SPEAR.id]: { name: 'Spear', weapon: SPEAR },

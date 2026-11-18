@@ -1,4 +1,4 @@
-import { MATERIAL } from '../content.js';
+import { ARROW, BOW, CAPTAINS_CUTLASS, KELP_DRESSING, MATERIAL } from '../content.js';
 
 const left = -98;
 const top = 27;
@@ -46,9 +46,18 @@ const timber = [
 ];
 
 export const shipwreckCaches = [
-  { id: 'western-wreck-captain', name: "Captain's chest", column: left + 9, floor: 53, resource: 'wood', amount: 24 },
-  { id: 'western-wreck-deck', name: 'Foredeck chest', column: left + 35, floor: 49, resource: 'wood', amount: 20 },
-  { id: 'western-wreck-hold', name: 'Cargo hold chest', column: left + 24, floor: 57, resource: 'wood', amount: 32 },
+  { id: 'western-wreck-captain', name: "Captain's chest", column: left + 9, floor: 53, resource: 'wood', amount: 24,
+    bonusLoot: [{ id: CAPTAINS_CUTLASS.id, count: 1 }] },
+  { id: 'western-wreck-deck', name: 'Foredeck chest', column: left + 35, floor: 49, resource: 'wood', amount: 20,
+    bonusLoot: [{ id: BOW.id, count: 1 }, { id: ARROW.id, count: 8 }] },
+  { id: 'western-wreck-hold', name: 'Cargo hold chest', column: left + 24, floor: 57, resource: 'wood', amount: 32,
+    bonusLoot: [{ id: 'copper', count: 4 }, { id: KELP_DRESSING.id, count: 2 }] },
+];
+
+export const shipwreckSkeletons = [['skeleton', left + 12, 53], ['skeleton', left + 20, 57]];
+export const shipwreckGhosts = [
+  { id: 'captains-ghost', column: left + 12, row: 50, phase: 0 },
+  { id: 'sailors-ghost', column: left + 20, row: 55, phase: Math.PI },
 ];
 
 export const shipwreckVentColumn = -49;
@@ -58,6 +67,12 @@ export const shipwreckHullRows = timber.slice(16).map((row, index) => ({
   stern: row.indexOf('#'),
   bow: row.lastIndexOf('#'),
 }));
+
+export function isInsideShipwreck(column, row) {
+  const edge = shipwreckHullRows[row - top - 16];
+  const offset = column - left;
+  return Boolean(edge && offset > edge.stern && offset < edge.bow);
+}
 
 export function shipwreckTimberAt(column, row) {
   return timber[row - top]?.[column - left] === '#';
