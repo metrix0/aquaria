@@ -49,6 +49,7 @@ export const AIR_TANK = {
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
+export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };
 export const SPEAR = { id: 'spear', cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
 export const COPPER_SPEAR = { id: 'copper-spear', cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };

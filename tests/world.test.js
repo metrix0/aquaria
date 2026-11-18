@@ -2,7 +2,7 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARROW, BOW, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARROW, BOW, BROKEN_PICKAXE, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
@@ -370,41 +370,63 @@ test('underwater caches are above a flooded floor with an air vent nearby', () =
   }
 });
 
-test('the selected pickaxe controls mining speed and unlocks deeper rock', () => {
+test('mining uses the strongest carried pickaxe without changing the selected slot', () => {
   const game = createGame();
   const target = targetTile(game, SPAWN.x, SPAWN.y + TILE * 2);
   const { tx, ty } = target;
-  editTile(game.world, tx, ty, MATERIAL.sand);
-  assert.ok(advanceMining(game, target, null, 0.45, 2).progress >= 1);
-
+  assert.equal(game.inventory.hotbar[0].id, BROKEN_PICKAXE.id);
+  game.inventory.hotbar[2] = { id: SPEAR.id, count: 1 };
   editTile(game.world, tx, ty, MATERIAL.stone);
-  const byHand = advanceMining(game, target, null, 0.7, 2);
-  assert.ok(byHand.progress < 0.25);
-  assert.equal(advanceMining(game, target, byHand, 0.35, 0).progress, 0.5);
+  const withSpear = advanceMining(game, target, null, 0.35, 2);
+  assert.equal(withSpear.tool, BROKEN_PICKAXE.id);
+  assert.equal(withSpear.progress, 0.5);
+  assert.equal(advanceMining(game, target, withSpear, 0.35, 0).progress, 1);
+
+  editTile(game.world, tx, ty, MATERIAL.copper);
+  assert.ok(advanceMining(game, target, null, 0.85, 2).progress >= 1);
+  const starter = game.inventory.hotbar[0];
+  game.inventory.hotbar[0] = null;
+  assert.match(advanceMining(game, target, null, 10, 2).blocked, /requires a pickaxe/);
+  editTile(game.world, tx, ty, MATERIAL.stone);
+  assert.equal(advanceMining(game, target, null, 3.6).progress, 1);
+  assert.equal(advanceMining(game, target, null, 1).tool, undefined);
+  game.inventory.hotbar[0] = starter;
 
   for (const material of [MATERIAL.deepstone, MATERIAL.cobalt]) {
     editTile(game.world, tx, ty, material);
     assert.match(advanceMining(game, target, null, 10, 0).blocked, /requires a Copper pickaxe/);
     assert.equal(tileAt(game.world, tx, ty), material);
   }
-  editTile(game.world, tx, ty, MATERIAL.copper);
-  assert.match(advanceMining(game, target, null, 10, 2).blocked, /requires a pickaxe/);
-  assert.ok(advanceMining(game, target, null, 0.85, 0).progress >= 1);
-
   assert.equal(craftItem(game, COPPER_PICKAXE), false);
   game.inventory.add('copper', 3);
   assert.equal(craftItem(game, COPPER_PICKAXE), true);
   assert.equal(game.inventory.count('copper'), 0);
   assert.equal(game.inventory.count('wood'), 1);
-  assert.ok(game.inventory.move({ group: 'backpack', index: 0 }, { group: 'hotbar', index: 2 }));
+  assert.equal(game.inventory.backpack[0].id, COPPER_PICKAXE.id);
+
   editTile(game.world, tx, ty, MATERIAL.deepstone);
   const mining = advanceMining(game, target, null, 1.7, 2);
+  assert.equal(mining.tool, COPPER_PICKAXE.id);
   assert.ok(mining.progress >= 1);
   commitTileAction(game, mining.action);
+  assert.equal(game.inventory.hotbar[2].id, SPEAR.id);
   assert.equal(game.inventory.count('stone'), 1);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
-  assert.equal(restored.inventory.hotbar[2].id, COPPER_PICKAXE.id);
+  assert.equal(restored.inventory.backpack[0].id, COPPER_PICKAXE.id);
+});
+
+test('old salvage tools migrate in place in the hotbar, backpack and chests', () => {
+  const saved = encodeSave(createGame());
+  saved.inventory.hotbar[0] = null;
+  saved.inventory.hotbar[2] = { id: 'tool', count: 1 };
+  saved.inventory.backpack[4] = { id: 'tool', count: 2 };
+  saved.world.chests['wreck-cache'][3] = { id: 'tool', count: 1 };
+  const game = createGame(decodeSave(saved));
+  assert.deepEqual(game.inventory.hotbar[2], { id: BROKEN_PICKAXE.id, count: 1 });
+  assert.deepEqual(game.inventory.backpack[4], { id: BROKEN_PICKAXE.id, count: 2 });
+  assert.deepEqual(game.chests.get('wreck-cache')[3], { id: BROKEN_PICKAXE.id, count: 1 });
+  assert.equal(game.inventory.hotbar[0], null);
 });
 
 test('legacy progress and edits on both sides of a chunk boundary migrate', () => {
@@ -685,13 +707,13 @@ test('chest transfers, legacy loot, and room progress survive the appropriate sa
   assert.equal(moveChestStack(game, id, wood, chest), true);
   assert.equal(moveChestStack(game, id, tool, chest), true);
   assert.equal(game.inventory.hotbar[0].id, 'wood');
-  assert.deepEqual(game.chests.get(id)[chest.index], { id: 'tool', count: 1 });
+  assert.deepEqual(game.chests.get(id)[chest.index], { id: BROKEN_PICKAXE.id, count: 1 });
 
   const roomSnapshot = encodeSave(game, false);
   const restored = createGame(decodeSave(roomSnapshot));
   assert.deepEqual(encodeSave(restored, false), roomSnapshot);
   assert.equal(moveChestStack(restored, id, chest, wood), true);
-  assert.equal(restored.inventory.hotbar[3].id, 'tool');
+  assert.equal(restored.inventory.hotbar[3].id, BROKEN_PICKAXE.id);
   assert.equal(restored.chests.get(id)[chest.index], null);
   const reset = resetRoomProgress(restored);
   assert.deepEqual(reset.chests.get(id)[0], { id: 'wood', count: 8 });

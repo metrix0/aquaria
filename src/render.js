@@ -1020,7 +1020,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    if (aim?.reachable && !ITEMS[held]?.weapon) {
+    if (aim?.reachable && (mining || !ITEMS[held]?.weapon)) {
       ctx.strokeStyle = '#f4d4a5ad';
       ctx.lineWidth = 1;
       ctx.strokeRect(aim.tx * TILE + .5, aim.ty * TILE + .5, TILE - 1, TILE - 1);

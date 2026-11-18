@@ -69,9 +69,15 @@ function aimedMob() {
   return pointer.active ? targetMobAt(game, pointer.x + camera.x, pointer.y + camera.y) : null;
 }
 
-function startMiningSwing({ tx, ty, tier, duration }) {
+function mineAtPointer(current, dt) {
+  const attempt = advanceMining(game, aimedTile(), current, dt, selected);
+  const held = game.inventory.hotbar[selected]?.id;
+  return ITEMS[held]?.weapon && !attempt?.tool ? null : attempt;
+}
+
+function startMiningSwing({ tx, ty, tier, tool, duration }) {
   const cycles = Math.max(1, Math.round(duration / 0.26));
-  miningSwing = { tx, ty, tier, duration: duration / cycles, phase: 0 };
+  miningSwing = { tx, ty, tier, tool, duration: duration / cycles, phase: 0 };
 }
 
 function showTileEffect({ tx, ty, before, amount, item }) {
@@ -325,9 +331,8 @@ const input = bindInput(canvas, {
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
-    const held = game.inventory.hotbar[selected]?.id;
-    if (!ITEMS[held]?.weapon && !aimedMob()) {
-      const next = advanceMining(game, aimedTile(), null, 0, selected);
+    if (!aimedMob()) {
+      const next = mineAtPointer(null, 0);
       if (next) {
         if (!next.blocked && !miningSwing && !game.attack) {
           mining = next;
@@ -449,14 +454,14 @@ function frame(now) {
     if (game.player.stun > 0) {
       input.stopMining();
       miningSwing = null;
-    } else if (game.attack || ITEMS[heldItem]?.weapon) {
+    } else if (game.attack) {
       mining = null;
     } else if (input.holdingMine() && !editPending) {
       if (aimedMob()) {
         mining = null;
-        if (!miningSwing) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
+        if (!miningSwing && !ITEMS[heldItem]?.weapon) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
       } else if (mining || !miningSwing) {
-        mining = advanceMining(game, aimedTile(), mining, dt, selected);
+        mining = mineAtPointer(mining, dt);
         if (mining?.blocked) {
           ui.notify(mining.blocked);
           input.stopMining();

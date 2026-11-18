@@ -1,5 +1,6 @@
 import { CHEST_SIZE, SWIMMING_HELMET } from './content.js';
 import { BACKPACK_SIZE, HOTBAR_SIZE, ITEMS } from './inventory.js';
+import { pickaxeIcon } from './pickaxe-art.js';
 
 function createSlots(container, group, size) {
   return Array.from({ length: size }, (_, index) => {
@@ -24,9 +25,15 @@ function createSlots(container, group, size) {
   });
 }
 
+export function setItemIcon(icon, id) {
+  const item = ITEMS[id];
+  icon.className = id ? 'item item-' + (item?.icon ?? id) : '';
+  if (item?.pickaxe) icon.classList.add('item-pickaxe');
+  icon.style.backgroundImage = item?.pickaxe ? pickaxeIcon(item.pickaxe) : '';
+}
+
 function drawStack(button, stack) {
-  const icon = button.querySelector('span');
-  icon.className = stack ? 'item item-' + (ITEMS[stack.id].icon ?? stack.id) : '';
+  setItemIcon(button.querySelector('span'), stack?.id);
   button.querySelector('b').textContent = stack?.count > 1 ? stack.count : '';
   button.toggleAttribute('data-filled', Boolean(stack));
 }

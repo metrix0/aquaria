@@ -1,12 +1,13 @@
 import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_PICKAXE, COPPER_SPEAR, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, canCraftTank } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
+import { setItemIcon } from './inventory-ui.js';
 
 const recipes = [
   { recipe: AIR_TANK, name: 'Air tank', icon: 'tank' },
   { recipe: WORKBENCH, description: 'Move it to your hotbar and place it like a block. Press E, right-click it, or tap Use nearby to open it.' },
   { recipe: WOODEN_DOOR, description: 'Place it above a solid floor with two blocks of clearance. Opens as you approach.' },
-  { recipe: COPPER_PICKAXE, description: 'Equip it in the hotbar to mine Deepstone and cobalt ore.' },
+  { recipe: COPPER_PICKAXE, description: 'Carry it in your inventory to mine Deepstone and cobalt ore.' },
   { recipe: SPEAR, description: 'Thrust at nearby creatures to damage them and drive them back.' },
   { recipe: COPPER_SPEAR, description: 'A sturdier spear with longer reach and heavier damage.' },
   { recipe: BOW, description: 'Fires arrows toward your cursor through air and water.' },
@@ -33,7 +34,7 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
     button.type = 'button';
     button.className = 'recipe-tile';
     const symbol = document.createElement('span');
-    symbol.className = 'item item-' + icon;
+    setItemIcon(symbol, icon);
     symbol.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
     label.className = 'recipe-label';
@@ -66,14 +67,14 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
       button.toggleAttribute('data-ready', ready[index]);
     }
     title.textContent = name;
-    icon.className = 'item item-' + itemIcon;
+    setItemIcon(icon, itemIcon);
     description.textContent = tank
       ? `Extends a dive from ${BREATH_SECONDS + bonus} to ${AIR_TANK.breathSeconds + bonus} seconds. Equips when crafted.`
       : detail;
     materials.replaceChildren(...cost.map(([id, count]) => {
       const row = document.createElement('li');
       const symbol = document.createElement('span');
-      symbol.className = 'item item-' + id;
+      setItemIcon(symbol, id);
       symbol.setAttribute('aria-hidden', 'true');
       const label = document.createElement('span');
       label.textContent = ITEMS[id].name;

@@ -392,19 +392,19 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   if (!action) return null;
   const { tx, ty } = target;
   const { before } = action;
-  const tool = game.inventory.hotbar[slot]?.id;
+  const tool = game.inventory.bestPickaxe(slot);
   const tier = ITEMS[tool]?.pickaxe ?? 0;
   const rule = action.trap ? { hand: 1.1, pickaxe: .42 } : action.item === 'kelp' ? KELP_MINING_RULE : MINING_RULES[before];
   if (tier < (rule.tier ?? 0)) {
     const required = rule.tier === 2 ? 'a Copper pickaxe' : 'a pickaxe';
-    return { blocked: rule.name + ' requires ' + required + '.' };
+    return { tool, blocked: rule.name + ' requires ' + required + '.' };
   }
   const fixture = action.door ?? action.fixtureId;
   const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
   const duration = tier ? rule.pickaxe : rule.hand;
   const progress = (same ? current.progress : 0) + dt / duration;
-  return { tx, ty, material: before, duration, progress, action, tier };
+  return { tx, ty, material: before, duration, progress, action, tier, tool };
 }
 
 export function applyTerrain(game, tx, ty, material) {

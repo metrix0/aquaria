@@ -1,10 +1,10 @@
-import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WORKBENCH } from './content.js';
+import { ARROW, BOW, BROKEN_PICKAXE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WORKBENCH } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
 
 export const ITEMS = {
-  tool: { name: 'Salvage tool', hotbar: 0, pickaxe: 1 },
+  [BROKEN_PICKAXE.id]: { name: 'Broken Pickaxe', hotbar: 0, pickaxe: 1 },
   [COPPER_PICKAXE.id]: { name: 'Copper pickaxe', pickaxe: 2 },
   [SPEAR.id]: { name: 'Spear', weapon: SPEAR },
   [COPPER_SPEAR.id]: { name: 'Copper spear', weapon: COPPER_SPEAR },
@@ -25,8 +25,9 @@ export const ITEMS = {
 export function restoreSlots(slots, size) {
   return Array.from({ length: size }, (_, index) => {
     const stack = slots?.[index];
-    if (!stack || !Object.hasOwn(ITEMS, stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1) return null;
-    return { id: stack.id, count: stack.count };
+    const id = stack?.id === 'tool' ? BROKEN_PICKAXE.id : stack?.id;
+    if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(stack.count) || stack.count < 1) return null;
+    return { id, count: stack.count };
   });
 }
 
@@ -36,9 +37,9 @@ export class Inventory {
     this.backpack = restoreSlots(saved?.backpack, BACKPACK_SIZE);
     if (Array.isArray(saved?.hotbar) && Array.isArray(saved?.backpack)) return;
 
-    this.add('tool', 1);
+    this.add(BROKEN_PICKAXE.id, 1);
     for (const id of Object.keys(ITEMS)) {
-      if (id === 'tool') continue;
+      if (id === BROKEN_PICKAXE.id) continue;
       const count = saved?.[id];
       if (Number.isSafeInteger(count) && count >= 0) this.add(id, count);
       else if (id === 'wood') this.add(id, 3);
@@ -63,6 +64,18 @@ export class Inventory {
     else if (spare !== -1) this.hotbar[spare] = stack;
     else return false;
     return true;
+  }
+
+  bestPickaxe(slot) {
+    const held = this.hotbar[slot]?.id;
+    let tool = ITEMS[held]?.pickaxe ? held : undefined;
+    for (const slots of [this.hotbar, this.backpack]) {
+      for (const stack of slots) {
+        const id = stack?.id;
+        if ((ITEMS[id]?.pickaxe ?? 0) > (ITEMS[tool]?.pickaxe ?? 0)) tool = id;
+      }
+    }
+    return tool;
   }
 
   canAdd(id, count) {
