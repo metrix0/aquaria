@@ -1,5 +1,5 @@
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW } from '../src/world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, isDryIslandCave, isDungeonMasonry } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, REINFORCED_SNORKEL, SNORKEL, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
@@ -170,24 +170,39 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
   assert.ok(ISLAND_DEEPSTONE_ROW - ceiling >= 300);
   assert.equal(deepest, 611);
   assert.ok(deepest - ISLAND_DEEPSTONE_ROW >= 280);
-  for (const [x, y] of [[-24, 119], [142, 102], [55, 311], [130, 337], [-12, 455], [141, 559], [48, 611], [108, 611]]) {
+  for (const [x, y] of [[-25, 110], [139, 102], [43, 316], [123, 344], [-12, 427], [118, 557], [60, 611], [100, 611]]) {
     assert.ok(visited.has(y * COLS + x + WEST_EXTENSION), `${x},${y} is reachable`);
   }
-  assert.ok(cells.length >= 14000 && cells.length <= 18000);
-  const junction = WEST_EXTENSION + 80;
-  const passage = WEST_EXTENSION + 70;
-  assert.equal(tileAt(world, passage, 33), MATERIAL.stone);
-  assert.equal(tileAt(world, junction, 49), MATERIAL.air);
-  for (const [column, low, high] of [[12, 335, 337], [64, 393, 396], [6, 450, 454], [17, 500, 503]]) {
-    const x = column + WEST_EXTENSION;
-    assert.ok(tileAt(world, x, low), 'chamber neck has a low ceiling');
-    assert.ok(tileAt(world, x, high), 'rooms narrow into a stone lintel');
-    assert.equal(tileAt(world, x, high + 1), MATERIAL.air, 'the passage stays walkable');
-  }
-  assert.ok(outlets.has(48) && outlets.has(108));
-  assert.ok([...outlets].every((x) => x >= 46 && x <= 54 || x >= 100 && x <= 110));
 
-  const submerged = [[48 + WEST_EXTENSION, 612]];
+  // The wings only share the entrance until the first Underground crossover.
+  for (let y = 40; y < ISLAND_DEEPSTONE_ROW; y++) {
+    for (let x = 55; x <= 64; x++) assert.ok(tileAt(world, x + WEST_EXTENSION, y));
+  }
+  for (let x = left; x <= right; x++) {
+    for (let y = ceiling; y <= deepest; y++) {
+      if (isDryIslandCave(x - WEST_EXTENSION, y)) {
+        assert.ok(visited.has(y * COLS + x), `isolated cave space at ${x},${y}`);
+      }
+    }
+  }
+
+  const westMine = WEST_EXTENSION - 27;
+  assert.equal(tileAt(world, westMine, 105), MATERIAL.air);
+  assert.ok(tileAt(world, westMine, 107), 'solid shelf between two levels of the west mine');
+  assert.equal(tileAt(world, westMine, 109), MATERIAL.air);
+  assert.ok(isDungeonMasonry(74, 353), 'the crossover has a built room');
+  assert.equal(isDungeonMasonry(57, 347), false, 'approach stays natural rock');
+  assert.ok(tileAt(world, 61 + WEST_EXTENSION, 345), 'rock above the staggered crossover');
+  assert.equal(tileAt(world, 61 + WEST_EXTENSION, 352), MATERIAL.air);
+
+  assert.deepEqual([...outlets].sort((a, b) => a - b), [59, 60, 61, 62, 100, 101]);
+  for (const item of world.items.filter(({ id }) => /^(island|underground)-/.test(id))) {
+    const x = Math.floor(item.x / TILE);
+    const y = Math.floor(item.y / TILE);
+    assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
+  }
+
+  const submerged = [[60 + WEST_EXTENSION, 612]];
   const wetVisited = new Set();
   for (const [x, y] of submerged) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -200,7 +215,7 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
     }
   }
   assert.ok(wetVisited.has(651 * COLS + 87 + WEST_EXTENSION));
-  assert.ok(wetVisited.has(612 * COLS + 108 + WEST_EXTENSION));
+  assert.ok(wetVisited.has(612 * COLS + 100 + WEST_EXTENSION));
   assert.ok(submerged.every(([x, y]) => waterwayAt(x, y)));
 
 });
@@ -214,8 +229,9 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   player.x = (center + 0.5) * TILE;
   player.y = surface * TILE - player.height;
 
-  function walkUntil(reached, { left = false, right = false, up = false } = {}) {
+  function walkUntil(reached, { left = false, right = false, climb = false } = {}) {
     for (let frame = 0; frame < 1300 && !reached(); frame++) {
+      const up = climb && (player.canShortenJump || (player.grounded && Math.abs(player.dx) < 1.5));
       movePlayer(world, player, { left, right, up, down: false, jump: up && player.grounded }, 1 / 60);
       assert.equal(playerInWater(world, player), false);
     }
@@ -236,33 +252,21 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   assert.equal(buildCellFree(restored.world, Math.floor(cache.x / TILE), Math.floor(cache.y / TILE)), false);
 
   const chamberX = (column) => (column + WEST_EXTENSION + .5) * TILE;
-  const restartAtFoyer = () => Object.assign(player, {
+  const restartAtSurvey = () => Object.assign(player, {
     x: (center + .5) * TILE, y: 33 * TILE - player.height, dx: 0, dy: 0,
   });
-  restartAtFoyer();
-  walkUntil(() => player.x >= chamberX(78.5), { right: true });
-  walkUntil(() => player.x <= chamberX(-30.5), { left: true });
-  assert.ok(player.y >= 116 * TILE);
-  walkUntil(() => player.x >= chamberX(56.5), { right: true });
-  walkUntil(() => player.x <= chamberX(-32.5), { left: true });
-  walkUntil(() => player.x >= chamberX(117), { right: true });
-  assert.ok(player.y >= ISLAND_DEEPSTONE_ROW * TILE);
+  restartAtSurvey();
+  walkUntil(() => player.x <= chamberX(-26) && player.y > 107 * TILE, { left: true, climb: true });
+  assert.ok(player.y < 112 * TILE);
 
-  restartAtFoyer();
-  walkUntil(() => player.x >= chamberX(155.25), { right: true });
-  walkUntil(() => player.x <= chamberX(141.5), { left: true });
-  assert.ok(player.y > 100 * TILE);
-  walkUntil(() => player.x >= chamberX(153), { right: true });
-  walkUntil(() => player.x <= chamberX(84.5), { left: true });
-  walkUntil(() => player.x >= chamberX(151), { right: true });
-  walkUntil(() => player.x <= chamberX(80.5), { left: true });
-  walkUntil(() => player.x >= chamberX(131), { right: true });
-  assert.ok(player.y >= ISLAND_DEEPSTONE_ROW * TILE);
+  restartAtSurvey();
+  walkUntil(() => player.x >= chamberX(140) && player.y > 100 * TILE, { right: true, climb: true });
+  assert.ok(player.y < 105 * TILE);
 
-  Object.assign(player, { x: chamberX(20), y: 342 * TILE - player.height, dx: 0, dy: 0 });
-  walkUntil(() => player.x >= chamberX(100), { right: true });
-  assert.ok(Math.abs(player.y + player.height - 342 * TILE) < 1);
-
+  // Follow the ruined upper gallery between the two wings using normal movement.
+  Object.assign(player, { x: chamberX(45), y: 345 * TILE - player.height, dx: 0, dy: 0 });
+  walkUntil(() => player.x >= chamberX(105) && player.grounded, { right: true, climb: true });
+  assert.ok(Math.abs(player.y + player.height - 346 * TILE) < 1);
 });
 
 test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {

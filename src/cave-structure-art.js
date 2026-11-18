@@ -26,6 +26,15 @@ export function drawCaveStructure(rect, polygon, { kind }, x, y) {
     rect(x, y - 7, 5, 5, '#423a40');
     rect(x + 2, y - 5, 1, 1, '#8c7671');
     polygon([[x + 10, y - 2], [x + 14, y - 6], [x + 19, y - 4], [x + 17, y - 1]], '#907261');
+  } else if (kind === 'trestle') {
+    rect(x - 33, y - 6, 67, 6, '#523d3d');
+    rect(x - 33, y - 6, 67, 2, '#bd8c5d');
+    for (const offset of [-28, -5, 19]) {
+      rect(x + offset, y, 3, 23, '#62484a');
+      polygon([[x + offset, y + 3], [x + offset + 3, y + 3],
+        [x + offset + 20, y + 18], [x + offset + 17, y + 20]], '#78564c');
+      rect(x + offset, y - 5, 2, 2, '#493535');
+    }
   } else if (kind === 'shaft' || kind === 'worksite') {
     for (const side of [-29, 24]) {
       rect(x + side, y - 48, 5, 48, '#665048');
@@ -47,7 +56,16 @@ export function drawCaveStructure(rect, polygon, { kind }, x, y) {
       rect(x + 15, y - 3, 8, 1, '#766260');
     }
   } else {
-    const arch = kind === 'arch';
+    const arch = kind === 'arch' || kind === 'gate';
+    if (kind === 'gate') {
+      rect(x - 19, y - 45, 38, 45, '#211b2d');
+      for (let bar = -16; bar <= 16; bar += 8) {
+        rect(x + bar, y - 45, 3, 38 + Math.abs(bar) % 7, '#423a56');
+        rect(x + bar, y - 43, 1, 31, '#62506e');
+      }
+      rect(x - 19, y - 26, 18, 3, '#76627a');
+      rect(x + 6, y - 24, 13, 3, '#58516b');
+    }
     for (const offset of arch ? [-25, 17] : [-5]) {
       rect(x + offset - 2, y - 47, 13, 5, '#625875');
       for (let sy = -42; sy < 0; sy += 7) {

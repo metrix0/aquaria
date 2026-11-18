@@ -1,6 +1,6 @@
 import { drawCaveStructure } from './cave-structure-art.js';
 import { isTrapIntact, swingHead } from './gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW } from './world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, isDryIslandCave, isDungeonMasonry } from './world/island-cave.js';
 import { drawCaveEnemy } from './cave-enemy-art.js';
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
@@ -437,6 +437,23 @@ export function createRenderer(canvas) {
     }
     if (left) rect(x, y + 2, 1, 14, light);
     if (right) rect(x + 14, y + 2, 2, 14, dark);
+    if (rock === MATERIAL.stone || rock === MATERIAL.deepstone) {
+      const dryAbove = top && isDryIslandCave(seed, ty - 1);
+      const dryBelow = isDryIslandCave(seed, ty + 1);
+      if (dryAbove || dryBelow) {
+        const rim = rock === MATERIAL.deepstone ? '#6a587d' : '#657a7d';
+        const width = 5 + Math.floor(variation * 11);
+        const offset = variation < .5 ? 0 : TILE - width;
+        if (dryAbove) {
+          rect(x + offset, y, width, 1, rim);
+          rect(x + offset + 2, y + 2, width - 3, 2, light);
+        }
+        if (dryBelow) {
+          rect(x + offset, y + 14, width, 2, light);
+          rect(x + offset + 1, y + 15, width - 2, 1, rim);
+        }
+      }
+    }
     if (oreOpacity > 0) {
       const [, mineral, shadow, glint] = palettes[material];
       ctx.globalAlpha = oreOpacity;
@@ -540,8 +557,10 @@ export function createRenderer(canvas) {
     const abyss = ty >= 113;
     const palette = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
-    const [base, shadow, grain] = wet ? palette : underground
-      ? ['#292139', '#201a30', '#3e304e'] : ['#302b2f', '#27242b', '#44393c'];
+    const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
+    const [base, shadow, grain] = wet ? palette : masonry
+      ? ['#342941', '#261e34', '#4b3c59'] : underground
+        ? ['#27253a', '#211e32', '#3a334d'] : ['#2b343a', '#232d35', '#3a474b'];
     let exposedEdges = 0;
     for (const { dx, dy, bit } of caveWallEdges) {
       const neighborX = tx + dx;
@@ -553,24 +572,33 @@ export function createRenderer(canvas) {
     const tileX = exposedEdges ? 0 : x;
     const tileY = exposedEdges ? 0 : y;
     rect(tileX, tileY, TILE, TILE, base, context);
-    if (underground) {
-      const stagger = ty % 2 ? 5 : 11;
-      rect(tileX, tileY, TILE, 1, shadow, context);
-      rect(tileX, tileY + 8, TILE, 1, shadow, context);
-      rect(tileX + stagger, tileY + 1, 1, 7, shadow, context);
-      rect(tileX + TILE - stagger, tileY + 9, 1, 7, shadow, context);
-      rect(tileX + Math.floor(detail * 7), tileY + 3, 4, 1, grain, context);
+    if (masonry) {
+      // Broken courses have wide blocks and uneven joints.
+      const stagger = ty % 2 ? 6 : 13;
+      rect(tileX, tileY + 14, TILE, 2, shadow, context);
+      if ((tx + ty) % 2 === 0) {
+        rect(tileX + stagger, tileY, 2, 15, shadow, context);
+        rect(tileX + stagger + 2, tileY + 1, 1, 9, grain, context);
+      }
+      rect(tileX + Math.floor(detail * 7), tileY + 2, 5 + Math.floor(detail * 5), 2, grain, context);
+      if (detail > .77) {
+        rect(tileX + 7, tileY + 6, 7, 3, shadow, context);
+        rect(tileX + 11, tileY + 9, 3, 2, shadow, context);
+      }
     } else if (wet) {
       rect(tileX + Math.floor(detail * 8), tileY + 3, 6, 1, grain, context);
       rect(tileX + 2, tileY + 10 + Math.floor(detail * 3), 9, 2, shadow, context);
     } else {
-      const band = Math.sin(tx * .41 + ty * .17);
-      const seam = 6 + Math.round(3 * band);
-      rect(tileX, tileY + seam, TILE, 2, shadow, context);
-      rect(tileX, tileY + seam - 1, 10 + Math.floor(detail * 7), 1, grain, context);
-      if (detail > .57) {
-        rect(tileX + 10, tileY + 10, 2, 4, shadow, context);
-        rect(tileX + 3, tileY + 13, 3, 1, grain, context);
+      const band = Math.sin(tx * .47 + ty * .51) + Math.sin(tx * .15 - ty * .27);
+      const seam = 5 + Math.round(band * 2);
+      if (band > -.5) {
+        rect(tileX, tileY + seam, 7 + Math.floor(detail * 8), 3, shadow, context);
+        rect(tileX + 3, tileY + seam - 1, 4 + Math.floor(detail * 6), 1, grain, context);
+      }
+      if (detail > .47) {
+        const fleck = Math.floor(detail * 12);
+        rect(tileX + fleck, tileY + 10, 5, 3, shadow, context);
+        rect(tileX + fleck + 2, tileY + 9, 3, 1, grain, context);
       }
     }
     if (exposedEdges) {
@@ -584,14 +612,14 @@ export function createRenderer(canvas) {
       ctx.drawImage(tileCanvas, x, y);
     }
 
-    if (detail > 0.69 && tileAt(world, tx, ty - 1)) {
+    if (!masonry && detail > 0.69 && tileAt(world, tx, ty - 1)) {
       const length = 4 + Math.floor(detail * 13);
       polygon([[x + 2, y], [x + 12, y], [x + 8, y + length]], shadow);
       polygon([[x + 2, y], [x + 6, y], [x + 8, y + length]], grain);
     }
     if (detail < 0.72 || !tileAt(world, tx, ty + 1)) return;
     const floor = y + TILE;
-    if (abyss) {
+    if ((wet && abyss) || (underground && !masonry && detail > .94)) {
       polygon([[x + 2, floor], [x + 5, floor - 8], [x + 8, floor], [x + 10, floor - 13], [x + 14, floor]], '#55568e');
       polygon([[x + 8, floor], [x + 10, floor - 13], [x + 11, floor - 6]], '#96a5db');
       rect(x + 4, floor - 6, 1, 3, '#a7b2e5');
@@ -599,7 +627,7 @@ export function createRenderer(canvas) {
       polygon([[x + 7, floor], [x + 2, floor - 7], [x + 4, floor - 11], [x + 8, floor - 8], [x + 12, floor - 12], [x + 15, floor - 8], [x + 10, floor]], '#406e71');
       rect(x + 3, floor - 9, 2, 2, '#86c4b0');
       rect(x + 11, floor - 10, 2, 3, '#86c4b0');
-    } else if (detail > .985) {
+    } else if (!underground && detail > .985) {
       rect(x + 4, floor - 5, 2, 5, '#a98465');
       rect(x + 9, floor - 3, 2, 3, '#a98465');
       rect(x + 2, floor - 7, 6, 3, '#b97658');
@@ -724,7 +752,16 @@ export function createRenderer(canvas) {
       const { tx, floor } = structure;
       if (tx < left - 3 || tx >= right + 3 || floor <= top || floor > bottom + 4) continue;
       if (!hasExposedCaveFloor(world, structure)) continue;
+      ctx.save();
+      ctx.beginPath();
+      for (let sx = tx - 2; sx <= tx + 2; sx++) {
+        for (let sy = floor - 4; sy <= floor + 1; sy++) {
+          if (!tileAt(world, sx, sy)) ctx.rect(sx * TILE, sy * TILE, TILE, TILE);
+        }
+      }
+      ctx.clip();
       drawCaveStructure(rect, polygon, structure, (tx + .5) * TILE, floor * TILE);
+      ctx.restore();
     }
 
     for (const mushroom of world.caveMushrooms) {
