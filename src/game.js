@@ -93,11 +93,11 @@ function inventoryChanged() {
   storeProgress();
 }
 
-function emitEffect({ x, y, material, count, spread, message }) {
+function emitEffect({ x, y, material, color, count, spread, message }) {
   for (let i = 0; i < count; i++) {
     particles.push({
       x, y, dx: (Math.random() - 0.5) * spread, dy: (Math.random() - 0.65) * spread,
-      life: 0.25 + Math.random() * 0.4, material,
+      life: 0.25 + Math.random() * 0.4, material, color,
     });
   }
   if (message) ui.notify(message);
@@ -378,7 +378,10 @@ function frame(now) {
     }
     updateParticles(dt);
     updateCamera(dt);
-    if (input.holdingMine() && !editPending) {
+    if (game.player.stun > 0) {
+      mining = null;
+      input.stopMining();
+    } else if (input.holdingMine() && !editPending) {
       if (aimedMob()) {
         mining = null;
         if (attackCooldown <= 0) performAttack();

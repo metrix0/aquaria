@@ -502,6 +502,13 @@ export function generateMobs() {
       health: maxHealth,
       hurt: 0,
       respawn: 0,
+      attackTimer: 1.4 + (mob.phase % 1.5),
+      windup: 0,
+      dash: 0,
+      dashDx: 0,
+      dashDy: 0,
+      shock: 0,
+      shockHit: false,
     };
   });
 }

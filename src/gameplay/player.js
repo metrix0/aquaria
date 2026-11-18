@@ -13,7 +13,7 @@ export const MAX_HEALTH = 100;
 export function spawn(world, oxygen, appearance) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, hurt: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function collides(world, x, y, height = PLAYER_SIZE.height) {
@@ -70,6 +70,14 @@ export function playerInWater(world, player) {
 
 export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
+  player.stun = Math.max(0, (player.stun ?? 0) - dt);
+  if (player.stun > 0) {
+    left = false;
+    right = false;
+    up = false;
+    down = false;
+    jump = false;
+  }
   const bodyInWater = playerInWater(world, player);
   const wantsCrawl = down && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
   const height = wantsCrawl ? CRAWL_HEIGHT : PLAYER_SIZE.height;

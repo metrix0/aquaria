@@ -643,26 +643,47 @@ export function createRenderer(canvas) {
         rect(1, -8 - bob, 1, 1, '#f1f3e5');
       } else if (mob.kind === 'jellyfish') {
         const pulse = Math.round(Math.sin(time * 3.1 + mob.phase));
+        const charging = (mob.windup ?? 0) > 0;
+        const shocking = (mob.shock ?? 0) > 0;
+        if (shocking) {
+          const radius = 14 + (1 - mob.shock / 0.45) * 44;
+          const steps = 28;
+          for (let i = 0; i < steps; i++) {
+            const angle = (i / steps) * Math.PI * 2 + time * 5;
+            const jitter = Math.sin(i * 3.1 + time * 30) * 2;
+            const px = Math.cos(angle) * (radius + jitter);
+            const py = Math.sin(angle) * (radius + jitter);
+            rect(px - 1, py - 1, 2, 2, i % 2 ? '#8bdfd0' : '#f8dca5');
+            if (i % 4 === 0) rect(px * 0.85, py * 0.85, 2, 2, '#d3a8a4');
+          }
+        }
         for (let i = 0; i < 4; i++) {
           const baseX = -5 + i * 3;
           const length = 9 + (i % 2) * 3;
           for (let j = 0; j < length; j += 2) {
             const sway = Math.round(Math.sin(time * 3.8 + mob.phase + j * 0.42 + i) * 1.6);
-            rect(baseX + sway, 2 + j, 1, 2, (i + j) % 2 ? '#a68aa0' : '#d3a8a4');
+            rect(baseX + sway, 2 + j, 1, 2, charging && (i + j) % 2 ? '#8bdfd0' : (i + j) % 2 ? '#a68aa0' : '#d3a8a4');
           }
         }
-        rect(-4, -8, 8, 2, '#d3a8a4');
-        rect(-6 - Math.max(0, pulse), -6, 12 + Math.max(0, pulse) * 2, 4, '#a68aa0');
+        rect(-4, -8, 8, 2, charging ? '#8bdfd0' : '#d3a8a4');
+        rect(-6 - Math.max(0, pulse), -6, 12 + Math.max(0, pulse) * 2, 4, charging ? '#d3a8a4' : '#a68aa0');
         rect(-7 - pulse, -2, 14 + pulse * 2, 3, '#786080');
-        rect(-3, -5, 6, 3, '#f2c9a0');
+        rect(-3, -5, 6, 3, charging && Math.floor(time * 16) % 2 ? '#8bdfd0' : '#f2c9a0');
         rect(-4, -6, 4, 1, '#f8dca5');
         rect(-6, 1, 3, 1, '#d3a8a4');
         rect(-1, 1, 3, 1, '#d3a8a4');
         rect(4, 1, 3, 1, '#d3a8a4');
+        if (charging) {
+          for (let i = 0; i < 4; i++) {
+            const spark = time * 18 + i * 1.6;
+            rect(Math.cos(spark) * 10, Math.sin(spark) * 8 - 2, 2, 2, i % 2 ? '#f8dca5' : '#8bdfd0');
+          }
+        }
       } else if (mob.kind === 'squid') {
         ctx.scale(mob.facing, 1);
         ctx.rotate(clamp(mob.dy * 0.0035, -0.25, 0.25) * mob.facing);
         const pulse = Math.sin(time * 5.4 + mob.phase);
+        const charging = (mob.windup ?? 0) > 0;
         for (let i = 0; i < 4; i++) {
           const ty = -4 + i * 2;
           const len = i === 1 || i === 2 ? 9 : 7;
@@ -681,10 +702,20 @@ export function createRenderer(canvas) {
         rect(3, -1, 2, 1, '#f0c88b');
         rect(-2, -2, 2, 2, '#f1f3e5');
         rect(-2, -1, 1, 1, '#192b3e');
+        if (charging) {
+          rect(11, -2, 4, 4, '#b0667d');
+          rect(12, -1, 2, 2, '#f8dca5');
+        }
       } else if (mob.kind === 'shark') {
         ctx.scale(mob.facing, 1);
         ctx.rotate(clamp(mob.dy * 0.0022, -0.18, 0.18) * mob.facing);
-        const swish = Math.round(Math.sin(time * 6.4 + mob.phase) * 2);
+        const dashing = (mob.dash ?? 0) > 0;
+        const lunging = dashing || (mob.windup ?? 0) > 0;
+        const swish = Math.round(Math.sin(time * (dashing ? 16 : 6.4) + mob.phase) * 2);
+        if (dashing) {
+          rect(-23, -3, 6, 1, '#a1d9cb');
+          rect(-26, 1, 8, 1, '#a1d9cb');
+        }
         polygon([[-2, -4], [2, -10], [5, -4]], '#263b51');
         rect(1, -8, 2, 4, '#3e5b63');
         rect(-13, -2 + Math.trunc(swish * 0.5), 4, 4, '#2f4858');
@@ -694,11 +725,20 @@ export function createRenderer(canvas) {
         rect(11, -3, 4, 3, '#2f4858');
         rect(-6, -4, 16, 1, '#6d8884');
         rect(-7, 1, 18, 3, '#a5bfb9');
-        rect(8, 1, 5, 1, '#192b3e');
-        rect(9, 1, 1, 1, '#f1f3e5');
-        rect(11, 1, 1, 1, '#f1f3e5');
+        if (lunging) {
+          rect(8, 0, 6, 2, '#111d2f');
+          rect(8, 2, 5, 2, '#a5bfb9');
+          rect(9, 0, 1, 1, '#f1f3e5');
+          rect(11, 0, 1, 1, '#f1f3e5');
+          rect(10, 1, 1, 1, '#f1f3e5');
+          rect(12, 1, 1, 1, '#f1f3e5');
+        } else {
+          rect(8, 1, 5, 1, '#192b3e');
+          rect(9, 1, 1, 1, '#f1f3e5');
+          rect(11, 1, 1, 1, '#f1f3e5');
+        }
         rect(9, -2, 2, 2, '#111d2f');
-        rect(10, -2, 1, 1, '#efc27e');
+        rect(10, -2, 1, 1, lunging ? '#ff9b80' : '#efc27e');
         rect(4, -2, 1, 3, '#192b3e');
         rect(6, -2, 1, 3, '#192b3e');
         polygon([[1, 2], [-3, 7], [4, 3]], '#263b51');
@@ -716,6 +756,21 @@ export function createRenderer(canvas) {
       }
 
       ctx.restore();
+    }
+  }
+
+  function projectiles(world, camera) {
+    for (const bubble of world.projectiles ?? []) {
+      if (bubble.x < camera.x - 16 || bubble.x > camera.x + camera.width + 16) continue;
+      if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16) continue;
+      const r = bubble.radius;
+      const x = Math.round(bubble.x);
+      const y = Math.round(bubble.y);
+      rect(x - r - 1, y - r, r * 2 + 2, r * 2, '#252b3b');
+      rect(x - r, y - r - 1, r * 2, r * 2 + 2, '#252b3b');
+      rect(x - r, y - r, r * 2, r * 2, bubble.color);
+      rect(x - r + 1, y - r + 1, Math.max(2, r), Math.max(2, r), '#da9292');
+      rect(x - r + 1, y - r + 1, 1, 1, '#f1f3e5');
     }
   }
 
@@ -774,8 +829,9 @@ export function createRenderer(canvas) {
     terrain(world, player, camera, time, bounds);
     doors(world, player, camera);
     mobs(world, camera, time, targetMob);
+    projectiles(world, camera);
     for (const bit of particles) {
-      rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
+      rect(bit.x, bit.y, 2, 2, bit.color ?? palettes[bit.material][1]);
     }
     for (const remote of peers) {
       if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
@@ -819,6 +875,21 @@ export function createRenderer(canvas) {
       const start = Math.max(0, surface);
       gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
       ctx.restore();
+    }
+  }
+
+  function projectiles(world, camera) {
+    for (const bubble of world.projectiles ?? []) {
+      if (bubble.x < camera.x - 16 || bubble.x > camera.x + camera.width + 16) continue;
+      if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16) continue;
+      const r = bubble.radius;
+      const x = Math.round(bubble.x);
+      const y = Math.round(bubble.y);
+      rect(x - r - 1, y - r, r * 2 + 2, r * 2, '#252b3b');
+      rect(x - r, y - r - 1, r * 2, r * 2 + 2, '#252b3b');
+      rect(x - r, y - r, r * 2, r * 2, bubble.color);
+      rect(x - r + 1, y - r + 1, Math.max(2, r), Math.max(2, r), '#da9292');
+      rect(x - r + 1, y - r + 1, 1, 1, '#f1f3e5');
     }
   }
 

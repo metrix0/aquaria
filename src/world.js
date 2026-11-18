@@ -28,6 +28,7 @@ export function createWorld() {
   return {
     items, trees, doors: new Map(),
     mobs: generateMobs(),
+    projectiles: [],
     get vents() { return baseVents(); },
     fixtureIds: new Set([...items, ...trees].map(({ id }) => id)),
     harvested: new Set(),

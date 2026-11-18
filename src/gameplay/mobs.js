@@ -13,6 +13,46 @@ const mobSpecs = {
   fish: { name: 'fish', width: 12, height: 8, radius: 10, centerY: 0, material: MATERIAL.sand, maxHealth: MOB_HEALTH.fish },
   ...enemySpecs,
 };
+const paintColors = ['#7e4268', '#b0667d', '#da9292'];
+
+function stepProjectiles(world, player, dt, time, effects) {
+  if (!world.projectiles) world.projectiles = [];
+  const px = player.x;
+  const py = player.y + Math.ceil(player.height / 2);
+  const playerInWater = inWater(world, px, py);
+
+  for (let i = world.projectiles.length - 1; i >= 0; i--) {
+    const bubble = world.projectiles[i];
+    bubble.life -= dt;
+    const nx = bubble.x + bubble.dx * dt;
+    const ny = bubble.y + (bubble.dy + Math.sin(time * 9 + bubble.phase) * 14) * dt;
+    const tx = Math.floor(nx / TILE);
+    const ty = Math.floor(ny / TILE);
+
+    if (bubble.life <= 0 || ny - bubble.radius < WATER + 4 || !waterTileAt(world, tx, ty) || solidAt(world, tx, ty, player)) {
+      effects.push({ x: bubble.x, y: bubble.y, color: bubble.color, count: 5, spread: 36 });
+      world.projectiles.splice(i, 1);
+      continue;
+    }
+
+    bubble.x = nx;
+    bubble.y = ny;
+
+    if (playerInWater && Math.hypot(bubble.x - px, bubble.y - py) <= bubble.radius + 7) {
+      const effect = { x: bubble.x, y: bubble.y, color: bubble.color, count: 9, spread: 54 };
+      if ((player.hurt ?? 0) <= 0) {
+        player.hurt = 0.9;
+        player.dx = clamp(bubble.dx * 0.65, -95, 95);
+        player.dy = clamp(bubble.dy * 0.55 - 10, -80, 80);
+        player.health = Math.max(0, player.health - 15);
+        player.oxygen = Math.max(0, player.oxygen - 2);
+        effect.message = 'Hit by squid paint bubble! −15 health';
+      }
+      effects.push(effect);
+      world.projectiles.splice(i, 1);
+    }
+  }
+}
 
 function fishCollides(world, player, x, y, width = 12, height = 8) {
   if (y - height / 2 < WATER + 8) return true;
@@ -81,7 +121,10 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
-        Object.assign(mob, { x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth, grounded: mob.kind === 'crab' });
+        Object.assign(mob, {
+          x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth, grounded: mob.kind === 'crab',
+          attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
+        });
       }
       continue;
     }
@@ -184,12 +227,18 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     } else if (enemySpecs[mob.kind]) {
       const spec = enemySpecs[mob.kind];
       mob.cooldown = Math.max(0, (mob.cooldown ?? 0) - dt);
+      mob.attackTimer = mob.attackTimer ?? 1.8;
+      mob.windup = mob.windup ?? 0;
       const toPlayerX = px - mob.x;
       const toPlayerY = py - mob.y;
       let targetDx = 0;
       let targetDy = 0;
+      let accel = 5;
 
       if (mob.flee > 0) {
+        mob.windup = 0;
+        mob.dash = 0;
+        mob.shock = 0;
         targetDx = -(toPlayerX / dist) * (mob.speed * 1.6 + 24);
         targetDy = -(toPlayerY / dist) * (mob.speed * 1.2 + 16);
       } else if (mob.kind === 'jellyfish') {
@@ -197,11 +246,76 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         const targetY = mob.homeY + Math.sin(time * 1.5 + mob.phase * 1.7) * 16;
         targetDx = clamp((targetX - mob.x) * 1.4, -mob.speed, mob.speed);
         targetDy = clamp((targetY - mob.y) * 2.1, -mob.speed * 1.3, mob.speed * 1.3);
+
+        if ((mob.shock ?? 0) > 0) {
+          mob.shock = Math.max(0, mob.shock - dt);
+          const shockRadius = 14 + (1 - mob.shock / 0.45) * 44;
+          if (playerInWater && !mob.shockHit && (player.hurt ?? 0) <= 0 && dist <= shockRadius) {
+            mob.shockHit = true;
+            player.hurt = 1.2;
+            player.stun = 2.5;
+            mob.cooldown = 1.8;
+            player.dx = (toPlayerX / dist) * 115;
+            player.dy = (toPlayerY / dist) * 95 - 12;
+            player.health = Math.max(0, player.health - 20);
+            player.oxygen = Math.max(0, player.oxygen - 3);
+            effects.push({ x: px, y: py, color: '#8bdfd0', count: 12, spread: 75, message: 'Shocked by a jellyfish! Stunned!' });
+          }
+        } else if (mob.windup > 0) {
+          mob.windup = Math.max(0, mob.windup - dt);
+          targetDx *= 0.25;
+          targetDy *= 0.25;
+          if (mob.windup === 0) {
+            mob.shock = 0.45;
+            mob.shockHit = false;
+            mob.attackTimer = 4.4 + (mob.phase % 1.4);
+            effects.push({ x: mob.x, y: mob.y, color: '#f8dca5', count: 10, spread: 80 });
+          }
+        } else if (playerInWater && mob.cooldown === 0 && dist < 96) {
+          mob.attackTimer -= dt;
+          if (mob.attackTimer <= 0) mob.windup = 0.72;
+        }
       } else if (mob.kind === 'squid') {
         const pulse = 0.3 + 0.95 * Math.pow(Math.max(0, Math.sin(time * 2.7 + mob.phase)), 2);
-        if (playerInWater && dist < 115 && mob.cooldown === 0) {
-          targetDx = (toPlayerX / dist) * mob.speed * 1.25 * pulse;
-          targetDy = (toPlayerY / dist) * mob.speed * 1.1 * pulse;
+        if (mob.windup > 0) {
+          mob.windup = Math.max(0, mob.windup - dt);
+          if (Math.abs(toPlayerX) > 2) mob.facing = toPlayerX < 0 ? -1 : 1;
+          targetDx = -mob.facing * 12;
+          targetDy = clamp(toPlayerY * 0.25, -14, 14);
+          if (mob.windup === 0 && playerInWater) {
+            const baseAngle = Math.atan2(toPlayerY, toPlayerX);
+            const projectiles = world.projectiles ?? (world.projectiles = []);
+            for (const [idx, offset] of [-0.17, 0, 0.17].entries()) {
+              const angle = baseAngle + offset;
+              const speed = offset === 0 ? 128 : 116;
+              projectiles.push({
+                kind: 'paint-bubble',
+                x: mob.x + mob.facing * 9,
+                y: mob.y,
+                dx: Math.cos(angle) * speed,
+                dy: Math.sin(angle) * speed,
+                radius: offset === 0 ? 4 : 3,
+                life: 2.4,
+                phase: mob.phase + idx * 1.4,
+                color: paintColors[idx],
+              });
+            }
+            mob.attackTimer = 2.8 + (mob.phase % 1.1);
+            effects.push({ x: mob.x + mob.facing * 9, y: mob.y, color: '#b0667d', count: 6, spread: 40 });
+          }
+        } else if (playerInWater && dist < 175 && mob.cooldown === 0) {
+          if (Math.abs(toPlayerX) > 2) mob.facing = toPlayerX < 0 ? -1 : 1;
+          if (dist < 56) {
+            targetDx = -(toPlayerX / dist) * mob.speed * 0.75 * pulse;
+            targetDy = -(toPlayerY / dist) * mob.speed * 0.55 * pulse;
+          } else if (dist > 95) {
+            targetDx = (toPlayerX / dist) * mob.speed * 1.15 * pulse;
+            targetDy = (toPlayerY / dist) * mob.speed * pulse;
+          } else {
+            targetDy = Math.sin(time * 2.1 + mob.phase) * 16;
+          }
+          mob.attackTimer -= dt;
+          if (mob.attackTimer <= 0 && dist > 26) mob.windup = 0.42;
         } else {
           const targetX = mob.homeX + Math.sin(time * 0.75 + mob.phase) * mob.span;
           const targetY = mob.homeY + Math.cos(time * 1.35 + mob.phase) * 15;
@@ -212,9 +326,30 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           targetDy = (toY / toDist) * mob.speed * 0.75 * pulse;
         }
       } else if (mob.kind === 'shark') {
-        if (playerInWater && dist < 165 && Math.abs(px - mob.homeX) < mob.span + 95 && mob.cooldown === 0) {
-          targetDx = (toPlayerX / dist) * mob.speed * 1.18;
-          targetDy = (toPlayerY / dist) * mob.speed * 0.82;
+        if ((mob.dash ?? 0) > 0) {
+          mob.dash = Math.max(0, mob.dash - dt);
+          targetDx = mob.dashDx;
+          targetDy = mob.dashDy;
+          accel = 15;
+          if (Math.random() < 0.4) effects.push({ x: mob.x - mob.facing * 14, y: mob.y, color: '#a1d9cb', count: 1, spread: 18 });
+        } else if (mob.windup > 0) {
+          mob.windup = Math.max(0, mob.windup - dt);
+          if (Math.abs(toPlayerX) > 2) mob.facing = toPlayerX < 0 ? -1 : 1;
+          targetDx = -mob.facing * 26;
+          targetDy = clamp(toPlayerY * 0.4, -18, 18);
+          accel = 9;
+          if (mob.windup === 0) {
+            mob.dashDx = (toPlayerX / dist) * 210;
+            mob.dashDy = (toPlayerY / dist) * 165;
+            mob.dash = 0.6;
+            mob.attackTimer = 3.2 + (mob.phase % 1.2);
+            effects.push({ x: mob.x - mob.facing * 12, y: mob.y, color: '#a1d9cb', count: 6, spread: 44 });
+          }
+        } else if (playerInWater && dist < 170 && Math.abs(px - mob.homeX) < mob.span + 105 && mob.cooldown === 0) {
+          targetDx = (toPlayerX / dist) * mob.speed * 0.85;
+          targetDy = (toPlayerY / dist) * mob.speed * 0.68;
+          mob.attackTimer -= dt;
+          if (mob.attackTimer <= 0 && dist < 145) mob.windup = 0.45;
         } else {
           if (mob.x > mob.homeX + mob.span) mob.facing = -1;
           else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
@@ -224,9 +359,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         }
       }
 
-      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 5);
-      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * 5);
-      if (Math.abs(mob.dx) > 1.5 && mob.kind !== 'jellyfish') mob.facing = mob.dx < 0 ? -1 : 1;
+      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * accel);
+      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * accel);
+      if (Math.abs(mob.dx) > 1.5 && mob.kind !== 'jellyfish' && mob.windup <= 0) mob.facing = mob.dx < 0 ? -1 : 1;
 
       const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
       if (!fishCollides(world, player, nextX, mob.y, spec.width, spec.height)) {
@@ -234,6 +369,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       } else {
         mob.dx *= -0.75;
         mob.facing = -mob.facing;
+        mob.dash = 0;
       }
 
       const nextY = Math.max(WATER + 12, mob.y + mob.dy * dt);
@@ -241,20 +377,31 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         mob.y = nextY;
       } else {
         mob.dy *= -0.75;
+        mob.dash = 0;
       }
 
-      if (playerInWater && player.hurt <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < spec.radius + 7) {
+      const dashingShark = mob.kind === 'shark' && (mob.dash ?? 0) > 0;
+      const hitRadius = dashingShark ? spec.radius + 9 : spec.radius + 7;
+      if (playerInWater && (player.hurt ?? 0) <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < hitRadius) {
         player.hurt = 1.15;
-        mob.cooldown = 1.6;
+        mob.cooldown = dashingShark ? 2.0 : 1.6;
         if (mob.kind === 'squid') mob.flee = 1.8;
-        player.dx = (toPlayerX / dist) * 135;
+        const dmg = dashingShark ? 42 : spec.healthDamage;
+        const air = dashingShark ? 6 : spec.damage;
+        const knock = dashingShark ? 175 : 135;
+        mob.dash = 0;
+        player.dx = (toPlayerX / dist) * knock;
         player.dy = (toPlayerY / dist) * 105 - 18;
-        player.health = Math.max(0, player.health - spec.healthDamage);
-        player.oxygen = Math.max(0, player.oxygen - spec.damage);
-        effects.push({ x: mob.x, y: mob.y, material: spec.material, count: mob.kind === 'squid' ? 14 : 9, spread: 68, message: spec.message });
+        player.health = Math.max(0, player.health - dmg);
+        player.oxygen = Math.max(0, player.oxygen - air);
+        effects.push({
+          x: mob.x, y: mob.y, material: spec.material, count: mob.kind === 'squid' ? 14 : 9, spread: 68,
+          message: dashingShark ? 'Shark dash bite! −42 health' : spec.message,
+        });
       }
     }
   }
+  stepProjectiles(world, player, dt, time, effects);
   return hit;
 }
 
@@ -324,9 +471,13 @@ export function fendOffEnemy(game, wx, wy) {
 }
 
 export function resetHostiles(world) {
+  if (world.projectiles) world.projectiles.length = 0;
   for (const mob of world.mobs) {
     if (enemySpecs[mob.kind] && !(mob.respawn > 0)) {
-      Object.assign(mob, { x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth });
+      Object.assign(mob, {
+        x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth,
+        attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
+      });
     }
   }
 }

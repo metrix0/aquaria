@@ -54,6 +54,7 @@ export function resetRoomProgress(previous) {
   const world = previous.world;
   world.harvested.clear();
   world.mobs = generateMobs();
+  world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
   syncMobs(world, player);
   return {
