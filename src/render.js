@@ -441,7 +441,7 @@ export function createRenderer(canvas) {
     const palette = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const [base, shadow, grain] = wet ? palette : underground
-      ? ['#292139', '#201a30', '#3e304e'] : ['#332d2d', '#28262c', '#45383a'];
+      ? ['#292139', '#201a30', '#3e304e'] : ['#302b2f', '#27242b', '#44393c'];
     const context = fadeTop ? tileCtx : ctx;
     const tileX = fadeTop ? 0 : x;
     const tileY = fadeTop ? 0 : y;
@@ -453,9 +453,18 @@ export function createRenderer(canvas) {
       rect(tileX + stagger, tileY + 1, 1, 7, shadow, context);
       rect(tileX + TILE - stagger, tileY + 9, 1, 7, shadow, context);
       rect(tileX + Math.floor(detail * 7), tileY + 3, 4, 1, grain, context);
-    } else {
+    } else if (wet) {
       rect(tileX + Math.floor(detail * 8), tileY + 3, 6, 1, grain, context);
       rect(tileX + 2, tileY + 10 + Math.floor(detail * 3), 9, 2, shadow, context);
+    } else {
+      const band = Math.sin(tx * .41 + ty * .17);
+      const seam = 6 + Math.round(3 * band);
+      rect(tileX, tileY + seam, TILE, 2, shadow, context);
+      rect(tileX, tileY + seam - 1, 10 + Math.floor(detail * 7), 1, grain, context);
+      if (detail > .57) {
+        rect(tileX + 10, tileY + 10, 2, 4, shadow, context);
+        rect(tileX + 3, tileY + 13, 3, 1, grain, context);
+      }
     }
     if (fadeTop) {
       tileCtx.globalCompositeOperation = 'destination-out';

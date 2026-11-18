@@ -377,9 +377,9 @@ export function generateVents(get) {
 const veinOffsets = [[0, 0], [-1, 0], [1, 0], [0, 1], [-1, 1], [0, -1], [1, -1]];
 const islandOreVeins = [
   [51, 21, 5, MATERIAL.copper], [64, 23, 5, MATERIAL.iron],
-  [5, 134, 5, MATERIAL.copper], [143, 108, 4, MATERIAL.copper], [-22, 123, 5, MATERIAL.copper],
-  [48, 185, 4, MATERIAL.copper], [122, 217, 5, MATERIAL.copper], [-22, 253, 3, MATERIAL.iron],
-  [46, 316, 5, MATERIAL.copper],
+  [5, 142, 5, MATERIAL.copper], [143, 108, 4, MATERIAL.copper], [-22, 123, 5, MATERIAL.copper],
+  [48, 185, 4, MATERIAL.copper], [123, 206, 5, MATERIAL.copper], [-22, 253, 3, MATERIAL.iron],
+  [56, 316, 5, MATERIAL.copper],
   [22, 343, 5], [77, 343, 6], [135, 343, 4], [-15, 402, 7], [19, 402, 5], [85, 402, 4], [130, 402, 5],
   [12, 460, 4], [35, 460, 6], [65, 460, 4], [101, 460, 5], [134, 460, 6],
   [0, 509, 3], [37, 509, 6], [69, 509, 5], [133, 509, 4],

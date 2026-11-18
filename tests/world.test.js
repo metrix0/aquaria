@@ -137,7 +137,7 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
   const surface = groundAt(center);
   let ceiling = surface;
   while (tileAt(world, center, ceiling)) ceiling++;
-  assert.equal(ceiling - surface, 11);
+  assert.equal(ceiling - surface, 16);
 
   const cells = [[center, ceiling]];
   const visited = new Set([ceiling * COLS + center]);
@@ -167,10 +167,20 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
   assert.ok(ISLAND_DEEPSTONE_ROW - ceiling >= 300);
   assert.equal(deepest, 611);
   assert.ok(deepest - ISLAND_DEEPSTONE_ROW >= 280);
-  for (const [x, y] of [[-24, 119], [142, 102], [55, 300], [130, 337], [-12, 450], [141, 554], [48, 611], [108, 611]]) {
+  for (const [x, y] of [[-24, 119], [142, 102], [55, 311], [130, 337], [-12, 455], [141, 559], [48, 611], [108, 611]]) {
     assert.ok(visited.has(y * COLS + x + WEST_EXTENSION), `${x},${y} is reachable`);
   }
-  assert.ok(cells.length > 25000);
+  assert.ok(cells.length >= 14000 && cells.length <= 18000);
+  const junction = WEST_EXTENSION + 80;
+  const passage = WEST_EXTENSION + 70;
+  assert.equal(tileAt(world, passage, 33), MATERIAL.stone);
+  assert.equal(tileAt(world, junction, 49), MATERIAL.air);
+  for (const [column, low, high] of [[12, 335, 337], [64, 393, 396], [6, 450, 454], [17, 500, 503]]) {
+    const x = column + WEST_EXTENSION;
+    assert.ok(tileAt(world, x, low), 'chamber neck has a low ceiling');
+    assert.ok(tileAt(world, x, high), 'rooms narrow into a stone lintel');
+    assert.equal(tileAt(world, x, high + 1), MATERIAL.air, 'the passage stays walkable');
+  }
   assert.ok(outlets.has(48) && outlets.has(108));
   assert.ok([...outlets].every((x) => x >= 46 && x <= 54 || x >= 100 && x <= 110));
 
@@ -223,18 +233,29 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   assert.equal(buildCellFree(restored.world, Math.floor(cache.x / TILE), Math.floor(cache.y / TILE)), false);
 
   const chamberX = (column) => (column + WEST_EXTENSION + .5) * TILE;
-  walkUntil(() => player.x <= chamberX(-22), { left: true });
+  const restartAtFoyer = () => Object.assign(player, {
+    x: (center + .5) * TILE, y: 33 * TILE - player.height, dx: 0, dy: 0,
+  });
+  restartAtFoyer();
+  walkUntil(() => player.x >= chamberX(78.5), { right: true });
+  walkUntil(() => player.x <= chamberX(-30.5), { left: true });
   assert.ok(player.y >= 116 * TILE);
-
-  Object.assign(player, { x: (center + .5) * TILE, y: 33 * TILE - player.height, dx: 0, dy: 0 });
-  walkUntil(() => player.x >= chamberX(142), { right: true });
-  assert.ok(player.y > 100 * TILE);
-  walkUntil(() => player.x >= chamberX(146), { right: true });
-  walkUntil(() => player.x <= chamberX(78), { left: true });
-  walkUntil(() => player.x >= chamberX(144), { right: true });
-  walkUntil(() => player.x <= chamberX(81), { left: true });
-  walkUntil(() => player.x >= chamberX(133), { right: true });
+  walkUntil(() => player.x >= chamberX(56.5), { right: true });
+  walkUntil(() => player.x <= chamberX(-32.5), { left: true });
+  walkUntil(() => player.x >= chamberX(117), { right: true });
   assert.ok(player.y >= ISLAND_DEEPSTONE_ROW * TILE);
+
+  restartAtFoyer();
+  walkUntil(() => player.x >= chamberX(155.25), { right: true });
+  walkUntil(() => player.x <= chamberX(141.5), { left: true });
+  assert.ok(player.y > 100 * TILE);
+  walkUntil(() => player.x >= chamberX(153), { right: true });
+  walkUntil(() => player.x <= chamberX(84.5), { left: true });
+  walkUntil(() => player.x >= chamberX(151), { right: true });
+  walkUntil(() => player.x <= chamberX(80.5), { left: true });
+  walkUntil(() => player.x >= chamberX(131), { right: true });
+  assert.ok(player.y >= ISLAND_DEEPSTONE_ROW * TILE);
+
   Object.assign(player, { x: chamberX(20), y: 342 * TILE - player.height, dx: 0, dy: 0 });
   walkUntil(() => player.x >= chamberX(100), { right: true });
   assert.ok(Math.abs(player.y + player.height - 342 * TILE) < 1);

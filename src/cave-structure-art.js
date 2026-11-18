@@ -14,6 +14,18 @@ export function drawCaveStructure(rect, polygon, { kind }, x, y) {
     rect(x - 10, y - 23, 7, 9, '#5f4d49');
     rect(x - 9, y - 22, 5, 6, '#f5be76');
     rect(x - 8, y - 21, 2, 3, '#ffe3a3');
+  } else if (kind === 'cart') {
+    // Broken rails and a tipped ore truck sit beside the fork.
+    rect(x - 31, y - 2, 49, 1, '#665958');
+    rect(x + 21, y - 3, 7, 1, '#675756');
+    for (const tie of [-27, -17, -7, 4, 14, 24]) rect(x + tie, y - 2, 4, 2, '#8a674d');
+    polygon([[x - 18, y - 14], [x + 6, y - 18], [x + 3, y - 6], [x - 11, y - 4]], '#484148');
+    polygon([[x - 16, y - 13], [x + 3, y - 16], [x + 1, y - 8], [x - 10, y - 6]], '#76584a');
+    rect(x - 14, y - 12, 12, 1, '#a37c58');
+    rect(x - 9, y - 6, 4, 4, '#423a40');
+    rect(x, y - 7, 5, 5, '#423a40');
+    rect(x + 2, y - 5, 1, 1, '#8c7671');
+    polygon([[x + 10, y - 2], [x + 14, y - 6], [x + 19, y - 4], [x + 17, y - 1]], '#907261');
   } else if (kind === 'shaft' || kind === 'worksite') {
     for (const side of [-29, 24]) {
       rect(x + side, y - 48, 5, 48, '#665048');
