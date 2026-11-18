@@ -1,6 +1,6 @@
 import { drawPickaxe } from './pickaxe-art.js';
 import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, SNORKELS, SPEAR } from './content.js';
-import { characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
+import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
 import { TILE, clamp } from './world/generation.js';
@@ -179,7 +179,7 @@ export function createCharacterRenderer(ctx) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(pickaxePose(phase, angle).angle - tilt);
+    ctx.rotate(pickaxePose(phase, angle, tier, PLAYER_SWING_ARC_SCALE).angle - tilt);
     rect(-2, -2, 6, 4, shirt.wet);
     rect(-1, -1, 4, 3, shirt.base);
     rect(2, -1, 5, 3, skin.face);

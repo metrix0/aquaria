@@ -3,6 +3,8 @@ import { ITEMS } from '../inventory.js';
 import { clamp } from '../world/generation.js';
 import { CRAWL_HEIGHT } from './player.js';
 
+export const PLAYER_SWING_ARC_SCALE = 1.15;
+
 export function frontShoulder(player, appearance) {
   if (player.height === CRAWL_HEIGHT) return { x: 1, y: 10 };
   return { x: (CHARACTER_BODIES[appearance.body].shoulder - 5) / 2, y: 11 };
@@ -12,27 +14,27 @@ export function characterTilt(player, swimming, facing) {
   return swimming && player.height !== CRAWL_HEIGHT ? clamp(player.dy * 0.0022, -0.3, 0.3) * facing : 0;
 }
 
-export function pickaxePose(phase, aim = 0, tier = 1) {
+export function pickaxePose(phase, aim = 0, tier = 1, arcScale = 1) {
   const head = tier === 1 ? [11, -5, 5, 9] : [11, -5, 7, 11];
-  return swingPose(phase, aim, head);
+  return swingPose(phase, aim, head, arcScale);
 }
 
-function swingPose(phase, aim, bounds) {
+function swingPose(phase, aim, bounds, arcScale) {
   const raised = .22;
   const impact = .68;
   const swing = phase < raised ? -phase / raised
     : phase <= impact ? -1 + 1.3 * (phase - raised) / (impact - raised)
       : .3 * (1 - phase) / (1 - impact);
-  return { angle: aim + swing, bounds: phase >= raised && phase <= impact ? bounds : null };
+  return { angle: aim + swing * arcScale, bounds: phase >= raised && phase <= impact ? bounds : null };
 }
 
 // Pose is in front-arm coordinates, with positive x toward the weapon tip.
 export function meleePose(attack) {
   const phase = clamp(1 - attack.timer / attack.duration, 0, 1);
   const aim = Math.atan2(Math.sin(attack.angle), Math.abs(Math.cos(attack.angle)));
-  if (attack.tier) return pickaxePose(phase, aim, attack.tier);
+  if (attack.tier) return pickaxePose(phase, aim, attack.tier, PLAYER_SWING_ARC_SCALE);
   const blade = ITEMS[attack.kind]?.weapon?.blade;
-  if (blade) return swingPose(phase, aim, blade);
+  if (blade) return swingPose(phase, aim, blade, PLAYER_SWING_ARC_SCALE);
 
   const spear = attack.kind !== 'melee';
   const thrust = Math.round(Math.sin(phase * Math.PI) * (spear ? 9 : 5));
