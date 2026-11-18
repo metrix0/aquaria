@@ -8,7 +8,51 @@ export const ROWS = 176;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
-export const ISLAND_CAVE = { first: 42, entranceStart: 54, entranceEnd: 57, lowestFloor: 26 };
+export const ISLAND_CAVE = { marker: 56, camp: 40, campFloor: 36 };
+
+const islandCaveProfile = [
+  // Column from the original west edge, ceiling, floor.
+  [38, 30, 36],
+  [40, 26, ISLAND_CAVE.campFloor],
+  [44, 24, 32],
+  [49, 21, 27],
+  [54, 17, 22],
+  [ISLAND_CAVE.marker, 16, 22],
+  [59, 18, 24],
+  [64, 22, 29],
+  [69, 24, 34],
+  [72, 25, 36],
+  [74, 30, 36],
+];
+const islandCaveColumns = new Map();
+for (let i = 1; i < islandCaveProfile.length; i++) {
+  const [left, leftRoof, leftFloor] = islandCaveProfile[i - 1];
+  const [right, rightRoof, rightFloor] = islandCaveProfile[i];
+  for (let x = left; x <= right; x++) {
+    const t = (x - left) / (right - left);
+    islandCaveColumns.set(WEST_EXTENSION + x, {
+      roof: Math.round(leftRoof + (rightRoof - leftRoof) * t),
+      floor: Math.round(leftFloor + (rightFloor - leftFloor) * t),
+    });
+  }
+}
+
+const islandCaveRockBuffer = 2;
+const islandCaveShell = new Map();
+for (const [x, { roof, floor }] of islandCaveColumns) {
+  for (let tx = x - islandCaveRockBuffer; tx <= x + islandCaveRockBuffer; tx++) {
+    const shell = islandCaveShell.get(tx);
+    islandCaveShell.set(tx, {
+      roof: Math.min(shell?.roof ?? Infinity, roof - islandCaveRockBuffer),
+      floor: Math.max(shell?.floor ?? 0, floor + islandCaveRockBuffer),
+    });
+  }
+}
+
+function protectsIslandCave(tx, ty) {
+  const shell = islandCaveShell.get(tx);
+  return shell && ty >= shell.roof && ty < shell.floor;
+}
 export const MOB_HEALTH = Object.freeze({
   crab: 2,
   fish: 2,
@@ -284,7 +328,7 @@ function isEntranceZone(tx, ty) {
 }
 
 function isCarvedAt(tx, ty) {
-  if (ty < WATER_ROW + 4 || ty >= ROWS - 2) return false;
+  if (ty < WATER_ROW + 4 || ty >= ROWS - 2 || protectsIslandCave(tx, ty)) return false;
   if (ty <= groundAt(tx) + 3 && !isEntranceZone(tx, ty)) return false;
   for (const chamber of CAVE_SYSTEM.chambers) {
     if (tx >= chamber.minX && tx <= chamber.maxX && ty >= chamber.minY && ty <= chamber.maxY) {
@@ -298,7 +342,7 @@ function isCarvedAt(tx, ty) {
 
 function applyCaves(get, set, bounds) {
   const carve = (x, y) => {
-    if (y < WATER_ROW + 4) return;
+    if (y < WATER_ROW + 4 || protectsIslandCave(x, y)) return;
     if (y <= groundAt(x) + 3 && !isEntranceZone(x, y)) return;
     set(x, y, MATERIAL.air);
   };
@@ -311,7 +355,7 @@ function applyCaves(get, set, bounds) {
 
   for (let y = Math.max(bounds.top, WATER_ROW + 14); y <= Math.min(bounds.bottom, ROWS - 7); y++) {
     for (let x = bounds.left; x <= bounds.right; x++) {
-      if (y <= groundAt(x) + 8) continue;
+      if (y <= groundAt(x) + 8 || protectsIslandCave(x, y)) continue;
       if (caveField(x, y, CAVE_SYSTEM.seed) > 0.76) set(x, y, MATERIAL.air);
     }
   }
@@ -337,12 +381,11 @@ function applyCaves(get, set, bounds) {
 }
 
 function carveIslandCave(set, bounds) {
-  const { first, entranceStart, entranceEnd, lowestFloor } = ISLAND_CAVE;
-  const last = WEST_EXTENSION + entranceEnd;
-  for (let tx = Math.max(WEST_EXTENSION + first, bounds.left); tx <= Math.min(last, bounds.right); tx++) {
-    const floor = Math.min(lowestFloor, 13 + last - tx);
-    const roof = tx >= WEST_EXTENSION + entranceStart ? groundAt(tx) : Math.max(groundAt(tx) + 1, floor - 6);
-    for (let ty = Math.max(roof, bounds.top); ty < floor && ty <= bounds.bottom; ty++) set(tx, ty, MATERIAL.air);
+  for (const [tx, { roof, floor }] of islandCaveColumns) {
+    if (tx < bounds.left || tx > bounds.right) continue;
+    for (let ty = Math.max(roof, bounds.top); ty < floor && ty <= bounds.bottom; ty++) {
+      set(tx, ty, MATERIAL.air);
+    }
   }
 }
 
@@ -426,7 +469,7 @@ export function generateFixtures() {
   const wreckChestColumn = 107 + WEST_EXTENSION;
   const items = [
     { id: 'wreck-cache', name: 'Wreck cache', column: 111, floor: groundAt(111 + WEST_EXTENSION), resource: 'wood', amount: 8 },
-    { id: 'island-cave-cache', name: 'Survey cache', column: 43, floor: ISLAND_CAVE.lowestFloor, resource: 'copper', amount: 2 },
+    { id: 'island-cave-cache', name: 'Survey cache', column: ISLAND_CAVE.camp - 1, floor: ISLAND_CAVE.campFloor, resource: 'copper', amount: 2 },
     { id: 'western-grotto-cache', name: 'Grotto cache', column: 20, floor: 62, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 90, floor: 118, resource: 'iron', amount: 3 },
   ].map(({ column, floor, ...cache }) => ({ kind: 'cache', ...cache, x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 9 }));

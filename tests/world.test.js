@@ -21,8 +21,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
         assert.ok(y >= 80 && y < ROWS - 2);
         deepstone++;
       }
-      const islandMouth = x >= WEST_EXTENSION + ISLAND_CAVE.entranceStart && x <= WEST_EXTENSION + ISLAND_CAVE.entranceEnd;
-      if (!islandMouth && groundAt(x) < WATER_ROW && y === groundAt(x)) {
+      if (groundAt(x) < WATER_ROW && y === groundAt(x)) {
         assert.notEqual(material, MATERIAL.air);
       }
     }
@@ -81,28 +80,68 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
   }
 });
 
-test('the island cave can be entered and left on foot, and its cache stays collected', () => {
+test('the island cave expands below the surface with solid rock separating it from the ocean', () => {
+  const world = createWorld();
+  const marker = WEST_EXTENSION + ISLAND_CAVE.marker;
+  const surface = groundAt(marker);
+  let ceiling = surface;
+  while (tileAt(world, marker, ceiling)) ceiling++;
+  assert.equal(ceiling - surface, 5);
+
+  const cells = [[marker, ceiling]];
+  const visited = new Set([ceiling * COLS + marker]);
+  let left = marker, right = marker, deepest = ceiling;
+  for (const [x, y] of cells) {
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    deepest = Math.max(deepest, y);
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const tx = x + dx;
+        const ty = y + dy;
+        assert.ok(ty >= groundAt(tx), `cave too close to the surface at ${tx},${ty}`);
+        assert.equal(waterTileAt(world, tx, ty), false, `cave too close to water at ${tx},${ty}`);
+        const key = ty * COLS + tx;
+        if (Math.abs(dx) + Math.abs(dy) !== 1 || visited.has(key) || tileAt(world, tx, ty)) continue;
+        visited.add(key);
+        cells.push([tx, ty]);
+      }
+    }
+  }
+  assert.ok(left <= marker - 16 && right >= marker + 16);
+  assert.ok(deepest >= 34);
+});
+
+test('after digging in, both island cave branches are walkable and the survey cache stays collected', () => {
   const game = createGame();
   const { world, player } = game;
-  const controls = { left: false, right: false, up: false, down: false, jump: false };
-  for (let frame = 0; frame < 240; frame++) {
-    const climb = player.x > (WEST_EXTENSION + 60) * TILE;
-    movePlayer(world, player, { ...controls, left: true, up: climb, jump: climb && player.grounded }, 1 / 60);
-    assert.equal(playerInWater(world, player), false);
+  const marker = WEST_EXTENSION + ISLAND_CAVE.marker;
+  const surface = groundAt(marker);
+  for (let y = surface; tileAt(world, marker, y); y++) editTile(world, marker, y, MATERIAL.air);
+  player.x = (marker + 0.5) * TILE;
+  player.y = surface * TILE - player.height;
+
+  function walkUntil(reached, { left = false, right = false, up = false } = {}) {
+    for (let frame = 0; frame < 420 && !reached(); frame++) {
+      movePlayer(world, player, { left, right, up, down: false, jump: up && player.grounded }, 1 / 60);
+      assert.equal(playerInWater(world, player), false);
+    }
+    assert.ok(reached());
   }
-  assert.ok(player.y > WATER);
+
+  walkUntil(() => player.grounded && player.y > WATER);
+  const cache = world.items.find(({ id }) => id === 'island-cave-cache');
+  walkUntil(() => player.grounded && Math.abs(player.x - cache.x) < TILE / 4, { left: true });
   assert.match(collectItem(game), /Survey cache recovered/);
   assert.equal(game.inventory.count('copper'), 2);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(collectItem(restored), undefined);
   assert.equal(restored.inventory.count('copper'), 2);
 
-  const exit = (WEST_EXTENSION + ISLAND_CAVE.entranceEnd + 1) * TILE;
-  for (let frame = 0; frame < 360 && player.x < exit; frame++) {
-    movePlayer(world, player, { ...controls, right: true, up: true, jump: player.grounded }, 1 / 60);
-    assert.equal(playerInWater(world, player), false);
-  }
-  assert.ok(player.x >= exit && player.y < WATER);
+  walkUntil(() => player.x >= marker * TILE, { right: true, up: true });
+  walkUntil(() => player.x >= (marker + 17.5) * TILE && player.grounded, { right: true });
+  assert.ok(player.y >= 33 * TILE);
+  walkUntil(() => player.x <= (marker + 0.5) * TILE, { left: true, up: true });
 });
 
 test('underwater caches are above a flooded floor with an air vent nearby', () => {
