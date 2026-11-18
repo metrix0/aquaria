@@ -11,9 +11,6 @@ For multiplayer in a local or preview build, set `AQUARIA_SUPABASE_URL` and `AQU
 
 ## Manual production deploys
 
-In the Aquaria Vercel project, create a Deploy Hook for `main` under **Settings → Git**. In **Settings → Environment Variables**, add both values as sensitive Production variables:
+In the Aquaria Vercel project, create a Deploy Hook for `main` under **Settings → Git** and save the URL as the sensitive Production variable `AQUARIA_DEPLOY_HOOK_URL`. Deploy `main` manually once to activate the environment variable.
 
-- `AQUARIA_DEPLOY_HOOK_URL` is the URL from the Deploy Hook.
-- `AQUARIA_DEPLOY_CODE` is a random code, for example the output of `openssl rand -hex 32`. Enter this code when using the **Deploy** button in the game.
-
-Deploy `main` manually once from the Vercel dashboard to activate the button and its environment variables. Future button presses queue a deployment of the latest `main`. Git auto-deploy stays disabled.
+Anyone playing the production build can click **Deploy** to queue a Vercel release of the latest `main`. Git auto-deploy stays disabled.

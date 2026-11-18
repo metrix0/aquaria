@@ -33,6 +33,13 @@ export function createUI(actions, version) {
     if (element && element.textContent !== value) element.textContent = value;
   }
 
+  function notify(message) {
+    fields.feedback.textContent = message;
+    fields.feedback.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { fields.feedback.hidden = true; }, 2700);
+  }
+
   function open(id, source) {
     const panel = byId(id);
     if (panel.open) {
@@ -53,43 +60,30 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
-  const deployPanel = byId('deploy-panel');
-  const deployForm = byId('deploy-form');
-  const deployCode = byId('deploy-code');
-  const deployStatus = byId('deploy-status');
-  const deploySubmit = deployForm.querySelector('button[type="submit"]');
-  byId('deploy').addEventListener('click', () => open('deploy-panel'));
-  deployPanel.addEventListener('close', () => {
-    deployCode.value = '';
-    if (!deploySubmit.disabled) deployStatus.hidden = true;
-  });
-  deployForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (deploySubmit.disabled) return;
-    const code = deployCode.value;
-    deployCode.value = '';
-    deploySubmit.disabled = true;
-    deployStatus.hidden = false;
-    deployStatus.textContent = 'Requesting deployment…';
+  const deploy = byId('deploy');
+  deploy.addEventListener('click', async () => {
+    if (deploy.disabled) return;
+    deploy.disabled = true;
+    deploy.textContent = 'Queuing…';
     try {
       const response = await fetch('/api/deploy', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + code },
         signal: AbortSignal.timeout(12000),
       });
       if (response.status === 202) {
-        deployStatus.textContent = 'Deployment queued on Vercel.';
-      } else if (response.status === 401) {
-        deployStatus.textContent = 'Incorrect deploy code.';
-      } else if ([404, 405, 503].includes(response.status)) {
-        deployStatus.textContent = 'Deploy is unavailable here.';
+        notify('Deployment queued on Vercel.');
+      } else if (response.status === 503) {
+        notify('Vercel Deploy Hook is missing.');
+      } else if ([404, 405].includes(response.status)) {
+        notify('Deploy is unavailable here.');
       } else {
-        deployStatus.textContent = 'Vercel could not queue the deployment.';
+        notify('Vercel could not queue the deployment.');
       }
     } catch {
-      deployStatus.textContent = 'Could not confirm the request. Check Vercel before retrying.';
+      notify('Could not confirm the request. Check Vercel before retrying.');
     } finally {
-      deploySubmit.disabled = false;
+      deploy.textContent = 'Deploy';
+      deploy.disabled = false;
     }
   });
   const godMode = byId('god-mode');
@@ -127,12 +121,7 @@ export function createUI(actions, version) {
       fields.feedback.hidden = true;
     },
     select: inventoryUI.render,
-    notify(message) {
-      fields.feedback.textContent = message;
-      fields.feedback.hidden = false;
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { fields.feedback.hidden = true; }, 2700);
-    },
+    notify,
     room(state) {
       const inRoom = Boolean(state.room);
       const invite = fields['room-invitation'];

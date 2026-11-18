@@ -35,7 +35,6 @@ export function bindInput(canvas, actions) {
     const code = event.code;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const panel = actions.blocked();
-    if (panel === 'deploy-panel') return;
     if (code === 'Tab' && !event.shiftKey && (!panel || (panel === 'backpack-panel' && !actions.chestOpen()))) {
       event.preventDefault();
       if (!event.repeat) actions.backpack();

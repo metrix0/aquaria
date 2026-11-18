@@ -82,6 +82,7 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
 .backpack, .customize { color: var(--mint); background: #152730; }
 .shadows, .god-mode, .deploy { color: #cbdad0; background: #152730; }
+.deploy:disabled { opacity: .55; cursor: wait; }
 .shadows[aria-pressed="true"], .god-mode[aria-pressed="true"] { color: var(--gold); background: #413a2d; border-color: var(--gold); }
 .footer-actions kbd { margin-right: 4px; }
 .touch { display: none; }
@@ -219,8 +220,8 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   border-radius: 4px; padding: 6px 9px; font-size: 12px; white-space: nowrap;
 }
 #room-join-form { margin-top: 16px; }
-#room-join-form label, #deploy-form label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
-#room-panel input, #deploy-form input {
+#room-join-form label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+#room-panel input {
   min-width: 0; width: 100%; padding: 7px 8px; color: inherit; background: #08171f;
   border: 1px solid var(--line); border-radius: 4px; font: inherit;
 }
