@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
+import { movePlayer, PLAYER_SIZE } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, commitTileAction, createGame, craftItem, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, commitTileAction, createGame, craftItem, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
-import { COLS, ROWS, SPAWN, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
+import { COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
 
 test('the deep rock layer preserves the existing cave and ore layout', () => {
   const world = createWorld();
@@ -176,4 +177,51 @@ test('a saved shaft dug from the island remains breathable below sea level', () 
   assert.ok(game.player.y > 28 * TILE);
   assert.equal(game.player.grounded, true);
   assert.equal(game.player.oxygen, 18);
+  stepGame(game, { ...neutral, down: true }, 1 / 60);
+  assert.equal(game.player.height, TILE);
+});
+
+test('crawling clears a one-block tunnel, survives a reload, and stands when there is room', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const start = Math.floor(player.x / TILE);
+  const ground = (SPAWN.y + PLAYER_SIZE.height) / TILE;
+  for (let x = start - 1; x <= start + 6; x++) {
+    editTile(world, x, ground, MATERIAL.stone);
+    editTile(world, x, ground - 1, MATERIAL.air);
+    editTile(world, x, ground - 2, x > start && x <= start + 3 ? MATERIAL.stone : MATERIAL.air);
+  }
+  const right = { left: false, right: true, up: false, down: false, jump: false };
+  for (let frame = 0; frame < 20; frame++) movePlayer(world, player, right, 1 / 60);
+  assert.ok(player.x < (start + 1) * TILE);
+  assert.equal(player.grounded, true);
+  const feet = player.y + player.height;
+
+  for (let frame = 0; frame < 30; frame++) movePlayer(world, player, { ...right, down: true }, 1 / 60);
+  assert.equal(player.height, TILE);
+  assert.ok(Math.abs(player.y + player.height - feet) < 0.01);
+  assert.ok(player.x > (start + 1) * TILE);
+  const tunnelTile = Math.floor(player.x / TILE);
+  applyTerrain(game, tunnelTile, ground - 2, MATERIAL.wood);
+  assert.equal(game.player, player);
+  movePlayer(world, player, { ...right, right: false }, 1 / 60);
+  assert.equal(player.height, TILE);
+
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.player.height, TILE);
+  assert.equal(restored.player.x, player.x);
+  assert.equal(restored.player.y, player.y);
+  for (let frame = 0; frame < 60; frame++) movePlayer(restored.world, restored.player, right, 1 / 60);
+  assert.ok(restored.player.x > (start + 4) * TILE);
+  assert.equal(restored.player.height, PLAYER_SIZE.height);
+});
+
+test('down still dives in water and exits the crawl posture when there is room', () => {
+  const { world, player } = createGame();
+  Object.assign(player, { x: (COLS - 4.5) * TILE, y: WATER + TILE, height: TILE, grounded: true });
+  const depth = player.y + player.height;
+  movePlayer(world, player, { left: false, right: false, up: false, down: true, jump: false }, 1 / 60);
+  assert.equal(player.height, PLAYER_SIZE.height);
+  assert.ok(player.y + player.height > depth);
+  assert.ok(player.dy > 0);
 });

@@ -1,4 +1,5 @@
 import { AIR_TANK, MATERIAL, MATERIAL_IDS } from './content.js';
+import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
 
@@ -37,7 +38,10 @@ export function decodeSave(data) {
     appearance: data.appearance,
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
-    player: { x: player?.x + WEST_EXTENSION * TILE, y: player?.y, health: player?.health, oxygen: player?.oxygen },
+    player: {
+      x: player?.x + WEST_EXTENSION * TILE, y: player?.y,
+      health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
+    },
     progress: {
       airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
     },
@@ -49,12 +53,14 @@ export function encodeSave(game, saveTerrain = true) {
   const { player, inventory, progress, world } = game;
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
+  const position = { x: player.x - WEST_EXTENSION * TILE, y: player.y, health: player.health, oxygen: player.oxygen };
+  if (player.height === CRAWL_HEIGHT) position.crawling = true;
   return {
     format: SAVE_FORMAT,
     worldTime: game.worldTime,
     weatherSeed: game.weatherSeed,
     appearance: { ...player.appearance },
-    player: { x: player.x - WEST_EXTENSION * TILE, y: player.y, health: player.health, oxygen: player.oxygen },
+    player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
     progress: { [AIR_TANK.id]: progress.airTank },
     world: { generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested) },

@@ -1,5 +1,6 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { fendOffEnemy } from './gameplay/mobs.js';
+import { PLAYER_SIZE } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
@@ -282,7 +283,8 @@ const input = bindInput(canvas, {
 function updateCamera(dt) {
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
   const x = clamp(game.player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
-  const y = clamp(game.player.y - camera.height * 0.28, 0, Math.max(0, ROWS * TILE - camera.height));
+  const standingY = game.player.y + game.player.height - PLAYER_SIZE.height;
+  const y = clamp(standingY - camera.height * 0.28, 0, Math.max(0, ROWS * TILE - camera.height));
   const factor = reducedMotion ? 1 : Math.min(1, dt * 5);
   camera.x += (x - camera.x) * factor;
   camera.y += (y - camera.y) * factor;

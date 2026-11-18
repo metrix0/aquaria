@@ -2,7 +2,7 @@ import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, WOODEN_DOOR, W
 import { buildCellFree, createWorld, doorAt, editTile, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
-import { MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
 import { resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
 export function oxygenCapacity(game) {
@@ -33,9 +33,10 @@ export function createGame(snapshot) {
   if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
     const { player } = game;
     const x = clamp(position.x, player.width, COLS * TILE - player.width);
-    const y = clamp(position.y, 0, ROWS * TILE - player.height);
-    if (!collides(world, x, y)) {
-      Object.assign(player, { x, y });
+    const height = position.crawling ? CRAWL_HEIGHT : player.height;
+    const y = clamp(position.y, 0, ROWS * TILE - height);
+    if (!collides(world, x, y, height)) {
+      Object.assign(player, { x, y, height });
       if (Number.isFinite(position.health)) player.health = clamp(position.health, 1, MAX_HEALTH);
       if (Number.isFinite(position.oxygen)) player.oxygen = clamp(position.oxygen, 1, oxygenCapacity(game));
     }
@@ -92,7 +93,7 @@ export function nearestItem(game) {
   let distance = 35;
   for (const item of world.items) {
     if (world.harvested.has(item.id)) continue;
-    const difference = Math.hypot(item.x - player.x, item.y - player.y - 12);
+    const difference = Math.hypot(item.x - player.x, item.y - player.y - Math.ceil(player.height / 2));
     if (difference < distance) {
       distance = difference;
       result = item;
@@ -150,7 +151,7 @@ export function targetTile(game, x, y) {
   const tx = Math.floor(x / TILE);
   const ty = Math.floor(y / TILE);
   const { player } = game;
-  const reachable = Math.hypot(tx * TILE + 8 - player.x, ty * TILE + 8 - player.y - 11) <= 5 * TILE;
+  const reachable = Math.hypot(tx * TILE + 8 - player.x, ty * TILE + 8 - player.y - Math.floor(player.height / 2)) <= 5 * TILE;
   return { tx, ty, reachable };
 }
 
@@ -218,7 +219,7 @@ export function applyTerrain(game, tx, ty, material) {
     if (supported?.ty === ty - 1) setDoor(world, supported.tx, supported.ty, false);
   }
   if (!editTile(world, tx, ty, material)) return;
-  if (material && collides(game.world, game.player.x, game.player.y)) {
+  if (material && collides(world, player.x, player.y, player.height)) {
     game.player = spawn(game.world, oxygenCapacity(game), player.appearance);
     game.dirty = true;
   }

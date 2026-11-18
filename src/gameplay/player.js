@@ -7,6 +7,7 @@ const shortHopSpeed = 115;
 const swimSpeed = 94;
 
 export const PLAYER_SIZE = { width: 12, height: 23 };
+export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
 export function spawn(world, oxygen, appearance) {
@@ -15,12 +16,12 @@ export function spawn(world, oxygen, appearance) {
   return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, hurt: 0, appearance: normalizeAppearance(appearance) };
 }
 
-export function collides(world, x, y) {
+export function collides(world, x, y, height = PLAYER_SIZE.height) {
   const left = Math.floor((x - PLAYER_SIZE.width / 2) / TILE);
   const right = Math.floor((x + PLAYER_SIZE.width / 2 - 0.01) / TILE);
   const top = Math.floor(y / TILE);
-  const bottom = Math.floor((y + PLAYER_SIZE.height - 0.01) / TILE);
-  const viewer = { x, y, height: PLAYER_SIZE.height };
+  const bottom = Math.floor((y + height - 0.01) / TILE);
+  const viewer = { x, y, height };
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
       if (solidAt(world, tx, ty, viewer)) return true;
@@ -35,7 +36,7 @@ function moveAxis(world, player, axis, amount) {
     const delta = clamp(remaining, -3, 3);
     const x = player.x + (axis === 'x' ? delta : 0);
     const y = player.y + (axis === 'y' ? delta : 0);
-    if (!collides(world, x, y)) {
+    if (!collides(world, x, y, player.height)) {
       player[axis] += delta;
       remaining -= delta;
       continue;
@@ -46,7 +47,7 @@ function moveAxis(world, player, axis, amount) {
       const fraction = (allowed + blocked) / 2;
       const x = player.x + (axis === 'x' ? delta * fraction : 0);
       const y = player.y + (axis === 'y' ? delta * fraction : 0);
-      if (collides(world, x, y)) blocked = fraction;
+      if (collides(world, x, y, player.height)) blocked = fraction;
       else allowed = fraction;
     }
     player[axis] += delta * allowed;
@@ -56,7 +57,7 @@ function moveAxis(world, player, axis, amount) {
 }
 
 function canJumpAshore(world, player, direction) {
-  if (!direction || player.dy < -swimSpeed || inWater(world, player.x, player.y + 5)
+  if (!direction || player.height === CRAWL_HEIGHT || player.dy < -swimSpeed || inWater(world, player.x, player.y + 5)
     || !inWater(world, player.x, player.y + player.height - 0.01)) return false;
   const shoreX = player.x + direction * player.width;
   const clearanceY = player.y - 2 * TILE;
@@ -64,23 +65,34 @@ function canJumpAshore(world, player, direction) {
 }
 
 export function playerInWater(world, player) {
-  return inWater(world, player.x, player.y + player.height * 0.65);
+  return inWater(world, player.x, player.y + player.height - PLAYER_SIZE.height * 0.35);
 }
 
 export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   const bodyInWater = playerInWater(world, player);
+  const wantsCrawl = down && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
+  const height = wantsCrawl ? CRAWL_HEIGHT : PLAYER_SIZE.height;
+  if (height !== player.height) {
+    const y = player.y + player.height - height;
+    if (height < player.height || (y >= 0 && !collides(world, player.x, y, height))) {
+      player.y = y;
+      player.height = height;
+    }
+  }
+  const crawling = player.height === CRAWL_HEIGHT;
   const horizontal = Number(right) - Number(left);
 
   if (horizontal) player.facing = horizontal;
-  player.dx += (horizontal * (bodyInWater ? 102 : 112) - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
+  const speed = bodyInWater ? 102 : crawling ? 56 : 112;
+  player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal);
   if (bodyInWater && !shoreJump) {
     player.canShortenJump = false;
     const vertical = Number(down) - Number(up);
     player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
   } else {
-    if (shoreJump || (jump && player.grounded)) {
+    if (shoreJump || (jump && player.grounded && !crawling)) {
       player.dy = -jumpSpeed;
       player.canShortenJump = !shoreJump;
     }
