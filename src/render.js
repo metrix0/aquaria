@@ -2,7 +2,7 @@ import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
 import { hasOpenFace, isDoorOpen, isTreeStanding, solidAt, tileAt, waterTileAt } from './world.js';
-import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
+import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { createCaveLight } from './world/lighting.js';
 
 const palettes = {
@@ -399,11 +399,22 @@ export function createRenderer(canvas) {
       polygon([[x + 2, y], [x + 12, y], [x + 8, y + length]], shadow);
       polygon([[x + 2, y], [x + 6, y], [x + 8, y + length]], grain);
     }
-    if (abyss && detail > 0.78 && tileAt(world, tx, ty + 1)) {
-      const floor = y + TILE;
+    if (detail < 0.72 || !tileAt(world, tx, ty + 1)) return;
+    const floor = y + TILE;
+    if (abyss) {
       polygon([[x + 2, floor], [x + 5, floor - 8], [x + 8, floor], [x + 10, floor - 13], [x + 14, floor]], '#55568e');
       polygon([[x + 8, floor], [x + 10, floor - 13], [x + 11, floor - 6]], '#96a5db');
       rect(x + 4, floor - 6, 1, 3, '#a7b2e5');
+    } else if (wet) {
+      polygon([[x + 7, floor], [x + 2, floor - 7], [x + 4, floor - 11], [x + 8, floor - 8], [x + 12, floor - 12], [x + 15, floor - 8], [x + 10, floor]], '#406e71');
+      rect(x + 3, floor - 9, 2, 2, '#86c4b0');
+      rect(x + 11, floor - 10, 2, 3, '#86c4b0');
+    } else {
+      rect(x + 4, floor - 5, 2, 5, '#a98465');
+      rect(x + 9, floor - 3, 2, 3, '#a98465');
+      rect(x + 2, floor - 7, 6, 3, '#b97658');
+      rect(x + 8, floor - 5, 5, 3, '#d7a172');
+      rect(x + 4, floor - 7, 2, 1, '#e4ad78');
     }
   }
 
@@ -532,6 +543,28 @@ export function createRenderer(canvas) {
     for (const vent of world.vents) {
       if (vent.x >= camera.x - TILE && vent.x <= camera.x + camera.width + TILE &&
           vent.y >= camera.y && vent.y <= camera.y + camera.height + 60) airVent(vent, time);
+    }
+
+    const marker = WEST_EXTENSION + ISLAND_CAVE.entranceEnd + 2;
+    const camp = WEST_EXTENSION + ISLAND_CAVE.first + 3;
+    for (const [tx, ty] of [[marker, groundAt(marker)], [camp, ISLAND_CAVE.lowestFloor - 1]]) {
+      if (tx < left || tx >= right || ty < top || ty > bottom || !tileAt(world, tx, ty) || tileAt(world, tx, ty - 1)) continue;
+      const x = (tx + .5) * TILE;
+      const y = ty * TILE;
+      rect(x - 1, y - 17, 3, 17, '#664b43');
+      rect(x - 6, y - 17, 9, 2, '#956749');
+      rect(x - 12, y - 20, 14, 14, '#efb16430');
+      rect(x - 8, y - 16, 6, 8, '#5f4d49');
+      rect(x - 7, y - 15, 4, 5, '#f5be76');
+      rect(x - 6, y - 15, 2, 3, '#ffe3a3');
+      if (tx === marker) {
+        rect(x - 1, y - 12, 11, 6, '#a8754c');
+        rect(x + 1, y - 10, 6, 2, '#efd194');
+        rect(x + 2, y - 11, 2, 4, '#efd194');
+      } else {
+        rect(x + 4, y - 4, 11, 4, '#71513e');
+        rect(x + 5, y - 4, 9, 1, '#b58259');
+      }
     }
 
     for (const item of world.items) {

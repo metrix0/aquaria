@@ -25,7 +25,7 @@ export const MINING_RULES = {
   [MATERIAL.deepstone]: { name: 'Deepstone', tier: 2, pickaxe: 1.7 },
 };
 
-export const ITEM_PROMPTS = { kelp: 'Harvest kelp', helmet: 'Open chest', cache: 'Open wreck cache' };
+export const ITEM_PROMPTS = { kelp: 'Harvest kelp', helmet: 'Open chest' };
 export const BREATH_SECONDS = 18;
 
 export const SWIMMING_HELMET = {
@@ -40,7 +40,6 @@ export const AIR_TANK = {
   breathSeconds: 42,
 };
 
-export const WRECK_CACHE = { id: 'wreck-cache', wood: 8 };
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };

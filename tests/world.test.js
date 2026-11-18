@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
 import { updateEnemySpawns } from '../src/enemies.js';
-import { movePlayer, PLAYER_SIZE } from '../src/gameplay/player.js';
+import { movePlayer, playerInWater, PLAYER_SIZE } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
 
 test('auto-generated cave system is deterministic, multi-tiered, and reachable from the ocean', () => {
   const world = createWorld();
@@ -21,7 +21,8 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
         assert.ok(y >= 80 && y < ROWS - 2);
         deepstone++;
       }
-      if (groundAt(x) < WATER_ROW && y === groundAt(x)) {
+      const islandMouth = x >= WEST_EXTENSION + ISLAND_CAVE.entranceStart && x <= WEST_EXTENSION + ISLAND_CAVE.entranceEnd;
+      if (!islandMouth && groundAt(x) < WATER_ROW && y === groundAt(x)) {
         assert.notEqual(material, MATERIAL.air);
       }
     }
@@ -36,7 +37,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
   const visited = new Uint8Array(COLS * ROWS);
   const queue = [];
   for (let x = 0; x < COLS; x++) {
-    if (tileAt(world, x, WATER_ROW) === MATERIAL.air) {
+    if (waterTileAt(world, x, WATER_ROW)) {
       visited[WATER_ROW * COLS + x] = 1;
       queue.push(x, WATER_ROW);
     }
@@ -47,7 +48,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
     for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
       if (nx < 0 || nx >= COLS || ny < WATER_ROW || ny >= ROWS - 2) continue;
       const idx = ny * COLS + nx;
-      if (visited[idx] || tileAt(world, nx, ny) !== MATERIAL.air) continue;
+      if (visited[idx] || !waterTileAt(world, nx, ny)) continue;
       visited[idx] = 1;
       queue.push(nx, ny);
     }
@@ -77,6 +78,43 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
     const mob = world.mobs.find((entry) => entry.id === id);
     assert.ok(mob, `expected ${id} mob`);
     assert.equal(inWater(world, mob.x, mob.y), true);
+  }
+});
+
+test('the island cave can be entered and left on foot, and its cache stays collected', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const controls = { left: false, right: false, up: false, down: false, jump: false };
+  for (let frame = 0; frame < 240; frame++) {
+    const climb = player.x > (WEST_EXTENSION + 60) * TILE;
+    movePlayer(world, player, { ...controls, left: true, up: climb, jump: climb && player.grounded }, 1 / 60);
+    assert.equal(playerInWater(world, player), false);
+  }
+  assert.ok(player.y > WATER);
+  assert.match(collectItem(game), /Survey cache recovered/);
+  assert.equal(game.inventory.count('copper'), 2);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(collectItem(restored), undefined);
+  assert.equal(restored.inventory.count('copper'), 2);
+
+  const exit = (WEST_EXTENSION + ISLAND_CAVE.entranceEnd + 1) * TILE;
+  for (let frame = 0; frame < 360 && player.x < exit; frame++) {
+    movePlayer(world, player, { ...controls, right: true, up: true, jump: player.grounded }, 1 / 60);
+    assert.equal(playerInWater(world, player), false);
+  }
+  assert.ok(player.x >= exit && player.y < WATER);
+});
+
+test('underwater caches are above a flooded floor with an air vent nearby', () => {
+  const world = createWorld();
+  for (const id of ['western-grotto-cache', 'deep-cave-cache']) {
+    const cache = world.items.find((item) => item.id === id);
+    const x = Math.floor(cache.x / TILE);
+    const y = Math.floor(cache.y / TILE);
+    assert.equal(waterTileAt(world, x, y), true);
+    assert.equal(waterTileAt(world, x, y - 1), true);
+    assert.notEqual(tileAt(world, x, y + 1), MATERIAL.air);
+    assert.ok(world.vents.some((vent) => Math.hypot(vent.x - cache.x, vent.y - cache.y) <= TILE * 3));
   }
 });
 

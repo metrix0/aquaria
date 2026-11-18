@@ -1,4 +1,4 @@
-import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
+import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
@@ -116,12 +116,13 @@ export function collectItem(game) {
     return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
   }
 
-  const resource = item.kind === 'cache' ? 'wood' : item.kind;
-  const amount = item.kind === 'cache' ? WRECK_CACHE.wood : item.amount;
-  if (!game.inventory.add(resource, amount)) return 'No room for more ' + ITEMS[resource].name.toLowerCase() + '.';
+  const { resource = item.kind, amount } = item;
+  const name = ITEMS[resource].name.toLowerCase();
+  if (!game.inventory.add(resource, amount)) return 'No room for more ' + name + '.';
   game.world.harvested.add(item.id);
   game.dirty = true;
-  return item.kind === 'cache' ? 'Wreck cache recovered. +' + amount + ' wood' : '+' + amount + ' ' + resource;
+  const reward = '+' + amount + ' ' + name;
+  return item.kind === 'cache' ? item.name + ' recovered. ' + reward : reward;
 }
 
 export function canCraftTank(game) {

@@ -1,4 +1,4 @@
-import { MATERIAL, SWIMMING_HELMET, WRECK_CACHE } from '../content.js';
+import { MATERIAL, SWIMMING_HELMET } from '../content.js';
 
 export const TILE = 16;
 export const WORLD_VERSION = 2;
@@ -8,6 +8,7 @@ export const ROWS = 176;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
+export const ISLAND_CAVE = { first: 42, entranceStart: 54, entranceEnd: 57, lowestFloor: 26 };
 export const MOB_HEALTH = Object.freeze({
   crab: 2,
   fish: 2,
@@ -335,9 +336,19 @@ function applyCaves(get, set, bounds) {
   }
 }
 
+function carveIslandCave(set, bounds) {
+  const { first, entranceStart, entranceEnd, lowestFloor } = ISLAND_CAVE;
+  const last = WEST_EXTENSION + entranceEnd;
+  for (let tx = Math.max(WEST_EXTENSION + first, bounds.left); tx <= Math.min(last, bounds.right); tx++) {
+    const floor = Math.min(lowestFloor, 13 + last - tx);
+    const roof = tx >= WEST_EXTENSION + entranceStart ? groundAt(tx) : Math.max(groundAt(tx) + 1, floor - 6);
+    for (let ty = Math.max(roof, bounds.top); ty < floor && ty <= bounds.bottom; ty++) set(tx, ty, MATERIAL.air);
+  }
+}
+
 export function generateVents(get) {
   const vents = [];
-  for (const [x, y] of CAVE_SYSTEM.ventCandidates) {
+  for (const [x, y] of [...CAVE_SYSTEM.ventCandidates, [22, 51], [92, 102]]) {
     const column = x + WEST_EXTENSION;
     let floor = y;
     while (floor < ROWS - 2 && get(column, floor) === MATERIAL.air) floor++;
@@ -400,6 +411,8 @@ export function generateChunk(left, top, size) {
     flooded[i] = Number(tiles[i] === MATERIAL.air);
   }
 
+  // The island passage is carved after the flooded caverns so it stays dry below sea level.
+  carveIslandCave(set, bounds);
   applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
     for (let y = Math.max(bounds.top, deepstoneStartAt(x)); y <= bounds.bottom; y++) {
@@ -412,9 +425,12 @@ export function generateChunk(left, top, size) {
 export function generateFixtures() {
   const shoreColumn = 68 + WEST_EXTENSION;
   const items = [
-    { id: SWIMMING_HELMET.chestId, kind: 'helmet', x: shoreColumn * TILE + 8, y: groundAt(shoreColumn) * TILE - 5 },
-    { id: WRECK_CACHE.id, kind: 'cache', x: (111 + WEST_EXTENSION) * TILE + 8, y: groundAt(111 + WEST_EXTENSION) * TILE - 9 },
-  ];
+    { id: 'wreck-cache', name: 'Wreck cache', column: 111, floor: groundAt(111 + WEST_EXTENSION), resource: 'wood', amount: 8 },
+    { id: 'island-cave-cache', name: 'Survey cache', column: 43, floor: ISLAND_CAVE.lowestFloor, resource: 'copper', amount: 2 },
+    { id: 'western-grotto-cache', name: 'Grotto cache', column: 20, floor: 62, resource: 'kelp', amount: 2 },
+    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 90, floor: 118, resource: 'iron', amount: 3 },
+  ].map(({ column, floor, ...cache }) => ({ kind: 'cache', ...cache, x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 9 }));
+  items.push({ id: SWIMMING_HELMET.chestId, kind: 'helmet', x: shoreColumn * TILE + 8, y: groundAt(shoreColumn) * TILE - 5 });
   for (const x of [34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {
     items.push({ id: 'kelp-' + x, kind: 'kelp', amount: 1, x: (x + WEST_EXTENSION) * TILE + 8, y: groundAt(x + WEST_EXTENSION) * TILE - 12 });
   }

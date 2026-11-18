@@ -138,7 +138,8 @@ export function createUI(actions, version) {
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;
         const label = prompt.querySelector('span');
-        if (label.textContent !== ITEM_PROMPTS[focusedItem.kind]) label.textContent = ITEM_PROMPTS[focusedItem.kind];
+        const action = focusedItem.kind === 'cache' ? 'Open ' + focusedItem.name.toLowerCase() : ITEM_PROMPTS[focusedItem.kind];
+        if (label.textContent !== action) label.textContent = action;
       }
     },
   };
