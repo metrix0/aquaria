@@ -67,16 +67,12 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
-  if (new URLSearchParams(location.search).get('dev') === '1') {
-    byId('dev-controls').hidden = false;
-    const button = byId('hide-cave-shadows');
-    button.addEventListener('click', () => {
-      const hidden = button.getAttribute('aria-pressed') !== 'true';
-      button.setAttribute('aria-pressed', String(hidden));
-      button.classList.toggle('primary', hidden);
-      actions.hideCaveShadows(hidden);
-    });
-  }
+  const shadows = byId('hide-cave-shadows');
+  shadows.addEventListener('click', () => {
+    const hidden = shadows.getAttribute('aria-pressed') !== 'true';
+    shadows.setAttribute('aria-pressed', String(hidden));
+    actions.hideCaveShadows(hidden);
+  });
   byId('make-tank').addEventListener('click', actions.makeTank);
   for (const [recipe, control] of itemRecipes) {
     byId(control + '-cost').textContent = formatCost(recipe.cost);
