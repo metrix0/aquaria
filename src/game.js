@@ -76,8 +76,8 @@ function mineAtPointer(current, dt) {
 }
 
 function startMiningSwing({ tx, ty, tier, duration }) {
-  const cycles = Math.max(1, Math.round(duration / 0.26));
-  miningSwing = { tx, ty, tier, duration: duration / cycles, phase: 0 };
+  const cycles = Math.max(1, Math.round(duration / 0.42));
+  miningSwing = { tx, ty, tier, duration: Math.max(0.36, duration / cycles), phase: 0 };
 }
 
 function showTileEffect({ tx, ty, before, amount, item }) {

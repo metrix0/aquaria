@@ -159,7 +159,7 @@ export function useWeapon(game, slot, wx, wy) {
   const oy = game.player.y + Math.ceil(game.player.height / 2);
   const angle = wx === ox && wy === oy ? (game.player.facing < 0 ? Math.PI : 0) : Math.atan2(wy - oy, wx - ox);
   if (weapon?.id !== BOW.id) {
-    const duration = weapon?.cooldown ?? 0.28;
+    const duration = (weapon?.cooldown ?? 0.28) * 1.4;
     const facing = Math.sign(wx - ox) || game.player.facing;
     game.player.facing = facing;
     game.attack = {

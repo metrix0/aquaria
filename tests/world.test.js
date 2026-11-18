@@ -771,19 +771,22 @@ test('melee damages each mob once when the animated weapon reaches it', () => {
   useWeapon(game, 1, targets[1].x, player.y + 12);
   assert.deepEqual(world.mobs.map((mob) => mob.health), [7, 7, 7, 7]);
 
-  for (let i = 0; i < 24; i++) {
+  const step = 1 / 60;
+  const spearFrames = Math.ceil(game.attack.duration / step) + 1;
+  for (let i = 0; i < spearFrames; i++) {
     // Keep the targets in place so the front crab overlaps several frames of the thrust.
     world.mobs.forEach((mob, index) => Object.assign(mob, targets[index]));
-    stepGame(game, {}, 1 / 60);
+    stepGame(game, {}, step);
   }
   assert.deepEqual(world.mobs.map((mob) => mob.health), [5, 7, 7, 7]);
 
   const arcTarget = { x: player.x + 11, y: player.y + 4 };
   world.mobs = [{ ...crab, ...arcTarget, health: 7, maxHealth: 7 }];
   useWeapon(game, 0, player.x + 72, player.y + 12);
-  for (let i = 0; i < 18; i++) {
+  const pickaxeFrames = Math.ceil(game.attack.duration / step) + 1;
+  for (let i = 0; i < pickaxeFrames; i++) {
     Object.assign(world.mobs[0], arcTarget);
-    stepGame(game, {}, 1 / 60);
+    stepGame(game, {}, step);
   }
   assert.equal(world.mobs[0].health, 6);
 });
@@ -1104,9 +1107,11 @@ test('blades hit through their swing arcs and cobalt spear reaches farther than 
     game.inventory.hotbar[1] = { id: weapon.id, count: 1 };
     useWeapon(game, 1, player.x + 72, player.y + 12);
     assert.equal(target.health, 10);
-    for (let i = 0; i < 30; i++) {
+    const step = 1 / 60;
+    const attackFrames = Math.ceil(game.attack.duration / step) + 1;
+    for (let i = 0; i < attackFrames; i++) {
       Object.assign(target, position);
-      stepGame(game, {}, 1 / 60);
+      stepGame(game, {}, step);
     }
     assert.equal(target.health, 10 - damage, weapon.id);
   }
