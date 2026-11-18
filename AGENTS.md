@@ -12,10 +12,11 @@ Aquaria is a 2D browser game in `metrix0/aquaria` with Vercel as its deployment 
 
 - Work from the current `main` by default. Before editing and before committing, verify the remote branch head and reread affected files if it moved. Incorporate concurrent work, resolve conflicts, and rerun affected checks. Never force-push.
 - Deliver one focused commit per task with a descriptive message. When the first playable release is ready, start at `0.1.0`. Use semantic versions and matching Git tags for releases. Keep the app version in one source of truth and keep documentation-only commits out of the release version.
+
 ## Production deployment
 
-- The repository owner authorizes routine production deployments for Aquaria. After the relevant checks pass, land each completed change on `main` and let the existing Git integration deploy it to Vercel production. Proceed under that standing authorization in future tasks.
-- Verify the intended commit and Aquaria project, confirm Vercel marks the production deployment Ready, and check the affected behavior on https://aquaria.johnvitor.com before reporting completion. Resolve recoverable deployment failures and verify the result.
+- Land completed changes on `main` after the relevant checks pass. Keep Vercel Git auto-deployments disabled. Deploy manually when the user requests a deployment.
+- When deploying, verify the intended commit and Aquaria project, confirm Vercel marks the production deployment Ready, and check the affected behavior on https://aquaria.johnvitor.com before reporting completion. Resolve recoverable deployment failures and verify the result.
 
 ## Validation
 
