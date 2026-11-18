@@ -181,18 +181,21 @@ export function createRenderer(canvas) {
     if (intensity <= 0 || surface <= 0) return;
     const { width } = camera;
     const xOffset = Math.round(camera.x);
+    const yOffset = Math.round(camera.y);
     const left = Math.floor(xOffset / TILE);
     const right = Math.min(COLS, Math.ceil((xOffset + width) / TILE));
     const impacts = [];
     const bottom = Math.min(ROWS, Math.ceil((camera.y + camera.height + 5) / TILE));
+    let rainBottom = 0;
     ctx.save();
     ctx.beginPath();
     for (let tx = left; tx < right; tx++) {
       let ty = 0;
       while (ty <= bottom && !tileAt(world, tx, ty) && !waterTileAt(world, tx, ty)) ty++;
-      const height = ty * TILE - Math.round(camera.y);
+      const height = ty * TILE - yOffset;
       if (height <= 0) continue;
       ctx.rect(tx * TILE - xOffset, 0, TILE, height);
+      rainBottom = Math.max(rainBottom, height);
       if (height <= camera.height + 5) impacts.push({ tx, y: height, water: waterTileAt(world, tx, ty) });
     }
     ctx.clip();
@@ -200,15 +203,26 @@ export function createRenderer(canvas) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#bed9e0';
     ctx.beginPath();
-    const span = width + 24;
-    const fall = Math.max(surface, ...impacts.map(({ y }) => y)) + 28;
-    for (let i = 0; i < Math.ceil(width / 5); i++) {
-      const drift = noise(i, 271) * span - time * 33;
-      const x = ((drift % span) + span) % span - 12;
-      const speed = 140 + noise(i, 272) * 75;
-      const y = (noise(i, 273) * fall + time * speed) % fall;
-      ctx.moveTo(x, y - 12);
-      ctx.lineTo(x - 4, y);
+    // Keep the rain pattern in world coordinates so camera motion only changes what is visible.
+    const bandWidth = 64;
+    const dropsPerBand = 13;
+    const fall = WATER + 28;
+    const wind = time * 33;
+    const firstBand = Math.floor((xOffset + wind) / bandWidth);
+    const endBand = Math.ceil((xOffset + width + 4 + wind) / bandWidth);
+    const cutoff = Math.min(rainBottom, camera.height) + 12;
+    for (let band = firstBand; band < endBand; band++) {
+      for (let drop = 0; drop < dropsPerBand; drop++) {
+        const i = band * dropsPerBand + drop;
+        const x = (band + noise(i, 271)) * bandWidth - wind - xOffset;
+        const speed = 140 + noise(i, 272) * 75;
+        const phase = (noise(i, 273) * fall + time * speed) % fall;
+        const firstY = phase + Math.ceil((yOffset - phase) / fall) * fall - yOffset;
+        for (let y = firstY; y < cutoff; y += fall) {
+          ctx.moveTo(x, y - 12);
+          ctx.lineTo(x - 4, y);
+        }
+      }
     }
     ctx.stroke();
     ctx.restore();
