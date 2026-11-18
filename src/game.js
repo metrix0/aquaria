@@ -1,6 +1,6 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { ARROW } from './content.js';
-import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
+import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
@@ -27,8 +27,6 @@ let room;
 let busy = false;
 let editPending = false;
 let mining = null;
-let attackCooldown = 0;
-let attackSwing = null;
 let selected = 0;
 let count = 1;
 let time = 0;
@@ -67,16 +65,6 @@ function aimedTile() {
 function aimedMob() {
   const { pointer } = input;
   return pointer.active ? targetMobAt(game, pointer.x + camera.x, pointer.y + camera.y) : null;
-}
-
-function performAttack() {
-  const { pointer } = input;
-  const effect = fendOffEnemy(game, pointer.x + camera.x, pointer.y + camera.y);
-  if (!effect) return false;
-  attackCooldown = 0.28;
-  attackSwing = { x: effect.x, y: effect.y, elapsed: 0, duration: 0.24 };
-  emitEffect(effect);
-  return true;
 }
 
 function showTileEffect({ tx, ty, before, amount }) {
@@ -213,8 +201,6 @@ function switchView() {
   input.clear();
   input.pointer.active = false;
   ui.godMode(false);
-  attackCooldown = 0;
-  attackSwing = null;
   particles.length = 0;
   select(0);
   updateCamera(1);
@@ -328,16 +314,12 @@ const input = bindInput(canvas, {
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
+    const held = game.inventory.hotbar[selected]?.id;
+    if (!ITEMS[held]?.weapon && !aimedMob() && planTileAction(game, aimedTile(), false)) return false;
     const result = useWeapon(game, selected, wx, wy);
-    if (result) {
-      for (const effect of game.effects) emitEffect(effect);
-      game.effects.length = 0;
-      if (result.inventoryChanged) inventoryChanged();
-      if (result.message) ui.notify(result.message);
-      return true;
-    }
-    if (attackCooldown > 0) return Boolean(aimedMob());
-    return performAttack();
+    if (result.inventoryChanged) inventoryChanged();
+    if (result.message) ui.notify(result.message);
+    return result.handled;
   },
   place: () => void editTile(planTileAction(game, aimedTile(), true, selected)),
   stopMining: () => { mining = null; },
@@ -413,11 +395,6 @@ function frame(now) {
   const conditions = worldConditions(room?.worldAge(now) ?? game.worldTime, game.weatherSeed);
   if (playing) {
     time += dt;
-    attackCooldown = Math.max(0, attackCooldown - dt);
-    if (attackSwing) {
-      attackSwing.elapsed += dt;
-      if (attackSwing.elapsed >= attackSwing.duration) attackSwing = null;
-    }
     accumulator += dt;
     while (accumulator >= timestep) {
       const previousPlayer = game.player;
@@ -434,12 +411,12 @@ function frame(now) {
     if (game.player.stun > 0) {
       mining = null;
       input.stopMining();
-    } else if (ITEMS[heldItem]?.weapon) {
+    } else if (game.attack || ITEMS[heldItem]?.weapon) {
       mining = null;
     } else if (input.holdingMine() && !editPending) {
       if (aimedMob()) {
         mining = null;
-        if (attackCooldown <= 0) performAttack();
+        useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
       } else {
         mining = advanceMining(game, aimedTile(), mining, dt, selected);
         if (mining?.blocked) {
@@ -460,7 +437,7 @@ function frame(now) {
   const targetMob = aimedMob();
   renderer.draw({
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
-    aim: targetMob ? null : aimedTile(), mining, attackSwing, held, attack: game.attack,
+    aim: targetMob ? null : aimedTile(), mining, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden, openChestId: ui.openChestId(),
   });

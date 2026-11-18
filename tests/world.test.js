@@ -577,6 +577,39 @@ test('chest transfers, legacy loot, and room progress survive the appropriate sa
   assert.equal(reset.chests.get('wreck-chest')[0].id, SWIMMING_HELMET.id);
 });
 
+test('melee damages each mob once when the animated weapon reaches it', () => {
+  const game = createGame();
+  const { player, world } = game;
+  toggleGodMode(world, player);
+  const crab = world.mobs.find((mob) => mob.kind === 'crab');
+  const targets = [
+    { x: player.x - 26, y: player.y + 15 },
+    { x: player.x - 72, y: player.y + 15 },
+    { x: player.x + 10, y: player.y + 15 },
+    { x: player.x - 24, y: player.y - 2 },
+  ];
+  world.mobs = targets.map((position) => ({ ...crab, ...position, health: 7, maxHealth: 7 }));
+  game.inventory.hotbar[1] = { id: SPEAR.id, count: 1 };
+  useWeapon(game, 1, targets[1].x, player.y + 12);
+  assert.deepEqual(world.mobs.map((mob) => mob.health), [7, 7, 7, 7]);
+
+  for (let i = 0; i < 24; i++) {
+    // Keep the targets in place so the front crab overlaps several frames of the thrust.
+    world.mobs.forEach((mob, index) => Object.assign(mob, targets[index]));
+    stepGame(game, {}, 1 / 60);
+  }
+  assert.deepEqual(world.mobs.map((mob) => mob.health), [5, 7, 7, 7]);
+
+  const arcTarget = { x: player.x + 11, y: player.y + 4 };
+  world.mobs = [{ ...crab, ...arcTarget, health: 7, maxHealth: 7 }];
+  useWeapon(game, 0, player.x + 72, player.y + 12);
+  for (let i = 0; i < 18; i++) {
+    Object.assign(world.mobs[0], arcTarget);
+    stepGame(game, {}, 1 / 60);
+  }
+  assert.equal(world.mobs[0].health, 6);
+});
+
 test('craftable spears and bow with arrows damage and defeat sea enemies', () => {
   const game = createGame();
   game.inventory.add('wood', 6);
@@ -600,7 +633,7 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(game.inventory.hotbar[2].id, BOW.id);
 
   const shark = game.world.mobs.find((mob) => mob.kind === 'shark');
-  shark.x = game.player.x + 48;
+  shark.x = game.player.x + 40;
   shark.y = game.player.y + 11;
   shark.homeX = shark.x;
   shark.homeY = shark.y;
@@ -608,10 +641,11 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   const thrust = useWeapon(game, 1, shark.x, shark.y);
   assert.equal(thrust.handled, true);
   assert.equal(game.attack.kind, SPEAR.id);
-  assert.equal(shark.health, 5);
+  assert.equal(shark.health, 7);
 
   const neutral = { left: false, right: false, up: false, down: false, jump: false };
   for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
+  assert.equal(shark.health, 5);
   assert.equal(game.attack, null);
 
   shark.x = game.player.x + 96;
@@ -628,14 +662,15 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
 
   const copperSpearSlot = game.inventory.backpack.findIndex((stack) => stack?.id === COPPER_SPEAR.id);
   assert.ok(game.inventory.move({ group: 'backpack', index: copperSpearSlot }, { group: 'hotbar', index: 1 }));
-  shark.x = game.player.x + 56;
+  shark.x = game.player.x + 40;
   shark.y = game.player.y + 11;
   useWeapon(game, 1, shark.x, shark.y);
+  assert.equal(shark.health, 3);
+  for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
   assert.equal(shark.health, 0);
   assert.ok(shark.respawn > 0);
   assert.ok(game.effects.some((effect) => effect.message === 'Defeated shark!'));
 
-  for (let i = 0; i < 30; i++) stepGame(game, neutral, 1 / 60);
   game.inventory.spend(ARROW.id, 3);
   const dryFire = useWeapon(game, 2, shark.x, shark.y);
   assert.equal(dryFire.handled, true);

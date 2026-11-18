@@ -1,4 +1,5 @@
-import { APPEARANCE } from './content.js';
+import { APPEARANCE, CHARACTER_BODIES } from './content.js';
+import { characterTilt, frontShoulder, meleePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { TILE, clamp } from './world/generation.js';
 
@@ -8,11 +9,6 @@ const tankShade = '#37585e';
 const boot = '#8b6353';
 const bootLight = '#b78a69';
 const turn = 2 * Math.PI;
-const bodies = [
-  { shoulder: 9, waist: 7 },
-  { shoulder: 7, waist: 5 },
-  { shoulder: 11, waist: 9 },
-];
 const hairStyles = ['swept', 'cropped', 'bob', 'ponytail', 'shaved'];
 
 function walkFoot(phase, weight, restX, direction) {
@@ -142,6 +138,14 @@ export function createCharacterRenderer(ctx) {
     rect(x + 2, y + 3, 2, 1, '#d8f6ec');
   }
 
+  function pickaxe(tier) {
+    rect(7, -1, 7, 2, '#85604c');
+    rect(8, -1, 5, 1, '#d29c65');
+    rect(12, -4, 3, 8, tier === 2 ? '#a35646' : '#6e888a');
+    rect(13, -3, 2, 6, tier === 2 ? '#e09b71' : '#b5c6bd');
+    rect(12, -4, 2, 1, tier === 2 ? '#ffd3a0' : '#d9e1cf');
+  }
+
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
@@ -152,19 +156,14 @@ export function createCharacterRenderer(ctx) {
     rect(-1, -1, 4, 3, shirt.base);
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
-    if (tier) {
-      rect(7, -1, 7, 2, '#85604c');
-      rect(8, -1, 5, 1, '#d29c65');
-      rect(12, -4, 3, 8, tier === 2 ? '#a35646' : '#6e888a');
-      rect(13, -3, 2, 6, tier === 2 ? '#e09b71' : '#b5c6bd');
-      rect(12, -4, 2, 1, tier === 2 ? '#ffd3a0' : '#d9e1cf');
-    }
+    if (tier) pickaxe(tier);
     ctx.restore();
   }
 
   function weaponArm(x, y, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion) {
     const active = attack?.kind === weapon;
-    const baseAngle = active
+    const melee = active && attack.hitMobs ? meleePose(attack) : null;
+    const baseAngle = melee ? melee.angle - tilt : active
       ? clamp(Math.atan2(Math.sin(attack.angle), Math.max(0.15, Math.abs(Math.cos(attack.angle)))), -1.15, 1.15) - tilt
       : (weapon === 'bow' ? 0 : (swimming ? 0.08 : -0.18));
     ctx.save();
@@ -172,19 +171,26 @@ export function createCharacterRenderer(ctx) {
     ctx.rotate(baseAngle);
     rect(-2, -2, 6, 4, shirt.wet);
     rect(-1, -1, 4, 3, shirt.base);
+    if (weapon === 'melee' && !attack.tier) {
+      rect(2, -1, 5 + melee.thrust, 3, skin.face);
+      rect(5 + melee.thrust, -2, 2, 4, skin.arm);
+      ctx.restore();
+      return;
+    }
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
-    if (weapon === 'spear' || weapon === 'copper-spear') {
+    if (weapon === 'melee') {
+      pickaxe(attack.tier);
+    } else if (weapon === 'spear' || weapon === 'copper-spear') {
       const copper = weapon === 'copper-spear';
-      const progress = active ? 1 - attack.timer / attack.duration : 0;
-      const thrust = active ? (reducedMotion ? 5 : Math.round(Math.sin(progress * Math.PI) * 9)) : 0;
+      const thrust = melee?.thrust ?? 0;
       rect(-3 + thrust, -1, 18, 2, '#85604c');
       rect(-1 + thrust, -1, 14, 1, '#d29c65');
       rect(4 + thrust, -1, 3, 2, '#483d42');
       rect(14 + thrust, -2, 4, 4, copper ? '#a35646' : '#6e888a');
       rect(15 + thrust, -1, 5, 2, copper ? '#e09b71' : '#b5c6bd');
       rect(18 + thrust, -1, 3, 1, copper ? '#ffd3a0' : '#d9e1cf');
-      if (active) rect(9 + thrust, -2, 6, 1, '#f4d4a5a8');
+      if (melee?.bounds && !reducedMotion) rect(9 + thrust, -2, 6, 1, '#f4d4a5a8');
     } else if (weapon === 'bow') {
       const pull = active && !reducedMotion ? Math.round((attack.timer / attack.duration) * 3) : 0;
       rect(5 - pull, -6, 1, 12, '#bed8ba');
@@ -201,24 +207,24 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, mining = null, attackSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
+  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, mining = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
     const crawling = player.height === CRAWL_HEIGHT;
     const speed = Math.abs(player.dx);
     const strideWeight = !reducedMotion && player.grounded && !swimming
       ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
     const angle = phase * turn;
-    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : attack ? Math.cos(attack.angle) : attackSwing ? attackSwing.x - player.x : 0;
-    const facing = Math.sign(targetX) || player.facing;
-    const tilt = swimming ? clamp(player.dy * .0022, -.3, .3) * facing : 0;
+    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
+    const facing = attack?.facing ?? (Math.sign(attack ? Math.cos(attack.angle) : targetX) || player.facing);
+    const tilt = characterTilt(player, swimming, facing);
     const armSwing = Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
     const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 10) * (1 + 2 * clamp(speed / 70, 0, 1))) : 0;
-    const { shoulder, waist } = bodies[appearance.body];
+    const { shoulder, waist } = CHARACTER_BODIES[appearance.body];
     const skin = APPEARANCE.skin[appearance.skin];
     const hair = APPEARANCE.hairColor[appearance.hairColor];
     const shirt = APPEARANCE.shirt[appearance.shirt];
     const pants = APPEARANCE.pants[appearance.pants];
-    const shoulderX = (shoulder - 5) / 2;
+    const { x: shoulderX, y: shoulderY } = frontShoulder(player, appearance);
     const walkDirection = player.dx * facing < 0 ? -1 : 1;
     const rising = player.dy < -35;
     const swimPhase = time * 7.5;
@@ -228,12 +234,10 @@ export function createCharacterRenderer(ctx) {
       : player.grounded ? walkFoot(phase, strideWeight, 2, walkDirection) : [3, rising ? 19 : 21];
     const farFoot = swimming ? swimFoot(swimPhase + Math.PI, swimEffort, true)
       : player.grounded ? walkFoot((phase + 0.5) % 1, strideWeight, -3, walkDirection) : [-4, rising ? 20 : 22];
-    const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : attackSwing ? attackSwing.y - player.y : 0;
+    const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : 0;
     const swingPhase = mining && !reducedMotion
       ? mining.progress * Math.round(mining.duration / 0.26)
-      : attackSwing
-        ? (reducedMotion ? 0.5 : attackSwing.elapsed / attackSwing.duration)
-        : 0;
+      : 0;
     const weapon = attack?.kind ?? (held === 'spear' || held === 'copper-spear' || held === 'bow' ? held : null);
 
     ctx.save();
@@ -256,8 +260,8 @@ export function createCharacterRenderer(ctx) {
       }
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
       if (helmet) divingHelmet(3, 2);
-      if (mining || attackSwing) miningArm(1, 10, Math.abs(targetX), targetY, 0, swingPhase, skin, shirt, mining?.tier ?? 1);
-      else if (weapon) weaponArm(1, 10, weapon, attack, swimming, 0, skin, shirt, hasArrow, reducedMotion);
+      if (weapon) weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion);
+      else if (mining) miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining.tier);
       else arm(1, 9, 2 - shuffle, skin, shirt, false);
       ctx.restore();
       return;
@@ -289,10 +293,10 @@ export function createCharacterRenderer(ctx) {
     rect(-2, 9, 5, 1, '#efc48d');
     rect(-2, 10, 2, 1, '#b4755a');
 
-    if (mining || attackSwing) {
-      miningArm(shoulderX, 11, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining?.tier ?? 1);
-    } else if (weapon) {
-      weaponArm(shoulderX, 11, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion);
+    if (weapon) {
+      weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion);
+    } else if (mining) {
+      miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining.tier);
     } else {
       arm(shoulderX, 11, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
     }

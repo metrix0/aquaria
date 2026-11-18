@@ -484,17 +484,6 @@ export function targetMobAt({ world, player }, wx, wy) {
   return best;
 }
 
-export function fendOffEnemy(game, wx, wy) {
-  const mob = targetMobAt(game, wx, wy);
-  if (!mob) return;
-  const { world, player } = game;
-  const spec = mobSpecs[mob.kind];
-  const cy = mob.y + spec.centerY;
-  const angle = Math.atan2(cy - (player.y + 11), mob.x - player.x);
-  player.facing = mob.x >= player.x ? 1 : -1;
-  return damageMob(world, mob, 1, angle);
-}
-
 export function resetHostiles(world) {
   if (world.projectiles) world.projectiles.length = 0;
   for (const mob of world.mobs) {

@@ -1,8 +1,9 @@
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, INTERACTION_RANGE, CHEST_SIZE, COPPER_SPEAR, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, inWater, isEditableTile, placeDoor, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, updateOxygen } from './player.js';
+import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
 export function oxygenCapacity(game) {
@@ -124,65 +125,74 @@ function stepProjectiles(game, dt) {
 
 export function useWeapon(game, slot, wx, wy) {
   const itemId = game.inventory.hotbar[slot]?.id;
-  const weapon = ITEMS[itemId]?.weapon;
-  if (!weapon) return null;
+  const item = ITEMS[itemId];
+  const weapon = item?.weapon;
   if (game.attack) return { handled: true };
 
   const ox = game.player.x;
   const oy = game.player.y + Math.ceil(game.player.height / 2);
   const angle = wx === ox && wy === oy ? (game.player.facing < 0 ? Math.PI : 0) : Math.atan2(wy - oy, wx - ox);
-  const dirX = Math.cos(angle);
-  const dirY = Math.sin(angle);
-  game.player.facing = dirX < 0 ? -1 : 1;
-
-  if (weapon.id === SPEAR.id || weapon.id === COPPER_SPEAR.id) {
-    game.attack = { kind: weapon.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
-    for (let i = game.world.mobs.length - 1; i >= 0; i--) {
-      const mob = game.world.mobs[i];
-      if (mob.health <= 0 || mob.respawn > 0) continue;
-      const spec = mobSpec(mob);
-      if (!spec) continue;
-      const mx = mob.x - ox;
-      const my = mob.y + spec.centerY - oy;
-      const along = mx * dirX + my * dirY;
-      const across = Math.abs(mx * -dirY + my * dirX);
-      if ((along >= -6 && along <= weapon.reach + spec.radius && across <= spec.radius + 12) || Math.hypot(mx, my) <= spec.radius + 10) {
-        damageMob(game.world, mob, weapon.damage, angle, weapon.knockback, game.effects);
-      }
-    }
+  if (weapon?.id !== BOW.id) {
+    const duration = weapon?.cooldown ?? 0.28;
+    const facing = Math.sign(wx - ox) || game.player.facing;
+    game.player.facing = facing;
+    game.attack = {
+      kind: weapon?.id ?? 'melee', angle, facing, timer: duration, duration,
+      tier: item?.pickaxe, damage: weapon?.damage ?? 1, knockback: weapon?.knockback, hitMobs: new Set(),
+    };
     return { handled: true };
   }
 
-  if (weapon.id === BOW.id) {
-    if (game.inventory.count(ARROW.id) < 1) {
-      return { handled: true, message: 'Out of arrows. Craft more in Crafting.' };
-    }
-    game.inventory.spend(ARROW.id, 1);
-    game.dirty = true;
-    game.attack = { kind: BOW.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
-    game.projectiles.push({
-      x: ox + dirX * 10,
-      y: oy + dirY * 10,
-      dx: dirX * ARROW.speed,
-      dy: dirY * ARROW.speed,
-      damage: ARROW.damage,
-      knockback: ARROW.knockback,
-      life: 2.5,
-    });
-    return { handled: true, inventoryChanged: true };
+  const dirX = Math.cos(angle);
+  const dirY = Math.sin(angle);
+  game.player.facing = dirX < 0 ? -1 : 1;
+  if (game.inventory.count(ARROW.id) < 1) {
+    return { handled: true, message: 'Out of arrows. Craft more in Crafting.' };
   }
-  return null;
+  game.inventory.spend(ARROW.id, 1);
+  game.dirty = true;
+  game.attack = { kind: BOW.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
+  game.projectiles.push({
+    x: ox + dirX * 10,
+    y: oy + dirY * 10,
+    dx: dirX * ARROW.speed,
+    dy: dirY * ARROW.speed,
+    damage: ARROW.damage,
+    knockback: ARROW.knockback,
+    life: 2.5,
+  });
+  return { handled: true, inventoryChanged: true };
+}
+
+function stepAttack(game, dt) {
+  const { attack, player, world, effects } = game;
+  if (!attack) return;
+  attack.timer -= dt;
+  if (attack.timer <= 0) {
+    game.attack = null;
+    return;
+  }
+  if (!attack.hitMobs) return;
+  const hitbox = meleeHitbox(player, attack, playerInWater(world, player));
+  if (!hitbox) return;
+  const angle = Math.atan2(hitbox.uy, hitbox.ux);
+  for (let i = world.mobs.length - 1; i >= 0; i--) {
+    const mob = world.mobs[i];
+    if (mob.health <= 0 || mob.respawn > 0 || attack.hitMobs.has(mob)) continue;
+    const spec = mobSpec(mob);
+    if (spec && overlapsMob(hitbox, mob, spec)) {
+      attack.hitMobs.add(mob);
+      damageMob(world, mob, attack.damage, angle, attack.knockback, effects);
+    }
+  }
 }
 
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
-  if (game.attack) {
-    game.attack.timer -= dt;
-    if (game.attack.timer <= 0) game.attack = null;
-  }
   movePlayer(world, player, input, dt);
+  stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
   stepProjectiles(game, dt);
@@ -385,6 +395,7 @@ export function applyTerrain(game, tx, ty, material) {
   if (!editTile(world, tx, ty, material)) return;
   if (material && collides(world, player.x, player.y, player.height)) {
     game.player = spawn(game.world, oxygenCapacity(game), player.appearance);
+    game.attack = null;
     game.dirty = true;
   }
   syncMobs(world, game.player);
