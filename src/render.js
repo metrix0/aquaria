@@ -1,8 +1,9 @@
 import { createCharacterRenderer } from './character.js';
-import { MATERIAL } from './content.js';
+import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
-import { isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
-import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, groundAt, noise } from './world/generation.js';
+import { hasOpenFace, isDoorOpen, isTreeStanding, solidAt, tileAt, waterTileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
+import { createCaveLight } from './world/lighting.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -16,8 +17,6 @@ const palettes = {
   [MATERIAL.cobalt]: ['#262e52', '#788ae9', '#434f99', '#bdceff'],
   [MATERIAL.soil]: ['#6f594e', '#8e6b51', '#513f46', '#ab8056'],
 };
-
-const oreMaterials = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 
 const coralColors = [
   ['#7e4268', '#b0667d', '#da9292'],
@@ -42,6 +41,7 @@ const crabColors = [
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
+  const caveLight = createCaveLight();
 
   function rect(x, y, w, h, color) {
     ctx.fillStyle = color;
@@ -310,9 +310,9 @@ export function createRenderer(canvas) {
     for (let i = 0; i < 5; i++) {
       const sx = 1 + Math.floor(noise(seed, ty, i * 2 + 31) * 12);
       const sy = 2 + Math.floor(noise(seed, ty, i * 2 + 32) * 12);
-      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 && !oreMaterials.has(material) ? light : dark);
+      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 && !ORE_MATERIALS.has(material) ? light : dark);
     }
-    if (oreMaterials.has(material)) {
+    if (ORE_MATERIALS.has(material)) {
       for (let i = 0; i < 3; i++) {
         const px = x + 2 + i * 4;
         const py = y + 3 + Math.floor(noise(seed, ty, 85 + i) * 8);
@@ -413,16 +413,52 @@ export function createRenderer(canvas) {
     }
   }
 
-  function terrain(world, camera, time) {
-    const left = Math.max(0, Math.floor(camera.x / TILE) - 1);
-    const right = Math.min(COLS, Math.ceil((camera.x + camera.width) / TILE) + 1);
-    const top = Math.max(0, Math.floor(camera.y / TILE) - 1);
-    const bottom = Math.min(ROWS, Math.ceil((camera.y + camera.height) / TILE) + 1);
+  function tileBounds(camera) {
+    return {
+      left: Math.max(0, Math.floor(camera.x / TILE) - 1),
+      right: Math.min(COLS, Math.ceil((camera.x + camera.width) / TILE) + 1),
+      top: Math.max(0, Math.floor(camera.y / TILE) - 1),
+      bottom: Math.min(ROWS, Math.ceil((camera.y + camera.height) / TILE) + 1),
+    };
+  }
+
+  function brightness(world, player, tx, ty, ground, westGround, eastGround) {
+    if (ty < ground ||
+        (ty === ground && !solidAt(world, tx, ty - 1, player)) ||
+        (ty < westGround && !solidAt(world, tx - 1, ty, player)) ||
+        (ty < eastGround && !solidAt(world, tx + 1, ty, player))) return 1;
+    return caveLight.at(tx, ty);
+  }
+
+  function shadeCaves(world, player, { left, right, top, bottom }) {
+    ctx.save();
+    ctx.fillStyle = '#050912';
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
+      const westGround = groundAt(x - 1);
+      const eastGround = groundAt(x + 1);
+      for (let y = Math.max(top, ground); y < bottom; y++) {
+        const light = brightness(world, player, x, y, ground, westGround, eastGround);
+        if (light === 1) continue;
+        ctx.globalAlpha = (1 - light) * .96;
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      }
+    }
+    ctx.restore();
+  }
+
+  function terrain(world, player, camera, time, { left, right, top, bottom }) {
+    for (let x = left; x < right; x++) {
+      const ground = groundAt(x);
+      const westGround = groundAt(x - 1);
+      const eastGround = groundAt(x + 1);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
-        const material = tileAt(world, x, y);
+        let material = tileAt(world, x, y);
+        if (ORE_MATERIALS.has(material) && (!hasOpenFace(world, x, y, player) ||
+            brightness(world, player, x, y, ground, westGround, eastGround) < .1)) {
+          material = y >= deepstoneStartAt(x) ? MATERIAL.deepstone : MATERIAL.stone;
+        }
         if (material) drawTile(world, x, y, material);
         else if (y >= firstCaveRow) caveWall(world, x, y);
       }
@@ -664,6 +700,8 @@ export function createRenderer(canvas) {
   function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
+    const bounds = tileBounds(camera);
+    caveLight.update(world, player);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
     ocean(camera, surface, time, conditions, water);
@@ -671,7 +709,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    terrain(world, camera, time);
+    terrain(world, player, camera, time, bounds);
     doors(world, player, camera);
     mobs(world, camera, time);
     for (const bit of particles) {
@@ -685,6 +723,7 @@ export function createRenderer(canvas) {
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
     drawCharacter(player, player.appearance, { tank, time, mining, reducedMotion, swimming: playerInWater(world, player) });
+    shadeCaves(world, player, bounds);
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;

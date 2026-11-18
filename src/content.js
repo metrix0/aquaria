@@ -1,5 +1,6 @@
 export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12 });
 export const MATERIAL_IDS = Object.freeze(Object.fromEntries(Object.entries(MATERIAL).map(([id, code]) => [code, id])));
+export const ORE_MATERIALS = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 export const DROPS = Object.freeze({
   [MATERIAL.sand]: 'sand',
   [MATERIAL.stone]: 'stone',

@@ -1,5 +1,5 @@
-import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
-import { buildCellFree, createWorld, doorAt, editTile, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
+import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
+import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
@@ -167,6 +167,7 @@ export function planTileAction(game, target, build, slot) {
     const tree = before === MATERIAL.air && treeAt(world, tx, ty);
     if (tree) return { tx, ty, before: MATERIAL.wood, treeId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE) };
     const item = DROPS[before];
+    if (ORE_MATERIALS.has(before) && !hasOpenFace(world, tx, ty, player)) return;
     return item && { tx, ty, before, after: MATERIAL.air, item, supportedDoor: doorAt(world, tx, ty - 1), amount: 1 };
   }
   const item = inventory.hotbar[slot]?.id;

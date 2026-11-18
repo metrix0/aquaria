@@ -2,6 +2,7 @@ import { MATERIAL, MATERIAL_IDS } from './content.js';
 import { COLS, ROWS, TILE, WATER_ROW, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
 export const CHUNK_SIZE = 32;
+export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 const CACHE_LIMIT = 64;
 let vents;
 
@@ -104,6 +105,10 @@ export function solidAt(world, tx, ty, viewer) {
   if (tileAt(world, tx, ty)) return true;
   const door = doorAt(world, tx, ty);
   return Boolean(door && (!viewer || !isDoorOpen(door, viewer.x, viewer.y, viewer.height)));
+}
+
+export function hasOpenFace(world, tx, ty, viewer) {
+  return TILE_NEIGHBORS.some(([dx, dy]) => !solidAt(world, tx + dx, ty + dy, viewer));
 }
 
 export function isTreeStanding(world, tree) {

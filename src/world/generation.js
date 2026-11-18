@@ -40,6 +40,10 @@ export function groundAt(tx) {
   return oceanFloor(tx - WEST_EXTENSION);
 }
 
+export function deepstoneStartAt(tx) {
+  return 84 + Math.round(4 * Math.sin(tx * 0.12));
+}
+
 export function generateTile(tx, y, ground = groundAt(tx)) {
   const x = tx - WEST_EXTENSION;
   if (y < ground) return MATERIAL.air;
@@ -185,8 +189,7 @@ export function generateChunk(left, top, size) {
 
   applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
-    const deepstoneStart = 84 + Math.round(4 * Math.sin(x * 0.12));
-    for (let y = Math.max(bounds.top, deepstoneStart); y <= bounds.bottom; y++) {
+    for (let y = Math.max(bounds.top, deepstoneStartAt(x)); y <= bounds.bottom; y++) {
       if (get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
     }
   }
