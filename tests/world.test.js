@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
 import { updateEnemySpawns } from '../src/enemies.js';
@@ -8,12 +7,12 @@ import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
-import { COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
 
-test('the deep rock layer preserves the existing cave and ore layout', () => {
+test('auto-generated cave system is deterministic, multi-tiered, and reachable from the ocean', () => {
   const world = createWorld();
   assert.equal(world.chunks.size, 0);
-  const tiles = new Uint8Array(COLS * ROWS);
+
   let deepstone = 0;
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
@@ -22,11 +21,63 @@ test('the deep rock layer preserves the existing cave and ore layout', () => {
         assert.ok(y >= 80 && y < ROWS - 2);
         deepstone++;
       }
-      tiles[y * COLS + x] = material === MATERIAL.deepstone ? MATERIAL.stone : material;
+      if (groundAt(x) < WATER_ROW && y === groundAt(x)) {
+        assert.notEqual(material, MATERIAL.air);
+      }
     }
   }
   assert.ok(deepstone > 0);
-  assert.equal(createHash('sha256').update(tiles).digest('hex'), 'f83f2e0d24474c9d7bcaf3ad54241458c10846905409a635f58bc9b75a2ba772');
+
+  // Verify seed determinism and variation across seeds.
+  assert.deepEqual(generateCaveSystem(61).chambers, CAVE_SYSTEM.chambers);
+  assert.notDeepEqual(generateCaveSystem(99).chambers, CAVE_SYSTEM.chambers);
+
+  // BFS from ocean surface to verify every cave tier and air vent is reachable by swimming.
+  const visited = new Uint8Array(COLS * ROWS);
+  const queue = [];
+  for (let x = 0; x < COLS; x++) {
+    if (tileAt(world, x, WATER_ROW) === MATERIAL.air) {
+      visited[WATER_ROW * COLS + x] = 1;
+      queue.push(x, WATER_ROW);
+    }
+  }
+  for (let head = 0; head < queue.length; head += 2) {
+    const x = queue[head];
+    const y = queue[head + 1];
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || nx >= COLS || ny < WATER_ROW || ny >= ROWS - 2) continue;
+      const idx = ny * COLS + nx;
+      if (visited[idx] || tileAt(world, nx, ny) !== MATERIAL.air) continue;
+      visited[idx] = 1;
+      queue.push(nx, ny);
+    }
+  }
+
+  for (const tier of [0, 1, 2]) {
+    const tierChambers = CAVE_SYSTEM.chambers.filter((c) => c.tier === tier);
+    assert.ok(tierChambers.length >= 4);
+    assert.ok(tierChambers.every((c) => {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          if (visited[(c.y + dy) * COLS + (c.tx + dx)]) return true;
+        }
+      }
+      return false;
+    }), `expected all tier ${tier} chambers to be reachable from the ocean`);
+  }
+
+  assert.ok(world.vents.length >= 5);
+  for (const vent of world.vents) {
+    const tx = Math.floor(vent.x / TILE);
+    const ty = Math.floor((vent.y - TILE) / TILE);
+    assert.equal(visited[ty * COLS + tx], 1);
+  }
+
+  for (const id of ['fish-cave', 'squid-deep']) {
+    const mob = world.mobs.find((entry) => entry.id === id);
+    assert.ok(mob, `expected ${id} mob`);
+    assert.equal(inWater(world, mob.x, mob.y), true);
+  }
 });
 
 test('the selected pickaxe controls mining speed and unlocks deeper rock', () => {
