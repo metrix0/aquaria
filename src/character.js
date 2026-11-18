@@ -140,10 +140,10 @@ export function createCharacterRenderer(ctx) {
     rect(x + 2, y + 3, 2, 1, '#d8f6ec');
   }
 
-  function pickaxeGrip(tier, skin, far = false) {
+  function pickaxeGrip(tier, skin) {
     drawPickaxe(rect, tier);
     rect(5, -1, 3, 3, skin.shade);
-    rect(5, -1, 2, 2, far ? skin.face : skin.arm);
+    rect(5, -1, 2, 2, skin.arm);
     rect(7, 0, 1, 1, skin.hand);
   }
 
@@ -164,16 +164,16 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, far = false) {
+  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(pickaxePose(phase, angle).angle - tilt);
     rect(-2, -2, 6, 4, shirt.wet);
-    rect(-1, -1, 4, 3, far ? shirt.wet : shirt.base);
-    rect(2, -1, 5, 3, far ? skin.shade : skin.face);
-    if (tier) pickaxeGrip(tier, skin, far);
-    else rect(5, -1, 2, 2, far ? skin.face : skin.arm);
+    rect(-1, -1, 4, 3, shirt.base);
+    rect(2, -1, 5, 3, skin.face);
+    if (tier) pickaxeGrip(tier, skin);
+    else rect(5, -1, 2, 2, skin.arm);
     ctx.restore();
   }
 
@@ -252,15 +252,13 @@ export function createCharacterRenderer(ctx) {
       : player.grounded ? walkFoot((phase + 0.5) % 1, strideWeight, -3, walkDirection) : [-4, rising ? 20 : 22];
     const targetY = miningSwing ? (miningSwing.ty + 0.5) * TILE - player.y : 0;
     const swingPhase = reducedMotion ? 0 : (miningSwing?.phase ?? 0);
-    const offhand = Boolean(miningSwing?.tool && miningSwing.tool !== held);
-    const mainSwing = miningSwing && !offhand;
     const heldItem = ITEMS[held];
     const weapon = attack?.kind ?? heldItem?.weapon?.id;
 
     function drawFrontArm(restSwing, restY) {
-      if (attack || (weapon && !mainSwing)) {
+      if (attack || (weapon && !miningSwing)) {
         weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion);
-      } else if (mainSwing) {
+      } else if (miningSwing) {
         miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier);
       } else if (heldItem?.pickaxe) {
         carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling);
@@ -276,7 +274,6 @@ export function createCharacterRenderer(ctx) {
     ctx.scale(facing, 1);
     if (crawling) {
       const shuffle = Math.round(armSwing * 0.4);
-      if (offhand) miningArm(-shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, true);
       rect(-6 - shuffle, 13, 5, 3, sole);
       rect(-5 - shuffle, 13, 3, 2, pants.back);
       rect(-5, 11, 6, 4, pants.front);
@@ -297,8 +294,7 @@ export function createCharacterRenderer(ctx) {
     if (swimming) ctx.rotate(tilt);
     leg([-2, 17], farFoot, pants, true, swimming);
     if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
-    if (offhand) miningArm(-shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, true);
-    else arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
+    arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     if (tank) {
       rect(-shoulderX - 5, 9, 5, 9, tankShade);

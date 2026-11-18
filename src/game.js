@@ -75,9 +75,9 @@ function mineAtPointer(current, dt) {
   return ITEMS[held]?.weapon && !attempt?.tool ? null : attempt;
 }
 
-function startMiningSwing({ tx, ty, tier, tool, duration }) {
+function startMiningSwing({ tx, ty, tier, duration }) {
   const cycles = Math.max(1, Math.round(duration / 0.26));
-  miningSwing = { tx, ty, tier, tool, duration: duration / cycles, phase: 0 };
+  miningSwing = { tx, ty, tier, duration: duration / cycles, phase: 0 };
 }
 
 function showTileEffect({ tx, ty, before, amount, item }) {
