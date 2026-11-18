@@ -25,9 +25,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .meter-heading, .inventory-title { font: 700 10px var(--mono); letter-spacing: .14em; }
 .meter-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
 .meter-heading strong { color: #e9f4e9; font-size: 11px; letter-spacing: .02em; }
-.air-heading { margin-top: 11px; }
-.air-track { margin-top: 6px; height: 4px; background: #88bfb83a; overflow: hidden; border-radius: 3px; }
-#air-fill { height: 100%; background: var(--mint); width: 100%; transition: width 100ms linear; }
+.health-heading, .air-heading { margin-top: 11px; }
+.health-track, .air-track { margin-top: 6px; height: 4px; background: #88bfb83a; overflow: hidden; border-radius: 3px; }
+#health-fill, #air-fill { height: 100%; width: 100%; transition: width 100ms linear; }
+#health-fill { background: #df8672; }
+#health-fill.low { background: #ff5c4d; }
+#air-fill { background: var(--mint); }
 #air-fill.low { background: #ff9b80; }
 .world-conditions { margin-top: 8px; color: var(--muted); font: 700 10px var(--mono); }
 

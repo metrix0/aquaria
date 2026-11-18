@@ -1,11 +1,12 @@
 import { AIR_TANK, APPEARANCE, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
 import { createInventoryUi } from './inventory-ui.js';
+import { MAX_HEALTH } from './gameplay/player.js';
 import { areaDepth, canCraftDoor, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
-    'depth', 'air-label', 'world-conditions', 'air-fill',
+    'depth', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
     'interact', 'selected', 'feedback',
     'skin-name', 'shirt-name', 'pants-name', 'make-tank', 'recipe-cost', 'make-door', 'door-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
@@ -111,9 +112,18 @@ export function createUI(actions, version) {
     },
     update(game, conditions) {
       setText('world-conditions', (conditions.night ? 'Night' : 'Day') + ' · ' + (conditions.rain > 0.08 ? 'Rain' : 'Clear'));
+      const health = Math.round(game.player.health / MAX_HEALTH * 100);
+      const healthValue = health + '%';
       const air = Math.round(game.player.oxygen / oxygenCapacity(game) * 100);
       const airValue = air + '%';
       setText('depth', areaDepth(game) + ' m');
+      setText('health-label', healthValue);
+      const healthFill = fields['health-fill'];
+      if (healthFill.style.width !== healthValue) {
+        healthFill.style.width = healthValue;
+        healthFill.classList.toggle('low', health <= 25);
+        healthFill.parentElement.setAttribute('aria-valuenow', String(health));
+      }
       setText('air-label', airValue);
       const fill = fields['air-fill'];
       if (fill.style.width !== airValue) {

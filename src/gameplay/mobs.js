@@ -4,9 +4,9 @@ import { solidAt } from '../world.js';
 import { COLS, TILE, WATER, clamp } from '../world/generation.js';
 
 const enemySpecs = {
-  jellyfish: { width: 12, height: 18, radius: 11, damage: 4, message: 'Stung by a jellyfish. -4s oxygen', material: MATERIAL.reef },
-  squid: { width: 16, height: 14, radius: 12, damage: 5, message: 'Struck by a reef squid. -5s oxygen', material: MATERIAL.bedrock },
-  shark: { width: 30, height: 14, radius: 15, damage: 7, message: 'Bitten by a shark! -7s oxygen', material: MATERIAL.stone },
+  jellyfish: { width: 12, height: 18, radius: 11, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish. −16 health', material: MATERIAL.reef },
+  squid: { width: 16, height: 14, radius: 12, damage: 4, healthDamage: 22, message: 'Struck by a reef squid. −22 health', material: MATERIAL.bedrock },
+  shark: { width: 30, height: 14, radius: 15, damage: 5, healthDamage: 34, message: 'Bitten by a shark! −34 health', material: MATERIAL.stone },
 };
 
 function fishCollides(world, player, x, y, width = 12, height = 8) {
@@ -235,9 +235,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         if (mob.kind === 'squid') mob.flee = 1.8;
         player.dx = (toPlayerX / dist) * 135;
         player.dy = (toPlayerY / dist) * 105 - 18;
+        player.health = Math.max(0, player.health - spec.healthDamage);
         player.oxygen = Math.max(0, player.oxygen - spec.damage);
         effects.push({ x: mob.x, y: mob.y, material: spec.material, count: mob.kind === 'squid' ? 14 : 9, spread: 68, message: spec.message });
-        dirty = true;
       }
     }
   }

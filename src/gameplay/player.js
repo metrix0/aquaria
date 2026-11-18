@@ -7,11 +7,12 @@ const shortHopSpeed = 115;
 const swimSpeed = 94;
 
 export const PLAYER_SIZE = { width: 12, height: 23 };
+export const MAX_HEALTH = 100;
 
 export function spawn(world, oxygen, appearance) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, health: MAX_HEALTH, oxygen, hurt: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function collides(world, x, y) {
@@ -95,14 +96,19 @@ export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
 
 }
 
-export function updateOxygen(world, player, dt, maxOxygen) {
+export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
   const atVent = world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
   if (atVent) {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
+    if (player.hurt <= 0) player.health = Math.min(MAX_HEALTH, player.health + 6 * dt);
   } else if (player.y + 5 > WATER) {
     player.oxygen = Math.max(0, player.oxygen - dt);
+    if (player.hurt <= 0 && outOfCombat && player.oxygen > 0) {
+      player.health = Math.min(MAX_HEALTH, player.health + 1.5 * dt);
+    }
   } else {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 14 * dt);
+    if (player.hurt <= 0) player.health = Math.min(MAX_HEALTH, player.health + 8 * dt);
   }
-  return player.oxygen === 0;
+  return player.oxygen === 0 || player.health === 0;
 }

@@ -37,7 +37,7 @@ export function decodeSave(data) {
     appearance: data.appearance,
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
-    player: { x: player?.x + WEST_EXTENSION * TILE, y: player?.y, oxygen: player?.oxygen },
+    player: { x: player?.x + WEST_EXTENSION * TILE, y: player?.y, health: player?.health, oxygen: player?.oxygen },
     progress: {
       airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
     },
@@ -54,7 +54,7 @@ export function encodeSave(game, saveTerrain = true) {
     worldTime: game.worldTime,
     weatherSeed: game.weatherSeed,
     appearance: { ...player.appearance },
-    player: { x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen },
+    player: { x: player.x - WEST_EXTENSION * TILE, y: player.y, health: player.health, oxygen: player.oxygen },
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
     progress: { [AIR_TANK.id]: progress.airTank },
     world: { generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested) },

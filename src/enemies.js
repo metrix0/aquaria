@@ -2,11 +2,11 @@ import { WATER } from './world/generation.js';
 
 const species = [
   {
-    name: 'Reef snapper', spawnWeight: { day: 9, night: 2 }, speed: 31, airLoss: 1.5,
+    name: 'Reef snapper', spawnWeight: { day: 9, night: 2 }, speed: 31, airLoss: 1.5, healthLoss: 10,
     colors: ['#6a3938', '#a96250', '#e1aa78', '#f4ca83'],
   },
   {
-    name: 'Lanternfish', spawnWeight: { day: 1, night: 8 }, speed: 42, airLoss: 2.5,
+    name: 'Lanternfish', spawnWeight: { day: 1, night: 8 }, speed: 42, airLoss: 2.5, healthLoss: 15,
     colors: ['#3b3064', '#745597', '#a68ebc', '#a9f3ca'],
   },
 ];
