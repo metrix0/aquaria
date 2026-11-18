@@ -1,16 +1,22 @@
 import { MATERIAL } from './content.js';
 import { tileAt } from './world.js';
 import { TILE, WEST_EXTENSION, noise } from './world/generation.js';
-import { shipwreckOrigin, shipwreckTimberAt } from './world/shipwreck.js';
+import { shipwreckHullRows, shipwreckOrigin, shipwreckTimberAt } from './world/shipwreck.js';
 
 const originX = (shipwreckOrigin.column + WEST_EXTENSION) * TILE;
 const originY = shipwreckOrigin.row * TILE;
-const hull = [
-  [0, 16], [1, 17.7], [5.4, 17.5], [6.2, 20.4], [12.2, 20.9], [15.5, 21.7],
-  [20.6, 21.4], [22.2, 23.9], [21.5, 25.4], [24.4, 24], [23.6, 22.7],
-  [25.5, 22.1], [35.6, 22], [39.7, 19.9], [43.5, 16.8], [45.7, 14.4],
-  [43.5, 18.7], [39.8, 23.8], [35.5, 27.4], [30.3, 31.5], [25.2, 34.3],
-  [19.8, 35.9], [15.3, 35.9], [10.7, 34.1], [7.4, 31], [3.2, 27.3], [.4, 22.5],
+const weatherDeck = [
+  [0, 18.5], [5.5, 18.5], [5.5, 21.45], [12.5, 21.45], [13.5, 22.48], [19.55, 22.48],
+  [20.4, 23.4], [20.05, 24.4], [21.7, 25.5], [21.4, 26.2], [23.3, 24.9], [24.45, 23.35],
+  [25.5, 22.48], [35.45, 22.47], [36.65, 21.5], [39.4, 21.45], [39.65, 20.5],
+  [40.6, 19.53], [41.54, 18.55], [42.5, 17.55], [43.5, 16.55], [44.52, 15.55],
+  [45.54, 14.5], [46, 14.25], [46, 36], [0, 36],
+];
+const rigging = [
+  [[14.5, 1.43], [9.15, 8.35], [5.5, 21.44]],
+  [[14.5, 1.43], [21.7, 9.05], [25.5, 22.46]],
+  [[31.5, 8.49], [29.75, 14.9], [28.6, 22.45]],
+  [[31.5, 8.49], [37.1, 12.0], [41.54, 18.55]],
 ];
 const framing = [[1, 19], [1, 23], [3, 27], [9, 32], [14, 35], [19, 35], [24, 32], [27, 30], [35, 26], [38, 23], [41, 18], [44, 15]];
 const mastJoints = [
@@ -18,18 +24,16 @@ const mastJoints = [
 ];
 const sails = [
   {
-    anchor: [14, 3],
+    yard: [[10, 3], [18, 3]],
     sheet: [[10.3, 3.8], [15.1, 3.7], [18.8, 3.9], [19.5, 6.1], [21.5, 8.1], [19.9, 8.4], [20.6, 10.7], [19.2, 10], [18.5, 12.2], [16.7, 11.2], [13.4, 13.2], [13.1, 11.7], [11.2, 13.5], [8.7, 14.2], [9.3, 12.1], [7.6, 13.2], [8.7, 10.2], [9.3, 7.4]],
     folds: [[[12, 3.8], [12.1, 6.7], [11.2, 10.9], [9.8, 13.5]], [[15.6, 3.8], [16.9, 7.3], [16.6, 11.3], [15, 13]], [[18, 3.8], [19.5, 7.5], [20.3, 10.6]]],
     tears: [[[10.7, 9.5], [12.3, 8.8], [12.1, 9.8], [11.3, 10.9], [11.4, 9.9]], [[16.9, 6.5], [18.1, 6.1], [17.8, 6.8], [18.7, 7.4], [17.5, 7.3]]],
-    rigging: [[[14.4, 1.4], [10.7, 8.6], [6.1, 19.8]], [[14.4, 1.4], [19.7, 6.5], [25.7, 18.4]]],
   },
   {
-    anchor: [31, 10],
+    yard: [[28, 10], [34, 10]],
     sheet: [[28.2, 10.8], [34.9, 10.7], [34.8, 12.5], [36.7, 15.1], [35.2, 14.8], [35.9, 16.9], [34.1, 16.3], [33.7, 17.8], [31.9, 16.8], [29.6, 18.8], [29.8, 17.1], [27.1, 18.4], [27.3, 16.7], [25.9, 17], [27.2, 13.7]],
     folds: [[[30.1, 10.7], [29.9, 13.6], [28.3, 17.9]], [[33.1, 10.7], [34.4, 14.3], [34.1, 16.8]]],
     tears: [[[29.9, 14.2], [31.9, 13.4], [31.4, 14.2], [30.3, 15.1]]],
-    rigging: [[[31.5, 8.6], [34.7, 13], [39.9, 19.9]], [[31.5, 8.6], [27.4, 12.1], [23.1, 19.7]]],
   },
 ];
 
@@ -58,7 +62,12 @@ function fill(ctx, points, color) {
 
 function paintHull(ctx) {
   ctx.save();
-  tracedPath(ctx, hull);
+  ctx.beginPath();
+  for (const { row, stern, bow } of shipwreckHullRows) {
+    ctx.rect(stern * TILE, row * TILE, (bow - stern + 1) * TILE, TILE);
+  }
+  ctx.clip();
+  tracedPath(ctx, weatherDeck);
   ctx.clip();
   const shade = ctx.createLinearGradient(0, 16 * TILE, 0, 36 * TILE);
   shade.addColorStop(0, '#536461');
@@ -96,6 +105,10 @@ function paintHull(ctx) {
     stroke(ctx, [[x + .16, 20.92], [x + .95, 21.02]], '#788775', 1);
   }
 
+  const deckEdge = weatherDeck.slice(0, -3);
+  stroke(ctx, deckEdge.slice(0, 6).map(([x, y]) => [x, y + .17]), '#8a8766', 3);
+  stroke(ctx, deckEdge.slice(12).map(([x, y]) => [x, y + .17]), '#8a8766', 3);
+
   // A jagged opening in the side shows ocean behind the broken ribs.
   ctx.globalCompositeOperation = 'destination-out';
   fill(ctx, [[11.4, 29.1], [12.7, 28.6], [12.4, 30], [14.5, 28.9], [14.1, 30],
@@ -105,11 +118,7 @@ function paintHull(ctx) {
   ctx.restore();
 }
 
-function paintSail(ctx, { sheet, folds, tears, rigging }) {
-  for (const rope of rigging) {
-    stroke(ctx, rope, '#182e3bc9', 3);
-    stroke(ctx, rope.map(([x, y]) => [x + .06, y]), '#788d7da8', 1);
-  }
+function paintSail(ctx, { sheet, folds, tears }) {
   const slope = ctx.createLinearGradient(0, sheet[0][1] * TILE, 0, (sheet[0][1] + 10) * TILE);
   slope.addColorStop(0, '#a1aa8d');
   slope.addColorStop(.5, '#808d77');
@@ -136,6 +145,18 @@ function paintSail(ctx, { sheet, folds, tears, rigging }) {
   ctx.restore();
 }
 
+function paintRope(ctx, [[x1, y1], [cx, cy], [x2, y2]]) {
+  ctx.beginPath();
+  ctx.moveTo(x1 * TILE, y1 * TILE);
+  ctx.quadraticCurveTo(cx * TILE, cy * TILE, x2 * TILE, y2 * TILE);
+  ctx.strokeStyle = '#1f323b';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.strokeStyle = '#9d9a78';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
 export function createShipwreckArt(canvas, context) {
   function layer(paint) {
     const sprite = canvas.ownerDocument.createElement('canvas');
@@ -146,19 +167,27 @@ export function createShipwreckArt(canvas, context) {
   }
 
   const hullArt = layer(paintHull);
-  const sailArt = sails.map((sail) => ({ anchor: sail.anchor, sprite: layer((ctx) => paintSail(ctx, sail)) }));
+  const sailArt = sails.map((sail) => ({ yard: sail.yard, sprite: layer((ctx) => paintSail(ctx, sail)) }));
   const standing = (world, x, y) => tileAt(world, originX / TILE + x, originY / TILE + y) === MATERIAL.wood;
+
+  const secured = (world, [start, , end]) =>
+    standing(world, Math.floor(start[0]), Math.floor(start[1])) &&
+    standing(world, Math.floor(end[0]), Math.floor(end[1]));
 
   function backdrop(world, { left, right, top, bottom }) {
     if (right * TILE <= originX || left * TILE >= originX + hullArt.width ||
         bottom * TILE <= originY || top * TILE >= originY + hullArt.height) return;
     context.save();
-    for (const { anchor: [x, y], sprite } of sailArt) {
-      if (standing(world, x, y)) context.drawImage(sprite, originX, originY);
+    context.translate(originX, originY);
+    for (const rope of rigging) {
+      if (secured(world, rope)) paintRope(context, rope);
+    }
+    for (const { yard, sprite } of sailArt) {
+      if (yard.every(([x, y]) => standing(world, x, y))) context.drawImage(sprite, 0, 0);
     }
     // When the wreck is stripped, the far side fades with the remaining framing.
     context.globalAlpha = framing.filter(([x, y]) => standing(world, x, y)).length / framing.length;
-    context.drawImage(hullArt, originX, originY);
+    context.drawImage(hullArt, 0, 0);
     context.restore();
   }
 
@@ -173,12 +202,30 @@ export function createShipwreckArt(canvas, context) {
       stroke(context, bend, '#554436', 9);
       stroke(context, bend.map(([x, y]) => [x - .18, y]), '#a88a60', 2);
     }
+    for (const rope of rigging) {
+      if (!secured(world, rope)) continue;
+      for (const [x, y] of [rope[0], rope[2]]) {
+        stroke(context, [[x - .12, y - .075], [x + .12, y + .075]], '#352f2a', 6);
+        stroke(context, [[x - .12, y - .075], [x + .12, y + .075]], '#c1a17a', 3);
+      }
+    }
+    for (const { yard: [[start, y], [end]] } of sailArt) {
+      if (!standing(world, start, y) || !standing(world, end, y)) continue;
+      for (let x = start; x <= end; x += 2) {
+        if (!standing(world, x, y)) continue;
+        stroke(context, [[x + .42, y + .62], [x + .48, y + .99]], '#493e32', 4);
+        stroke(context, [[x + .42, y + .62], [x + .48, y + .99]], '#a6926e', 2);
+      }
+    }
     if (standing(world, 45, 14)) {
       const spar = [[44.8, 15.2], [46.75, 13.75], [48.9, 12.7], [49.05, 12.9]];
       stroke(context, spar, '#564334', 7);
       stroke(context, spar.map(([x, y]) => [x, y - .13]), '#a38761', 2);
       stroke(context, [[47, 13.5], [46.9, 13.9]], '#879888', 3);
-      stroke(context, [[47.05, 13.6], [46.6, 15.8], [45.8, 17.5]], '#374b4c', 2);
+      if (standing(world, 43, 16)) {
+        paintRope(context, [[47.01, 13.57], [46.4, 15.75], [43.52, 16.56]]);
+        stroke(context, [[43.42, 16.48], [43.62, 16.64]], '#b09a72', 3);
+      }
     }
     if (standing(world, 0, 17)) {
       stroke(context, [[.5, 17.8], [-.28, 17.9], [-.25, 18.55]], '#4b5146', 3);
@@ -216,6 +263,12 @@ export function createShipwreckArt(canvas, context) {
       }
     } else {
       rect(0, 0, TILE, TILE, tone > .5 ? '#66503f' : '#705743');
+      const edge = shipwreckHullRows[row - 16];
+      if (edge && (col === edge.stern || col === edge.bow)) {
+        const inset = col === edge.stern ? 0 : 13;
+        rect(inset, 0, 3, TILE, '#483b31');
+        rect(inset + (inset ? 0 : 2), 0, 1, TILE, '#9c7d59');
+      }
       rect(0, 6, TILE, 4, '#57473c');
       rect(0, 10, TILE, 4, '#695440');
       rect(0, 5, TILE, 1, '#4d3f36');

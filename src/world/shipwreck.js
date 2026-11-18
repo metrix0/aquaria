@@ -51,6 +51,13 @@ export const shipwreckCaches = [
 ];
 
 export const shipwreckVentColumn = -49;
+// The back wall and trim share the same outer edges as the mineable hull.
+export const shipwreckHullRows = timber.slice(16).map((row, index) => ({
+  row: index + 16,
+  stern: row.indexOf('#'),
+  bow: row.lastIndexOf('#'),
+}));
+
 export function shipwreckTimberAt(column, row) {
   return timber[row - top]?.[column - left] === '#';
 }
