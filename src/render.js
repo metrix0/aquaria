@@ -1,4 +1,5 @@
-import { APPEARANCE, MATERIAL } from './content.js';
+import { createCharacterRenderer } from './character.js';
+import { MATERIAL } from './content.js';
 import { isDoorOpen, isTreeStanding, tileAt } from './world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, groundAt, noise } from './world/generation.js';
 
@@ -38,6 +39,7 @@ const crabColors = [
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
+  const drawCharacter = createCharacterRenderer(ctx);
 
   function rect(x, y, w, h, color) {
     ctx.fillStyle = color;
@@ -473,23 +475,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  function miningArm(targetX, targetY, tilt, phase, shirt, skin) {
-    const angle = clamp(Math.atan2(targetY - 12, targetX), -1.05, 1.15);
-    const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
-    ctx.save();
-    ctx.translate(2, 12);
-    ctx.rotate(angle - tilt - swing);
-    rect(-1, -2, 3, 4, shirt.light);
-    rect(1, -1, 6, 3, skin.arm);
-    rect(5, 0, 3, 2, skin.hand);
-    rect(7, -1, 7, 2, '#85604c');
-    rect(8, -1, 5, 1, '#d29c65');
-    rect(12, -4, 3, 8, '#6e888a');
-    rect(13, -3, 2, 6, '#b5c6bd');
-    rect(12, -4, 2, 1, '#d9e1cf');
-    ctx.restore();
-  }
-
   function mobs(world, camera, time) {
     for (const mob of world.mobs ?? []) {
       if (mob.x < camera.x - 24 || mob.x > camera.x + camera.width + 24) continue;
@@ -608,58 +593,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  function diver(player, tank, time, mining, reducedMotion) {
-    const swimming = player.y + 11 > WATER;
-    const stride = Math.abs(player.dx) > 9 ? Math.round(Math.sin(time * (swimming ? 13 : 24)) * 2) : 0;
-    const skin = APPEARANCE.skin[player.appearance?.skin] ?? APPEARANCE.skin[0];
-    const shirt = APPEARANCE.shirt[player.appearance?.shirt] ?? APPEARANCE.shirt[0];
-    const pants = APPEARANCE.pants[player.appearance?.pants] ?? APPEARANCE.pants[0];
-    const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
-    const facing = Math.sign(targetX) || player.facing;
-    const tilt = swimming ? clamp(player.dy * .0018, -.23, .23) * facing : 0;
-    ctx.save();
-    if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
-    ctx.translate(Math.round(player.x), Math.round(player.y));
-    ctx.scale(facing, 1);
-    if (swimming) ctx.rotate(tilt);
-    rect(-4, 1, 9, 7, skin.hair);
-    rect(-3, 0, 7, 3, skin.hairLight);
-    rect(-2, 4, 7, 5, skin.face);
-    rect(4, 5, 2, 3, skin.face);
-    rect(2, 5, 2, 1, skin.eye);
-    rect(-3, 8, 8, 3, skin.shade);
-    rect(-4, 10, 9, 7, swimming ? shirt.wet : shirt.base);
-    rect(-4, 10, 8, 2, shirt.light);
-    if (!mining) {
-      rect(1, 12, 3, 4, skin.arm);
-      rect(3 + (swimming ? 2 : 0), 13, 3, 3, skin.hand);
-    }
-    rect(-4, 17, 8, 2, '#483d42');
-    rect(-4, 18, 3, 4 + stride, pants.back);
-    rect(1, 18, 3, 4 - stride, pants.front);
-    rect(-4 - Number(swimming), 21 + stride, 4, 2, '#242f40');
-    rect(1, 21 - stride, 4 + Number(swimming), 2, '#242f40');
-    if (tank) {
-      rect(-7, 9, 3, 10, '#7ebcb0');
-      rect(-7, 10, 1, 6, '#bed8ba');
-      rect(-6, 8, 2, 1, '#d2a673');
-    }
-    if (mining) {
-      const targetY = (mining.ty + 0.5) * TILE - player.y;
-      const swings = Math.round(mining.duration / 0.26);
-      miningArm(Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings, shirt, skin);
-    }
-    if (swimming) {
-      for (let i = 0; i < 3; i++) {
-        const rise = (time * 18 + i * 9) % 27;
-        const dx = 6 + Math.sin(rise * .27 + i) * 3;
-        rect(dx, 5 - rise, 2, 1, '#a1d9cb');
-        rect(dx - 1, 6 - rise, 1, 1, '#7ebdbb');
-      }
-    }
-    ctx.restore();
-  }
-
   function doors(world, player, camera) {
     const [wood, light, dark, brass] = palettes[MATERIAL.wood];
     for (const door of world.doors.values()) {
@@ -681,61 +614,6 @@ export function createRenderer(canvas) {
         rect(x + 2, y + 23, TILE - 4, 2, dark);
         rect(x + 11, y + 16, 2, 2, brass);
       }
-    }
-  }
-
-  function drawPreview(previewCanvas, appearance, tank) {
-    const pctx = previewCanvas.getContext('2d', { alpha: false });
-    const { width, height } = previewCanvas;
-    const skyGrad = pctx.createLinearGradient(0, 0, 0, height);
-    for (const [pos, col] of [[0, '#2c4c63'], [.52, '#5a7e86'], [.78, '#c7a982'], [1, '#183f52']]) skyGrad.addColorStop(pos, col);
-    pctx.fillStyle = skyGrad;
-    pctx.fillRect(0, 0, width, height);
-    pctx.fillStyle = '#f8dca5';
-    pctx.fillRect(width - 11, 6, 5, 5);
-    pctx.fillStyle = '#307e83';
-    pctx.fillRect(0, height - 14, width, 14);
-    pctx.fillStyle = '#7cc4b1';
-    pctx.fillRect(0, height - 14, width, 1);
-    const [sandBase, sandLight, sandDark, sandBright] = palettes[MATERIAL.sand];
-    pctx.fillStyle = sandBase;
-    pctx.fillRect(4, height - 11, width - 8, 11);
-    pctx.fillStyle = sandLight;
-    pctx.fillRect(4, height - 11, width - 8, 2);
-    pctx.fillStyle = sandBright;
-    pctx.fillRect(9, height - 11, 12, 1);
-    pctx.fillStyle = sandDark;
-    pctx.fillRect(8, height - 6, 4, 2);
-    pctx.fillRect(24, height - 5, 5, 1);
-
-    const skin = APPEARANCE.skin[appearance?.skin] ?? APPEARANCE.skin[0];
-    const shirt = APPEARANCE.shirt[appearance?.shirt] ?? APPEARANCE.shirt[0];
-    const pants = APPEARANCE.pants[appearance?.pants] ?? APPEARANCE.pants[0];
-    const ox = Math.round(width / 2);
-    const oy = height - 34;
-    const fill = (x, y, w, h, color) => {
-      pctx.fillStyle = color;
-      pctx.fillRect(ox + x, oy + y, w, h);
-    };
-    fill(-4, 1, 9, 7, skin.hair);
-    fill(-3, 0, 7, 3, skin.hairLight);
-    fill(-2, 4, 7, 5, skin.face);
-    fill(4, 5, 2, 3, skin.face);
-    fill(2, 5, 2, 1, skin.eye);
-    fill(-3, 8, 8, 3, skin.shade);
-    fill(-4, 10, 9, 7, shirt.base);
-    fill(-4, 10, 8, 2, shirt.light);
-    fill(1, 12, 3, 4, skin.arm);
-    fill(3, 13, 3, 3, skin.hand);
-    fill(-4, 17, 8, 2, '#483d42');
-    fill(-4, 18, 3, 4, pants.back);
-    fill(1, 18, 3, 4, pants.front);
-    fill(-4, 21, 4, 2, '#242f40');
-    fill(1, 21, 4, 2, '#242f40');
-    if (tank) {
-      fill(-7, 9, 3, 10, '#7ebcb0');
-      fill(-7, 10, 1, 6, '#bed8ba');
-      fill(-6, 8, 2, 1, '#d2a673');
     }
   }
 
@@ -765,11 +643,11 @@ export function createRenderer(canvas) {
     for (const remote of peers) {
       if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
           remote.y < camera.y - 25 || remote.y > camera.y + camera.height + 25) continue;
-      diver(remote, remote.tank, time, null, reducedMotion);
+      drawCharacter(remote, remote.appearance, { tank: remote.tank, time, reducedMotion });
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    diver(player, tank, time, mining, reducedMotion);
+    drawCharacter(player, player.appearance, { tank, time, mining, reducedMotion });
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
@@ -803,5 +681,5 @@ export function createRenderer(canvas) {
     }
   }
 
-  return { draw, drawPreview };
+  return { draw };
 }

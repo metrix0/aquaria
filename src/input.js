@@ -45,7 +45,7 @@ export function bindInput(canvas, actions) {
       actions.character();
       return;
     }
-    if (code === 'KeyC' && !event.repeat && panel !== 'room-panel') {
+    if (code === 'KeyC' && !event.repeat && panel !== 'room-panel' && panel !== 'customize-panel') {
       event.preventDefault();
       actions.craft();
       return;

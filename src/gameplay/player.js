@@ -1,4 +1,4 @@
-import { normalizeAppearance } from '../content.js';
+import { normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { solidAt } from '../world.js';
 import { SPAWN, TILE, WATER, clamp } from '../world/generation.js';
 
@@ -12,7 +12,7 @@ export const MAX_HEALTH = 100;
 export function spawn(world, oxygen, appearance) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, health: MAX_HEALTH, oxygen, hurt: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, hurt: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function collides(world, x, y) {
@@ -86,6 +86,7 @@ export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
     player.dy = Math.min(player.dy + 510 * dt, 245);
   }
 
+  const previousX = player.x;
   if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
   const falling = player.dy >= 0;
   const yCollision = moveAxis(world, player, 'y', player.dy * dt);
@@ -93,7 +94,9 @@ export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
   if (yCollision) player.dy = 0;
   if (player.dy >= 0) player.canShortenJump = false;
   if (player.y < 0) player.y = 0;
-
+  if (player.grounded && !bodyInWater) {
+    player.walkPhase = (player.walkPhase + Math.abs(player.x - previousX) / WALK_CYCLE_DISTANCE) % 1;
+  }
 }
 
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {

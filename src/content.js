@@ -35,13 +35,26 @@ export const WRECK_CACHE = { id: 'wreck-cache', wood: 8 };
 
 export const WOODEN_DOOR = { id: 'door', wood: 3 };
 
+export const WALK_CYCLE_DISTANCE = 32;
+
 export const APPEARANCE = {
+  gender: ['Unspecified', 'Woman', 'Man', 'Nonbinary'].map((name) => ({ name })),
+  body: ['Regular', 'Slim', 'Broad'].map((name) => ({ name })),
+  hair: ['Side-swept', 'Cropped', 'Bob', 'Ponytail', 'Shaved'].map((name) => ({ name })),
   skin: [
-    { name: 'Sunlit', face: '#dcb484', shade: '#d8aa6e', arm: '#e8b57b', hand: '#e9ad81', eye: '#463d3e', hair: '#392e36', hairLight: '#56403c' },
-    { name: 'Seashell', face: '#eed2b5', shade: '#dfb792', arm: '#f5ddc3', hand: '#eac5a2', eye: '#463d3e', hair: '#4d3732', hairLight: '#6e4f44' },
-    { name: 'Sandbar', face: '#c69063', shade: '#ad784d', arm: '#d49f71', hand: '#c99365', eye: '#35292d', hair: '#2d242b', hairLight: '#49383e' },
-    { name: 'Driftwood', face: '#9a6444', shade: '#814f33', arm: '#a97250', hand: '#9e6847', eye: '#261c20', hair: '#241c22', hairLight: '#3d2e35' },
-    { name: 'Deep Bark', face: '#6b4230', shade: '#553122', arm: '#7b4f3b', hand: '#704633', eye: '#191215', hair: '#1a141b', hairLight: '#31262e' },
+    { name: 'Sunlit', face: '#dcb484', shade: '#d8aa6e', arm: '#e8b57b', hand: '#e9ad81' },
+    { name: 'Seashell', face: '#eed2b5', shade: '#dfb792', arm: '#f5ddc3', hand: '#eac5a2' },
+    { name: 'Sandbar', face: '#c69063', shade: '#ad784d', arm: '#d49f71', hand: '#c99365' },
+    { name: 'Driftwood', face: '#9a6444', shade: '#814f33', arm: '#a97250', hand: '#9e6847' },
+    { name: 'Deep Bark', face: '#6b4230', shade: '#553122', arm: '#7b4f3b', hand: '#704633' },
+  ],
+  hairColor: [
+    { name: 'Dark brown', base: '#654239', light: '#99634e', shade: '#422f34' },
+    { name: 'Black', base: '#3d3b4a', light: '#6c6774', shade: '#292936' },
+    { name: 'Auburn', base: '#934a3b', light: '#ce7c54', shade: '#602e32' },
+    { name: 'Blonde', base: '#c49357', light: '#f1ce83', shade: '#7d573f' },
+    { name: 'Silver', base: '#a4afb9', light: '#e7e6d8', shade: '#63717f' },
+    { name: 'Teal', base: '#43968d', light: '#78ccb7', shade: '#2b535b' },
   ],
   shirt: [
     { name: 'Coral', base: '#bc775a', wet: '#a76e59', light: '#df9b6b' },

@@ -57,44 +57,17 @@
     </div>
 
     <dialog id="customize-panel" aria-labelledby="customize-title">
-      <div class="dialog-head"><h2 id="customize-title">Character</h2><button data-close aria-label="Close character customization">×</button></div>
-      <div class="character-customizer">
-        <div class="character-preview-card">
-          <canvas id="character-preview" width="40" height="44" aria-label="Character preview"></canvas>
+      <div class="dialog-head"><h2 id="customize-title">Customize character</h2><button data-close aria-label="Close character customization" autofocus>×</button></div>
+      <form>
+        <div class="character-customizer">
+          <div class="character-preview-card">
+            <canvas id="character-preview" width="36" height="33" aria-label="Character preview" role="img"></canvas>
+            <button id="preview-walk" type="button" aria-pressed="false">Preview walk</button>
+          </div>
+          <div class="character-fields"></div>
         </div>
-        <div class="character-options">
-          <div class="character-group" role="group" aria-labelledby="skin-label">
-            <div class="character-group-head"><span id="skin-label">SKIN TONE</span><strong id="skin-name">Sunlit</strong></div>
-            <div class="swatches">
-              <button type="button" class="swatch" data-part="skin" data-index="0" aria-label="Skin tone: Sunlit" aria-pressed="true"><span class="swatch-chip" style="--base:#dcb484;--light:#e8b57b;--dark:#d8aa6e"></span></button>
-              <button type="button" class="swatch" data-part="skin" data-index="1" aria-label="Skin tone: Seashell" aria-pressed="false"><span class="swatch-chip" style="--base:#eed2b5;--light:#f5ddc3;--dark:#dfb792"></span></button>
-              <button type="button" class="swatch" data-part="skin" data-index="2" aria-label="Skin tone: Sandbar" aria-pressed="false"><span class="swatch-chip" style="--base:#c69063;--light:#d49f71;--dark:#ad784d"></span></button>
-              <button type="button" class="swatch" data-part="skin" data-index="3" aria-label="Skin tone: Driftwood" aria-pressed="false"><span class="swatch-chip" style="--base:#9a6444;--light:#a97250;--dark:#814f33"></span></button>
-              <button type="button" class="swatch" data-part="skin" data-index="4" aria-label="Skin tone: Deep Bark" aria-pressed="false"><span class="swatch-chip" style="--base:#6b4230;--light:#7b4f3b;--dark:#553122"></span></button>
-            </div>
-          </div>
-          <div class="character-group" role="group" aria-labelledby="shirt-label">
-            <div class="character-group-head"><span id="shirt-label">SHIRT</span><strong id="shirt-name">Coral</strong></div>
-            <div class="swatches">
-              <button type="button" class="swatch" data-part="shirt" data-index="0" aria-label="Shirt: Coral" aria-pressed="true"><span class="swatch-chip" style="--base:#bc775a;--light:#df9b6b;--dark:#a76e59"></span></button>
-              <button type="button" class="swatch" data-part="shirt" data-index="1" aria-label="Shirt: Lagoon" aria-pressed="false"><span class="swatch-chip" style="--base:#498b84;--light:#76bfb2;--dark:#3b7370"></span></button>
-              <button type="button" class="swatch" data-part="shirt" data-index="2" aria-label="Shirt: Sunburst" aria-pressed="false"><span class="swatch-chip" style="--base:#c69853;--light:#ecc37d;--dark:#ab8045"></span></button>
-              <button type="button" class="swatch" data-part="shirt" data-index="3" aria-label="Shirt: Reef Rose" aria-pressed="false"><span class="swatch-chip" style="--base:#98576f;--light:#c68096;--dark:#7f475d"></span></button>
-              <button type="button" class="swatch" data-part="shirt" data-index="4" aria-label="Shirt: Storm" aria-pressed="false"><span class="swatch-chip" style="--base:#456a7d;--light:#6e96a8;--dark:#365668"></span></button>
-            </div>
-          </div>
-          <div class="character-group" role="group" aria-labelledby="pants-label">
-            <div class="character-group-head"><span id="pants-label">PANTS</span><strong id="pants-name">Slate</strong></div>
-            <div class="swatches">
-              <button type="button" class="swatch" data-part="pants" data-index="0" aria-label="Pants: Slate" aria-pressed="true"><span class="swatch-chip" style="--base:#52616a;--light:#6d8884;--dark:#344956"></span></button>
-              <button type="button" class="swatch" data-part="pants" data-index="1" aria-label="Pants: Driftwood" aria-pressed="false"><span class="swatch-chip" style="--base:#705448;--light:#8e6b51;--dark:#4d3933"></span></button>
-              <button type="button" class="swatch" data-part="pants" data-index="2" aria-label="Pants: Sandbar" aria-pressed="false"><span class="swatch-chip" style="--base:#988161;--light:#b89f7a;--dark:#736047"></span></button>
-              <button type="button" class="swatch" data-part="pants" data-index="3" aria-label="Pants: Kelp" aria-pressed="false"><span class="swatch-chip" style="--base:#476d61;--light:#649282;--dark:#2d4b43"></span></button>
-              <button type="button" class="swatch" data-part="pants" data-index="4" aria-label="Pants: Abyss" aria-pressed="false"><span class="swatch-chip" style="--base:#364459;--light:#4d5f78;--dark:#202938"></span></button>
-            </div>
-          </div>
-        </div>
-      </div>
+        <button type="submit" class="primary">Apply</button>
+      </form>
     </dialog>
 
     <dialog id="backpack-panel" aria-labelledby="backpack-title" aria-describedby="backpack-help">
