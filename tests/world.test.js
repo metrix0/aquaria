@@ -1,21 +1,67 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { MATERIAL } from '../src/content.js';
+import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, commitTileAction, createGame, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
+import { advanceMining, commitTileAction, createGame, craftItem, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
 import { COLS, ROWS, SPAWN, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
 
-test('chunks generate the same starter terrain as the pre-refactor build', () => {
+test('the deep rock layer preserves the existing cave and ore layout', () => {
   const world = createWorld();
   assert.equal(world.chunks.size, 0);
   const tiles = new Uint8Array(COLS * ROWS);
+  let deepstone = 0;
   for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) tiles[y * COLS + x] = tileAt(world, x, y);
+    for (let x = 0; x < COLS; x++) {
+      const material = tileAt(world, x, y);
+      if (material === MATERIAL.deepstone) {
+        assert.ok(y >= 80 && y < ROWS - 2);
+        deepstone++;
+      }
+      tiles[y * COLS + x] = material === MATERIAL.deepstone ? MATERIAL.stone : material;
+    }
   }
+  assert.ok(deepstone > 0);
   assert.equal(createHash('sha256').update(tiles).digest('hex'), 'f83f2e0d24474c9d7bcaf3ad54241458c10846905409a635f58bc9b75a2ba772');
+});
+
+test('the selected pickaxe controls mining speed and unlocks deeper rock', () => {
+  const game = createGame();
+  const target = targetTile(game, SPAWN.x, SPAWN.y + TILE * 2);
+  const { tx, ty } = target;
+  editTile(game.world, tx, ty, MATERIAL.sand);
+  assert.ok(advanceMining(game, target, null, 0.45, 2).progress >= 1);
+
+  editTile(game.world, tx, ty, MATERIAL.stone);
+  const byHand = advanceMining(game, target, null, 0.7, 2);
+  assert.ok(byHand.progress < 0.25);
+  assert.equal(advanceMining(game, target, byHand, 0.35, 0).progress, 0.5);
+
+  for (const material of [MATERIAL.deepstone, MATERIAL.cobalt]) {
+    editTile(game.world, tx, ty, material);
+    assert.match(advanceMining(game, target, null, 10, 0).blocked, /requires a Copper pickaxe/);
+    assert.equal(tileAt(game.world, tx, ty), material);
+  }
+  editTile(game.world, tx, ty, MATERIAL.copper);
+  assert.match(advanceMining(game, target, null, 10, 2).blocked, /requires a pickaxe/);
+  assert.ok(advanceMining(game, target, null, 0.85, 0).progress >= 1);
+
+  assert.equal(craftItem(game, COPPER_PICKAXE), false);
+  game.inventory.add('copper', 3);
+  assert.equal(craftItem(game, COPPER_PICKAXE), true);
+  assert.equal(game.inventory.count('copper'), 0);
+  assert.equal(game.inventory.count('wood'), 1);
+  assert.ok(game.inventory.move({ group: 'backpack', index: 0 }, { group: 'hotbar', index: 2 }));
+  editTile(game.world, tx, ty, MATERIAL.deepstone);
+  const mining = advanceMining(game, target, null, 1.7, 2);
+  assert.ok(mining.progress >= 1);
+  commitTileAction(game, mining.action);
+  assert.equal(game.inventory.count('stone'), 1);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
+  assert.equal(restored.inventory.hotbar[2].id, COPPER_PICKAXE.id);
 });
 
 test('legacy progress and edits on both sides of a chunk boundary migrate', () => {

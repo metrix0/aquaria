@@ -94,7 +94,7 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt) {
+  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
     ctx.save();
@@ -104,11 +104,13 @@ export function createCharacterRenderer(ctx) {
     rect(-1, -1, 4, 3, shirt.base);
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
-    rect(7, -1, 7, 2, '#85604c');
-    rect(8, -1, 5, 1, '#d29c65');
-    rect(12, -4, 3, 8, '#6e888a');
-    rect(13, -3, 2, 6, '#b5c6bd');
-    rect(12, -4, 2, 1, '#d9e1cf');
+    if (tier) {
+      rect(7, -1, 7, 2, '#85604c');
+      rect(8, -1, 5, 1, '#d29c65');
+      rect(12, -4, 3, 8, tier === 2 ? '#a35646' : '#6e888a');
+      rect(13, -3, 2, 6, tier === 2 ? '#e09b71' : '#b5c6bd');
+      rect(12, -4, 2, 1, tier === 2 ? '#ffd3a0' : '#d9e1cf');
+    }
     ctx.restore();
   }
 
@@ -162,7 +164,7 @@ export function createCharacterRenderer(ctx) {
     if (mining) {
       const targetY = (mining.ty + 0.5) * TILE - player.y;
       const swings = Math.round(mining.duration / 0.26);
-      miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings, skin, shirt);
+      miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, reducedMotion ? 0 : mining.progress * swings, skin, shirt, mining.tier);
     } else {
       arm(shoulderX, 11 + bob, swimming ? 4 + Math.sign(kick) : -stride, skin, shirt, false);
     }

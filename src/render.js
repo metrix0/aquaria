@@ -7,6 +7,7 @@ import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, groundAt, no
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
   [MATERIAL.stone]: ['#2f4858', '#3e5b63', '#263b51', '#6d8884'],
+  [MATERIAL.deepstone]: ['#262b45', '#42465f', '#1c2138', '#666987'],
   [MATERIAL.reef]: ['#436b6e', '#608781', '#315563', '#8eb096'],
   [MATERIAL.wood]: ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'],
   [MATERIAL.bedrock]: ['#192b3e', '#24374a', '#111d2f', '#35485a'],

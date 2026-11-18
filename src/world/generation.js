@@ -184,6 +184,12 @@ export function generateChunk(left, top, size) {
   }
 
   applyOres(get, set, bounds);
+  for (let x = bounds.left; x <= bounds.right; x++) {
+    const deepstoneStart = 84 + Math.round(4 * Math.sin(x * 0.12));
+    for (let y = Math.max(bounds.top, deepstoneStart); y <= bounds.bottom; y++) {
+      if (get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
+    }
+  }
   return { tiles, flooded };
 }
 

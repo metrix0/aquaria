@@ -44,8 +44,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .slot kbd { position: absolute; top: 3px; left: 4px; color: #becfc2; font: 10px var(--mono); }
 .slot b { position: absolute; right: 4px; bottom: 2px; font: 10px var(--mono); }
 .item { display: block; width: 16px; height: 16px; background: #c2a878; box-shadow: inset 3px 3px #ecce91, inset -3px -3px #8a6345; }
-.item-tool { background: #7e5742; width: 4px; height: 19px; transform: rotate(44deg); position: relative; box-shadow: inset 1px 0 #d29c65; }
-.item-tool::before { content: ""; position: absolute; height: 5px; width: 15px; background: #b5c6bd; box-shadow: inset 0 -2px #6e888a; top: 0; left: -5px; }
+.item-tool, .item-copper-pickaxe { background: #7e5742; width: 4px; height: 19px; transform: rotate(44deg); position: relative; box-shadow: inset 1px 0 #d29c65; }
+.item-tool::before, .item-copper-pickaxe::before { content: ""; position: absolute; height: 5px; width: 15px; background: #b5c6bd; box-shadow: inset 0 -2px #6e888a; top: 0; left: -5px; }
+.item-copper-pickaxe::before { background: #e09b71; box-shadow: inset 0 -2px #a35646; }
 .item-stone { background: #4a747c; box-shadow: inset 3px 3px #739ba0, inset -3px -3px #253e56; }
 .item-wood { background: #845a48; box-shadow: inset 3px 3px #ab7955, inset -3px -3px #5a3b38; }
 .item-door { position: relative; width: 11px; height: 20px; background: #845a48; box-shadow: inset 2px 2px #bc8b62, inset -2px 0 #513a3b; }

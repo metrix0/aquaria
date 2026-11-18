@@ -1,4 +1,4 @@
-import { AIR_TANK, BREAK_SECONDS, BREATH_SECONDS, WRECK_CACHE, WOODEN_DOOR, MATERIAL, DROPS } from '../content.js';
+import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
@@ -126,17 +126,22 @@ export function craftTank(game) {
   return true;
 }
 
-export function canCraftDoor(game) {
-  if (game.inventory.count('wood') < WOODEN_DOOR.wood) return false;
-  const after = new Inventory(game.inventory);
-  after.spend('wood', WOODEN_DOOR.wood);
-  return after.add(WOODEN_DOOR.id, 1);
+function craftResult(inventory, { id, cost }) {
+  const materials = Object.entries(cost);
+  if (!materials.every(([item, count]) => inventory.count(item) >= count)) return null;
+  const after = new Inventory(inventory);
+  for (const [item, count] of materials) after.spend(item, count);
+  return after.add(id, 1) ? after : null;
 }
 
-export function craftDoor(game) {
-  if (!canCraftDoor(game)) return false;
-  game.inventory.spend('wood', WOODEN_DOOR.wood);
-  game.inventory.add(WOODEN_DOOR.id, 1);
+export function canCraftItem(game, recipe) {
+  return Boolean(craftResult(game.inventory, recipe));
+}
+
+export function craftItem(game, recipe) {
+  const inventory = craftResult(game.inventory, recipe);
+  if (!inventory) return false;
+  game.inventory = inventory;
   game.dirty = true;
   return true;
 }
@@ -180,17 +185,24 @@ export function planTileAction(game, target, build, slot) {
   if (connected && !overlapsPlayer) return { tx, ty, before, after: block, item, slot, amount: -1 };
 }
 
-export function advanceMining(game, target, current, dt) {
+export function advanceMining(game, target, current, dt, slot = 0) {
   const action = planTileAction(game, target, false);
   if (!action) return null;
   const { tx, ty } = target;
   const { before } = action;
-  const same = current && (action.door || action.treeId
+  const tool = game.inventory.hotbar[slot]?.id;
+  const tier = ITEMS[tool]?.pickaxe ?? 0;
+  const rule = MINING_RULES[before];
+  if (tier < (rule.tier ?? 0)) {
+    const required = rule.tier === 2 ? 'a Copper pickaxe' : 'a pickaxe';
+    return { blocked: rule.name + ' requires ' + required + '.' };
+  }
+  const same = current?.action && current.tier === tier && (action.door || action.treeId
     ? action.door === current.action.door && action.treeId === current.action.treeId
     : !current.action.door && !current.action.treeId && current.tx === tx && current.ty === ty && current.material === before);
-  const duration = BREAK_SECONDS[before];
+  const duration = tier ? rule.pickaxe : rule.hand;
   const progress = (same ? current.progress : 0) + dt / duration;
-  return { tx, ty, material: before, duration, progress, action };
+  return { tx, ty, material: before, duration, progress, action, tier };
 }
 
 export function applyTerrain(game, tx, ty, material) {

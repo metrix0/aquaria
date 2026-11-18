@@ -2,7 +2,7 @@ import { Inventory, ITEMS } from './inventory.js';
 import { fendOffEnemy } from './gameplay/mobs.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftDoor, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -239,11 +239,11 @@ const ui = createUI({
     storeProgress();
     if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
   },
-  makeDoor() {
-    if (editPending || !craftDoor(game)) return;
+  makeItem(recipe) {
+    if (editPending || !craftItem(game, recipe)) return;
     inventoryChanged();
     ui.updateCraft(game);
-    ui.notify('Wooden door crafted.');
+    ui.notify(ITEMS[recipe.id].name + ' crafted.');
   },
   makeTank() {
     if (editPending || !craftTank(game)) return;
@@ -356,8 +356,11 @@ function frame(now) {
     updateParticles(dt);
     updateCamera(dt);
     if (input.holdingMine() && !editPending) {
-      mining = advanceMining(game, aimedTile(), mining, dt);
-      if (mining?.progress >= 1) {
+      mining = advanceMining(game, aimedTile(), mining, dt, selected);
+      if (mining?.blocked) {
+        ui.notify(mining.blocked);
+        input.stopMining();
+      } else if (mining?.progress >= 1) {
         void editTile(mining.action);
         mining = null;
       }

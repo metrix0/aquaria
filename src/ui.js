@@ -1,15 +1,19 @@
 import { createCharacterEditor } from './character-editor.js';
-import { AIR_TANK, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
+import { AIR_TANK, COPPER_PICKAXE, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
+import { ITEMS } from './inventory.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { MAX_HEALTH } from './gameplay/player.js';
-import { areaDepth, canCraftDoor, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
+import { areaDepth, canCraftItem, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
+
+const itemRecipes = [[WOODEN_DOOR, 'door'], [COPPER_PICKAXE, 'pickaxe']];
+const formatCost = (cost) => Object.entries(cost).map(([id, count]) => count + ' ' + ITEMS[id].name.toLowerCase()).join(' · ');
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
     'depth', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
     'interact', 'selected', 'feedback',
-    'make-tank', 'recipe-cost', 'make-door', 'door-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
+    'make-tank', 'recipe-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
@@ -40,11 +44,10 @@ export function createUI(actions, version) {
   }
 
   function updateCraft(game) {
-    fields['make-door'].disabled = !canCraftDoor(game);
-    setText('door-cost', WOODEN_DOOR.wood + ' wood');
+    for (const [recipe, control] of itemRecipes) byId('make-' + control).disabled = !canCraftItem(game, recipe);
     fields['make-tank'].disabled = !canCraftTank(game);
     setText('make-tank', game.progress.airTank ? 'Equipped' : 'Craft air tank');
-    setText('recipe-cost', game.progress.airTank ? 'Air tank equipped' : Object.entries(AIR_TANK.cost).map(([item, cost]) => cost + ' ' + item).join(' · '));
+    setText('recipe-cost', game.progress.airTank ? 'Air tank equipped' : formatCost(AIR_TANK.cost));
   }
 
   byId('version').textContent = 'v' + version;
@@ -56,7 +59,10 @@ export function createUI(actions, version) {
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
   byId('make-tank').addEventListener('click', actions.makeTank);
-  byId('make-door').addEventListener('click', actions.makeDoor);
+  for (const [recipe, control] of itemRecipes) {
+    byId(control + '-cost').textContent = formatCost(recipe.cost);
+    byId('make-' + control).addEventListener('click', () => actions.makeItem(recipe));
+  }
   byId('room-create').addEventListener('click', () => actions.enterRoom());
   byId('room-join-form').addEventListener('submit', (event) => {
     event.preventDefault();

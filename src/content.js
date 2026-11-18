@@ -1,8 +1,9 @@
-export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11 });
+export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12 });
 export const MATERIAL_IDS = Object.freeze(Object.fromEntries(Object.entries(MATERIAL).map(([id, code]) => [code, id])));
 export const DROPS = Object.freeze({
   [MATERIAL.sand]: 'sand',
   [MATERIAL.stone]: 'stone',
+  [MATERIAL.deepstone]: 'stone',
   [MATERIAL.soil]: 'sand',
   [MATERIAL.reef]: 'stone',
   [MATERIAL.wood]: 'wood',
@@ -11,15 +12,16 @@ export const DROPS = Object.freeze({
   [MATERIAL.cobalt]: 'cobalt',
 });
 
-export const BREAK_SECONDS = {
-  [MATERIAL.sand]: 0.35,
-  [MATERIAL.soil]: 0.4,
-  [MATERIAL.wood]: 0.5,
-  [MATERIAL.reef]: 0.6,
-  [MATERIAL.stone]: 0.7,
-  [MATERIAL.copper]: 0.85,
-  [MATERIAL.iron]: 1.05,
-  [MATERIAL.cobalt]: 1.3,
+export const MINING_RULES = {
+  [MATERIAL.sand]: { hand: 0.45, pickaxe: 0.35 },
+  [MATERIAL.soil]: { hand: 0.55, pickaxe: 0.4 },
+  [MATERIAL.wood]: { hand: 0.8, pickaxe: 0.5 },
+  [MATERIAL.reef]: { hand: 2.7, pickaxe: 0.6 },
+  [MATERIAL.stone]: { hand: 3.6, pickaxe: 0.7 },
+  [MATERIAL.copper]: { name: 'Copper ore', tier: 1, pickaxe: 0.85 },
+  [MATERIAL.iron]: { name: 'Iron ore', tier: 1, pickaxe: 1.05 },
+  [MATERIAL.cobalt]: { name: 'Cobalt ore', tier: 2, pickaxe: 1.3 },
+  [MATERIAL.deepstone]: { name: 'Deepstone', tier: 2, pickaxe: 1.7 },
 };
 
 export const ITEM_PROMPTS = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
@@ -33,7 +35,8 @@ export const AIR_TANK = {
 
 export const WRECK_CACHE = { id: 'wreck-cache', wood: 8 };
 
-export const WOODEN_DOOR = { id: 'door', wood: 3 };
+export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
+export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };
 
 export const WALK_CYCLE_DISTANCE = 32;
 
