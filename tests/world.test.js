@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from '../src/content.js';
+import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
@@ -105,13 +106,19 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
     const tierChambers = CAVE_SYSTEM.chambers.filter((c) => c.tier === tier);
     assert.ok(tierChambers.length >= 4);
     assert.ok(tierChambers.every((c) => {
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
-          if (visited[(c.y + dy) * COLS + (c.tx + dx)]) return true;
+      for (let y = c.minY; y <= c.maxY; y++) {
+        for (let x = c.minX; x <= c.maxX; x++) {
+          if (visited[y * COLS + x]) return true;
         }
       }
       return false;
     }), `expected all tier ${tier} chambers to be reachable from the ocean`);
+  }
+
+  for (const [column, row] of [[43, 130], [83, 127], [59, 147]]) {
+    const x = column + WEST_EXTENSION;
+    assert.equal(visited[row * COLS + x], 1);
+    assert.equal(waterwayAt(x, row), true);
   }
 
   assert.ok(world.vents.length >= 5);
@@ -128,7 +135,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
   }
 });
 
-test('the island cave expands below the surface with solid rock separating it from the ocean', () => {
+test('both cave tiers stay dry up to the two marked waterways', () => {
   const world = createWorld();
   const center = WEST_EXTENSION + ISLAND_CAVE.center;
   const surface = groundAt(center);
@@ -148,17 +155,22 @@ test('the island cave expands below the surface with solid rock separating it fr
         const tx = x + dx;
         const ty = y + dy;
         assert.ok(ty >= groundAt(tx), `cave too close to the surface at ${tx},${ty}`);
-        assert.equal(waterTileAt(world, tx, ty), false, `cave too close to water at ${tx},${ty}`);
+        if (waterTileAt(world, tx, ty)) {
+          assert.ok(ty >= 124 && waterwayAt(tx, ty), `unintended flooded opening at ${tx},${ty}`);
+        }
         const key = ty * COLS + tx;
-        if (Math.abs(dx) + Math.abs(dy) !== 1 || visited.has(key) || tileAt(world, tx, ty)) continue;
+        if (Math.abs(dx) + Math.abs(dy) !== 1 || visited.has(key) || tileAt(world, tx, ty) || waterTileAt(world, tx, ty)) continue;
         visited.add(key);
         cells.push([tx, ty]);
       }
     }
   }
   assert.ok(left <= center - 16 && right >= center + 16);
-  assert.equal(deepest, 79);
-  assert.ok(cells.length > 700);
+  assert.equal(deepest, 131);
+  for (const [x, y] of [[29, 65], [89, 63], [33, 104], [85, 98], [55, 131], [87, 123]]) {
+    assert.ok(visited.has(y * COLS + x + WEST_EXTENSION));
+  }
+  assert.ok(cells.length > 1700);
   for (let x = WEST_EXTENSION + 42; x <= WEST_EXTENSION + 74; x++) {
     for (let y = 43; y <= 57; y++) {
       assert.equal(waterTileAt(world, x, y), false, `old flooded chamber remains at ${x},${y}`);
@@ -192,13 +204,69 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   assert.equal(collectItem(restored), undefined);
   assert.equal(restored.inventory.count('copper'), 2);
 
-  walkUntil(() => player.x >= center * TILE, { right: true, up: true });
-  const eastLanding = (center + 17.5) * TILE;
-  walkUntil(() => player.x >= eastLanding && player.grounded, { right: true, up: true });
-  walkUntil(() => player.x <= (center - 22.5) * TILE && player.grounded, { left: true });
-  assert.ok(player.y >= 78 * TILE);
-  walkUntil(() => player.x >= eastLanding && player.grounded, { right: true, up: true });
-  walkUntil(() => player.x <= (center + 0.5) * TILE && player.grounded && player.y < 28 * TILE, { left: true, up: true });
+  const chamberX = (column) => (column + WEST_EXTENSION + .5) * TILE;
+  walkUntil(() => player.x <= chamberX(35), { left: true });
+  assert.ok(player.y >= 60 * TILE);
+
+  Object.assign(player, { x: (center + .5) * TILE, y: 33 * TILE - player.height, dx: 0, dy: 0 });
+  walkUntil(() => player.x >= chamberX(84), { right: true });
+  assert.ok(player.y > 56 * TILE);
+  walkUntil(() => player.x <= chamberX(35), { left: true, up: true });
+  assert.ok(player.y >= 91 * TILE);
+
+});
+
+test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {
+  const world = createWorld();
+  const soilBottoms = new Set();
+  let copper = 0;
+  let iron = 0;
+  let deepIron = 0;
+  for (let x = 47 + WEST_EXTENSION; x <= 67 + WEST_EXTENSION; x++) {
+    let lastSoil = 0;
+    for (let y = 11; y <= 126; y++) {
+      const material = tileAt(world, x, y);
+      if (material === MATERIAL.soil && y < 22) lastSoil = y;
+      if (material === MATERIAL.copper && y <= 25) copper++;
+      if (material === MATERIAL.iron && y <= 25) iron++;
+      if (material === MATERIAL.iron && y >= 84) deepIron++;
+    }
+    soilBottoms.add(lastSoil);
+  }
+  assert.ok(soilBottoms.size >= 4);
+  assert.ok(copper >= 3 && copper <= 8);
+  assert.ok(iron >= 3 && iron <= 8);
+  assert.ok(deepIron > 3 * iron);
+});
+
+test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
+  const { player, world } = createGame();
+  const foes = world.mobs.filter((mob) => caveEnemySpecs[mob.kind]);
+  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 5);
+  for (const mob of foes) {
+    const x = Math.floor(mob.x / TILE);
+    const feet = mob.y / TILE;
+    const spec = caveEnemySpecs[mob.kind];
+    assert.ok(tileAt(world, x, feet), mob.id);
+    for (let y = feet - Math.ceil(spec.height / TILE); y < feet; y++) {
+      assert.equal(tileAt(world, x, y), MATERIAL.air, mob.id);
+      assert.equal(waterTileAt(world, x, y), false, mob.id);
+    }
+  }
+  const archer = foes.find((mob) => mob.id === 'survey-archer');
+  Object.assign(player, { x: archer.x - 3 * TILE, y: archer.y - player.height, grounded: true });
+  const effects = [];
+  for (let i = 0; i < 200 && !world.projectiles.length; i++) stepCaveEnemy(world, player, archer, 1 / 60, effects);
+  const [arrow] = world.projectiles;
+  assert.equal(arrow?.kind, 'cave-arrow');
+  for (let i = 0; i < 90 && stepCaveHazard(world, player, arrow, 1 / 60, effects); i++) {}
+  assert.equal(player.health, 88);
+
+  const scorpion = foes.find((mob) => mob.id === 'lower-scorpion');
+  const venom = { kind: 'venom', x: scorpion.x, y: scorpion.y - 1, life: 4 };
+  Object.assign(player, { x: scorpion.x, y: scorpion.y - player.height, hurt: 0 });
+  assert.equal(stepCaveHazard(world, player, venom, 1 / 60, effects), true);
+  assert.equal(player.health, 80);
 });
 
 test('underwater caches are above a flooded floor with an air vent nearby', () => {

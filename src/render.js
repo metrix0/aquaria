@@ -1,3 +1,4 @@
+import { drawCaveEnemy } from './cave-enemy-art.js';
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
@@ -660,7 +661,9 @@ export function createRenderer(canvas) {
       ctx.save();
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0) ctx.globalAlpha = 0.6;
 
-      if (mob.kind === 'fish') {
+      if (mob.respawnDelay) {
+        drawCaveEnemy(ctx, rect, polygon, mob, time);
+      } else if (mob.kind === 'fish') {
         const [dark, mid, light, stripe] = mob.enemyType?.colors ?? fishColors[mob.variant % fishColors.length];
         if (mob.enemyType) ctx.globalAlpha = clamp(mob.remainingLife / 2, 0, 1);
         const swish = Math.round(Math.sin(time * (mob.flee > 0 ? 14 : 7.5) + mob.phase) * 1.4);
@@ -811,8 +814,8 @@ export function createRenderer(canvas) {
       if (mob.maxHealth && (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)) {
         const barWidth = mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
         const barX = -Math.floor(barWidth / 2);
-        const barY = mob.kind === 'crab' ? -13 : mob.kind === 'jellyfish' ? -13 : mob.kind === 'shark' ? -14 : -10;
-        const hostile = Boolean(mob.enemyType || mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
+        const barY = mob.respawnDelay ? (mob.kind === 'spider' ? -15 : -31) : mob.kind === 'crab' ? -13 : mob.kind === 'jellyfish' ? -13 : mob.kind === 'shark' ? -14 : -10;
+        const hostile = Boolean(mob.respawnDelay || mob.enemyType || mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
         rect(barX - 1, barY - 1, barWidth + 2, 4, '#111d2f');
         rect(barX, barY, barWidth, 2, '#283c44');
         rect(barX, barY, Math.ceil(barWidth * (mob.health / mob.maxHealth)), 2, hostile ? '#e57866' : '#efc27e');
@@ -823,9 +826,19 @@ export function createRenderer(canvas) {
   }
 
   function projectiles(world, camera) {
-    for (const bubble of world.projectiles ?? []) {
+    arrows(world.projectiles.filter((entry) => entry.kind === 'cave-arrow'), camera);
+    for (const bubble of world.projectiles) {
+      if (bubble.kind === 'cave-arrow') continue;
       if (bubble.x < camera.x - 16 || bubble.x > camera.x + camera.width + 16) continue;
       if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16) continue;
+      if (bubble.kind === 'venom') {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, bubble.life * 2);
+        rect(bubble.x - 7, bubble.y - 1, 14, 2, '#687745');
+        rect(bubble.x - 4, bubble.y - 2, 9, 1, '#b2cc79');
+        ctx.restore();
+        continue;
+      }
       const r = bubble.radius;
       const x = Math.round(bubble.x);
       const y = Math.round(bubble.y);
@@ -939,21 +952,6 @@ export function createRenderer(canvas) {
       const start = Math.max(0, surface);
       gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
       ctx.restore();
-    }
-  }
-
-  function projectiles(world, camera) {
-    for (const bubble of world.projectiles ?? []) {
-      if (bubble.x < camera.x - 16 || bubble.x > camera.x + camera.width + 16) continue;
-      if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16) continue;
-      const r = bubble.radius;
-      const x = Math.round(bubble.x);
-      const y = Math.round(bubble.y);
-      rect(x - r - 1, y - r, r * 2 + 2, r * 2, '#252b3b');
-      rect(x - r, y - r - 1, r * 2, r * 2 + 2, '#252b3b');
-      rect(x - r, y - r, r * 2, r * 2, bubble.color);
-      rect(x - r + 1, y - r + 1, Math.max(2, r), Math.max(2, r), '#da9292');
-      rect(x - r + 1, y - r + 1, 1, 1, '#f1f3e5');
     }
   }
 

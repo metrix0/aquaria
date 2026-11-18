@@ -1,7 +1,8 @@
 import { MATERIAL } from '../content.js';
 import { updateEnemySpawns } from '../enemies.js';
 import { inWater, solidAt, waterTileAt } from '../world.js';
-import { COLS, MOB_HEALTH, TILE, WATER, clamp } from '../world/generation.js';
+import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from './cave-enemies.js';
+import { COLS, MOB_HEALTH, TILE, WATER, clamp, waterwayAt } from '../world/generation.js';
 
 const enemySpecs = {
   jellyfish: { name: 'jellyfish', width: 12, height: 18, radius: 11, centerY: 0, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish. −16 health', material: MATERIAL.reef, maxHealth: MOB_HEALTH.jellyfish },
@@ -12,6 +13,7 @@ const mobSpecs = {
   crab: { name: 'crab', width: 12, height: 8, radius: 10, centerY: -4, material: MATERIAL.sand, maxHealth: MOB_HEALTH.crab },
   fish: { name: 'fish', width: 12, height: 8, radius: 10, centerY: 0, material: MATERIAL.sand, maxHealth: MOB_HEALTH.fish },
   ...enemySpecs,
+  ...caveEnemySpecs,
 };
 const paintColors = ['#7e4268', '#b0667d', '#da9292'];
 
@@ -23,13 +25,17 @@ function stepProjectiles(world, player, dt, time, effects) {
 
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const bubble = world.projectiles[i];
+    if (bubble.kind === 'cave-arrow' || bubble.kind === 'venom') {
+      if (!stepCaveHazard(world, player, bubble, dt, effects)) world.projectiles.splice(i, 1);
+      continue;
+    }
     bubble.life -= dt;
     const nx = bubble.x + bubble.dx * dt;
     const ny = bubble.y + (bubble.dy + Math.sin(time * 9 + bubble.phase) * 14) * dt;
     const tx = Math.floor(nx / TILE);
     const ty = Math.floor(ny / TILE);
 
-    if (bubble.life <= 0 || ny - bubble.radius < WATER + 4 || !waterTileAt(world, tx, ty) || solidAt(world, tx, ty, player)) {
+    if (bubble.life <= 0 || ny - bubble.radius < WATER + 4 || !waterTileAt(world, tx, ty) || waterwayAt(tx, ty) || solidAt(world, tx, ty, player)) {
       effects.push({ x: bubble.x, y: bubble.y, color: bubble.color, count: 5, spread: 36 });
       world.projectiles.splice(i, 1);
       continue;
@@ -62,7 +68,7 @@ function fishCollides(world, player, x, y, width = 12, height = 8) {
   const bottom = Math.floor((y + height / 2 - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      if (!waterTileAt(world, tx, ty) || solidAt(world, tx, ty, player)) return true;
+      if (!waterTileAt(world, tx, ty) || waterwayAt(tx, ty) || solidAt(world, tx, ty, player)) return true;
     }
   }
   return false;
@@ -89,6 +95,7 @@ function crabHasFloor(world, player, x, y) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
+    if (caveEnemySpecs[mob.kind]) continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
     } else if (fishCollides(world, player, mob.x, mob.y)) {
@@ -134,7 +141,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     const diffY = (mob.kind === 'crab' ? mob.y - 4 : mob.y) - py;
     const dist = Math.hypot(diffX, diffY) || 1;
 
-    if (mob.kind === 'fish') {
+    if (caveEnemySpecs[mob.kind]) {
+      stepCaveEnemy(world, player, mob, dt, effects);
+    } else if (mob.kind === 'fish') {
       if (!mob.enemyType && playerInWater && dist < 44 && playerMoving) {
         mob.flee = 1.1;
         if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
@@ -444,7 +453,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
     } else {
-      mob.respawn = 45;
+      mob.respawn = mob.respawnDelay ?? 45;
     }
     effect = { x: mob.x, y: cy, material: spec.material, count: 14, spread: 72, message: 'Defeated ' + label + '!' };
   } else {
@@ -489,7 +498,7 @@ export function fendOffEnemy(game, wx, wy) {
 export function resetHostiles(world) {
   if (world.projectiles) world.projectiles.length = 0;
   for (const mob of world.mobs) {
-    if (enemySpecs[mob.kind] && !(mob.respawn > 0)) {
+    if ((enemySpecs[mob.kind] || caveEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
       Object.assign(mob, {
         x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth,
         attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
