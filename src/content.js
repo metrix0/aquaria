@@ -74,11 +74,11 @@ export const AIR_TANK = {
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
 export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };
-export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };
+export const COPPER_PICKAXE = { id: 'copper-pickaxe', station: WORKBENCH.id, cost: { copper: 3, wood: 2 } };
 export const IRON_PICKAXE = { id: 'iron-pickaxe', station: WORKBENCH.id, cost: { iron: 4, wood: 2 }, miningTime: 0.7 };
 export const KELP_DRESSING = { id: 'kelp-dressing', cost: { kelp: 3 }, heal: 30 };
-export const SPEAR = { id: 'spear', cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
-export const COPPER_SPEAR = { id: 'copper-spear', cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
+export const SPEAR = { id: 'spear', station: WORKBENCH.id, cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
+export const COPPER_SPEAR = { id: 'copper-spear', station: WORKBENCH.id, cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
 export const IRON_SWORD = {
   id: 'iron-sword', station: WORKBENCH.id, cost: { iron: 4, wood: 1 }, damage: 5, cooldown: 0.42, knockback: 205,
   blade: [8, -2, 12, 4],

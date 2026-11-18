@@ -418,9 +418,9 @@ test('mining uses the strongest carried pickaxe without changing the selected sl
     assert.match(advanceMining(game, target, null, 10, 0).blocked, /requires a Copper pickaxe/);
     assert.equal(tileAt(game.world, tx, ty), material);
   }
-  assert.equal(craftItem(game, COPPER_PICKAXE), false);
+  assert.equal(craftItem(game, COPPER_PICKAXE, WORKBENCH.id), false);
   game.inventory.add('copper', 3);
-  assert.equal(craftItem(game, COPPER_PICKAXE), true);
+  assert.equal(craftItem(game, COPPER_PICKAXE, WORKBENCH.id), true);
   assert.equal(game.inventory.count('copper'), 0);
   assert.equal(game.inventory.count('wood'), 1);
   assert.equal(game.inventory.backpack[0].id, COPPER_PICKAXE.id);
@@ -793,8 +793,8 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   game.inventory.add('kelp', 1);
   game.inventory.add('copper', 2);
 
-  assert.equal(craftItem(game, SPEAR), true);
-  assert.equal(craftItem(game, COPPER_SPEAR), true);
+  assert.equal(craftItem(game, SPEAR, WORKBENCH.id), true);
+  assert.equal(craftItem(game, COPPER_SPEAR, WORKBENCH.id), true);
   assert.equal(craftItem(game, BOW), true);
   assert.equal(craftItem(game, ARROW), true);
   assert.equal(game.inventory.count(ARROW.id), 4);
@@ -928,16 +928,19 @@ test('a crafted workbench can be placed, used, saved, and mined back into invent
   assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
 });
 
-test('bench recipe requirements are enforced when checking and crafting', () => {
-  const game = createGame();
-  const benchRecipe = { ...WOODEN_DOOR, station: WORKBENCH.id };
-  assert.equal(canCraftItem(game, WOODEN_DOOR), true);
-  assert.equal(canCraftItem(game, benchRecipe), false);
-  assert.equal(craftItem(game, benchRecipe), false);
-  assert.equal(game.inventory.count('wood'), WOODEN_DOOR.cost.wood);
-  assert.equal(canCraftItem(game, benchRecipe, WORKBENCH.id), true);
-  assert.equal(craftItem(game, benchRecipe, WORKBENCH.id), true);
-  assert.equal(game.inventory.count(WOODEN_DOOR.id), 1);
+test('spear and pickaxe recipes require a workbench without consuming materials in default crafting', () => {
+  for (const recipe of [SPEAR, COPPER_SPEAR, COBALT_SPEAR, COPPER_PICKAXE, IRON_PICKAXE]) {
+    const game = createGame();
+    for (const [id, count] of Object.entries(recipe.cost)) game.inventory.add(id, count);
+    const before = encodeSave(game).inventory;
+    assert.equal(canCraftItem(game, recipe), false, recipe.id);
+    assert.equal(craftItem(game, recipe), false, recipe.id);
+    assert.deepEqual(encodeSave(game).inventory, before);
+    assert.equal(canCraftItem(game, recipe, WORKBENCH.id), true, recipe.id);
+    assert.equal(craftItem(game, recipe, WORKBENCH.id), true, recipe.id);
+    assert.equal(game.inventory.count(recipe.id), 1, recipe.id);
+  }
+  assert.equal(canCraftItem(createGame(), WOODEN_DOOR), true);
 });
 
 test('breathing helmet upgrades require the wreck helmet and stack with the air tank across saves', () => {
