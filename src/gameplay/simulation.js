@@ -18,7 +18,7 @@ export function createGame(snapshot) {
     elapsed: 0,
     worldTime: snapshot?.worldTime ?? 0,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
-    enemies: { spawnIn: 5, hitCooldown: 0 },
+    enemies: { spawnIn: 14, hitCooldown: 0 },
     effects: [],
   };
   const { world } = game;
@@ -60,7 +60,7 @@ export function resetRoomProgress(previous) {
     elapsed: 0,
     worldTime: previous.worldTime,
     weatherSeed: previous.weatherSeed,
-    enemies: { spawnIn: 5, hitCooldown: 0 },
+    enemies: { spawnIn: 14, hitCooldown: 0 },
     effects: [],
   };
 }

@@ -32,14 +32,14 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
   }
   state.spawnIn -= dt;
   if (state.spawnIn > 0) return;
-  state.spawnIn = 6;
-  if (count >= 3) return;
+  state.spawnIn = 16;
+  if (count >= 1) return;
 
   for (let attempt = 0; attempt < 12; attempt++) {
     const facing = Math.random() < 0.5 ? -1 : 1;
     const x = player.x - facing * (92 + Math.random() * 125);
     const y = Math.max(WATER + 15, player.y + 12 - 60) + Math.random() * 85;
-    if (fishCollides(x, y) || mobs.some((mob) => mob.enemyType && Math.hypot(mob.x - x, mob.y - y) < 34)) continue;
+    if (fishCollides(x, y) || mobs.some((mob) => Math.hypot(mob.x - x, mob.y - y) < 56)) continue;
     const enemyType = pickEnemyType(night, Math.random());
     mobs.push({
       kind: 'fish', enemyType, x, y, facing, dx: 0, dy: 0, flee: 0,

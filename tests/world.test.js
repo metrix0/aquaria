@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
+import { updateEnemySpawns } from '../src/enemies.js';
 import { movePlayer, PLAYER_SIZE } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, commitTileAction, createGame, craftItem, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
@@ -224,4 +225,23 @@ test('down still dives in water and exits the crawl posture when there is room',
   assert.equal(player.height, PLAYER_SIZE.height);
   assert.ok(player.y + player.height > depth);
   assert.ok(player.dy > 0);
+});
+
+test('mob generation and dynamic enemy spawns stay sparse across friendly and hostile types', () => {
+  const game = createGame();
+  const friendly = game.world.mobs.filter((mob) => mob.kind === 'crab' || (mob.kind === 'fish' && !mob.enemyType));
+  const hostile = game.world.mobs.filter((mob) => mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
+  assert.equal(friendly.length, 12);
+  assert.equal(hostile.length, 7);
+  assert.equal(game.enemies.spawnIn, 14);
+
+  const player = { x: (100 + WEST_EXTENSION) * TILE, y: WATER + 4 * TILE };
+  let peakDynamic = 0;
+  for (let second = 0; second < 60; second++) {
+    updateEnemySpawns(game.enemies, game.world.mobs, player, false, 1, (x, y) => y < WATER + 12 || tileAt(game.world, Math.floor(x / TILE), Math.floor(y / TILE)) !== MATERIAL.air);
+    const dynamic = game.world.mobs.filter((mob) => mob.enemyType).length;
+    peakDynamic = Math.max(peakDynamic, dynamic);
+    assert.ok(dynamic <= 1);
+  }
+  assert.equal(peakDynamic, 1);
 });
