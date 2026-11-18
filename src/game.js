@@ -428,7 +428,8 @@ function frame(now) {
     game.worldTime += elapsed;
     game.dirty = true;
   }
-  const conditions = worldConditions(room?.worldAge(now) ?? game.worldTime, game.weatherSeed);
+  const worldTime = room?.worldAge(now) ?? game.worldTime;
+  const conditions = worldConditions(worldTime, game.weatherSeed);
   if (playing) {
     time += dt;
     accumulator += dt;
@@ -485,7 +486,8 @@ function frame(now) {
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
-    targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden, openChestId: ui.openChestId(),
+    targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
+    caveShadowsHidden, openChestId: ui.openChestId(),
   });
   requestAnimationFrame(frame);
 }

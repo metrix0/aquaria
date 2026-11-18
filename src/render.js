@@ -9,6 +9,7 @@ import { ITEMS } from './inventory.js';
 import { hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { createShipwreckArt } from './shipwreck-art.js';
+import { birdFlightAt } from './world/birds.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const woodPalette = ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'];
@@ -163,6 +164,41 @@ export function createRenderer(canvas) {
 
   function surfaceWave(x, time) {
     return Math.round(Math.sin(x * .062 + time * 1.8) * 1.6 + Math.sin(x * .026 - time * 1.4) * 1.4);
+  }
+
+  function skyBird(camera, flight, opacity) {
+    if (!flight || opacity <= 0) return;
+    const { age, facing, seagull } = flight;
+    const x = Math.round(flight.x) - Math.round(camera.x);
+    const y = Math.round(flight.y) - Math.round(camera.y);
+    if (x < -12 || x > camera.width + 12 || y < -9 || y > camera.height + 9) return;
+
+    const pixel = (dx, dy, width, height, color) =>
+      rect(x + (facing < 0 ? -dx - width : dx), y + dy, width, height, color);
+    const beat = Math.sin(age * (seagull ? 15 : 28));
+    const lift = seagull && age % 2.7 > .9 ? 2 : Math.round(beat * (seagull ? 5 : 3));
+    ctx.save();
+    ctx.globalAlpha = flight.opacity * opacity;
+    if (seagull) {
+      pixel(-6, -2 - Math.round(lift / 2), 8, 2, '#a3adab');
+      pixel(-9, 0, 5, 2, '#ccd3c9');
+      pixel(-6, -1, 11, 3, '#eeead6');
+      pixel(2, -3, 5, 3, '#f6efdb');
+      pixel(7, -1, 3, 1, '#d8a45b');
+      pixel(5, -2, 1, 1, '#293344');
+      pixel(-5, -1 + Math.round(lift / 2), 7, 2, '#bbc5bf');
+      pixel(-8, -1 + lift, 6, 2, '#9faeaf');
+      pixel(-10, -1 + lift, 3, 2, '#354452');
+    } else {
+      pixel(-6, 0, 4, 1, '#3e333b');
+      pixel(-3, -1, 7, 3, '#644b47');
+      pixel(2, -2, 3, 2, '#463943');
+      pixel(4, 0, 2, 1, '#c6a174');
+      pixel(0, 1, 3, 1, '#b78b6e');
+      pixel(-4, -1 + Math.round(lift / 2), 5, 2, '#513e46');
+      pixel(-5, -1 + lift, 3, 2, '#3e333b');
+    }
+    ctx.restore();
   }
 
   function rainSplashes(impacts, camera, time, intensity) {
@@ -985,7 +1021,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -993,6 +1029,9 @@ export function createRenderer(canvas) {
     surfaceLight.update(world, player, bounds);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
+    if (!reducedMotion && surface > 0 && !conditions.night && conditions.rain < 1) {
+      skyBird(camera, birdFlightAt(worldTime, weatherSeed), (1 - conditions.darkness) * (1 - conditions.rain));
+    }
     ocean(camera, surface, time, conditions, water);
     if (surface > -5 && surface < camera.height + 5) surfaceLine(world, camera, surface, time);
 
