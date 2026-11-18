@@ -51,6 +51,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-wood { background: #845a48; box-shadow: inset 3px 3px #ab7955, inset -3px -3px #5a3b38; }
 .item-door { position: relative; width: 11px; height: 20px; background: #845a48; box-shadow: inset 2px 2px #bc8b62, inset -2px 0 #513a3b; }
 .item-door::after { content: ""; position: absolute; width: 2px; height: 2px; right: 3px; top: 10px; background: #e3ae72; }
+.item-workbench { position: relative; width: 19px; height: 6px; margin-bottom: 7px; background: #bc8b62; box-shadow: inset 0 2px #e3ae72, inset 0 -2px #513a3b; }
+.item-workbench::after { content: ""; position: absolute; top: 100%; left: 3px; width: 3px; height: 7px; background: #85604c; box-shadow: 10px 0 #85604c; }
 .item-spear, .item-copper-spear { position: relative; width: 3px; height: 22px; background: #845a48; box-shadow: inset 1px 0 #d29c65; transform: rotate(42deg); }
 .item-spear::before, .item-copper-spear::before { content: ""; position: absolute; width: 7px; height: 8px; top: -4px; left: -2px; background: #b5c6bd; box-shadow: inset 2px 0 #d9e1cf, inset -2px 0 #6e888a; clip-path: polygon(50% 0, 100% 72%, 50% 100%, 0 72%); }
 .item-copper-spear::before { background: #e09b71; box-shadow: inset 2px 0 #ffd3a0, inset -2px 0 #a35646; }

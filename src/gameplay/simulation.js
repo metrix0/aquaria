@@ -1,4 +1,4 @@
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
@@ -267,6 +267,12 @@ export function equipChestLoot(game, chestId, slot) {
   return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
 }
 
+export function workbenchAt(game, tx, ty) {
+  if (tileAt(game.world, tx, ty) !== MATERIAL.workbench) return;
+  const item = { kind: WORKBENCH.id, name: ITEMS[WORKBENCH.id].name, tx, ty, x: (tx + .5) * TILE, y: (ty + .5) * TILE };
+  if (itemDistance(game.player, item) < INTERACTION_RANGE) return item;
+}
+
 export function nearestItem(game) {
   const { player, world } = game;
   let result;
@@ -277,6 +283,22 @@ export function nearestItem(game) {
     if (difference < distance) {
       distance = difference;
       result = item;
+    }
+  }
+  const row = player.y + Math.ceil(player.height / 2);
+  const left = Math.floor((player.x - distance) / TILE);
+  const right = Math.floor((player.x + distance) / TILE);
+  const top = Math.floor((row - distance) / TILE);
+  const bottom = Math.floor((row + distance) / TILE);
+  for (let ty = top; ty <= bottom; ty++) {
+    for (let tx = left; tx <= right; tx++) {
+      const bench = workbenchAt(game, tx, ty);
+      if (!bench) continue;
+      const difference = itemDistance(player, bench);
+      if (difference < distance) {
+        distance = difference;
+        result = bench;
+      }
     }
   }
   return result;
@@ -295,7 +317,8 @@ export function craftTank(game) {
   return true;
 }
 
-function craftResult(inventory, { id, cost, amount = 1 }) {
+function craftResult(inventory, { id, cost, amount = 1, station }, activeStation) {
+  if (station && station !== activeStation) return null;
   const materials = Object.entries(cost);
   if (!materials.every(([item, count]) => inventory.count(item) >= count)) return null;
   const after = new Inventory(inventory);
@@ -303,12 +326,12 @@ function craftResult(inventory, { id, cost, amount = 1 }) {
   return after.add(id, amount) ? after : null;
 }
 
-export function canCraftItem(game, recipe) {
-  return Boolean(craftResult(game.inventory, recipe));
+export function canCraftItem(game, recipe, station) {
+  return Boolean(craftResult(game.inventory, recipe, station));
 }
 
-export function craftItem(game, recipe) {
-  const inventory = craftResult(game.inventory, recipe);
+export function craftItem(game, recipe, station) {
+  const inventory = craftResult(game.inventory, recipe, station);
   if (!inventory) return false;
   game.inventory = inventory;
   game.dirty = true;

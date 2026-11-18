@@ -1,9 +1,10 @@
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_PICKAXE, COPPER_SPEAR, SPEAR, SWIMMING_HELMET, WOODEN_DOOR } from './content.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, COPPER_PICKAXE, COPPER_SPEAR, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, canCraftTank } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 
 const recipes = [
   { recipe: AIR_TANK, name: 'Air tank', icon: 'tank' },
+  { recipe: WORKBENCH, description: 'Move it to your hotbar and place it like a block. Press E, right-click it, or tap Use nearby to open it.' },
   { recipe: WOODEN_DOOR, description: 'Place it above a solid floor with two blocks of clearance. Opens as you approach.' },
   { recipe: COPPER_PICKAXE, description: 'Equip it in the hotbar to mine Deepstone and cobalt ore.' },
   { recipe: SPEAR, description: 'Thrust at nearby creatures to damage them and drive them back.' },
@@ -13,6 +14,7 @@ const recipes = [
 ];
 
 export function createCraftingUi(panel, { makeItem, makeTank }) {
+  const heading = panel.querySelector('#craft-title');
   const grid = panel.querySelector('#craft-recipes');
   const icon = panel.querySelector('#recipe-icon');
   const title = panel.querySelector('#recipe-title');
@@ -22,6 +24,9 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
   const status = panel.querySelector('#craft-status');
   let selected = 0;
   let game;
+  let station;
+
+  const availableAt = (recipe) => !recipe.station || recipe.station === station;
 
   const cards = recipes.map(({ recipe, name = ITEMS[recipe.id].name, icon = recipe.id, description }, index) => {
     const button = document.createElement('button');
@@ -37,22 +42,26 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
     button.addEventListener('click', () => {
       selected = index;
       status.textContent = '';
-      render(game);
+      render(game, station);
     });
     grid.append(button);
     return { recipe, name, icon, description, button };
   });
 
-  function render(state) {
+  function render(state, activeStation) {
     game = state;
+    station = activeStation;
+    heading.textContent = station === WORKBENCH.id ? ITEMS[WORKBENCH.id].name : 'Crafting';
+    if (!availableAt(cards[selected].recipe)) selected = 0;
     const { recipe, name, icon: itemIcon, description: detail } = cards[selected];
     const tank = recipe === AIR_TANK;
     const equipped = tank && game.progress.airTank;
     const bonus = game.progress.swimmingHelmet ? SWIMMING_HELMET.bonusSeconds : 0;
     const cost = Object.entries(recipe.cost);
-    const ready = cards.map(({ recipe }) => recipe === AIR_TANK ? canCraftTank(game) : canCraftItem(game, recipe));
+    const ready = cards.map(({ recipe }) => recipe === AIR_TANK ? canCraftTank(game) : canCraftItem(game, recipe, station));
 
-    for (const [index, { button }] of cards.entries()) {
+    for (const [index, { button, recipe }] of cards.entries()) {
+      button.hidden = !availableAt(recipe);
       button.setAttribute('aria-pressed', String(index === selected));
       button.toggleAttribute('data-ready', ready[index]);
     }

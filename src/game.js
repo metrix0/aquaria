@@ -1,10 +1,10 @@
 import { Inventory, ITEMS } from './inventory.js';
-import { ARROW } from './content.js';
+import { ARROW, WORKBENCH } from './content.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -28,6 +28,7 @@ let busy = false;
 let editPending = false;
 let mining = null;
 let miningSwing = null;
+let craftingBench;
 let selected = 0;
 let count = 1;
 let time = 0;
@@ -84,9 +85,13 @@ function showTileEffect({ tx, ty, before, amount, item }) {
   }
 }
 
+function craftingStation() {
+  if (craftingBench && workbenchAt(game, craftingBench.tx, craftingBench.ty)) return WORKBENCH.id;
+}
+
 function inventoryChanged() {
   ui.select(selected);
-  if (ui.activePanel() === 'craft-panel') ui.updateCraft(game);
+  if (ui.activePanel() === 'craft-panel') ui.updateCraft(game, craftingStation());
   game.dirty = true;
   storeProgress();
 }
@@ -205,6 +210,8 @@ function leaveRoom() {
 
 function switchView() {
   ui.close('backpack-panel');
+  ui.close('craft-panel');
+  craftingBench = undefined;
   input.clear();
   input.pointer.active = false;
   miningSwing = null;
@@ -242,9 +249,12 @@ function restart() {
 }
 
 const ui = createUI({
-  beforePanel(id) {
+  beforePanel(id, source) {
     input.clear();
-    if (id === 'craft-panel') ui.updateCraft(game);
+    if (id === 'craft-panel') {
+      craftingBench = source;
+      ui.updateCraft(game, craftingStation());
+    }
     if (id === 'backpack-panel') {
       ui.updateBackpack(game);
       ui.select(selected);
@@ -283,7 +293,7 @@ const ui = createUI({
     if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
   },
   makeItem(recipe) {
-    if (editPending || !craftItem(game, recipe)) return false;
+    if (editPending || !craftItem(game, recipe, craftingStation())) return false;
     inventoryChanged();
     return true;
   },
@@ -299,8 +309,9 @@ const input = bindInput(canvas, {
   chestOpen: ui.openChestId,
   interact() {
     if (editPending) return;
-    const chest = nearestItem(game);
-    if (chest) ui.open('backpack-panel', chest);
+    const item = nearestItem(game);
+    if (item?.kind === WORKBENCH.id) ui.open('craft-panel', item);
+    else if (item) ui.open('backpack-panel', item);
   },
   interactAtPointer() {
     const { pointer } = input;
@@ -331,7 +342,13 @@ const input = bindInput(canvas, {
     if (result.message) ui.notify(result.message);
     return result.handled;
   },
-  place: () => void editTile(planTileAction(game, aimedTile(), true, selected)),
+  place() {
+    const target = aimedTile();
+    if (!target || editPending) return;
+    const bench = workbenchAt(game, target.tx, target.ty);
+    if (bench) ui.open('craft-panel', bench);
+    else void editTile(planTileAction(game, target, true, selected));
+  },
   stopMining: () => { mining = null; },
   select,
   craft: () => ui.open('craft-panel'),
@@ -397,6 +414,10 @@ function frame(now) {
   const elapsed = Math.max(0, (now - last) / 1000);
   const dt = Math.min(elapsed, 0.05);
   last = now;
+  if (craftingBench && ui.activePanel() === 'craft-panel' && !craftingStation()) {
+    ui.close('craft-panel');
+    craftingBench = undefined;
+  }
   const playing = !document.hidden && !ui.activePanel();
   if (playing && !room) {
     game.worldTime += elapsed;

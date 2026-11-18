@@ -31,15 +31,15 @@ export function createUI(actions, version) {
     if (element && element.textContent !== value) element.textContent = value;
   }
 
-  function open(id, chest) {
+  function open(id, source) {
     const panel = byId(id);
     if (panel.open) {
       panel.close();
       return;
     }
     for (const other of panels) if (other.open) other.close();
-    if (id === 'backpack-panel') inventoryUI.showChest(chest);
-    actions.beforePanel(id);
+    if (id === 'backpack-panel') inventoryUI.showChest(source);
+    actions.beforePanel(id, source);
     panel.showModal();
   }
 
@@ -130,7 +130,7 @@ export function createUI(actions, version) {
         fill.parentElement.setAttribute('aria-valuenow', String(air));
       }
       const prompt = fields.interact;
-      const focusedItem = inventoryUI.openChestId() ? null : nearestItem(game);
+      const focusedItem = panels.some((panel) => panel.open) ? null : nearestItem(game);
       prompt.hidden = !focusedItem;
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;

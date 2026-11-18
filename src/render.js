@@ -8,12 +8,15 @@ import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp,
 import { createShipwreckArt } from './shipwreck-art.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
+const woodPalette = ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'];
+
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
   [MATERIAL.stone]: ['#2f4858', '#3e5b63', '#263b51', '#6d8884'],
   [MATERIAL.deepstone]: ['#262b45', '#42465f', '#1c2138', '#666987'],
   [MATERIAL.reef]: ['#436b6e', '#608781', '#315563', '#8eb096'],
-  [MATERIAL.wood]: ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'],
+  [MATERIAL.wood]: woodPalette,
+  [MATERIAL.workbench]: woodPalette,
   [MATERIAL.bedrock]: ['#192b3e', '#24374a', '#111d2f', '#35485a'],
   [MATERIAL.copper]: ['#35464d', '#bc7659', '#704d4b', '#efae7c'],
   [MATERIAL.iron]: ['#38484f', '#9baaa4', '#586970', '#dde3c9'],
@@ -326,6 +329,19 @@ export function createRenderer(canvas) {
   function drawTile(world, tx, ty, material, oreOpacity) {
     const x = tx * TILE;
     const y = ty * TILE;
+    if (material === MATERIAL.workbench) {
+      const [wood, rim, shadow, highlight] = woodPalette;
+      rect(x + 2, y + 7, 3, 9, shadow);
+      rect(x + 11, y + 7, 3, 9, shadow);
+      rect(x + 3, y + 8, 1, 7, rim);
+      rect(x + 12, y + 8, 1, 7, rim);
+      rect(x + 4, y + 11, 8, 2, wood);
+      rect(x, y + 3, 16, 6, shadow);
+      rect(x + 1, y + 4, 14, 3, rim);
+      rect(x + 2, y + 4, 12, 1, highlight);
+      rect(x + 2, y + 7, 12, 1, wood);
+      return;
+    }
     const ore = ORE_MATERIALS.has(material);
     const rock = ore ? (ty >= deepstoneStartAt(tx) ? MATERIAL.deepstone : MATERIAL.stone) : material;
     const [base, light, dark, bright] = palettes[rock];

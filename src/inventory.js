@@ -1,4 +1,4 @@
-import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET } from './content.js';
+import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WORKBENCH } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -14,6 +14,7 @@ export const ITEMS = {
   stone: { name: 'Stone', block: MATERIAL.stone, hotbar: 2 },
   wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
   door: { name: 'Wooden door' },
+  [WORKBENCH.id]: { name: 'Workbench', block: MATERIAL.workbench },
   [SWIMMING_HELMET.id]: { name: 'Swimming helmet', icon: 'helmet' },
   kelp: { name: 'Kelp' },
   copper: { name: 'Copper ore' },

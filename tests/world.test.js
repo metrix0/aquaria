@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARROW, BOW, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET } from '../src/content.js';
+import { ARROW, BOW, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, chestAt, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, resetRoomProgress, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
@@ -757,4 +757,51 @@ test('the western wreck has flooded holds, mineable timber and three persistent 
   assert.ok(waterTileAt(reloaded.world, tx, ty));
   assert.equal(reloaded.inventory.count('wood'), startingWood + 77);
   assert.ok(caches.every(({ id }) => reloaded.chests.get(id).every((stack) => !stack)));
+});
+
+test('a crafted workbench can be placed, used, saved, and mined back into inventory', () => {
+  const game = createGame();
+  const materials = WORKBENCH.cost.wood;
+  assert.equal(canCraftItem(game, WORKBENCH), false);
+  game.inventory.add('wood', materials);
+  const before = game.inventory.count('wood');
+  assert.equal(craftItem(game, WORKBENCH), true);
+  assert.equal(game.inventory.count('wood'), before - materials);
+
+  const slot = game.inventory.backpack.findIndex((stack) => stack?.id === WORKBENCH.id);
+  assert.equal(game.inventory.move({ group: 'backpack', index: slot }, { group: 'hotbar', index: 1 }), true);
+  const tx = Math.floor(game.player.x / TILE) + 1;
+  const ty = groundAt(tx) - 1;
+  const target = targetTile(game, (tx + .5) * TILE, (ty + .5) * TILE);
+  const plan = planTileAction(game, target, true, 1);
+  assert.equal(plan.after, MATERIAL.workbench);
+  commitTileAction(game, plan);
+  assert.equal(game.inventory.count(WORKBENCH.id), 0);
+  assert.equal(nearestItem(game)?.kind, WORKBENCH.id);
+
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(tileAt(restored.world, tx, ty), MATERIAL.workbench);
+  assert.equal(workbenchAt(restored, tx, ty)?.kind, WORKBENCH.id);
+  const distant = createGame(decodeSave(encodeSave(game)));
+  distant.player.x += 4 * TILE;
+  assert.equal(workbenchAt(distant, tx, ty), undefined);
+
+  const mining = advanceMining(restored, target, null, 1, 0);
+  assert.ok(mining.progress >= 1);
+  commitTileAction(restored, mining.action);
+  assert.equal(restored.inventory.count(WORKBENCH.id), 1);
+  assert.equal(workbenchAt(restored, tx, ty), undefined);
+  assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
+});
+
+test('bench recipe requirements are enforced when checking and crafting', () => {
+  const game = createGame();
+  const benchRecipe = { ...WOODEN_DOOR, station: WORKBENCH.id };
+  assert.equal(canCraftItem(game, WOODEN_DOOR), true);
+  assert.equal(canCraftItem(game, benchRecipe), false);
+  assert.equal(craftItem(game, benchRecipe), false);
+  assert.equal(game.inventory.count('wood'), WOODEN_DOOR.cost.wood);
+  assert.equal(canCraftItem(game, benchRecipe, WORKBENCH.id), true);
+  assert.equal(craftItem(game, benchRecipe, WORKBENCH.id), true);
+  assert.equal(game.inventory.count(WOODEN_DOOR.id), 1);
 });

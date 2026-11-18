@@ -1,4 +1,4 @@
-export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12 });
+export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12, workbench: 13 });
 export const MATERIAL_IDS = Object.freeze(Object.fromEntries(Object.entries(MATERIAL).map(([id, code]) => [code, id])));
 export const ORE_MATERIALS = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 export const DROPS = Object.freeze({
@@ -8,15 +8,19 @@ export const DROPS = Object.freeze({
   [MATERIAL.soil]: 'sand',
   [MATERIAL.reef]: 'stone',
   [MATERIAL.wood]: 'wood',
+  [MATERIAL.workbench]: 'workbench',
   [MATERIAL.copper]: 'copper',
   [MATERIAL.iron]: 'iron',
   [MATERIAL.cobalt]: 'cobalt',
 });
 
+const WOOD_MINING_RULE = { hand: 0.8, pickaxe: 0.5 };
+
 export const MINING_RULES = {
   [MATERIAL.sand]: { hand: 0.45, pickaxe: 0.35 },
   [MATERIAL.soil]: { hand: 0.55, pickaxe: 0.4 },
-  [MATERIAL.wood]: { hand: 0.8, pickaxe: 0.5 },
+  [MATERIAL.wood]: WOOD_MINING_RULE,
+  [MATERIAL.workbench]: WOOD_MINING_RULE,
   [MATERIAL.reef]: { hand: 2.7, pickaxe: 0.6 },
   [MATERIAL.stone]: { hand: 3.6, pickaxe: 0.7 },
   [MATERIAL.copper]: { name: 'Copper ore', tier: 1, pickaxe: 0.85 },
@@ -44,6 +48,7 @@ export const AIR_TANK = {
 
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
+export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };
 export const SPEAR = { id: 'spear', cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
 export const COPPER_SPEAR = { id: 'copper-spear', cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
