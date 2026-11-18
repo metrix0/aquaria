@@ -1,7 +1,7 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { ARROW } from './content.js';
 import { fendOffEnemy, targetMobAt } from './gameplay/mobs.js';
-import { PLAYER_SIZE } from './gameplay/player.js';
+import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftItem, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
@@ -210,6 +210,7 @@ function leaveRoom() {
 function switchView() {
   input.clear();
   input.pointer.active = false;
+  ui.godMode(false);
   attackCooldown = 0;
   attackSwing = null;
   particles.length = 0;
@@ -254,6 +255,17 @@ const ui = createUI({
   },
   select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
   hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
+  toggleGodMode() {
+    const flying = toggleGodMode(game.world, game.player);
+    ui.godMode(flying);
+    if (flying) {
+      ui.notify('Fly with WASD, arrow keys, or touch controls.');
+    } else {
+      game.dirty = true;
+      storeProgress();
+      ui.clearNotice();
+    }
+  },
   getInventory: () => game.inventory,
   canMoveInventory: () => !editPending,
   customize(appearance) {

@@ -67,6 +67,8 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
+  const godMode = byId('god-mode');
+  godMode.addEventListener('click', actions.toggleGodMode);
   const shadows = byId('hide-cave-shadows');
   shadows.addEventListener('click', () => {
     const hidden = shadows.getAttribute('aria-pressed') !== 'true';
@@ -88,6 +90,7 @@ export function createUI(actions, version) {
   for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
   return {
     open,
+    godMode: (enabled) => godMode.setAttribute('aria-pressed', String(enabled)),
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft,

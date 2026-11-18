@@ -2,12 +2,60 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ARROW, BOW, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR } from '../src/content.js';
 import { updateEnemySpawns } from '../src/enemies.js';
-import { movePlayer, playerInWater, PLAYER_SIZE } from '../src/gameplay/player.js';
+import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt } from '../src/world/generation.js';
+
+test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const before = encodeSave(game).player;
+  const startY = player.y;
+
+  assert.equal(toggleGodMode(world, player), true);
+  for (let i = 0; i < 25; i++) stepGame(game, { down: true }, 1 / 60);
+  assert.ok(player.y > startY + 5 * TILE);
+  assert.ok(collides(world, player.x, player.y));
+  assert.deepEqual(encodeSave(game).player, before);
+
+  assert.equal(toggleGodMode(world, player), false);
+  assert.equal(player.y, startY);
+  assert.equal(collides(world, player.x, player.y), false);
+  for (let i = 0; i < 25; i++) stepGame(game, { down: true }, 1 / 60);
+  assert.ok(player.y < startY + TILE);
+
+  toggleGodMode(world, player);
+  stepGame(game, { up: true }, 1 / 60);
+  const landingY = player.y;
+  toggleGodMode(world, player);
+  assert.equal(player.y, landingY);
+});
+
+test('God mode ignores enemy projectiles and oxygen loss while underwater', () => {
+  const game = createGame();
+  const { world, player } = game;
+  player.x = TILE * 2.5;
+  player.y = WATER + 2 * TILE;
+  world.mobs = [];
+  assert.ok(inWater(world, player.x, player.y + 5));
+  world.projectiles.push({ x: player.x, y: player.y + 12, dx: 0, dy: 0, radius: 4, life: 1, phase: 0, color: '#a84' });
+  const { health, oxygen } = player;
+
+  toggleGodMode(world, player);
+  stepGame(game, {}, 1 / 60);
+  assert.equal(world.projectiles.length, 1);
+  assert.equal(player.health, health);
+  assert.equal(player.oxygen, oxygen);
+
+  toggleGodMode(world, player);
+  stepGame(game, {}, 1 / 60);
+  assert.equal(world.projectiles.length, 0);
+  assert.ok(player.health < health);
+  assert.ok(player.oxygen < oxygen);
+});
 
 test('auto-generated cave system is deterministic, multi-tiered, and reachable from the ocean', () => {
   const world = createWorld();

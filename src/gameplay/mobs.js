@@ -38,7 +38,7 @@ function stepProjectiles(world, player, dt, time, effects) {
     bubble.x = nx;
     bubble.y = ny;
 
-    if (playerInWater && Math.hypot(bubble.x - px, bubble.y - py) <= bubble.radius + 7) {
+    if (!player.flightOrigin && playerInWater && Math.hypot(bubble.x - px, bubble.y - py) <= bubble.radius + 7) {
       const effect = { x: bubble.x, y: bubble.y, color: bubble.color, count: 9, spread: 54 };
       if ((player.hurt ?? 0) <= 0) {
         player.hurt = 0.9;
@@ -145,7 +145,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       if (mob.enemyType && underwater && dist < 108 && mob.remainingLife > 2) {
         targetDx = -diffX / dist * mob.speed;
         targetDy = -diffY / dist * mob.speed;
-        if (enemies.hitCooldown === 0 && Math.abs(diffX) < 12 && Math.abs(diffY) < 10) {
+        if (!player.flightOrigin && enemies.hitCooldown === 0 && Math.abs(diffX) < 12 && Math.abs(diffY) < 10) {
           enemies.hitCooldown = 3;
           hit = mob.enemyType;
         }
@@ -250,7 +250,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         if ((mob.shock ?? 0) > 0) {
           mob.shock = Math.max(0, mob.shock - dt);
           const shockRadius = 14 + (1 - mob.shock / 0.45) * 44;
-          if (playerInWater && !mob.shockHit && (player.hurt ?? 0) <= 0 && dist <= shockRadius) {
+          if (!player.flightOrigin && playerInWater && !mob.shockHit && (player.hurt ?? 0) <= 0 && dist <= shockRadius) {
             mob.shockHit = true;
             player.hurt = 1.2;
             player.stun = 2.5;
@@ -382,7 +382,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
       const dashingShark = mob.kind === 'shark' && (mob.dash ?? 0) > 0;
       const hitRadius = dashingShark ? spec.radius + 9 : spec.radius + 7;
-      if (playerInWater && (player.hurt ?? 0) <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < hitRadius) {
+      if (!player.flightOrigin && playerInWater && (player.hurt ?? 0) <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < hitRadius) {
         player.hurt = 1.15;
         mob.cooldown = dashingShark ? 2.0 : 1.6;
         if (mob.kind === 'squid') mob.flee = 1.8;

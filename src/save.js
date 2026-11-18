@@ -56,8 +56,9 @@ export function encodeSave(game, saveTerrain = true) {
   const { player, inventory, progress, world } = game;
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
-  const position = { x: player.x - WEST_EXTENSION * TILE, y: player.y, health: player.health, oxygen: player.oxygen };
-  if (player.height === CRAWL_HEIGHT) position.crawling = true;
+  const { x, y, height } = player.flightOrigin ?? player;
+  const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
+  if (height === CRAWL_HEIGHT) position.crawling = true;
   return {
     format: SAVE_FORMAT,
     worldTime: game.worldTime,

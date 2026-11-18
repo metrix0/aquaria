@@ -1,10 +1,11 @@
 import { normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { inWater, solidAt } from '../world.js';
-import { SPAWN, TILE, clamp } from '../world/generation.js';
+import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
 const swimSpeed = 94;
+const flightSpeed = 240;
 
 export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
@@ -68,7 +69,47 @@ export function playerInWater(world, player) {
   return inWater(world, player.x, player.y + player.height - PLAYER_SIZE.height * 0.35);
 }
 
-export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
+export function toggleGodMode(world, player) {
+  const { flightOrigin, x, y, height } = player;
+  player.dx = 0;
+  player.dy = 0;
+  player.grounded = false;
+  player.canShortenJump = false;
+  if (!flightOrigin) {
+    player.flightOrigin = { x, y, height };
+    player.y = Math.max(0, y + height - PLAYER_SIZE.height);
+    player.height = PLAYER_SIZE.height;
+    player.hurt = 0;
+    player.stun = 0;
+    return true;
+  }
+  if (collides(world, x, y, height)) {
+    const safe = collides(world, flightOrigin.x, flightOrigin.y, flightOrigin.height)
+      ? spawn(world, player.oxygen)
+      : flightOrigin;
+    Object.assign(player, { x: safe.x, y: safe.y, height: safe.height });
+  }
+  player.flightOrigin = null;
+  return false;
+}
+
+function fly(player, { left, right, up, down }, dt) {
+  const horizontal = Number(Boolean(right)) - Number(Boolean(left));
+  const vertical = Number(Boolean(down)) - Number(Boolean(up));
+  const speed = horizontal && vertical ? flightSpeed * Math.SQRT1_2 : flightSpeed;
+  player.dx = horizontal * speed;
+  player.dy = vertical * speed;
+  if (horizontal) player.facing = horizontal;
+  player.x = clamp(player.x + player.dx * dt, player.width, COLS * TILE - player.width);
+  player.y = clamp(player.y + player.dy * dt, 0, ROWS * TILE - player.height);
+}
+
+export function movePlayer(world, player, input, dt) {
+  if (player.flightOrigin) {
+    fly(player, input, dt);
+    return;
+  }
+  let { left, right, up, down, jump } = input;
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   player.stun = Math.max(0, (player.stun ?? 0) - dt);
   if (player.stun > 0) {
@@ -125,6 +166,7 @@ export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
 }
 
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
+  if (player.flightOrigin) return false;
   const headInWater = inWater(world, player.x, player.y + 5);
   const atVent = headInWater && world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
   if (atVent) {
