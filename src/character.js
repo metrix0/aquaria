@@ -2,8 +2,9 @@ import { APPEARANCE, WALK_CYCLE_DISTANCE } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { TILE, clamp } from './world/generation.js';
 
-const ink = '#252b3b';
-const sole = '#292e3e';
+const eye = '#35303d';
+const sole = '#554851';
+const tankShade = '#37585e';
 const boot = '#8b6353';
 const bootLight = '#b78a69';
 const turn = 2 * Math.PI;
@@ -22,7 +23,7 @@ function walkFoot(phase, weight, restX) {
   const travel = phase < stance
     ? reach - phase * WALK_CYCLE_DISTANCE
     : reach * (2 * swing * swing * (3 - 2 * swing) - 1);
-  const lift = 4 * Math.sin(swing * Math.PI) ** 1.4;
+  const lift = 2 * Math.sin(swing * Math.PI) ** 1.4;
   return [Math.round(restX + (travel - restX) * weight), 22 - Math.round(lift * weight)];
 }
 
@@ -46,10 +47,11 @@ export function createCharacterRenderer(ctx) {
     const [x, y] = foot;
     const knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
     const ankle = [x, y - 1];
-    pixelLine(hip, knee, 4, ink);
-    pixelLine(knee, ankle, 4, ink);
-    pixelLine(hip, knee, 2, far ? pants.back : pants.light);
-    pixelLine(knee, ankle, 2, far ? pants.back : pants.front);
+    pixelLine(hip, knee, 3, pants.back);
+    pixelLine(knee, ankle, 3, pants.back);
+    const trimWidth = far ? 1 : 2;
+    pixelLine(hip, knee, trimWidth, far ? pants.front : pants.light);
+    pixelLine(knee, ankle, trimWidth, pants.front);
     rect(x - 2, y - 1, far ? 4 : 5, 2, sole);
     rect(x - 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
     if (!far) rect(x + 1, y - 1, 1, 1, bootLight);
@@ -59,8 +61,8 @@ export function createCharacterRenderer(ctx) {
     const shoulder = [x, y];
     const elbow = [x + Math.round(swing * 0.4), y + 3];
     const hand = [x + swing, y + 5 - Math.floor(Math.abs(swing) / 2)];
-    pixelLine(shoulder, elbow, 4, ink);
-    pixelLine(elbow, hand, 3, ink);
+    pixelLine(shoulder, elbow, 3, shirt.wet);
+    pixelLine(elbow, hand, 3, skin.shade);
     pixelLine(shoulder, elbow, 2, far ? shirt.wet : shirt.base);
     pixelLine(elbow, hand, 2, far ? skin.shade : skin.face);
     if (!far) {
@@ -74,20 +76,19 @@ export function createCharacterRenderer(ctx) {
     ctx.save();
     ctx.translate(x, y);
     if (style === 'ponytail') {
-      rect(-7, 4, 4, 5, ink);
-      rect(-8 + sway, 6, 4, 4, ink);
+      rect(-7, 4, 4, 5, hair.shade);
+      rect(-8 + sway, 6, 4, 4, hair.shade);
       rect(-7 + sway, 6, 2, 3, hair.base);
       rect(-7 + sway, 6, 1, 2, hair.light);
       rect(-6, 4, 2, 2, '#e8ba79');
     }
-    rect(-4, 1, 9, 8, ink);
-    rect(-3, 0, 7, 2, ink);
-    rect(-4, 4, 2, 4, skin.shade);
+    rect(-4, 1, 9, 8, skin.shade);
+    rect(-3, 0, 7, 2, style === 'shaved' ? skin.shade : hair.shade);
     rect(-2, 2, 6, 7, skin.shade);
     rect(-1, 3, 5, 5, skin.face);
     rect(4, 5, 2, 2, skin.arm);
     rect(1, 8, 3, 1, skin.face);
-    rect(3, 4, 1, 2, ink);
+    rect(3, 4, 1, 2, eye);
     rect(-2, 6, 1, 1, skin.hand);
     rect(2, 7, 2, 1, skin.hand);
     if (style !== 'shaved') {
@@ -103,7 +104,7 @@ export function createCharacterRenderer(ctx) {
     }
     if (style === 'cropped') rect(-3, 2, 7, 1, hair.light);
     if (style === 'bob') {
-      rect(-5, 3, 3, 7, ink);
+      rect(-5, 3, 3, 7, hair.shade);
       rect(-4, 3, 2, 6, hair.base);
       rect(-1, 2, 6, 2, hair.base);
       rect(-4, 4, 1, 3, hair.light);
@@ -113,7 +114,7 @@ export function createCharacterRenderer(ctx) {
   }
 
   function divingHelmet(x, y) {
-    rect(x - 5, y, 11, 9, ink);
+    rect(x - 5, y, 11, 9, '#665347');
     rect(x - 4, y + 1, 9, 7, '#cfa368');
     rect(x - 3, y + 1, 6, 2, '#f0ce93');
     rect(x - 4, y + 8, 9, 1, '#69513e');
@@ -128,7 +129,7 @@ export function createCharacterRenderer(ctx) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle - tilt - swing);
-    rect(-2, -2, 6, 4, ink);
+    rect(-2, -2, 6, 4, shirt.wet);
     rect(-1, -1, 4, 3, shirt.base);
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
@@ -149,20 +150,17 @@ export function createCharacterRenderer(ctx) {
       ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
     const angle = phase * turn;
-    const bob = Math.round(-(Math.sin(angle) ** 2) * strideWeight);
     const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : attackSwing ? attackSwing.x - player.x : 0;
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0022, -.3, .3) * facing : 0;
-    const lean = Number(strideWeight > 0.5 && facing === player.facing);
-    const armSwing = Math.round(Math.cos(angle + 0.18) * 5 * strideWeight);
-    const hairSway = Math.round(Math.cos(angle - 0.6) * strideWeight);
+    const armSwing = Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
     const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 10) * (1 + 2 * clamp(speed / 70, 0, 1))) : 0;
     const { shoulder, waist } = bodies[appearance.body];
     const skin = APPEARANCE.skin[appearance.skin];
     const hair = APPEARANCE.hairColor[appearance.hairColor];
     const shirt = APPEARANCE.shirt[appearance.shirt];
     const pants = APPEARANCE.pants[appearance.pants];
-    const shoulderX = (shoulder - 5) / 2 + lean;
+    const shoulderX = (shoulder - 5) / 2;
     const nearPhase = facing === player.facing ? phase : (1 - phase) % 1;
     const rising = player.dy < -35;
     const nearFoot = swimming ? [-2 + kick, 21 - Math.max(kick, 0)]
@@ -182,14 +180,14 @@ export function createCharacterRenderer(ctx) {
     ctx.scale(facing, 1);
     if (crawling) {
       const shuffle = Math.round(armSwing * 0.4);
-      rect(-6 - shuffle, 13, 5, 3, ink);
+      rect(-6 - shuffle, 13, 5, 3, sole);
       rect(-5 - shuffle, 13, 3, 2, pants.back);
       rect(-5, 11, 6, 4, pants.front);
-      rect(-6, 7, shoulder, 6, ink);
+      rect(-6, 7, shoulder, 6, shirt.wet);
       rect(-5, 8, shoulder - 2, 4, swimming ? shirt.wet : shirt.base);
       rect(-5, 8, shoulder - 3, 1, shirt.light);
       if (tank) {
-        rect(-7, 4, 7, 4, ink);
+        rect(-7, 4, 7, 4, tankShade);
         rect(-6, 5, 5, 2, '#55988f');
         rect(-6, 5, 4, 1, '#bed8ba');
       }
@@ -201,35 +199,35 @@ export function createCharacterRenderer(ctx) {
       return;
     }
     if (swimming) ctx.rotate(tilt);
-    leg([-2, 17 + bob], farFoot, pants, true);
-    arm(-shoulderX, 11 + bob, swimming ? 1 - kick : armSwing, skin, shirt, true);
+    leg([-2, 17], farFoot, pants, true);
+    arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     if (tank) {
-      rect(-shoulderX - 5, 9 + bob, 5, 9, ink);
-      rect(-shoulderX - 4, 10 + bob, 3, 7, '#55988f');
-      rect(-shoulderX - 4, 11 + bob, 1, 4, '#bed8ba');
-      rect(-shoulderX - 3, 8 + bob, 2, 2, '#d2a673');
+      rect(-shoulderX - 5, 9, 5, 9, tankShade);
+      rect(-shoulderX - 4, 10, 3, 7, '#55988f');
+      rect(-shoulderX - 4, 11, 1, 4, '#bed8ba');
+      rect(-shoulderX - 3, 8, 2, 2, '#d2a673');
     }
-    rect(lean - (shoulder - 1) / 2, 9 + bob, shoulder, 5, ink);
-    rect(-(waist - 1) / 2, 13 + bob, waist, 5, ink);
-    rect(lean - (shoulder - 3) / 2, 10 + bob, shoulder - 2, 4, shirt.base);
-    rect(-(waist - 3) / 2, 13 + bob, waist - 2, 3, shirt.base);
-    rect(-(waist - 3) / 2, 15 + bob, waist - 2, 1, shirt.wet);
-    rect(lean - 2, 10 + bob, 4, 1, shirt.light);
-    rect(lean - 2, 12 + bob, 1, 3, shirt.wet);
-    rect(0, 13 + bob, 2, 1, shirt.light);
-    rect(-(waist - 3) / 2, 16 + bob, waist - 2, 1, '#5e4946');
-    rect(-1, 16 + bob, 2, 1, '#d9ac75');
-    leg([1, 17 + bob], nearFoot, pants, false);
-    head(hairStyles[appearance.hair], hair, skin, lean, bob, swimming ? -Math.sign(kick) : hairSway);
-    if (helmet) divingHelmet(lean, bob);
-    rect(lean - 2, 9 + bob, 5, 1, '#efc48d');
-    rect(lean - 2, 10 + bob, 2, 1, '#b4755a');
+    rect(-(shoulder - 1) / 2, 9, shoulder, 5, shirt.wet);
+    rect(-(waist - 1) / 2, 13, waist, 5, pants.back);
+    rect(-(shoulder - 3) / 2, 10, shoulder - 2, 4, shirt.base);
+    rect(-(waist - 3) / 2, 13, waist - 2, 3, shirt.base);
+    rect(-(waist - 3) / 2, 15, waist - 2, 1, shirt.wet);
+    rect(-2, 10, 4, 1, shirt.light);
+    rect(-2, 12, 1, 3, shirt.wet);
+    rect(0, 13, 2, 1, shirt.light);
+    rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
+    rect(-1, 16, 2, 1, '#d9ac75');
+    leg([1, 17], nearFoot, pants, false);
+    head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
+    if (helmet) divingHelmet(0, 0);
+    rect(-2, 9, 5, 1, '#efc48d');
+    rect(-2, 10, 2, 1, '#b4755a');
 
     if (mining || attackSwing) {
-      miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining?.tier ?? 1);
+      miningArm(shoulderX, 11, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining?.tier ?? 1);
     } else {
-      arm(shoulderX, 11 + bob, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
+      arm(shoulderX, 11, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
     }
 
     if (swimming) {
