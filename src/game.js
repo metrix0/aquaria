@@ -31,6 +31,7 @@ let attackSwing = null;
 let selected = 0;
 let count = 1;
 let time = 0;
+let caveShadowsHidden = false;
 let message = available ? 'Create a room or join with an invite link.' : 'Multiplayer is unavailable in this build.';
 
 function restore(storage) {
@@ -251,6 +252,7 @@ const ui = createUI({
     storeProgress();
   },
   select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
+  hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
   getInventory: () => game.inventory,
   canMoveInventory: () => !editPending,
   customize(appearance) {
@@ -404,7 +406,7 @@ function frame(now) {
   const targetMob = aimedMob();
   renderer.draw({
     world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
-    aim: targetMob ? null : aimedTile(), mining, attackSwing, targetMob, particles, peers, reducedMotion, conditions,
+    aim: targetMob ? null : aimedTile(), mining, attackSwing, targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden,
   });
   requestAnimationFrame(frame);
 }
