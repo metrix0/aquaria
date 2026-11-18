@@ -1,4 +1,6 @@
-import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, clamp, isDoorOpen, isTreeStanding, noise, tileAt } from './world.js';
+import { APPEARANCE, MATERIAL } from './content.js';
+import { isDoorOpen, isTreeStanding, tileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, groundAt, noise } from './world/generation.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -33,30 +35,6 @@ const crabColors = [
   ['#85604c', '#c09662', '#e3ae72'],
   ['#513a3b', '#b0667d', '#da9292'],
 ];
-
-export const APPEARANCE = {
-  skin: [
-    { name: 'Sunlit', face: '#dcb484', shade: '#d8aa6e', arm: '#e8b57b', hand: '#e9ad81', eye: '#463d3e', hair: '#392e36', hairLight: '#56403c' },
-    { name: 'Seashell', face: '#eed2b5', shade: '#dfb792', arm: '#f5ddc3', hand: '#eac5a2', eye: '#463d3e', hair: '#4d3732', hairLight: '#6e4f44' },
-    { name: 'Sandbar', face: '#c69063', shade: '#ad784d', arm: '#d49f71', hand: '#c99365', eye: '#35292d', hair: '#2d242b', hairLight: '#49383e' },
-    { name: 'Driftwood', face: '#9a6444', shade: '#814f33', arm: '#a97250', hand: '#9e6847', eye: '#261c20', hair: '#241c22', hairLight: '#3d2e35' },
-    { name: 'Deep Bark', face: '#6b4230', shade: '#553122', arm: '#7b4f3b', hand: '#704633', eye: '#191215', hair: '#1a141b', hairLight: '#31262e' },
-  ],
-  shirt: [
-    { name: 'Coral', base: '#bc775a', wet: '#a76e59', light: '#df9b6b' },
-    { name: 'Lagoon', base: '#498b84', wet: '#3b7370', light: '#76bfb2' },
-    { name: 'Sunburst', base: '#c69853', wet: '#ab8045', light: '#ecc37d' },
-    { name: 'Reef Rose', base: '#98576f', wet: '#7f475d', light: '#c68096' },
-    { name: 'Storm', base: '#456a7d', wet: '#365668', light: '#6e96a8' },
-  ],
-  pants: [
-    { name: 'Slate', back: '#344956', front: '#52616a', light: '#6d8884' },
-    { name: 'Driftwood', back: '#4d3933', front: '#705448', light: '#8e6b51' },
-    { name: 'Sandbar', back: '#736047', front: '#988161', light: '#b89f7a' },
-    { name: 'Kelp', back: '#2d4b43', front: '#476d61', light: '#649282' },
-    { name: 'Abyss', back: '#202938', front: '#364459', light: '#4d5f78' },
-  ],
-};
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -415,12 +393,12 @@ export function createRenderer(canvas) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         if (material) drawTile(world, x, y, material);
-        else if (y >= world.ground[x]) caveWall(world, x, y);
+        else if (y >= groundAt(x)) caveWall(world, x, y);
       }
     }
 
     for (let x = left; x < right; x++) {
-      const y = world.ground[x];
+      const y = groundAt(x);
       if (y < top - 2 || y > bottom + 2 || !tileAt(world, x, y) || tileAt(world, x, y - 1)) continue;
       const seed = noise(x - WEST_EXTENSION, 44);
       if (y >= 17 && seed > .27) {
@@ -440,7 +418,7 @@ export function createRenderer(canvas) {
 
     const wreckColumn = 111 + WEST_EXTENSION;
     const wreckX = wreckColumn * TILE + 8;
-    const wreckY = world.ground[wreckColumn] * TILE;
+    const wreckY = groundAt(wreckColumn) * TILE;
     if (wreckX > camera.x - 120 && wreckX < camera.x + camera.width + 120) {
       polygon([[wreckX - 61, wreckY - 44], [wreckX + 73, wreckY - 34], [wreckX + 53, wreckY - 10], [wreckX - 34, wreckY - 6]], '#213b48');
       polygon([[wreckX - 53, wreckY - 39], [wreckX + 61, wreckY - 30], [wreckX + 50, wreckY - 22], [wreckX - 43, wreckY - 22]], '#4d5450');
@@ -453,8 +431,8 @@ export function createRenderer(canvas) {
     }
     const shelterColumn = 53 + WEST_EXTENSION;
     const shelterX = shelterColumn * TILE;
-    const shelterY = world.ground[shelterColumn] * TILE;
-    if (tileAt(world, shelterColumn, world.ground[shelterColumn])) {
+    const shelterY = groundAt(shelterColumn) * TILE;
+    if (tileAt(world, shelterColumn, groundAt(shelterColumn))) {
       polygon([[shelterX - 13, shelterY], [shelterX + 8, shelterY - 28], [shelterX + 25, shelterY], [shelterX + 13, shelterY - 1]], '#536e69');
       polygon([[shelterX - 13, shelterY], [shelterX + 8, shelterY - 28], [shelterX + 5, shelterY], [shelterX - 4, shelterY]], '#7d9690');
       polygon([[shelterX + 6, shelterY], [shelterX + 10, shelterY - 17], [shelterX + 18, shelterY]], '#243a42');
@@ -769,7 +747,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions }) {
+  function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions, peers = [] }) {
     const surface = Math.round(WATER - camera.y);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
@@ -783,6 +761,13 @@ export function createRenderer(canvas) {
     mobs(world, camera, time);
     for (const bit of particles) {
       rect(bit.x, bit.y, 2, 2, palettes[bit.material][1]);
+    }
+    for (const remote of peers) {
+      if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
+          remote.y < camera.y - 25 || remote.y > camera.y + camera.height + 25) continue;
+      diver(remote, remote.tank, time, null, reducedMotion);
+      polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
+        [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
     diver(player, tank, time, mining, reducedMotion);
     ctx.restore();

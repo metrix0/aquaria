@@ -145,3 +145,21 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   #backpack-slots { margin-top: 7px; }
   footer { min-height: 36px; padding-top: 3px; padding-bottom: 3px; }
 }
+
+.room-button {
+  color: var(--mint); background: #122c33; border: 1px solid var(--line);
+  border-radius: 4px; padding: 6px 9px; font-size: 12px; white-space: nowrap;
+}
+#room-join-form { margin-top: 16px; }
+#room-join-form label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+#room-panel input {
+  min-width: 0; width: 100%; padding: 7px 8px; color: inherit; background: #08171f;
+  border: 1px solid var(--line); border-radius: 4px; font: inherit;
+}
+#room-invitation { margin-bottom: 10px; }
+#room-panel button:disabled { opacity: .55; cursor: default; }
+
+@media (max-width: 420px) {
+  .footer-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .footer-actions > button { padding-inline: 6px; }
+}

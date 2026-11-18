@@ -1,4 +1,4 @@
-import { WATER } from './world.js';
+import { WATER } from './world/generation.js';
 
 const species = [
   {

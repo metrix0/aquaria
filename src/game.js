@@ -1,783 +1,290 @@
-import {
-  COLS, ROWS, TILE, WATER, WEST_EXTENSION, MATERIAL, SPAWN,
-  buildCellFree, clamp, createWorld, doorAt, editTile, isDoorOpen, placeDoor, tileAt, treeAt,
-} from './world.js';
-import { APPEARANCE, createRenderer } from './render.js';
-import { worldConditions } from './environment.js';
-import { updateEnemySpawns } from './enemies.js';
 import { Inventory, ITEMS } from './inventory.js';
-import { createInventoryUi } from './inventory-ui.js';
+import { fendOffEnemy } from './gameplay/mobs.js';
+import { config } from './config.js';
+import { worldConditions } from './environment.js';
+import { advanceMining, applyTerrain, awardTileAction, collectItem, commitTileAction, craftDoor, craftTank, createGame, planTileAction, resetRoomProgress, stepGame, targetTile } from './gameplay/simulation.js';
+import { bindInput } from './input.js';
+import { connectRoom, roomCode } from './multiplayer/client.js';
+import { createRenderer } from './render.js';
+import { createBrowserSave } from './save.js';
+import { createUI } from './ui.js';
 import { version } from './build-info.js';
+import { COLS, ROWS, TILE, clamp } from './world/generation.js';
 
-const byId = (id) => document.getElementById(id);
-const canvas = byId('scene');
+const canvas = document.getElementById('scene');
 const renderer = createRenderer(canvas);
-const customizePanel = byId('customize-panel');
-const previewCanvas = byId('character-preview');
-const swatches = Array.from(customizePanel.querySelectorAll('.swatch'));
-const backpackPanel = byId('backpack-panel');
-const craftPanel = byId('craft-panel');
-const pausePanel = byId('pause-panel');
-const panels = [customizePanel, backpackPanel, craftPanel, pausePanel];
-const saveKey = 'aquaria.save';
-const saveFormat = 2;
-const legacyCols = 224;
-const legacyEditableRows = 98;
-const playerSize = { width: 12, height: 23 };
-const jumpSpeed = 217;
-const shortHopSpeed = 115;
-const swimSpeed = 94;
-const keys = new Set();
-const pointer = { x: 0, y: 0, active: false };
+const soloSave = createBrowserSave();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const touch = matchMedia('(pointer: coarse)').matches;
-const jumpKeys = ['Space', 'KeyW', 'ArrowUp'];
-const moveKeys = new Set(['KeyA', 'KeyD', 'KeyS', 'ArrowLeft', 'ArrowRight', 'ArrowDown', ...jumpKeys]);
-const drops = {
-  [MATERIAL.sand]: 'sand', [MATERIAL.stone]: 'stone', [MATERIAL.soil]: 'sand',
-  [MATERIAL.reef]: 'stone', [MATERIAL.wood]: 'wood',
-  [MATERIAL.copper]: 'copper', [MATERIAL.iron]: 'iron', [MATERIAL.cobalt]: 'cobalt',
-};
-const editableMaterials = new Set(Object.values(MATERIAL).filter((material) => material !== MATERIAL.bedrock));
-const breakSeconds = {
-  [MATERIAL.sand]: 0.35,
-  [MATERIAL.soil]: 0.4,
-  [MATERIAL.wood]: 0.5,
-  [MATERIAL.reef]: 0.6,
-  [MATERIAL.stone]: 0.7,
-  [MATERIAL.copper]: 0.85,
-  [MATERIAL.iron]: 1.05,
-  [MATERIAL.cobalt]: 1.3,
-};
-const prompts = { kelp: 'Harvest kelp', cache: 'Open wreck cache' };
-const tankCost = { stone: 3, kelp: 2 };
-const doorCost = 3;
-const enemySpecs = {
-  jellyfish: { width: 12, height: 18, radius: 11, damage: 4, message: 'Stung by a jellyfish. -4s oxygen', material: MATERIAL.reef },
-  squid: { width: 16, height: 14, radius: 12, damage: 5, message: 'Struck by a reef squid. -5s oxygen', material: MATERIAL.bedrock },
-  shark: { width: 30, height: 14, radius: 15, damage: 7, message: 'Bitten by a shark! -7s oxygen', material: MATERIAL.stone },
-};
-
-let world;
-let player;
-let appearance;
-let inventory;
-let tank;
-let selected = 0;
-let placing = false;
-let dirty = false;
-let toastTimer;
-let focusedItem;
-let time = 0;
-let worldTime;
-let savedWorldTime;
-let weatherSeed;
-let enemies;
-let jumpRequested = false;
-let miningPointerId = null;
-let mining = null;
-
-const camera = { x: 0, y: 0, width: 0, height: 0 };
+const available = Boolean(config.url && config.publishableKey);
+const camera = { x: 0, y: 0, width: 1, height: 1 };
 const particles = [];
-const inventoryUi = createInventoryUi(backpackPanel, {
-  getInventory: () => inventory,
-  onMove: inventoryChanged,
-  onSelect: select,
-});
 
-function spawn() {
-  let y = SPAWN.y;
-  while (y > 0 && collides(SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...playerSize, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, oxygen: tank ? 42 : 18, hurt: 0, appearance };
-}
+let save = soloSave;
+let game = restore(save);
+let room;
+let busy = false;
+let editPending = false;
+let mining = null;
+let selected = 0;
+let count = 1;
+let time = 0;
+let message = available ? 'Create a room or join with an invite link.' : 'Multiplayer is unavailable in this build.';
 
-function startNewWorld() {
-  world = createWorld();
-  worldTime = 0;
-  weatherSeed = Math.floor(Math.random() * 0x80000000);
-  enemies = { spawnIn: 5, hitCooldown: 0 };
-  tank = false;
-  appearance = { skin: 0, shirt: 0, pants: 0 };
-  inventory = new Inventory();
-  player = spawn();
-}
-
-function load() {
-  startNewWorld();
-  try {
-    const state = JSON.parse(localStorage.getItem(saveKey));
-    const legacy = state?.format === 1;
-    if (!legacy && state?.format !== saveFormat) return;
-    if (Number.isFinite(state.worldTime) && state.worldTime >= 0) {
-      worldTime = state.worldTime;
-      savedWorldTime = worldTime;
-    }
-    if (Number.isInteger(state.weatherSeed) && state.weatherSeed >= 0 && state.weatherSeed < 0x80000000) {
-      weatherSeed = state.weatherSeed;
-    }
-    tank = state.tank === true;
-    for (const key of Object.keys(appearance)) {
-      const value = state.appearance?.[key];
-      if (Number.isInteger(value) && value >= 0 && value < APPEARANCE[key].length) appearance[key] = value;
-    }
-    inventory = new Inventory(state.inventory);
-    for (const edit of state.edits ?? []) {
-      if (!Array.isArray(edit)) continue;
-      if (legacy) {
-        const [index, material] = edit;
-        if (Number.isInteger(index) && index >= 0 && index < legacyCols * legacyEditableRows && editableMaterials.has(material)) {
-          editTile(world, index % legacyCols + WEST_EXTENSION, Math.floor(index / legacyCols), material);
-        }
-      } else {
-        const [x, y, material] = edit;
-        if (Number.isInteger(x) && Number.isInteger(y) && editableMaterials.has(material)) {
-          editTile(world, x + WEST_EXTENSION, y, material);
-        }
-      }
-    }
-    const harvestableIds = new Set([...world.items, ...world.trees].map(({ id }) => id));
-    world.harvested = new Set((state.harvested ?? []).filter((id) => harvestableIds.has(id)));
-    if (Array.isArray(state.doors)) {
-      for (const position of state.doors) {
-        if (!Array.isArray(position)) continue;
-        const [x, y] = position;
-        if (Number.isInteger(x) && Number.isInteger(y)) placeDoor(world, x + WEST_EXTENSION, y);
-      }
-    }
-    player = spawn();
-    if (Number.isFinite(state.x) && Number.isFinite(state.y)) {
-      const x = clamp(state.x + WEST_EXTENSION * TILE, player.width, COLS * TILE - player.width);
-      const y = clamp(state.y, 0, ROWS * TILE - player.height);
-      if (!collides(x, y)) Object.assign(player, { x, y });
-    }
-    if (Number.isFinite(state.oxygen)) player.oxygen = clamp(state.oxygen, 1, tank ? 42 : 18);
-    syncMobs();
-    dirty = legacy;
-    save();
-  } catch {
-    // An invalid or unavailable save should never prevent a new game.
+function restore(storage) {
+  const { snapshot, migrated } = storage.load();
+  const loaded = createGame(snapshot);
+  if (migrated) {
+    loaded.dirty = true;
+    storage.write(loaded);
   }
+  return loaded;
 }
 
-function save() {
-  if (!dirty && worldTime === savedWorldTime) return;
-  try {
-    localStorage.setItem(saveKey, JSON.stringify({
-      format: saveFormat, x: player.x - WEST_EXTENSION * TILE, y: player.y, oxygen: player.oxygen, tank, inventory, appearance,
-      edits: Array.from(world.edits, ([index, material]) => [index % COLS - WEST_EXTENSION, Math.floor(index / COLS), material]),
-      harvested: Array.from(world.harvested),
-      worldTime, weatherSeed,
-      doors: Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]),
-    }));
-    savedWorldTime = worldTime;
-    dirty = false;
-  } catch {
-    // The current session remains playable if storage is blocked or full.
-  }
-}
-
-function solidAt(tx, ty, x = player.x, y = player.y, height = player.height) {
-  if (tileAt(world, tx, ty)) return true;
-  const door = doorAt(world, tx, ty);
-  return Boolean(door && !isDoorOpen(door, x, y, height));
-}
-
-function collides(x, y) {
-  const left = Math.floor((x - playerSize.width / 2) / TILE);
-  const right = Math.floor((x + playerSize.width / 2 - 0.01) / TILE);
-  const top = Math.floor(y / TILE);
-  const bottom = Math.floor((y + playerSize.height - 0.01) / TILE);
-  for (let ty = top; ty <= bottom; ty++) {
-    for (let tx = left; tx <= right; tx++) {
-      if (solidAt(tx, ty, x, y, playerSize.height)) return true;
-    }
-  }
-  return false;
-}
-
-function moveAxis(axis, amount) {
-  let remaining = amount;
-  while (Math.abs(remaining) > 0.001) {
-    const delta = clamp(remaining, -3, 3);
-    const x = player.x + (axis === 'x' ? delta : 0);
-    const y = player.y + (axis === 'y' ? delta : 0);
-    if (!collides(x, y)) {
-      player[axis] += delta;
-      remaining -= delta;
-      continue;
-    }
-    let allowed = 0;
-    let blocked = 1;
-    for (let iteration = 0; iteration < 8; iteration++) {
-      const fraction = (allowed + blocked) / 2;
-      const x = player.x + (axis === 'x' ? delta * fraction : 0);
-      const y = player.y + (axis === 'y' ? delta * fraction : 0);
-      if (collides(x, y)) blocked = fraction;
-      else allowed = fraction;
-    }
-    player[axis] += delta * allowed;
-    return true;
-  }
-  return false;
-}
-
-function pressed(...codes) {
-  return codes.some((code) => keys.has(code));
-}
-
-function nearestItem() {
-  let result;
-  let distance = 35;
-  for (const item of world.items) {
-    if (world.harvested.has(item.id)) continue;
-    const difference = Math.hypot(item.x - player.x, item.y - player.y - 12);
-    if (difference < distance) {
-      distance = difference;
-      result = item;
-    }
-  }
-  return result;
-}
-
-function canJumpAshore(direction) {
-  if (!direction || player.dy < -swimSpeed || player.y + 5 > WATER || player.y + player.height <= WATER) return false;
-
-  const shoreX = player.x + direction * player.width;
-  const clearanceY = player.y - 2 * TILE;
-  return collides(shoreX, player.y) && !collides(player.x, clearanceY) && !collides(shoreX, clearanceY);
-}
-
-function fishCollides(x, y, width = 12, height = 8) {
-  if (y - height / 2 < WATER + 8) return true;
-  const left = Math.floor((x - width / 2) / TILE);
-  const right = Math.floor((x + width / 2 - 0.01) / TILE);
-  const top = Math.floor((y - height / 2) / TILE);
-  const bottom = Math.floor((y + height / 2 - 0.01) / TILE);
-  for (let ty = top; ty <= bottom; ty++) {
-    for (let tx = left; tx <= right; tx++) {
-      if (solidAt(tx, ty)) return true;
-    }
-  }
-  return false;
-}
-
-function burstParticles(x, y, material, count = 8, spread = 55) {
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x, y, dx: (Math.random() - 0.5) * spread,
-      dy: (Math.random() - 0.65) * spread, life: 0.25 + Math.random() * 0.4, material,
-    });
-  }
-}
-
-function crabCollides(x, y) {
-  const left = Math.floor((x - 6) / TILE);
-  const right = Math.floor((x + 6 - 0.01) / TILE);
-  const top = Math.floor((y - 8) / TILE);
-  const bottom = Math.floor((y - 0.01) / TILE);
-  for (let ty = top; ty <= bottom; ty++) {
-    for (let tx = left; tx <= right; tx++) {
-      if (solidAt(tx, ty)) return true;
-    }
-  }
-  return false;
-}
-
-function crabHasFloor(x, y) {
-  const tx = Math.floor(x / TILE);
-  const baseTy = Math.floor((y + 1) / TILE);
-  return solidAt(tx, baseTy) || solidAt(tx, baseTy + 1);
-}
-
-function syncMobs() {
-  for (const mob of world.mobs) {
-    if (mob.kind === 'crab') {
-      while (mob.y > TILE && crabCollides(mob.x, mob.y)) mob.y -= TILE;
-    } else if (fishCollides(mob.x, mob.y)) {
-      for (let offset = 1; offset <= 4; offset++) {
-        if (!fishCollides(mob.x, mob.y - offset * TILE)) {
-          mob.y -= offset * TILE;
-          break;
-        }
-        if (!fishCollides(mob.x, mob.y + offset * TILE)) {
-          mob.y += offset * TILE;
-          break;
-        }
-      }
-    }
-  }
-}
-
-function stepMobs(dt, night) {
-  updateEnemySpawns(enemies, world.mobs, player, night, dt, fishCollides);
-  enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
-  const underwater = player.y + 5 > WATER;
-  const px = player.x;
-  const py = player.y + 11;
-  const playerMoving = Math.hypot(player.dx, player.dy) > 14 || miningPointerId !== null;
-  let hit;
-
-  for (const mob of world.mobs) {
-    mob.flee = Math.max(0, mob.flee - dt);
-    const diffX = mob.x - px;
-    const diffY = (mob.kind === 'crab' ? mob.y - 4 : mob.y) - py;
-    const dist = Math.hypot(diffX, diffY) || 1;
-
-    if (mob.kind === 'fish') {
-      if (!mob.enemyType && py > WATER && dist < 44 && playerMoving) {
-        mob.flee = 1.1;
-        if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
-      }
-
-      let targetDx;
-      let targetDy;
-      if (mob.enemyType && underwater && dist < 108 && mob.remainingLife > 2) {
-        targetDx = -diffX / dist * mob.speed;
-        targetDy = -diffY / dist * mob.speed;
-        if (enemies.hitCooldown === 0 && Math.abs(diffX) < 12 && Math.abs(diffY) < 10) {
-          enemies.hitCooldown = 3;
-          hit = mob.enemyType;
-        }
-      } else if (mob.flee > 0) {
-        targetDx = mob.facing * mob.speed * 1.75;
-        targetDy = clamp((diffY / dist) * mob.speed * 1.1, -mob.speed, mob.speed);
-      } else {
-        if (mob.x > mob.homeX + mob.span) mob.facing = -1;
-        else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
-        if (fishCollides(mob.x + mob.facing * 12, mob.y)) mob.facing = -mob.facing;
-        targetDx = mob.facing * mob.speed * (0.85 + 0.25 * Math.sin(time * 2.1 + mob.phase));
-        const targetY = Math.max(WATER + 14, mob.homeY + Math.sin(time * 1.5 + mob.phase) * 10);
-        targetDy = clamp((targetY - mob.y) * 1.8, -mob.speed * 0.65, mob.speed * 0.65);
-      }
-
-      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 5);
-      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * 5);
-      if (Math.abs(mob.dx) > 1.5) mob.facing = mob.dx < 0 ? -1 : 1;
-
-      const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
-      if (!fishCollides(nextX, mob.y)) {
-        mob.x = nextX;
-      } else {
-        mob.facing = -mob.facing;
-        mob.dx *= -0.6;
-      }
-
-      const nextY = Math.max(WATER + 10, mob.y + mob.dy * dt);
-      if (!fishCollides(mob.x, nextY)) {
-        mob.y = nextY;
-      } else {
-        mob.dy *= -0.6;
-      }
-    } else if (mob.kind === 'crab') {
-      if (dist < 36 && playerMoving) {
-        mob.flee = 1;
-        if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
-      }
-
-      if (mob.x > mob.homeX + mob.span) mob.facing = -1;
-      else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
-
-      const scuttling = mob.flee > 0 || Math.sin(time * 1.15 + mob.phase * 2.1) > -0.55;
-      const targetDx = scuttling ? mob.facing * mob.speed * (mob.flee > 0 ? 1.65 : 1) : 0;
-      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 10);
-
-      if (Math.abs(mob.dx) > 0.5) {
-        const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
-        if (!crabCollides(nextX, mob.y)) {
-          if (!mob.grounded || crabHasFloor(nextX, mob.y)) {
-            mob.x = nextX;
-          } else {
-            mob.facing = -mob.facing;
-            mob.dx = 0;
-          }
-        } else {
-          const stepY = Math.floor((mob.y - 1) / TILE) * TILE;
-          if (mob.grounded && mob.y - stepY <= TILE && !crabCollides(mob.x, stepY) && !crabCollides(nextX, stepY)) {
-            mob.x = nextX;
-            mob.y = stepY;
-          } else {
-            mob.facing = -mob.facing;
-            mob.dx = 0;
-          }
-        }
-      }
-
-      const inWater = mob.y > WATER;
-      mob.dy = Math.min(mob.dy + (inWater ? 260 : 480) * dt, inWater ? 120 : 210);
-      const nextY = mob.y + mob.dy * dt;
-      if (!crabCollides(mob.x, nextY)) {
-        mob.y = nextY;
-        mob.grounded = false;
-      } else {
-        mob.y = Math.floor((nextY - 0.01) / TILE) * TILE;
-        mob.dy = 0;
-        mob.grounded = true;
-      }
-    } else if (enemySpecs[mob.kind]) {
-      const spec = enemySpecs[mob.kind];
-      mob.cooldown = Math.max(0, (mob.cooldown ?? 0) - dt);
-      const playerInWater = py > WATER + 6;
-      const toPlayerX = px - mob.x;
-      const toPlayerY = py - mob.y;
-      let targetDx = 0;
-      let targetDy = 0;
-
-      if (mob.flee > 0) {
-        targetDx = -(toPlayerX / dist) * (mob.speed * 1.6 + 24);
-        targetDy = -(toPlayerY / dist) * (mob.speed * 1.2 + 16);
-      } else if (mob.kind === 'jellyfish') {
-        const targetX = mob.homeX + Math.sin(time * 0.55 + mob.phase) * mob.span;
-        const targetY = mob.homeY + Math.sin(time * 1.5 + mob.phase * 1.7) * 16;
-        targetDx = clamp((targetX - mob.x) * 1.4, -mob.speed, mob.speed);
-        targetDy = clamp((targetY - mob.y) * 2.1, -mob.speed * 1.3, mob.speed * 1.3);
-      } else if (mob.kind === 'squid') {
-        const pulse = 0.3 + 0.95 * Math.pow(Math.max(0, Math.sin(time * 2.7 + mob.phase)), 2);
-        if (playerInWater && dist < 115 && mob.cooldown === 0) {
-          targetDx = (toPlayerX / dist) * mob.speed * 1.25 * pulse;
-          targetDy = (toPlayerY / dist) * mob.speed * 1.1 * pulse;
-        } else {
-          const targetX = mob.homeX + Math.sin(time * 0.75 + mob.phase) * mob.span;
-          const targetY = mob.homeY + Math.cos(time * 1.35 + mob.phase) * 15;
-          const toX = targetX - mob.x;
-          const toY = targetY - mob.y;
-          const toDist = Math.hypot(toX, toY) || 1;
-          targetDx = (toX / toDist) * mob.speed * pulse;
-          targetDy = (toY / toDist) * mob.speed * 0.75 * pulse;
-        }
-      } else if (mob.kind === 'shark') {
-        if (playerInWater && dist < 165 && Math.abs(px - mob.homeX) < mob.span + 95 && mob.cooldown === 0) {
-          targetDx = (toPlayerX / dist) * mob.speed * 1.18;
-          targetDy = (toPlayerY / dist) * mob.speed * 0.82;
-        } else {
-          if (mob.x > mob.homeX + mob.span) mob.facing = -1;
-          else if (mob.x < mob.homeX - mob.span) mob.facing = 1;
-          targetDx = mob.facing * mob.speed;
-          const targetY = mob.homeY + Math.sin(time * 1.2 + mob.phase) * 9;
-          targetDy = clamp((targetY - mob.y) * 1.8, -26, 26);
-        }
-      }
-
-      mob.dx += (targetDx - mob.dx) * Math.min(1, dt * 5);
-      mob.dy += (targetDy - mob.dy) * Math.min(1, dt * 5);
-      if (Math.abs(mob.dx) > 1.5 && mob.kind !== 'jellyfish') mob.facing = mob.dx < 0 ? -1 : 1;
-
-      const nextX = clamp(mob.x + mob.dx * dt, TILE, (COLS - 1) * TILE);
-      if (!fishCollides(nextX, mob.y, spec.width, spec.height)) {
-        mob.x = nextX;
-      } else {
-        mob.dx *= -0.75;
-        mob.facing = -mob.facing;
-      }
-
-      const nextY = Math.max(WATER + 12, mob.y + mob.dy * dt);
-      if (!fishCollides(mob.x, nextY, spec.width, spec.height)) {
-        mob.y = nextY;
-      } else {
-        mob.dy *= -0.75;
-      }
-
-      if (playerInWater && player.hurt <= 0 && mob.flee <= 0 && mob.cooldown <= 0 && dist < spec.radius + 7) {
-        player.hurt = 1.15;
-        mob.cooldown = 1.6;
-        if (mob.kind === 'squid') mob.flee = 1.8;
-        player.dx = (toPlayerX / dist) * 135;
-        player.dy = (toPlayerY / dist) * 105 - 18;
-        player.oxygen = Math.max(0, player.oxygen - spec.damage);
-        burstParticles(mob.x, mob.y, spec.material, mob.kind === 'squid' ? 14 : 9, 68);
-        notify(spec.message);
-        dirty = true;
-      }
-    }
-  }
-  return hit;
-}
-
-function step(dt, night) {
-  const left = pressed('KeyA', 'ArrowLeft');
-  const right = pressed('KeyD', 'ArrowRight');
-  const up = pressed(...jumpKeys);
-  const down = pressed('KeyS', 'ArrowDown');
-  const bodyInWater = player.y + player.height * 0.65 > WATER;
-  const maxOxygen = tank ? 42 : 18;
-  const horizontal = Number(right) - Number(left);
-  const shoreJump = (up || jumpRequested) && !down && canJumpAshore(horizontal);
-
-  player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
-  if (horizontal) player.facing = horizontal;
-  player.dx += (horizontal * (bodyInWater ? 102 : 112) - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
-  if (bodyInWater && !shoreJump) {
-    player.canShortenJump = false;
-    const vertical = Number(down) - Number(up);
-    player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
-  } else {
-    if (shoreJump || (jumpRequested && player.grounded)) {
-      player.dy = -jumpSpeed;
-      player.canShortenJump = !shoreJump;
-    }
-    if (player.canShortenJump && !up) {
-      player.dy = Math.max(player.dy, -shortHopSpeed);
-      player.canShortenJump = false;
-    }
-    player.dy = Math.min(player.dy + 510 * dt, 245);
-  }
-  jumpRequested = false;
-
-  if (moveAxis('x', player.dx * dt)) player.dx = 0;
-  const falling = player.dy >= 0;
-  const yCollision = moveAxis('y', player.dy * dt);
-  player.grounded = yCollision && falling;
-  if (yCollision) player.dy = 0;
-  if (player.dy >= 0) player.canShortenJump = false;
-  if (player.y < 0) player.y = 0;
-
-  const hit = stepMobs(dt, night);
-  if (hit) {
-    player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
-    notify(hit.name + ' bite. −' + hit.airLoss + ' s of air.');
-  }
-
-  const atVent = world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
-  if (atVent) {
-    if (player.oxygen < maxOxygen) dirty = true;
-    player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
-  } else if (player.y + 5 > WATER) {
-    player.oxygen = Math.max(0, player.oxygen - dt);
-    if (player.oxygen === 0) {
-      player = spawn();
-      for (const mob of world.mobs) {
-        if (enemySpecs[mob.kind]) {
-          mob.x = mob.homeX;
-          mob.y = mob.homeY;
-          mob.dx = 0;
-          mob.dy = 0;
-          mob.flee = 0;
-          mob.cooldown = 0;
-        }
-      }
-      stopMining();
-      notify('You washed back up on the island.');
-      dirty = true;
-      save();
-    }
-  } else {
-    player.oxygen = Math.min(maxOxygen, player.oxygen + 14 * dt);
-  }
-
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const particle = particles[i];
-    particle.life -= dt;
-    if (particle.life <= 0) particles.splice(i, 1);
-    else {
-      particle.x += particle.dx * dt;
-      particle.y += particle.dy * dt;
-      particle.dy += 42 * dt;
-    }
-  }
-
-  focusedItem = nearestItem();
-  if (Math.abs(player.dx) > 0.1 || Math.abs(player.dy) > 0.1 || player.oxygen < maxOxygen) dirty = true;
-}
-
-function aim() {
-  if (!pointer.active) return null;
-  const tx = Math.floor((pointer.x + camera.x) / TILE);
-  const ty = Math.floor((pointer.y + camera.y) / TILE);
-  const reachable = Math.hypot(tx * TILE + 8 - player.x, ty * TILE + 8 - player.y - 11) <= 5 * TILE;
-  return { tx, ty, reachable };
-}
-
-function placeBlock() {
-  const target = aim();
-  if (!target?.reachable) return;
-  const { tx, ty } = target;
-  const item = inventory.hotbar[selected]?.id;
-  if (item === 'door') {
-    if (!placeDoor(world, tx, ty)) return;
-    inventory.consume(inventory.hotbar, selected, 1);
-    syncMobs();
-    inventoryChanged();
-    return;
-  }
-  const block = ITEMS[item]?.block;
-  if (!block || !buildCellFree(world, tx, ty)) return;
-  const touches = tileAt(world, tx - 1, ty) || tileAt(world, tx + 1, ty) || tileAt(world, tx, ty - 1) || tileAt(world, tx, ty + 1);
-  if (!touches) return;
-  editTile(world, tx, ty, block);
-  if (collides(player.x, player.y)) {
-    editTile(world, tx, ty, MATERIAL.air);
-    return;
-  }
-  syncMobs();
-  inventory.consume(inventory.hotbar, selected, 1);
-  inventoryChanged();
-}
-
-function stopMining() {
-  miningPointerId = null;
-  mining = null;
-}
-
-function updateMining(dt) {
-  if (miningPointerId === null) return;
-  const target = aim();
-  const tile = target?.reachable ? tileAt(world, target.tx, target.ty) : MATERIAL.air;
-  const door = target?.reachable ? doorAt(world, target.tx, target.ty) : undefined;
-  const tree = !door && target?.reachable && tile === MATERIAL.air ? treeAt(world, target.tx, target.ty) : undefined;
-  const structure = door ?? tree;
-  const material = structure ? MATERIAL.wood : tile;
-  const duration = breakSeconds[material];
-  if (!duration) {
-    mining = null;
-    return;
-  }
-
-  const { tx, ty } = target;
-  if (!mining || mining.structure !== structure || (!structure && (mining.tx !== tx || mining.ty !== ty || mining.material !== material))) {
-    mining = { structure, material, duration, progress: 0 };
-  }
-  mining.tx = tx;
-  mining.ty = ty;
-  mining.progress += dt / duration;
-  if (mining.progress < 1) return;
-
-  const supportedDoor = structure ? undefined : doorAt(world, tx, ty - 1);
-  const rewards = supportedDoor ? new Inventory(inventory) : inventory;
-  const drop = door ? 'door' : drops[material];
-  if (!collect(drop, tree ? Math.round(tree.height / TILE) : 1, rewards)
-    || (supportedDoor && !collect('door', 1, rewards))) {
-    stopMining();
-    return;
-  }
-  inventory = rewards;
-  mining = null;
-  const removedDoor = door ?? supportedDoor;
-  if (removedDoor) world.doors.delete(removedDoor.ty * COLS + removedDoor.tx);
-  if (tree) {
-    world.harvested.add(tree.id);
-  } else if (!door) {
-    editTile(world, tx, ty, MATERIAL.air);
-  }
-  for (let i = 0; i < 8; i++) {
-    particles.push({
-      x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
-      dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material,
-    });
-  }
-  inventoryChanged();
-}
-
-function interact() {
-  const item = nearestItem();
-  if (!item) return;
-  if (item.kind === 'cache') {
-    if (!collect('wood', 8)) return;
-    notify('Wreck cache recovered. +8 wood');
-  } else {
-    if (!collect(item.kind, item.amount)) return;
-    notify('+' + item.amount + ' ' + item.kind);
-  }
-  world.harvested.add(item.id);
-  focusedItem = nearestItem();
-  inventoryChanged();
-}
-
-function collect(id, count, destination = inventory) {
-  if (destination.add(id, count)) return true;
-  notify('No room for more ' + ITEMS[id].name.toLowerCase() + '.');
-  return false;
-}
-
-function notify(message) {
-  const element = byId('feedback');
-  element.textContent = message;
-  element.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { element.hidden = true; }, 2700);
+function storeProgress() {
+  save.write(game);
 }
 
 function select(slot) {
   selected = slot;
-  inventoryUi.render(selected);
+  ui.select(slot);
+}
+
+function showAndSave(note) {
+  if (note) ui.notify(note);
+  storeProgress();
+}
+
+function aimedTile() {
+  const { pointer } = input;
+  return pointer.active ? targetTile(game, pointer.x + camera.x, pointer.y + camera.y) : null;
+}
+
+function showTileEffect({ tx, ty, before, amount }) {
+  if (amount < 0) return;
+  for (let i = 0; i < 8; i++) {
+    particles.push({
+      x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
+      dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material: before,
+    });
+  }
 }
 
 function inventoryChanged() {
-  inventoryUi.render(selected);
-  dirty = true;
-  save();
+  ui.select(selected);
+  game.dirty = true;
+  storeProgress();
 }
 
-function openPanel(panel) {
-  if (panel.open) {
-    panel.close();
+function emitEffect({ x, y, material, count, spread, message }) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y, dx: (Math.random() - 0.5) * spread, dy: (Math.random() - 0.65) * spread,
+      life: 0.25 + Math.random() * 0.4, material,
+    });
+  }
+  if (message) ui.notify(message);
+}
+
+async function editTile(action) {
+  if (!action || editPending) return;
+  const rewards = action.supportedDoor ? new Inventory(game.inventory) : null;
+  const missing = action.amount > 0 && (rewards
+    ? (!rewards.add(action.item, action.amount) ? action.item : !rewards.add('door', 1) ? 'door' : null)
+    : !game.inventory.canAdd(action.item, action.amount) ? action.item : null);
+  if (missing) {
+    input.stopMining();
+    ui.notify('No room for more ' + ITEMS[missing].name.toLowerCase() + '.');
     return;
   }
-  for (const other of panels) {
-    if (other.open) other.close();
+  if (!room || action.treeId) commitTileAction(game, action);
+  else {
+    editPending = true;
+    try {
+      const response = await room.edit(action);
+      if (!response?.accepted) {
+        ui.notify('That tile changed. Try again.');
+        return;
+      }
+      awardTileAction(game, action, response.removedDoor);
+    } catch {
+      ui.notify('Could not confirm the terrain edit.');
+      return;
+    } finally {
+      editPending = false;
+    }
   }
-  keys.clear();
-  jumpRequested = false;
-  stopMining();
-  if (panel === customizePanel) updateCustomize();
-  if (panel === backpackPanel) byId('backpack-tank').hidden = !tank;
-  if (panel === craftPanel) updateCraft();
-  save();
-  panel.showModal();
+  showTileEffect(action);
+  inventoryChanged();
 }
 
-function updateCustomize() {
-  for (const part of Object.keys(APPEARANCE)) {
-    setText(part + '-name', APPEARANCE[part][appearance[part]].name);
-  }
-  for (const button of swatches) {
-    const active = appearance[button.dataset.part] === Number(button.dataset.index);
-    button.setAttribute('aria-pressed', String(active));
-  }
-  renderer.drawPreview(previewCanvas, appearance, tank);
+function inviteLink(id) {
+  const url = new URL(location.href);
+  url.hash = 'room=' + id;
+  return url.href;
 }
 
-function canCraftTank() {
-  return !tank && inventory.count('stone') >= tankCost.stone && inventory.count('kelp') >= tankCost.kelp;
+function updateRoomUI() {
+  ui.room({ room, busy, available, message, count, link: room && inviteLink(room.id) });
 }
 
-function updateCraft() {
-  const button = byId('make-tank');
-  button.disabled = !canCraftTank();
-  button.textContent = tank ? 'Equipped' : 'Craft air tank';
-  byId('recipe-cost').textContent = tank ? 'Air tank equipped' : `${tankCost.stone} stone · ${tankCost.kelp} kelp`;
-  byId('make-door').disabled = inventory.count('wood') < doorCost;
-  byId('door-cost').textContent = `${doorCost} wood`;
-}
-
-function setText(id, value) {
-  const element = byId(id);
-  if (element.textContent !== value) element.textContent = value;
-}
-
-function updateHud(conditions) {
-  const depth = Math.max(0, Math.floor((player.y + 5 - WATER) / TILE));
-  const air = Math.round(player.oxygen / (tank ? 42 : 18) * 100);
-  const airValue = air + '%';
-  setText('depth', depth + ' m');
-  setText('world-conditions', (conditions.night ? 'Night' : 'Day') + (conditions.rain > 0 ? ' · Rain' : ' · Clear'));
-  setText('air-label', airValue);
-  const fill = byId('air-fill');
-  if (fill.style.width !== airValue) {
-    fill.style.width = airValue;
-    fill.classList.toggle('low', air <= 25);
-    fill.parentElement.setAttribute('aria-valuenow', String(air));
+async function enterRoom(value) {
+  if (busy || room || !available) return;
+  const invite = value === undefined ? null : roomCode(value);
+  if (value !== undefined && !invite) {
+    message = 'Enter a valid room link or code.';
+    updateRoomUI();
+    return;
   }
-  const prompt = byId('interact');
-  prompt.hidden = !focusedItem;
-  if (focusedItem) {
-    prompt.querySelector('kbd').hidden = touch;
-    prompt.querySelector('span').textContent = prompts[focusedItem.kind];
+  busy = true;
+  message = 'Connecting…';
+  updateRoomUI();
+  const pendingTiles = [];
+  try {
+    const connection = await connectRoom(config, invite, {
+      tile: (...args) => room ? applyTerrain(game, ...args) : pendingTiles.push(args),
+      status: (status) => {
+        message = status;
+        updateRoomUI();
+      },
+      count: (players) => {
+        count = players;
+        updateRoomUI();
+      },
+    });
+    storeProgress();
+    room = connection;
+    save = createBrowserSave('aquaria.room.' + room.id, { saveTerrain: false });
+    game = restore(save);
+    game.weatherSeed = Number.parseInt(room.id.slice(0, 8), 16) & 0x7fffffff;
+    for (const tile of pendingTiles) applyTerrain(game, ...tile);
+    switchView();
+    history.replaceState(null, '', inviteLink(room.id));
+    if (message === 'Connecting…') message = 'Invite a friend with this link.';
+    ui.close('room-panel');
+  } catch (error) {
+    message = error instanceof Error ? error.message : 'Could not connect to the room. Try again.';
+    if (ui.activePanel() !== 'room-panel') ui.open('room-panel');
+  } finally {
+    busy = false;
+    updateRoomUI();
   }
 }
+
+function leaveRoom() {
+  if (!room || editPending) return;
+  storeProgress();
+  room.close();
+  room = undefined;
+  count = 1;
+  save = soloSave;
+  game = restore(save);
+  message = 'Create a room or join with an invite link.';
+  const url = new URL(location.href);
+  url.hash = '';
+  history.replaceState(null, '', url);
+  switchView();
+  updateRoomUI();
+  ui.close('room-panel');
+}
+
+function switchView() {
+  input.clear();
+  input.pointer.active = false;
+  particles.length = 0;
+  select(0);
+  updateCamera(1);
+}
+
+async function copyRoom() {
+  if (!room) return;
+  try {
+    await navigator.clipboard.writeText(inviteLink(room.id));
+    message = 'Invite copied.';
+    updateRoomUI();
+  } catch {
+    document.getElementById('room-invitation').select();
+  }
+}
+
+function restart() {
+  if (editPending) return;
+  const question = room
+    ? 'Reset your progress in this room? The shared terrain will stay.'
+    : 'Start a new game and erase the save in this browser?';
+  if (!confirm(question)) return;
+  save.clear();
+  game = room ? resetRoomProgress(game) : createGame();
+  switchView();
+  game.dirty = true;
+  storeProgress();
+  ui.close('pause-panel');
+  ui.clearNotice();
+  if (game.dirty) ui.notify('World reset for this session. The browser could not save it.');
+}
+
+const ui = createUI({
+  beforePanel(id) {
+    input.clear();
+    if (id === 'craft-panel') ui.updateCraft(game);
+    if (id === 'backpack-panel') ui.updateBackpack(game);
+    if (id === 'customize-panel') ui.updateCustomize(game);
+    storeProgress();
+  },
+  select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
+  getInventory: () => game.inventory,
+  canMoveInventory: () => !editPending,
+  drawPreview: renderer.drawPreview,
+  customize(part, index) {
+    if (game.player.appearance[part] === index) return;
+    game.player.appearance[part] = index;
+    game.dirty = true;
+    ui.updateCustomize(game);
+    storeProgress();
+  },
+  makeDoor() {
+    if (editPending || !craftDoor(game)) return;
+    inventoryChanged();
+    ui.updateCraft(game);
+    ui.notify('Wooden door crafted.');
+  },
+  makeTank() {
+    if (editPending || !craftTank(game)) return;
+    ui.close('craft-panel');
+    inventoryChanged();
+    ui.notify('Air tank equipped.');
+  },
+}, version);
+
+const input = bindInput(canvas, {
+  blocked: ui.activePanel,
+  collect() {
+    if (editPending) return;
+    const note = collectItem(game);
+    if (note) {
+      inventoryChanged();
+      ui.notify(note);
+    }
+  },
+  fend() {
+    const { pointer } = input;
+    const effect = fendOffEnemy(game, pointer.x + camera.x, pointer.y + camera.y);
+    if (!effect) return false;
+    emitEffect(effect);
+    return true;
+  },
+  place: () => void editTile(planTileAction(game, aimedTile(), true, selected)),
+  stopMining: () => { mining = null; },
+  select,
+  craft: () => ui.open('craft-panel'),
+  backpack: () => ui.open('backpack-panel'),
+  character: () => ui.open('customize-panel'),
+  pause: () => ui.open('pause-panel'),
+});
 
 function updateCamera(dt) {
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
-  const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
-  const y = clamp(player.y - camera.height * 0.28, 0, Math.max(0, ROWS * TILE - camera.height));
+  const x = clamp(game.player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
+  const y = clamp(game.player.y - camera.height * 0.28, 0, Math.max(0, ROWS * TILE - camera.height));
   const factor = reducedMotion ? 1 : Math.min(1, dt * 5);
   camera.x += (x - camera.x) * factor;
   camera.y += (y - camera.y) * factor;
@@ -789,206 +296,39 @@ function resize() {
   camera.width = Math.max(1, Math.round(camera.height * ratio));
   canvas.width = camera.width;
   canvas.height = camera.height;
-  pointer.active = false;
-  stopMining();
+  input.pointer.active = false;
+  input.stopMining();
   updateCamera(1);
 }
 
-function locatePointer(event) {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = (event.clientX - rect.left) / rect.width * camera.width;
-  pointer.y = (event.clientY - rect.top) / rect.height * camera.height;
-  pointer.active = pointer.x >= 0 && pointer.x < camera.width && pointer.y >= 0 && pointer.y < camera.height;
-}
-
-window.addEventListener('keydown', (event) => {
-  const code = event.code;
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
-  if (code === 'Tab' && !event.shiftKey && !customizePanel.open && !craftPanel.open && !pausePanel.open) {
-    event.preventDefault();
-    if (!event.repeat) openPanel(backpackPanel);
-    return;
-  }
-  if (code === 'KeyV' && !event.repeat) {
-    event.preventDefault();
-    openPanel(customizePanel);
-    return;
-  }
-  if (code === 'KeyC' && !event.repeat) {
-    event.preventDefault();
-    openPanel(craftPanel);
-    return;
-  }
-  const panelOpen = panels.some((panel) => panel.open);
-  if (code === 'Escape' && !panelOpen && !event.repeat) {
-    event.preventDefault();
-    openPanel(pausePanel);
-    return;
-  }
-  if (panelOpen) return;
-  if (event.target instanceof HTMLButtonElement && code === 'Space') return;
-  if (moveKeys.has(code)) {
-    event.preventDefault();
-    if (!event.repeat && jumpKeys.includes(code)) jumpRequested = true;
-    keys.add(code);
-  }
-  if (event.repeat) return;
-  if (code === 'KeyE') interact();
-  if (/^Digit[1-4]$/.test(code)) select(Number(code.slice(-1)) - 1);
-});
-window.addEventListener('keyup', ({ code }) => keys.delete(code));
-window.addEventListener('blur', () => {
-  keys.clear();
-  jumpRequested = false;
-  stopMining();
-  save();
-});
-window.addEventListener('pagehide', save);
-document.addEventListener('visibilitychange', () => {
-  last = performance.now();
-  if (!document.hidden) return;
-  stopMining();
-  save();
-});
-window.addEventListener('resize', resize);
-
-canvas.addEventListener('pointermove', (event) => {
-  if (miningPointerId === null || event.pointerId === miningPointerId) locatePointer(event);
-});
-canvas.addEventListener('pointerleave', (event) => {
-  if (miningPointerId !== null && event.pointerId !== miningPointerId) return;
-  pointer.active = false;
-  stopMining();
-});
-canvas.addEventListener('contextmenu', (event) => event.preventDefault());
-function fendOffEnemy() {
-  if (!pointer.active) return false;
-  const wx = pointer.x + camera.x;
-  const wy = pointer.y + camera.y;
-  for (const mob of world.mobs) {
-    const spec = enemySpecs[mob.kind];
-    if (!spec) continue;
-    if (Math.hypot(wx - mob.x, wy - mob.y) <= spec.radius + 10 && Math.hypot(mob.x - player.x, mob.y - player.y - 11) <= 5 * TILE) {
-      const angle = Math.atan2(mob.y - (player.y + 11), mob.x - player.x);
-      mob.dx = Math.cos(angle) * 125;
-      mob.dy = Math.sin(angle) * 95;
-      mob.flee = 2.4;
-      mob.cooldown = 1.4;
-      burstParticles(mob.x, mob.y, spec.material, mob.kind === 'squid' ? 14 : 8, 64);
-      notify(mob.kind === 'squid' ? 'Startled squid jetted away in ink!' : 'Fended off ' + mob.kind + '!');
-      return true;
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const particle = particles[i];
+    particle.life -= dt;
+    if (particle.life <= 0) particles.splice(i, 1);
+    else {
+      particle.x += particle.dx * dt;
+      particle.y += particle.dy * dt;
+      particle.dy += 42 * dt;
     }
   }
-  return false;
 }
 
-canvas.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0 && event.button !== 2) return;
-  if (miningPointerId !== null && miningPointerId !== event.pointerId) return;
-  event.preventDefault();
-  if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
-  locatePointer(event);
-  if (event.button === 2 || (event.pointerType === 'touch' && placing)) {
-    stopMining();
-    placeBlock();
-    if (event.pointerType === 'touch') pointer.active = false;
-    return;
-  }
-  if (fendOffEnemy()) {
-    if (event.pointerType === 'touch') pointer.active = false;
-    return;
-  }
-  miningPointerId = event.pointerId;
-  mining = null;
+window.addEventListener('blur', storeProgress);
+window.addEventListener('pagehide', storeProgress);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  input.stopMining();
+  storeProgress();
 });
-function releaseMiningPointer(event) {
-  if (event.pointerId !== miningPointerId) return;
-  if (event.type === 'pointerup' && event.button !== 0) return;
-  if (event.pointerType === 'touch') pointer.active = false;
-  stopMining();
-}
-window.addEventListener('pointerup', releaseMiningPointer);
-window.addEventListener('pointercancel', releaseMiningPointer);
-canvas.addEventListener('lostpointercapture', releaseMiningPointer);
-window.addEventListener('mouseup', (event) => { if (event.button === 0) stopMining(); });
-
-for (const button of document.querySelectorAll('[data-hold]')) {
-  const key = button.dataset.hold;
-  button.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    button.setPointerCapture(event.pointerId);
-    if (key === 'Space') jumpRequested = true;
-    keys.add(key);
-  });
-  for (const action of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    button.addEventListener(action, () => keys.delete(key));
-  }
-}
-byId('grab').addEventListener('click', interact);
-byId('touch-mode').addEventListener('click', (event) => {
-  stopMining();
-  placing = !placing;
-  event.currentTarget.textContent = placing ? 'Build' : 'Mine';
-  event.currentTarget.setAttribute('aria-pressed', String(placing));
-});
-byId('customize').addEventListener('click', () => openPanel(customizePanel));
-for (const button of swatches) {
-  button.addEventListener('click', () => {
-    const { part, index } = button.dataset;
-    const next = Number(index);
-    if (!APPEARANCE[part]?.[next] || appearance[part] === next) return;
-    appearance[part] = next;
-    updateCustomize();
-    dirty = true;
-    save();
-  });
-}
-byId('backpack').addEventListener('click', () => openPanel(backpackPanel));
-byId('craft').addEventListener('click', () => openPanel(craftPanel));
-byId('pause').addEventListener('click', () => openPanel(pausePanel));
-byId('resume').addEventListener('click', () => pausePanel.close());
-for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
-byId('reset-world').addEventListener('click', () => {
-  if (!confirm('Start a new game and erase the save in this browser?')) return;
-  startNewWorld();
-  select(0);
-  pointer.active = false;
-  focusedItem = null;
-  particles.length = 0;
-  clearTimeout(toastTimer);
-  byId('feedback').hidden = true;
-  pausePanel.close();
-  updateCamera(1);
-  dirty = true;
-  save();
-  if (dirty) notify('World reset for this session. The browser could not save it.');
-});
-byId('make-tank').addEventListener('click', () => {
-  if (!canCraftTank()) return;
-  inventory.spend('stone', tankCost.stone);
-  inventory.spend('kelp', tankCost.kelp);
-  tank = true;
-  player.oxygen = Math.min(42, player.oxygen + 24);
-  inventoryChanged();
-  craftPanel.close();
-  notify('Air tank equipped.');
-});
-byId('make-door').addEventListener('click', () => {
-  if (inventory.count('wood') < doorCost) return;
-  const crafted = new Inventory(inventory);
-  crafted.spend('wood', doorCost);
-  if (!collect('door', 1, crafted)) return;
-  inventory = crafted;
-  inventoryChanged();
-  craftPanel.close();
-  notify('Door crafted. Equip it in the hotbar.');
-});
-
-byId('version').textContent = 'v' + version;
-load();
-select(0);
+window.addEventListener('resize', resize);
+setInterval(storeProgress, 4000);
 resize();
-setInterval(save, 4000);
+select(0);
+updateRoomUI();
+
+const invite = roomCode(location.hash);
+if (invite && available) void enterRoom(invite);
 
 let last = performance.now();
 let accumulator = 0;
@@ -997,24 +337,38 @@ function frame(now) {
   const elapsed = Math.max(0, (now - last) / 1000);
   const dt = Math.min(elapsed, 0.05);
   last = now;
-  const playing = !document.hidden && !panels.some((panel) => panel.open);
-  if (playing) worldTime += elapsed;
-  const conditions = worldConditions(worldTime, weatherSeed);
+  const playing = !document.hidden && !ui.activePanel();
+  if (playing && !room) {
+    game.worldTime += elapsed;
+    game.dirty = true;
+  }
+  const conditions = worldConditions(room?.worldAge(now) ?? game.worldTime, game.weatherSeed);
   if (playing) {
     time += dt;
     accumulator += dt;
     while (accumulator >= timestep) {
-      step(timestep, conditions.night);
+      const previousPlayer = game.player;
+      const note = stepGame(game, { ...input.sample(), mining: input.holdingMine(), night: conditions.night }, timestep);
+      for (const effect of game.effects) emitEffect(effect);
+      game.effects.length = 0;
+      if (game.player !== previousPlayer) input.stopMining();
+      if (note) showAndSave(note);
       accumulator -= timestep;
     }
+    updateParticles(dt);
     updateCamera(dt);
-    updateMining(dt);
+    if (input.holdingMine() && !editPending) {
+      mining = advanceMining(game, aimedTile(), mining, dt);
+      if (mining?.progress >= 1) {
+        void editTile(mining.action);
+        mining = null;
+      }
+    }
   }
-  updateHud(conditions);
-  renderer.draw({
-    world, player, tank, camera, time: reducedMotion ? 0 : time, aim: aim(),
-    mining, particles, reducedMotion, conditions,
-  });
+  ui.update(game, conditions);
+  const tank = game.progress.airTank;
+  const peers = room?.tick(now, dt, game.player, tank);
+  renderer.draw({ world: game.world, player: game.player, tank, camera, time: reducedMotion ? 0 : time, aim: aimedTile(), mining, particles, peers, reducedMotion, conditions });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

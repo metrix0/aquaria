@@ -42,7 +42,7 @@ function drawSlots(buttons, stacks, selected) {
   }
 }
 
-export function createInventoryUi(panel, { getInventory, onMove, onSelect }) {
+export function createInventoryUi(panel, { getInventory, onMove, onSelect, canMove }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
@@ -71,7 +71,7 @@ export function createInventoryUi(panel, { getInventory, onMove, onSelect }) {
 
   function move(from, to) {
     pick(null);
-    if (from !== to && getInventory().move(address(from), address(to))) onMove();
+    if (canMove() && from !== to && getInventory().move(address(from), address(to))) onMove();
   }
 
   function activate(button) {

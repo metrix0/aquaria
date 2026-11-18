@@ -1,4 +1,4 @@
-import { MATERIAL } from './world.js';
+import { MATERIAL } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -56,6 +56,10 @@ export class Inventory {
     else if (spare !== -1) this.hotbar[spare] = stack;
     else return false;
     return true;
+  }
+
+  canAdd(id, count) {
+    return new Inventory(this).add(id, count);
   }
 
   count(id) {

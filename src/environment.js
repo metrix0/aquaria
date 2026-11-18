@@ -1,4 +1,4 @@
-import { clamp, noise } from './world.js';
+import { clamp, noise } from './world/generation.js';
 
 const cycleSeconds = 20 * 60;
 const daySeconds = 12 * 60;

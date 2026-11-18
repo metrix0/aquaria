@@ -45,6 +45,7 @@
       <footer>
         <div class="controls"><span><kbd>A</kbd> <kbd>D</kbd> Move</span><span><kbd>Space</kbd> Jump / swim</span><span><kbd>S</kbd> Dive</span><span><kbd>Hold left click</kbd> Mine</span><span><kbd>Right click</kbd> Build</span></div>
         <div class="footer-actions">
+          <button id="multiplayer" class="room-button">Multiplayer</button>
           <button id="customize" class="customize" aria-haspopup="dialog" aria-controls="customize-panel" aria-keyshortcuts="V"><kbd>V</kbd> Character</button>
           <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
           <button id="craft" class="craft"><kbd>C</kbd> Crafting</button>
@@ -136,6 +137,20 @@
       <p>Your progress is saved in this browser.</p>
       <div class="dialog-actions"><button id="resume" class="primary">Resume</button><button id="reset-world">Start over</button></div>
       <p id="version"></p>
+    </dialog>
+    <dialog id="room-panel" aria-labelledby="room-title">
+      <div class="dialog-head"><h2 id="room-title">Multiplayer</h2><button data-close aria-label="Close multiplayer">×</button></div>
+      <p id="room-status" role="status">Create a room or join with an invite link.</p>
+      <input id="room-invitation" aria-label="Room invite link" readonly hidden>
+      <div class="dialog-actions">
+        <button id="room-create" class="primary">Create room</button>
+        <button id="room-copy" class="primary" hidden>Copy invite</button>
+        <button id="room-leave" hidden>Leave room</button>
+      </div>
+      <form id="room-join-form">
+        <label for="room-code">Invite link or code</label>
+        <div class="dialog-actions"><input id="room-code" required maxlength="250" spellcheck="false" autocomplete="off"><button id="room-join">Join</button></div>
+      </form>
     </dialog>
   </main>
 </body>
