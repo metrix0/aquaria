@@ -5,7 +5,7 @@ import { playerInWater } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
 import { hasOpenFace, isCaveMushroomExposed, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
-import { shipwreckSails } from './world/shipwreck.js';
+import { createShipwreckArt } from './shipwreck-art.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const palettes = {
@@ -46,6 +46,7 @@ const crabColors = [
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
+  const shipwreckArt = createShipwreckArt(canvas, ctx);
   const caveLight = createCaveLight();
   const surfaceLight = createSurfaceLight();
   const lightCanvas = canvas.ownerDocument.createElement('canvas');
@@ -515,27 +516,22 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function terrain(world, player, camera, time, { left, right, top, bottom }, openChestId) {
-    for (const { column, row, points } of shipwreckSails) {
-      const tx = column + WEST_EXTENSION;
-      if (tx < left - 6 || tx >= right + 6 || row >= bottom || row + 7 < top) continue;
-      if (tileAt(world, tx, row) !== MATERIAL.wood) continue;
-      const x = (tx + .5) * TILE;
-      const y = (row + .35) * TILE;
-      polygon(points.map(([dx, dy]) => [x + dx * TILE, y + dy * TILE]), '#557b77');
-      polygon([[x, y], [x + points[1][0] * TILE, y + points[1][1] * TILE], [x + points[1][0] * TILE * .75, y + TILE * 2]], '#6f9185');
-    }
+  function terrain(world, player, camera, time, bounds, openChestId) {
+    const { left, right, top, bottom } = bounds;
+    shipwreckArt.backdrop(world, bounds);
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y) : 0;
-        if (material) drawTile(world, x, y, material, oreOpacity);
-        else if (y >= firstCaveRow) caveWall(world, x, y, y === firstCaveRow && !tileAt(world, x, y - 1));
+        if (material) {
+          if (!shipwreckArt.timber(world, x, y, material)) drawTile(world, x, y, material, oreOpacity);
+        } else if (y >= firstCaveRow) caveWall(world, x, y, y === firstCaveRow && !tileAt(world, x, y - 1));
       }
     }
 
+    shipwreckArt.fittings(world, bounds);
     for (let x = left; x < right; x++) {
       const y = groundAt(x);
       if (y < top - 2 || y > bottom + 2 || !tileAt(world, x, y) || tileAt(world, x, y - 1)) continue;

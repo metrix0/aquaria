@@ -2,6 +2,7 @@ import { MATERIAL } from '../content.js';
 
 const left = -98;
 const top = 27;
+export const shipwreckOrigin = { column: left, row: top };
 
 // Side view of the wreck. Gaps in the decks and hull let swimmers enter the holds.
 const timber = [
@@ -50,10 +51,9 @@ export const shipwreckCaches = [
 ];
 
 export const shipwreckVentColumn = -49;
-export const shipwreckSails = [
-  { column: left + 14, row: 30, points: [[0, 0], [5.8, 1.7], [4.9, 3.4], [3.9, 2.8], [3.1, 5.9], [2.1, 4.7], [.6, 6.7]] },
-  { column: left + 31, row: 37, points: [[0, 0], [-5.2, 1.1], [-3.8, 2.2], [-3.1, 4.7], [-1.9, 3.5], [0, 5]] },
-];
+export function shipwreckTimberAt(column, row) {
+  return timber[row - top]?.[column - left] === '#';
+}
 
 export function placeShipwreck(set, bounds, westExtension) {
   const start = left + westExtension;
