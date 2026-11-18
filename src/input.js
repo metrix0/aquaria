@@ -56,7 +56,6 @@ export function bindInput(canvas, actions) {
       actions.pause();
       return;
     }
-    if (event.target instanceof HTMLButtonElement && code === 'Space') return;
     if (moveKeys.has(code)) {
       event.preventDefault();
       if (!event.repeat && movement.up.includes(code)) jump = true;
