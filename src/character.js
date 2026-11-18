@@ -30,6 +30,15 @@ function walkFoot(phase, weight, restX, direction) {
   ];
 }
 
+function swimFoot(phase, effort, far) {
+  const stroke = Math.sin(phase) * effort;
+  return [
+    (far ? -6 : -4) - 2.2 * stroke,
+    (far ? 21 : 22) + 1.8 * Math.cos(phase) * effort,
+    0.7 + 1.6 * Math.max(0, -stroke),
+  ];
+}
+
 export function createCharacterRenderer(ctx) {
   function rect(x, y, width, height, color) {
     ctx.fillStyle = color;
@@ -46,7 +55,7 @@ export function createCharacterRenderer(ctx) {
     }
   }
 
-  function leg(hip, foot, pants, far) {
+  function leg(hip, foot, pants, far, swimming) {
     const [x, y, bend = 0] = foot;
     const ankle = [x, y - 1];
     let knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
@@ -61,9 +70,10 @@ export function createCharacterRenderer(ctx) {
     const trimWidth = far ? 1 : 2;
     pixelLine(hip, knee, trimWidth, far ? pants.front : pants.light);
     pixelLine(knee, ankle, trimWidth, pants.front);
-    rect(x - 2, y - 1, far ? 4 : 5, 2, sole);
-    rect(x - 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
-    if (!far) rect(x + 1, y - 1, 1, 1, bootLight);
+    const bootLeft = x - (swimming ? 3 : 2);
+    rect(bootLeft, y - 1, far ? 4 : 5, 2, sole);
+    rect(bootLeft + 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
+    if (!far) rect(x + (swimming ? -2 : 1), y - 1, 1, 1, bootLight);
   }
 
   function arm(x, y, swing, skin, shirt, far) {
@@ -211,9 +221,12 @@ export function createCharacterRenderer(ctx) {
     const shoulderX = (shoulder - 5) / 2;
     const walkDirection = player.dx * facing < 0 ? -1 : 1;
     const rising = player.dy < -35;
-    const nearFoot = swimming ? [-2 + kick, 21 - Math.max(kick, 0)]
+    const swimPhase = time * 7.5;
+    const swimEffort = swimming && !reducedMotion
+      ? 0.32 + 0.68 * clamp(Math.hypot(player.dx, player.dy) / 82, 0, 1) : 0;
+    const nearFoot = swimming ? swimFoot(swimPhase, swimEffort, false)
       : player.grounded ? walkFoot(phase, strideWeight, 2, walkDirection) : [3, rising ? 19 : 21];
-    const farFoot = swimming ? [-5 - kick, 22 + Math.min(kick, 0)]
+    const farFoot = swimming ? swimFoot(swimPhase + Math.PI, swimEffort, true)
       : player.grounded ? walkFoot((phase + 0.5) % 1, strideWeight, -3, walkDirection) : [-4, rising ? 20 : 22];
     const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : attackSwing ? attackSwing.y - player.y : 0;
     const swingPhase = mining && !reducedMotion
@@ -250,8 +263,8 @@ export function createCharacterRenderer(ctx) {
       return;
     }
     if (swimming) ctx.rotate(tilt);
-    leg([-2, 17], farFoot, pants, true);
-    if (strideWeight) leg([1, 17], nearFoot, pants, false);
+    leg([-2, 17], farFoot, pants, true, swimming);
+    if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
     arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     if (tank) {
@@ -270,7 +283,7 @@ export function createCharacterRenderer(ctx) {
     rect(0, 13, 2, 1, shirt.light);
     rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
     rect(-1, 16, 2, 1, '#d9ac75');
-    if (!strideWeight) leg([1, 17], nearFoot, pants, false);
+    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
     if (helmet) divingHelmet(0, 0);
     rect(-2, 9, 5, 1, '#efc48d');
