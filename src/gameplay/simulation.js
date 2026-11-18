@@ -1,15 +1,20 @@
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { AIR_TANK, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, REINFORCED_HELMET, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, updateOxygen } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, takeDamage, updateOxygen } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
+export function equippedHelmet(game) {
+  if (!game.progress.swimmingHelmet) return null;
+  return game.progress.reinforcedHelmet ? REINFORCED_HELMET : SWIMMING_HELMET;
+}
+
 export function oxygenCapacity(game) {
   return (game.progress.airTank ? AIR_TANK.breathSeconds : BREATH_SECONDS) +
-    (game.progress.swimmingHelmet ? SWIMMING_HELMET.bonusSeconds : 0);
+    (equippedHelmet(game)?.bonusSeconds ?? 0);
 }
 
 export function createGame(snapshot) {
@@ -37,7 +42,8 @@ export function createGame(snapshot) {
   }
   game.chests = restoreChests(world, game.progress, snapshot?.world.chests);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
-  game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance);
+  game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
+    Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null);
 
   const position = snapshot?.player;
   if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
@@ -128,6 +134,17 @@ function stepProjectiles(game, dt) {
   }
 }
 
+export function useDressing(game, slot) {
+  const { player, inventory } = game;
+  if (inventory.hotbar[slot]?.id !== KELP_DRESSING.id) return;
+  const healed = Math.min(KELP_DRESSING.heal, MAX_HEALTH - player.health);
+  if (healed < 1) return { message: 'Health is already full.' };
+  inventory.consume(inventory.hotbar, slot, 1);
+  player.health += healed;
+  game.dirty = true;
+  return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
+}
+
 export function useWeapon(game, slot, wx, wy) {
   const itemId = game.inventory.hotbar[slot]?.id;
   const item = ITEMS[itemId];
@@ -206,11 +223,11 @@ export function stepGame(game, input, dt) {
   });
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
-    player.health = Math.max(0, player.health - (hit.healthLoss ?? 10));
+    takeDamage(player, hit.healthLoss ?? 10);
     player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
   }
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
-    game.player = spawn(world, capacity, player.appearance);
+    game.player = spawn(world, capacity, player.appearance, player.armor);
     game.attack = null;
     game.projectiles.length = 0;
     resetHostiles(world);
@@ -330,11 +347,35 @@ function craftResult(inventory, { id, cost, amount = 1, station }, activeStation
   return after.add(id, amount) ? after : null;
 }
 
+export function equipmentCraftStatus(game, recipe) {
+  const current = recipe.equipment === 'helmet' ? equippedHelmet(game)?.id : game.player.armor;
+  for (let id = current; id; id = ARMOR[id]?.requires) {
+    if (id === recipe.id) return current === id ? 'Equipped' : 'Already upgraded';
+  }
+  if (recipe.requires && current !== recipe.requires) return 'Upgrade required';
+  return null;
+}
+
 export function canCraftItem(game, recipe, station) {
-  return Boolean(craftResult(game.inventory, recipe, station));
+  if (recipe.station && recipe.station !== station) return false;
+  if (!recipe.equipment) return Boolean(craftResult(game.inventory, recipe, station));
+  return !equipmentCraftStatus(game, recipe) &&
+    Object.entries(recipe.cost).every(([id, count]) => game.inventory.count(id) >= count);
 }
 
 export function craftItem(game, recipe, station) {
+  if (recipe.equipment) {
+    if (!canCraftItem(game, recipe, station)) return false;
+    for (const [id, count] of Object.entries(recipe.cost)) game.inventory.spend(id, count);
+    if (recipe.equipment === 'helmet') {
+      game.progress.reinforcedHelmet = true;
+      game.player.oxygen += REINFORCED_HELMET.bonusSeconds - SWIMMING_HELMET.bonusSeconds;
+    } else {
+      game.player.armor = recipe.id;
+    }
+    game.dirty = true;
+    return true;
+  }
   const inventory = craftResult(game.inventory, recipe, station);
   if (!inventory) return false;
   game.inventory = inventory;
@@ -402,7 +443,7 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const fixture = action.door ?? action.fixtureId;
   const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
-  const duration = tier ? rule.pickaxe : rule.hand;
+  const duration = tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand;
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier, tool };
 }
@@ -423,7 +464,7 @@ export function applyTerrain(game, tx, ty, material) {
   if (!editTile(world, tx, ty, material)) return;
   if (world.harvested.size !== harvested) game.dirty = true;
   if (material && collides(world, player.x, player.y, player.height)) {
-    game.player = spawn(game.world, oxygenCapacity(game), player.appearance);
+    game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor);
     game.attack = null;
     game.dirty = true;
   }

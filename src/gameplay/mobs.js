@@ -1,13 +1,14 @@
 import { MATERIAL } from '../content.js';
+import { takeDamage } from './player.js';
 import { updateEnemySpawns } from '../enemies.js';
 import { inWater, solidAt, waterTileAt } from '../world.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from './cave-enemies.js';
 import { COLS, MOB_HEALTH, TILE, WATER, clamp, waterwayAt } from '../world/generation.js';
 
 const enemySpecs = {
-  jellyfish: { name: 'jellyfish', width: 12, height: 18, radius: 11, centerY: 0, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish. −16 health', material: MATERIAL.reef, maxHealth: MOB_HEALTH.jellyfish },
-  squid: { name: 'reef squid', width: 16, height: 14, radius: 12, centerY: 0, damage: 4, healthDamage: 22, message: 'Struck by a reef squid. −22 health', material: MATERIAL.bedrock, maxHealth: MOB_HEALTH.squid },
-  shark: { name: 'shark', width: 30, height: 14, radius: 15, centerY: 0, damage: 5, healthDamage: 34, message: 'Bitten by a shark! −34 health', material: MATERIAL.stone, maxHealth: MOB_HEALTH.shark },
+  jellyfish: { name: 'jellyfish', width: 12, height: 18, radius: 11, centerY: 0, damage: 3, healthDamage: 16, message: 'Stung by a jellyfish.', material: MATERIAL.reef, maxHealth: MOB_HEALTH.jellyfish },
+  squid: { name: 'reef squid', width: 16, height: 14, radius: 12, centerY: 0, damage: 4, healthDamage: 22, message: 'Struck by a reef squid.', material: MATERIAL.bedrock, maxHealth: MOB_HEALTH.squid },
+  shark: { name: 'shark', width: 30, height: 14, radius: 15, centerY: 0, damage: 5, healthDamage: 34, message: 'Bitten by a shark!', material: MATERIAL.stone, maxHealth: MOB_HEALTH.shark },
 };
 const mobSpecs = {
   crab: { name: 'crab', width: 12, height: 8, radius: 10, centerY: -4, material: MATERIAL.sand, maxHealth: MOB_HEALTH.crab },
@@ -50,9 +51,9 @@ function stepProjectiles(world, player, dt, time, effects) {
         player.hurt = 0.9;
         player.dx = clamp(bubble.dx * 0.65, -95, 95);
         player.dy = clamp(bubble.dy * 0.55 - 10, -80, 80);
-        player.health = Math.max(0, player.health - 15);
+        const loss = takeDamage(player, 15);
         player.oxygen = Math.max(0, player.oxygen - 2);
-        effect.message = 'Hit by squid paint bubble! −15 health';
+        effect.message = 'Hit by squid paint bubble! −' + loss + ' health';
       }
       effects.push(effect);
       world.projectiles.splice(i, 1);
@@ -266,7 +267,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
             mob.cooldown = 1.8;
             player.dx = (toPlayerX / dist) * 115;
             player.dy = (toPlayerY / dist) * 95 - 12;
-            player.health = Math.max(0, player.health - 20);
+            takeDamage(player, 20);
             player.oxygen = Math.max(0, player.oxygen - 3);
             effects.push({ x: px, y: py, color: '#8bdfd0', count: 12, spread: 75, message: 'Shocked by a jellyfish! Stunned!' });
           }
@@ -401,11 +402,11 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         mob.dash = 0;
         player.dx = (toPlayerX / dist) * knock;
         player.dy = (toPlayerY / dist) * 105 - 18;
-        player.health = Math.max(0, player.health - dmg);
+        const loss = takeDamage(player, dmg);
         player.oxygen = Math.max(0, player.oxygen - air);
         effects.push({
           x: mob.x, y: mob.y, material: spec.material, count: mob.kind === 'squid' ? 14 : 9, spread: 68,
-          message: dashingShark ? 'Shark dash bite! −42 health' : spec.message,
+          message: (dashingShark ? 'Shark dash bite!' : spec.message) + ' −' + loss + ' health',
         });
       }
     }

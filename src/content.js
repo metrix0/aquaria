@@ -34,11 +34,36 @@ export const CHEST_SIZE = 8;
 export const INTERACTION_RANGE = 35;
 export const BREATH_SECONDS = 18;
 
+export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
+
 export const SWIMMING_HELMET = {
-  id: 'swimming-helmet',
+  id: 'swimming-helmet', name: 'Swimming helmet',
   chestId: 'wreck-chest',
   bonusSeconds: 14,
 };
+
+export const REINFORCED_HELMET = {
+  id: 'reinforced-helmet', name: 'Reinforced swimming helmet',
+  cost: { iron: 4, cobalt: 2, kelp: 2 }, bonusSeconds: 28,
+  requires: SWIMMING_HELMET.id, equipment: 'helmet', station: WORKBENCH.id,
+};
+
+export const ARMOR = Object.freeze({
+  'copper-breastplate': {
+    id: 'copper-breastplate', name: 'Copper breastplate', equipment: 'armor', station: WORKBENCH.id,
+    cost: { copper: 5, kelp: 2 }, protection: 0.15, colors: ['#874f45', '#d88a62', '#ffd3a0'],
+  },
+  'iron-breastplate': {
+    id: 'iron-breastplate', name: 'Iron breastplate', equipment: 'armor', station: WORKBENCH.id,
+    cost: { iron: 6, kelp: 2 }, protection: 0.28, colors: ['#536874', '#9eafae', '#e4e5cf'],
+    requires: 'copper-breastplate',
+  },
+  'cobalt-breastplate': {
+    id: 'cobalt-breastplate', name: 'Cobalt breastplate', equipment: 'armor', station: WORKBENCH.id,
+    cost: { cobalt: 6, kelp: 2 }, protection: 0.40, colors: ['#455294', '#768de5', '#c4d8ff'],
+    requires: 'iron-breastplate',
+  },
+});
 
 export const AIR_TANK = {
   id: 'air-tank',
@@ -48,11 +73,19 @@ export const AIR_TANK = {
 
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
-export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', cost: { copper: 3, wood: 2 } };
+export const IRON_PICKAXE = { id: 'iron-pickaxe', station: WORKBENCH.id, cost: { iron: 4, wood: 2 }, miningTime: 0.7 };
+export const KELP_DRESSING = { id: 'kelp-dressing', cost: { kelp: 3 }, heal: 30 };
 export const SPEAR = { id: 'spear', cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
 export const COPPER_SPEAR = { id: 'copper-spear', cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
+export const IRON_SWORD = {
+  id: 'iron-sword', station: WORKBENCH.id, cost: { iron: 4, wood: 1 }, damage: 5, cooldown: 0.42, knockback: 205,
+  blade: [8, -2, 12, 4],
+};
+export const COBALT_SPEAR = {
+  id: 'cobalt-spear', station: WORKBENCH.id, cost: { cobalt: 4, iron: 1, wood: 2 }, damage: 6, cooldown: 0.4, knockback: 250, reach: 6,
+};
 export const BOW = { id: 'bow', cost: { wood: 3, kelp: 1 }, amount: 1, cooldown: 0.38 };
 export const ARROW = { id: 'arrow', cost: { wood: 1, stone: 1 }, amount: 4, damage: 2, speed: 300, knockback: 115 };
 

@@ -2,10 +2,10 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARROW, BOW, BROKEN_PICKAXE, CHEST_SIZE, COPPER_PICKAXE, COPPER_SPEAR, MATERIAL, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, MATERIAL, REINFORCED_HELMET, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
-import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
+import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
@@ -435,6 +435,13 @@ test('mining uses the strongest carried pickaxe without changing the selected sl
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
   assert.equal(restored.inventory.backpack[0].id, COPPER_PICKAXE.id);
+
+  for (const [id, count] of Object.entries(IRON_PICKAXE.cost)) restored.inventory.add(id, count);
+  assert.ok(craftItem(restored, IRON_PICKAXE, WORKBENCH.id));
+  editTile(restored.world, tx, ty, MATERIAL.deepstone);
+  const ironMining = advanceMining(restored, target, null, 0, 2);
+  assert.equal(ironMining.tool, IRON_PICKAXE.id);
+  assert.equal(ironMining.duration, mining.duration * 0.7);
 });
 
 test('old salvage tools migrate in place in the hotbar, backpack and chests', () => {
@@ -926,4 +933,70 @@ test('bench recipe requirements are enforced when checking and crafting', () => 
   assert.equal(canCraftItem(game, benchRecipe, WORKBENCH.id), true);
   assert.equal(craftItem(game, benchRecipe, WORKBENCH.id), true);
   assert.equal(game.inventory.count(WOODEN_DOOR.id), 1);
+});
+
+test('breathing helmet upgrades require the wreck helmet and stack with the air tank across saves', () => {
+  const game = createGame();
+  for (const [id, count] of Object.entries(REINFORCED_HELMET.cost)) game.inventory.add(id, count);
+  assert.equal(craftItem(game, REINFORCED_HELMET, WORKBENCH.id), false);
+  assert.equal(oxygenCapacity(game), 18);
+  equipChestLoot(game, SWIMMING_HELMET.chestId, 0);
+  assert.equal(oxygenCapacity(game), 32);
+  assert.equal(craftItem(game, REINFORCED_HELMET), false);
+  assert.equal(craftItem(game, REINFORCED_HELMET, WORKBENCH.id), true);
+  assert.equal(oxygenCapacity(game), 46);
+  assert.equal(game.player.oxygen, 46);
+  game.inventory.add('kelp', 2);
+  game.inventory.add('stone', 3);
+  assert.equal(craftTank(game), true);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(oxygenCapacity(restored), 70);
+  assert.equal(restored.player.oxygen, 70);
+  assert.equal(canCraftItem(restored, REINFORCED_HELMET, WORKBENCH.id), false);
+  assert.equal(restored.chests.get(SWIMMING_HELMET.chestId)[0], null);
+});
+
+test('breastplates upgrade in order, mitigate damage and survive respawn and reload', () => {
+  const game = createGame();
+  const [copper, iron, cobalt] = Object.values(ARMOR);
+  for (const armor of [copper, iron, cobalt]) {
+    for (const [id, count] of Object.entries(armor.cost)) game.inventory.add(id, count);
+  }
+  assert.equal(craftItem(game, iron, WORKBENCH.id), false);
+  for (const [armor, expectedDamage] of [[copper, 17], [iron, 14], [cobalt, 12]]) {
+    assert.equal(craftItem(game, armor, WORKBENCH.id), true);
+    assert.equal(takeDamage(game.player, 20), expectedDamage);
+  }
+  assert.equal(craftItem(game, copper, WORKBENCH.id), false);
+  game.player.health = 0;
+  game.player.hurt = 1;
+  stepGame(game, {}, 1 / 60);
+  assert.equal(game.player.armor, cobalt.id);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.player.armor, cobalt.id);
+  assert.equal(oxygenCapacity(restored), 18);
+});
+
+test('iron sword hits through its swing arc and cobalt spear reaches farther than copper', () => {
+  const game = createGame();
+  const { player, world } = game;
+  toggleGodMode(world, player);
+  const crab = world.mobs.find((mob) => mob.kind === 'crab');
+  const cases = [
+    [IRON_SWORD, { x: player.x + 12, y: player.y + 3 }, 5],
+    [COPPER_SPEAR, { x: player.x + 42, y: player.y + 15 }, 0],
+    [COBALT_SPEAR, { x: player.x + 42, y: player.y + 15 }, 6],
+  ];
+  for (const [weapon, position, damage] of cases) {
+    const target = { ...crab, ...position, health: 10, maxHealth: 10 };
+    world.mobs = [target];
+    game.inventory.hotbar[1] = { id: weapon.id, count: 1 };
+    useWeapon(game, 1, player.x + 72, player.y + 12);
+    assert.equal(target.health, 10);
+    for (let i = 0; i < 30; i++) {
+      Object.assign(target, position);
+      stepGame(game, {}, 1 / 60);
+    }
+    assert.equal(target.health, 10 - damage, weapon.id);
+  }
 });

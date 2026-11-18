@@ -1,16 +1,17 @@
+import { ARMOR, REINFORCED_HELMET } from './content.js';
 import { ISLAND_DEEPSTONE_ROW, isDryIslandCave } from './world/island-cave.js';
 import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { MAX_HEALTH } from './gameplay/player.js';
-import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
+import { areaDepth, equippedHelmet, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
     'depth', 'depth-label', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
-    'interact', 'feedback', 'backpack-head-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
+    'interact', 'feedback', 'backpack-head-label', 'backpack-chest-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
@@ -110,10 +111,16 @@ export function createUI(actions, version) {
     updateCraft: craftingUI.render,
     openChestId: inventoryUI.openChestId,
     chestNotice: inventoryUI.notice,
-    updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank, game.progress.swimmingHelmet),
+    updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank, equippedHelmet(game)?.id),
     updateBackpack(game) {
-      byId('backpack-helmet').hidden = !game.progress.swimmingHelmet;
-      setText('backpack-head-label', game.progress.swimmingHelmet ? 'Swimming helmet' : 'Head');
+      const helmet = equippedHelmet(game);
+      const armor = ARMOR[game.player.armor];
+      byId('backpack-helmet').hidden = !helmet;
+      byId('backpack-helmet').className = 'item item-' + (helmet === REINFORCED_HELMET ? helmet.id : 'helmet');
+      setText('backpack-head-label', helmet?.name ?? 'Head');
+      byId('backpack-armor').hidden = !armor;
+      if (armor) byId('backpack-armor').className = 'item item-' + armor.id;
+      setText('backpack-chest-label', armor?.name ?? 'Chest');
       byId('backpack-tank').hidden = !game.progress.airTank;
     },
     clearNotice() {

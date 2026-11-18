@@ -4,7 +4,7 @@ import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, equippedHelmet, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -331,6 +331,12 @@ const input = bindInput(canvas, {
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
+    const dressing = useDressing(game, selected);
+    if (dressing) {
+      if (dressing.inventoryChanged) inventoryChanged();
+      ui.notify(dressing.message);
+      return true;
+    }
     if (!aimedMob()) {
       const next = mineAtPointer(null, 0);
       if (next) {
@@ -478,7 +484,7 @@ function frame(now) {
   }
   ui.update(game, conditions);
   const tank = game.progress.airTank;
-  const helmet = game.progress.swimmingHelmet;
+  const helmet = equippedHelmet(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
   const peers = room?.tick(now, dt, game.player, tank, helmet);
   const targetMob = aimedMob();

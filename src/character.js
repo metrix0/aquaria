@@ -1,5 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { APPEARANCE, CHARACTER_BODIES } from './content.js';
+import { APPEARANCE, ARMOR, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, IRON_SWORD, REINFORCED_HELMET, SPEAR } from './content.js';
 import { characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
@@ -130,10 +130,20 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  function divingHelmet(x, y) {
+  function chestArmor(x, y, width, armor) {
+    const [shade, metal, shine] = armor.colors;
+    rect(x, y, width, 4, shade);
+    rect(x + 1, y, width - 2, 3, metal);
+    rect(x + 2, y, width - 4, 1, shine);
+    rect(x + 1, y + 4, width - 2, 2, shade);
+    rect(x + 2, y + 4, width - 4, 1, metal);
+  }
+
+  function divingHelmet(x, y, helmet) {
+    const reinforced = helmet === REINFORCED_HELMET.id;
     rect(x - 5, y, 11, 9, '#665347');
-    rect(x - 4, y + 1, 9, 7, '#cfa368');
-    rect(x - 3, y + 1, 6, 2, '#f0ce93');
+    rect(x - 4, y + 1, 9, 7, reinforced ? '#8396c8' : '#cfa368');
+    rect(x - 3, y + 1, 6, 2, reinforced ? '#b6caff' : '#f0ce93');
     rect(x - 4, y + 8, 9, 1, '#69513e');
     rect(x, y + 2, 6, 5, '#2b4752');
     rect(x + 1, y + 3, 5, 3, '#8bdfd0');
@@ -197,15 +207,24 @@ export function createCharacterRenderer(ctx) {
     rect(2, -1, 5, 3, skin.face);
     if (weapon === 'melee') pickaxeGrip(attack.tier, skin);
     else rect(5, -1, 2, 2, skin.arm);
-    if (weapon === 'spear' || weapon === 'copper-spear') {
-      const copper = weapon === 'copper-spear';
+    if (weapon === IRON_SWORD.id) {
+      const [left, top, width, height] = IRON_SWORD.blade;
+      rect(5, -1, 4, 2, '#85604c');
+      rect(7, -3, 2, 6, '#d5a467');
+      rect(left, top, width - 1, height, '#637985');
+      rect(left + 1, top, width - 2, 2, '#dae5dc');
+      rect(left + width - 1, -1, 1, 2, '#a2bac0');
+    } else if (weapon === SPEAR.id || weapon === COPPER_SPEAR.id || weapon === COBALT_SPEAR.id) {
+      const reach = weapon === COBALT_SPEAR.id ? COBALT_SPEAR.reach : 0;
+      const [shade, metal, shine] = reach ? ARMOR['cobalt-breastplate'].colors
+        : weapon === COPPER_SPEAR.id ? ['#a35646', '#e09b71', '#ffd3a0'] : ['#6e888a', '#b5c6bd', '#d9e1cf'];
       const thrust = melee?.thrust ?? 0;
-      rect(-3 + thrust, -1, 18, 2, '#85604c');
-      rect(-1 + thrust, -1, 14, 1, '#d29c65');
+      rect(-3 + thrust, -1, 18 + reach, 2, '#85604c');
+      rect(-1 + thrust, -1, 14 + reach, 1, '#d29c65');
       rect(4 + thrust, -1, 3, 2, '#483d42');
-      rect(14 + thrust, -2, 4, 4, copper ? '#a35646' : '#6e888a');
-      rect(15 + thrust, -1, 5, 2, copper ? '#e09b71' : '#b5c6bd');
-      rect(18 + thrust, -1, 3, 1, copper ? '#ffd3a0' : '#d9e1cf');
+      rect(14 + thrust + reach, -2, 4, 4, shade);
+      rect(15 + thrust + reach, -1, 5, 2, metal);
+      rect(18 + thrust + reach, -1, 3, 1, shine);
       if (melee?.bounds && !reducedMotion) rect(9 + thrust, -2, 6, 1, '#f4d4a5a8');
     } else if (weapon === 'bow') {
       const pull = active && !reducedMotion ? Math.round((attack.timer / attack.duration) * 3) : 0;
@@ -252,6 +271,7 @@ export function createCharacterRenderer(ctx) {
       : player.grounded ? walkFoot((phase + 0.5) % 1, strideWeight, -3, walkDirection) : [-4, rising ? 20 : 22];
     const targetY = miningSwing ? (miningSwing.ty + 0.5) * TILE - player.y : 0;
     const swingPhase = reducedMotion ? 0 : (miningSwing?.phase ?? 0);
+    const armor = ARMOR[player.armor];
     const heldItem = ITEMS[held];
     const weapon = attack?.kind ?? heldItem?.weapon?.id;
 
@@ -280,13 +300,14 @@ export function createCharacterRenderer(ctx) {
       rect(-6, 7, shoulder, 6, shirt.wet);
       rect(-5, 8, shoulder - 2, 4, swimming ? shirt.wet : shirt.base);
       rect(-5, 8, shoulder - 3, 1, shirt.light);
+      if (armor) chestArmor(-6, 7, shoulder, armor);
       if (tank) {
         rect(-7, 4, 7, 4, tankShade);
         rect(-6, 5, 5, 2, '#55988f');
         rect(-6, 5, 4, 1, '#bed8ba');
       }
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
-      if (helmet) divingHelmet(3, 2);
+      if (helmet) divingHelmet(3, 2, helmet);
       drawFrontArm(2 - shuffle, 9);
       ctx.restore();
       return;
@@ -314,10 +335,11 @@ export function createCharacterRenderer(ctx) {
     rect(-1, 16, 2, 1, '#d9ac75');
     if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
-    if (helmet) divingHelmet(0, 0);
+    if (helmet) divingHelmet(0, 0, helmet);
     rect(-2, 9, 5, 1, '#efc48d');
     rect(-2, 10, 2, 1, '#b4755a');
 
+    if (armor) chestArmor(-(shoulder - 1) / 2, 10, shoulder, armor);
     drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
 
     if (swimming) {

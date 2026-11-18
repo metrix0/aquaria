@@ -1,3 +1,5 @@
+import { ARMOR } from './content.js';
+
 const icons = new Map();
 
 export function drawPickaxe(rect, tier) {
@@ -18,17 +20,20 @@ export function drawPickaxe(rect, tier) {
     rect(13, 0, 2, 2, '#879d9a');
     rect(15, 2, 1, 1, '#879d9a');
   } else {
-    rect(15, -5, 3, 2, '#79483f');
-    rect(12, -4, 5, 2, '#79483f');
-    rect(11, -2, 5, 5, '#79483f');
-    rect(12, 3, 5, 2, '#79483f');
-    rect(15, 5, 3, 1, '#79483f');
-    rect(15, -4, 2, 1, '#ffd396');
-    rect(13, -3, 3, 1, '#ffb778');
-    rect(12, -2, 3, 5, '#ce835b');
-    rect(12, -1, 1, 3, '#ffd396');
-    rect(14, 3, 2, 1, '#ffb778');
-    rect(16, 4, 1, 1, '#ffb778');
+    const [shade, metal, shine, highlight] = tier === 3
+      ? [...ARMOR['iron-breastplate'].colors, '#b7c9cc']
+      : ['#79483f', '#ce835b', '#ffd396', '#ffb778'];
+    rect(15, -5, 3, 2, shade);
+    rect(12, -4, 5, 2, shade);
+    rect(11, -2, 5, 5, shade);
+    rect(12, 3, 5, 2, shade);
+    rect(15, 5, 3, 1, shade);
+    rect(15, -4, 2, 1, shine);
+    rect(13, -3, 3, 1, highlight);
+    rect(12, -2, 3, 5, metal);
+    rect(12, -1, 1, 3, shine);
+    rect(14, 3, 2, 1, highlight);
+    rect(16, 4, 1, 1, highlight);
   }
 }
 

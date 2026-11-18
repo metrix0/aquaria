@@ -1,5 +1,6 @@
 import { overlapsMob, pickaxePose, toolHitbox } from './melee.js';
 import { MATERIAL } from '../content.js';
+import { takeDamage } from './player.js';
 import { solidAt, waterTileAt } from '../world.js';
 import { MOB_HEALTH, TILE, clamp } from '../world/generation.js';
 
@@ -49,7 +50,7 @@ function onFloor(world, x, y) {
 function hurtPlayer(player, damage, direction, message, color, effects) {
   if (player.flightOrigin || player.hurt > 0) return;
   player.hurt = 1;
-  player.health = Math.max(0, player.health - damage);
+  takeDamage(player, damage);
   player.dx = direction * 112;
   player.dy = -65;
   effects.push({ x: player.x, y: player.y + player.height / 2, color, count: 7, spread: 62, message });

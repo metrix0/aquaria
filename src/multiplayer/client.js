@@ -1,4 +1,4 @@
-import { MATERIAL, MATERIAL_IDS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_HELMET, SWIMMING_HELMET, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
@@ -130,7 +130,10 @@ export async function connectRoom(config, invite, handlers) {
       x: old?.x ?? x, y: old ? old.y + old.height - height : payload.y,
       targetX: x, targetY: payload.y, seenAt: performance.now(),
       tank: payload.tank === true,
-      helmet: payload.helmet === true,
+      helmet: payload.helmet === true
+        ? (payload.reinforcedHelmet === true ? REINFORCED_HELMET.id : SWIMMING_HELMET.id)
+        : null,
+      armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       appearance: normalizeAppearance(payload.appearance),
     });
     if (!old) handlers.count(peers.size + 1);
@@ -176,11 +179,12 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, tank, helmet = false) {
+    tick(now, dt, player, tank, helmet) {
       const pose = {
         id: peerId,
         x: Math.round(player.x - poseOffset), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
-        facing: player.facing, grounded: player.grounded, tank, helmet, appearance: player.appearance,
+        facing: player.facing, grounded: player.grounded, tank, helmet: Boolean(helmet), appearance: player.appearance,
+        reinforcedHelmet: helmet === REINFORCED_HELMET.id, armor: player.armor,
         crawling: player.height === CRAWL_HEIGHT,
       };
       if (connected && now - lastBroadcast >= 125) {

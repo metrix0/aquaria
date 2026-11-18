@@ -1,4 +1,4 @@
-import { normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 
@@ -11,10 +11,17 @@ export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
-export function spawn(world, oxygen, appearance) {
+export function spawn(world, oxygen, appearance, armor = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+}
+
+export function takeDamage(player, damage) {
+  const protection = ARMOR[player.armor]?.protection ?? 0;
+  const loss = Math.max(1, Math.round(damage * (1 - protection)));
+  player.health = Math.max(0, player.health - loss);
+  return loss;
 }
 
 export function collides(world, x, y, height = PLAYER_SIZE.height) {

@@ -1,4 +1,4 @@
-import { AIR_TANK, MATERIAL, MATERIAL_IDS, SWIMMING_HELMET } from './content.js';
+import { AIR_TANK, ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_HELMET, SWIMMING_HELMET } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
@@ -37,6 +37,7 @@ export function decodeSave(data) {
   return {
     inventory: data.inventory,
     appearance: data.appearance,
+    armor: Object.hasOwn(ARMOR, player?.armor) ? player.armor : null,
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
     player: {
@@ -44,6 +45,7 @@ export function decodeSave(data) {
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
     progress: {
+      reinforcedHelmet: data.progress?.[REINFORCED_HELMET.id] === true,
       airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
       swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true ||
         harvested.includes(SWIMMING_HELMET.chestId) || harvested.includes('shore-chest'),
@@ -58,6 +60,7 @@ export function encodeSave(game, saveTerrain = true) {
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const { x, y, height } = player.flightOrigin ?? player;
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
+  if (player.armor) position.armor = player.armor;
   if (height === CRAWL_HEIGHT) position.crawling = true;
   return {
     format: SAVE_FORMAT,
@@ -68,6 +71,7 @@ export function encodeSave(game, saveTerrain = true) {
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
     progress: {
       [AIR_TANK.id]: progress.airTank,
+      ...(progress.reinforcedHelmet ? { [REINFORCED_HELMET.id]: true } : {}),
       ...(progress.swimmingHelmet ? { [SWIMMING_HELMET.id]: true } : {}),
     },
     world: {

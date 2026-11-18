@@ -51,10 +51,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-door::after { content: ""; position: absolute; width: 2px; height: 2px; right: 3px; top: 10px; background: #e3ae72; }
 .item-workbench { position: relative; width: 19px; height: 6px; margin-bottom: 7px; background: #bc8b62; box-shadow: inset 0 2px #e3ae72, inset 0 -2px #513a3b; }
 .item-workbench::after { content: ""; position: absolute; top: 100%; left: 3px; width: 3px; height: 7px; background: #85604c; box-shadow: 10px 0 #85604c; }
-.item-spear, .item-copper-spear { position: relative; width: 3px; height: 22px; background: #845a48; box-shadow: inset 1px 0 #d29c65; transform: rotate(42deg); }
-.item-spear::before, .item-copper-spear::before { content: ""; position: absolute; width: 7px; height: 8px; top: -4px; left: -2px; background: #b5c6bd; box-shadow: inset 2px 0 #d9e1cf, inset -2px 0 #6e888a; clip-path: polygon(50% 0, 100% 72%, 50% 100%, 0 72%); }
+.item-spear, .item-copper-spear, .item-cobalt-spear { position: relative; width: 3px; height: 22px; background: #845a48; box-shadow: inset 1px 0 #d29c65; transform: rotate(42deg); }
+.item-spear::before, .item-copper-spear::before, .item-cobalt-spear::before { content: ""; position: absolute; width: 7px; height: 8px; top: -4px; left: -2px; background: #b5c6bd; box-shadow: inset 2px 0 #d9e1cf, inset -2px 0 #6e888a; clip-path: polygon(50% 0, 100% 72%, 50% 100%, 0 72%); }
 .item-copper-spear::before { background: #e09b71; box-shadow: inset 2px 0 #ffd3a0, inset -2px 0 #a35646; }
-.item-spear::after, .item-copper-spear::after { content: ""; position: absolute; width: 5px; height: 3px; top: 4px; left: -1px; background: #483d42; }
+.item-spear::after, .item-copper-spear::after, .item-cobalt-spear::after { content: ""; position: absolute; width: 5px; height: 3px; top: 4px; left: -1px; background: #483d42; }
+.item-cobalt-spear { height: 24px; }
+.item-cobalt-spear::before { background: #768de5; box-shadow: inset 2px 0 #c4d8ff, inset -2px 0 #455294; }
+.item-iron-sword { position: relative; width: 4px; height: 23px; background: #8a644e; box-shadow: inset 1px 0 #d29c65; transform: rotate(42deg); }
+.item-iron-sword::before { content: ""; position: absolute; inset: 0 -1px 6px; background: #b2c2c4; box-shadow: inset 2px 0 #e4e5cf, inset -2px 0 #536874; clip-path: polygon(50% 0, 100% 24%, 100% 100%, 0 100%, 0 24%); }
+.item-iron-sword::after { content: ""; position: absolute; width: 10px; height: 2px; left: -3px; bottom: 5px; background: #d5a467; }
 .item-bow { position: relative; width: 14px; height: 22px; background: transparent; box-shadow: none; border-right: 3px solid #bc8b62; border-radius: 0 12px 12px 0; transform: rotate(-18deg); }
 .item-bow::before { content: ""; position: absolute; left: 2px; top: 1px; bottom: 1px; width: 1px; background: #bed8ba; }
 .item-bow::after { content: ""; position: absolute; right: -3px; top: 8px; width: 3px; height: 4px; background: #513a3b; }
@@ -66,8 +71,17 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-copper { background: #bd785b; box-shadow: inset 4px 3px #f2b17e, inset -5px -4px #8b4f4b; }
 .item-iron { background: #91a6a3; box-shadow: inset 4px 3px #dce2c6, inset -5px -4px #596f78; }
 .item-cobalt { background: #687bd8; box-shadow: inset 4px 3px #adcbff, inset -5px -4px #434f99; }
-.item-helmet { background: #cfa368; width: 18px; height: 18px; border-radius: 9px 9px 4px 4px; position: relative; box-shadow: inset 2px 2px #f0ce93, inset -2px -3px #7c5838; }
-.item-helmet::before { content: ""; position: absolute; inset: 4px 3px 5px; border-radius: 4px; background: #8bdfd0; box-shadow: inset 0 2px #d8f6ec, 0 0 0 1px #2b4752; }
+.item-helmet, .item-reinforced-helmet { background: #cfa368; width: 18px; height: 18px; border-radius: 9px 9px 4px 4px; position: relative; box-shadow: inset 2px 2px #f0ce93, inset -2px -3px #7c5838; }
+.item-helmet::before, .item-reinforced-helmet::before { content: ""; position: absolute; inset: 4px 3px 5px; border-radius: 4px; background: #8bdfd0; box-shadow: inset 0 2px #d8f6ec, 0 0 0 1px #2b4752; }
+.item-reinforced-helmet { background: #8396c8; box-shadow: inset 2px 2px #b6caff, inset -2px -3px #455294; }
+.item-copper-breastplate, .item-iron-breastplate, .item-cobalt-breastplate {
+  width: 20px; height: 18px; background: var(--metal); box-shadow: inset 3px 3px var(--shine), inset -3px -5px var(--shade);
+  clip-path: polygon(14% 0, 34% 0, 50% 21%, 66% 0, 86% 0, 100% 24%, 84% 59%, 80% 100%, 20% 100%, 16% 59%, 0 24%);
+}
+.item-copper-breastplate { --metal: #d88a62; --shine: #ffd3a0; --shade: #874f45; }
+.item-iron-breastplate { --metal: #9eafae; --shine: #e4e5cf; --shade: #536874; }
+.item-cobalt-breastplate { --metal: #768de5; --shine: #c4d8ff; --shade: #455294; }
+.item-kelp-dressing { width: 19px; height: 12px; border-radius: 3px; transform: rotate(-24deg); background: #79b28b; box-shadow: inset 6px 0 #b6c899, inset -6px 0 #b6c899, inset 0 -2px #316e64; }
 .item-tank { background: #62aea3; width: 15px; height: 29px; border-radius: 5px; box-shadow: inset 3px 0 #acd9ba, inset -3px 0 #347a80; }
 footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px solid #4864646b; display: flex; justify-content: space-between; align-items: center; padding: 8px 25px max(8px, env(safe-area-inset-bottom)); }
 .footer-actions { display: flex; gap: 8px; }
@@ -124,7 +138,7 @@ dialog p { font-size: 13px; color: var(--muted); }
 #backpack-panel button.slot[data-picked], #backpack-panel button.slot[data-drop-target] { border-color: var(--mint); box-shadow: inset 0 0 0 1px var(--mint); }
 #backpack-panel button.slot[data-picked] .item { opacity: .6; }
 .gear-slots { display: grid; gap: 5px; list-style: none; margin: 0; padding: 0; }
-.gear-slots li { display: grid; grid-template-columns: 35px 1fr; gap: 7px; align-items: center; color: var(--muted); font-size: 12px; }
+.gear-slots li { display: grid; grid-template-columns: 35px minmax(0, 1fr); gap: 7px; overflow-wrap: anywhere; align-items: center; color: var(--muted); font-size: 12px; }
 #backpack-help { margin: 12px 0 0; }
 #backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
 .chest-storage { padding: 12px; margin-bottom: 17px; border: 1px solid #8d6e4b; border-radius: 5px; background: #211f1c; }

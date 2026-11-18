@@ -1,3 +1,4 @@
+import { takeDamage } from './player.js';
 import { MATERIAL } from '../content.js';
 import { hasTileEdit, tileAt } from '../world.js';
 import { TILE } from '../world/generation.js';
@@ -20,7 +21,7 @@ export function swingHead(trap, time) {
 
 function hitPlayer(player, effects, damage, x, y, message) {
   if (player.flightOrigin || player.hurt > 0) return;
-  player.health = Math.max(0, player.health - damage);
+  takeDamage(player, damage);
   player.hurt = 1;
   player.stun = .35;
   effects.push({ x, y, color: '#ca8770', count: 9, spread: 56, message });

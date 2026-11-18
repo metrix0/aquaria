@@ -1,4 +1,4 @@
-import { CHARACTER_BODIES } from '../content.js';
+import { CHARACTER_BODIES, COBALT_SPEAR, IRON_SWORD } from '../content.js';
 import { clamp } from '../world/generation.js';
 import { CRAWL_HEIGHT } from './player.js';
 
@@ -12,13 +12,17 @@ export function characterTilt(player, swimming, facing) {
 }
 
 export function pickaxePose(phase, aim = 0, tier = 1) {
+  const head = tier === 1 ? [11, -5, 5, 9] : [11, -5, 7, 11];
+  return swingPose(phase, aim, head);
+}
+
+function swingPose(phase, aim, bounds) {
   const raised = .22;
   const impact = .68;
   const swing = phase < raised ? -phase / raised
     : phase <= impact ? -1 + 1.3 * (phase - raised) / (impact - raised)
       : .3 * (1 - phase) / (1 - impact);
-  const head = tier === 1 ? [11, -5, 5, 9] : [11, -5, 7, 11];
-  return { angle: aim + swing, bounds: phase >= raised && phase <= impact ? head : null };
+  return { angle: aim + swing, bounds: phase >= raised && phase <= impact ? bounds : null };
 }
 
 // Pose is in front-arm coordinates, with positive x toward the weapon tip.
@@ -26,12 +30,14 @@ export function meleePose(attack) {
   const phase = clamp(1 - attack.timer / attack.duration, 0, 1);
   const aim = Math.atan2(Math.sin(attack.angle), Math.abs(Math.cos(attack.angle)));
   if (attack.tier) return pickaxePose(phase, aim, attack.tier);
+  if (attack.kind === IRON_SWORD.id) return swingPose(phase, aim, IRON_SWORD.blade);
 
   const spear = attack.kind !== 'melee';
   const thrust = Math.round(Math.sin(phase * Math.PI) * (spear ? 9 : 5));
   const active = phase >= 0.18 && phase <= 0.66;
   const x = thrust + (spear ? 7 : 5);
-  const bounds = active ? [x, -2, spear ? 14 : 2, 4] : null;
+  const reach = attack.kind === COBALT_SPEAR.id ? COBALT_SPEAR.reach : 0;
+  const bounds = active ? [x, -2, spear ? 14 + reach : 2, 4] : null;
   return { angle: aim, thrust, bounds };
 }
 
