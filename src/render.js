@@ -180,7 +180,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function rain(world, camera, surface, time, intensity) {
+  function rain(world, camera, surface, time, { rain: intensity, rainSlope: slope }) {
     if (intensity <= 0 || surface <= 0) return;
     const { width } = camera;
     const xOffset = Math.round(camera.x);
@@ -210,20 +210,23 @@ export function createRenderer(canvas) {
     const bandWidth = 64;
     const dropsPerBand = 13;
     const fall = WATER + 28;
-    const wind = time * 33;
-    const firstBand = Math.floor((xOffset + wind) / bandWidth);
-    const endBand = Math.ceil((xOffset + width + 4 + wind) / bandWidth);
-    const cutoff = Math.min(rainBottom, camera.height) + 12;
+    const streakHeight = 12;
+    const cutoff = Math.min(rainBottom, camera.height) + streakHeight;
+    const topShift = (yOffset - streakHeight) * slope;
+    const bottomShift = (yOffset + cutoff) * slope;
+    const firstBand = Math.floor((xOffset - Math.max(topShift, bottomShift)) / bandWidth);
+    const endBand = Math.ceil((xOffset + width - Math.min(topShift, bottomShift)) / bandWidth);
     for (let band = firstBand; band < endBand; band++) {
       for (let drop = 0; drop < dropsPerBand; drop++) {
         const i = band * dropsPerBand + drop;
-        const x = (band + noise(i, 271)) * bandWidth - wind - xOffset;
+        const trackX = (band + noise(i, 271)) * bandWidth - xOffset;
         const speed = 140 + noise(i, 272) * 75;
         const phase = (noise(i, 273) * fall + time * speed) % fall;
         const firstY = phase + Math.ceil((yOffset - phase) / fall) * fall - yOffset;
         for (let y = firstY; y < cutoff; y += fall) {
-          ctx.moveTo(x, y - 12);
-          ctx.lineTo(x - 4, y);
+          const x = trackX + (y + yOffset) * slope;
+          ctx.moveTo(x - streakHeight * slope, y - streakHeight);
+          ctx.lineTo(x, y);
         }
       }
     }
@@ -913,7 +916,7 @@ export function createRenderer(canvas) {
       rect(0, 0, camera.width, camera.height, '#111933');
       ctx.restore();
     }
-    rain(world, camera, surface, time, conditions.rain);
+    rain(world, camera, surface, time, conditions);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
