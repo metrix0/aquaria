@@ -333,7 +333,7 @@ test('legacy progress and edits on both sides of a chunk boundary migrate', () =
   const legacy = {
     format: 1, x: SPAWN.x - WEST_EXTENSION * TILE, y: SPAWN.y, oxygen: 28, tank: true, completed: true,
     inventory: { wood: 11, sand: 3 },
-    edits: [[32 * 224 + 2 * CHUNK_SIZE - WEST_EXTENSION - 1, 5], [32 * 224 + 2 * CHUNK_SIZE - WEST_EXTENSION, 0], null, [4, 6]],
+    edits: [[32 * 224 + 19, 5], [32 * 224 + 20, 0], null, [4, 6]],
     harvested: ['wreck-cache', 'missing-id'],
   };
   const game = createGame(decodeSave(legacy));
@@ -494,7 +494,7 @@ test('mob generation and dynamic enemy spawns stay sparse across friendly and ho
   const game = createGame();
   const friendly = game.world.mobs.filter((mob) => mob.kind === 'crab' || (mob.kind === 'fish' && !mob.enemyType));
   const hostile = game.world.mobs.filter((mob) => mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
-  assert.equal(friendly.length, 12);
+  assert.equal(friendly.length, 13);
   assert.equal(hostile.length, 7);
   assert.equal(game.enemies.spawnIn, 14);
 
@@ -679,4 +679,40 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(restored.inventory.hotbar[1].id, COPPER_SPEAR.id);
   assert.equal(restored.inventory.hotbar[2].id, BOW.id);
+});
+
+test('the western wreck has flooded holds, mineable timber and three persistent wood caches', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const startingWood = game.inventory.count('wood');
+  const caches = world.items.filter(({ id }) => id.startsWith('western-wreck-'));
+  assert.equal(caches.length, 3);
+  for (const cache of caches) {
+    const tx = Math.floor(cache.x / TILE);
+    const ty = Math.floor(cache.y / TILE);
+    assert.ok(waterTileAt(world, tx, ty));
+    assert.equal(tileAt(world, tx, ty + 1), MATERIAL.wood);
+    player.x = cache.x;
+    player.y = cache.y - player.height / 2;
+    assert.equal(nearestItem(game), cache);
+    const index = game.inventory.backpack.findIndex((stack) => !stack);
+    assert.equal(moveChestStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index }), true);
+  }
+  assert.equal(game.inventory.count('wood'), startingWood + 76);
+
+  const tx = WEST_EXTENSION - 84;
+  const ty = 30;
+  player.x = (tx + .5) * TILE;
+  player.y = ty * TILE - player.height;
+  const target = targetTile(game, player.x, (ty + .5) * TILE);
+  const mine = advanceMining(game, target, null, 1);
+  assert.ok(mine.progress >= 1);
+  commitTileAction(game, mine.action);
+  assert.ok(waterTileAt(world, tx, ty));
+  assert.equal(game.inventory.count('wood'), startingWood + 77);
+
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.ok(waterTileAt(reloaded.world, tx, ty));
+  assert.equal(reloaded.inventory.count('wood'), startingWood + 77);
+  assert.ok(caches.every(({ id }) => reloaded.chests.get(id).every((stack) => !stack)));
 });

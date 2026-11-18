@@ -1,9 +1,10 @@
 import { MATERIAL, MATERIAL_IDS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
-import { COLS, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
+import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
 
 const roomCodePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const poseOffset = (WEST_EXTENSION - ORIGINAL_WEST_EXTENSION) * TILE;
 const peerExpiry = 5000;
 const maxPeers = 64;
 let clientPromise;
@@ -43,7 +44,7 @@ async function rpc(client, name, params) {
 
 function validPeer(payload) {
   return payload && roomCodePattern.test(payload.id) &&
-    Number.isFinite(payload.x) && payload.x >= 0 && payload.x <= COLS * TILE &&
+    Number.isFinite(payload.x) && payload.x >= -poseOffset && payload.x <= COLS * TILE - poseOffset &&
     Number.isFinite(payload.y) && payload.y >= 0 && payload.y <= ROWS * TILE &&
     (payload.facing === 1 || payload.facing === -1) &&
     Number.isFinite(payload.dx) && Math.abs(payload.dx) <= 300 &&
@@ -118,6 +119,7 @@ export async function connectRoom(config, invite, handlers) {
 
   channel.on('broadcast', { event: 'pose' }, ({ payload }) => {
     if (closed || !validPeer(payload) || payload.id === peerId) return;
+    const x = payload.x + poseOffset;
     const old = peers.get(payload.id);
     if (!old && peers.size >= maxPeers) return;
     const height = payload.crawling === true ? CRAWL_HEIGHT : PLAYER_SIZE.height;
@@ -125,8 +127,8 @@ export async function connectRoom(config, invite, handlers) {
       ...PLAYER_SIZE, height, walkPhase: old?.walkPhase ?? 0,
       grounded: typeof payload.grounded === 'boolean' ? payload.grounded : payload.dy === 0,
       id: payload.id, dx: payload.dx, dy: payload.dy, facing: payload.facing,
-      x: old?.x ?? payload.x, y: old ? old.y + old.height - height : payload.y,
-      targetX: payload.x, targetY: payload.y, seenAt: performance.now(),
+      x: old?.x ?? x, y: old ? old.y + old.height - height : payload.y,
+      targetX: x, targetY: payload.y, seenAt: performance.now(),
       tank: payload.tank === true,
       helmet: payload.helmet === true,
       appearance: normalizeAppearance(payload.appearance),
@@ -177,7 +179,7 @@ export async function connectRoom(config, invite, handlers) {
     tick(now, dt, player, tank, helmet = false) {
       const pose = {
         id: peerId,
-        x: Math.round(player.x), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
+        x: Math.round(player.x - poseOffset), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
         facing: player.facing, grounded: player.grounded, tank, helmet, appearance: player.appearance,
         crawling: player.height === CRAWL_HEIGHT,
       };

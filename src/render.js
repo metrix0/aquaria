@@ -5,6 +5,7 @@ import { playerInWater } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
 import { hasOpenFace, isCaveMushroomExposed, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
+import { shipwreckSails } from './world/shipwreck.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const palettes = {
@@ -515,6 +516,15 @@ export function createRenderer(canvas) {
   }
 
   function terrain(world, player, camera, time, { left, right, top, bottom }, openChestId) {
+    for (const { column, row, points } of shipwreckSails) {
+      const tx = column + WEST_EXTENSION;
+      if (tx < left - 6 || tx >= right + 6 || row >= bottom || row + 7 < top) continue;
+      if (tileAt(world, tx, row) !== MATERIAL.wood) continue;
+      const x = (tx + .5) * TILE;
+      const y = (row + .35) * TILE;
+      polygon(points.map(([dx, dy]) => [x + dx * TILE, y + dy * TILE]), '#557b77');
+      polygon([[x, y], [x + points[1][0] * TILE, y + points[1][1] * TILE], [x + points[1][0] * TILE * .75, y + TILE * 2]], '#6f9185');
+    }
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
