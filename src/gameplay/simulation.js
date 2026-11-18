@@ -1,5 +1,5 @@
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { AIR_TANK, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, REINFORCED_HELMET, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKEL, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
@@ -7,21 +7,27 @@ import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, t
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
-export function equippedHelmet(game) {
-  if (!game.progress.swimmingHelmet) return null;
-  return game.progress.reinforcedHelmet ? REINFORCED_HELMET : SWIMMING_HELMET;
+export function equippedSnorkel(game) {
+  return SNORKELS[game.progress.snorkel] ?? null;
 }
 
 export function oxygenCapacity(game) {
-  return (game.progress.airTank ? AIR_TANK.breathSeconds : BREATH_SECONDS) +
-    (equippedHelmet(game)?.bonusSeconds ?? 0);
+  return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0);
+}
+
+function equipSnorkel(game, snorkel) {
+  const bonus = equippedSnorkel(game)?.bonusSeconds ?? 0;
+  if (bonus >= snorkel.bonusSeconds) return false;
+  game.progress.snorkel = snorkel.id;
+  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + snorkel.bonusSeconds - bonus);
+  return true;
 }
 
 export function createGame(snapshot) {
   const game = {
     world: createWorld(),
     inventory: new Inventory(snapshot?.inventory),
-    progress: { airTank: false, swimmingHelmet: false, ...snapshot?.progress },
+    progress: { snorkel: snapshot?.progress?.snorkel ?? null },
     dirty: false,
     elapsed: 0,
     worldTime: snapshot?.worldTime ?? 0,
@@ -36,11 +42,9 @@ export function createGame(snapshot) {
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
-  if (game.progress.swimmingHelmet || world.harvested.has(SWIMMING_HELMET.chestId)) {
-    game.progress.swimmingHelmet = true;
-    world.harvested.add(SWIMMING_HELMET.chestId);
-  }
-  game.chests = restoreChests(world, game.progress, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
+  if (game.progress.snorkel === SNORKEL.id) world.harvested.add(SNORKEL.chestId);
+  if (!equippedSnorkel(game) && world.harvested.has(SNORKEL.chestId)) game.progress.snorkel = SNORKEL.id;
+  game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
     Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null);
@@ -76,7 +80,7 @@ export function resetRoomProgress(previous) {
     world,
     inventory: new Inventory(),
     chests: restoreChests(world),
-    progress: { airTank: false, swimmingHelmet: false },
+    progress: { snorkel: null },
     player,
     dirty: true,
     elapsed: 0,
@@ -250,7 +254,7 @@ function stockWreckLoot(world, item, slots, remaining) {
   else world.pendingWreckLoot.delete(item.id);
 }
 
-function restoreChests(world, progress, saved, pendingWreckLoot) {
+function restoreChests(world, saved, pendingWreckLoot) {
   const chests = new Map();
   world.pendingWreckLoot.clear();
   for (const item of world.items) {
@@ -258,9 +262,9 @@ function restoreChests(world, progress, saved, pendingWreckLoot) {
     const savedSlots = saved?.[item.id];
     const hasSavedSlots = Array.isArray(savedSlots);
     const slots = restoreSlots(hasSavedSlots ? savedSlots : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
-    if (progress?.swimmingHelmet) {
+    if (item.id === SNORKEL.chestId && world.harvested.has(item.id)) {
       for (const [index, stack] of slots.entries()) {
-        if (stack?.id === SWIMMING_HELMET.id) slots[index] = null;
+        if (stack?.id === SNORKEL.id) slots[index] = null;
       }
     }
     if (item.bonusLoot) {
@@ -290,7 +294,7 @@ export function moveChestStack(game, chestId, from, to) {
   const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots };
   const source = groups[from.group];
   const target = groups[to.group];
-  if (source?.[from.index]?.id === SWIMMING_HELMET.id || target?.[to.index]?.id === SWIMMING_HELMET.id) return false;
+  if (source?.[from.index]?.id === SNORKEL.id || target?.[to.index]?.id === SNORKEL.id) return false;
   if (!moveStack(source, from.index, target, to.index)) return false;
   const remaining = game.world.pendingWreckLoot.get(chestId);
   if (remaining && from.group === 'chest') {
@@ -303,13 +307,12 @@ export function moveChestStack(game, chestId, from, to) {
 
 export function equipChestLoot(game, chestId, slot) {
   const slots = game.chests.get(chestId);
-  if (game.progress.swimmingHelmet || slots?.[slot]?.id !== SWIMMING_HELMET.id) return;
+  if (slots?.[slot]?.id !== SNORKEL.id) return;
   slots[slot] = null;
   game.world.harvested.add(chestId);
-  game.progress.swimmingHelmet = true;
-  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + SWIMMING_HELMET.bonusSeconds);
+  const equipped = equipSnorkel(game, SNORKEL);
   game.dirty = true;
-  return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
+  return equipped ? 'Snorkel equipped. +' + SNORKEL.bonusSeconds + 's oxygen' : 'Wreck snorkel recovered.';
 }
 
 export function workbenchAt(game, tx, ty) {
@@ -349,19 +352,6 @@ export function nearestItem(game) {
   return result;
 }
 
-export function canCraftTank(game) {
-  return !game.progress.airTank && Object.entries(AIR_TANK.cost).every(([item, cost]) => game.inventory.count(item) >= cost);
-}
-
-export function craftTank(game) {
-  if (!canCraftTank(game)) return false;
-  for (const [item, cost] of Object.entries(AIR_TANK.cost)) game.inventory.spend(item, cost);
-  game.progress.airTank = true;
-  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + AIR_TANK.breathSeconds - BREATH_SECONDS);
-  game.dirty = true;
-  return true;
-}
-
 function craftResult(inventory, { id, cost, amount = 1, station }, activeStation) {
   if (station && station !== activeStation) return null;
   const materials = Object.entries(cost);
@@ -372,7 +362,14 @@ function craftResult(inventory, { id, cost, amount = 1, station }, activeStation
 }
 
 export function equipmentCraftStatus(game, recipe) {
-  const current = recipe.equipment === 'helmet' ? equippedHelmet(game)?.id : game.player.armor;
+  if (recipe.equipment === 'snorkel') {
+    const equipped = equippedSnorkel(game);
+    if (equipped?.id === recipe.id) return 'Equipped';
+    if (equipped && equipped.bonusSeconds >= recipe.bonusSeconds) return 'Already upgraded';
+    if (recipe.requires && (!equipped || equipped.bonusSeconds < SNORKELS[recipe.requires].bonusSeconds)) return 'Upgrade required';
+    return null;
+  }
+  const current = game.player.armor;
   for (let id = current; id; id = ARMOR[id]?.requires) {
     if (id === recipe.id) return current === id ? 'Equipped' : 'Already upgraded';
   }
@@ -391,9 +388,8 @@ export function craftItem(game, recipe, station) {
   if (recipe.equipment) {
     if (!canCraftItem(game, recipe, station)) return false;
     for (const [id, count] of Object.entries(recipe.cost)) game.inventory.spend(id, count);
-    if (recipe.equipment === 'helmet') {
-      game.progress.reinforcedHelmet = true;
-      game.player.oxygen += REINFORCED_HELMET.bonusSeconds - SWIMMING_HELMET.bonusSeconds;
+    if (recipe.equipment === 'snorkel') {
+      equipSnorkel(game, recipe);
     } else {
       game.player.armor = recipe.id;
     }

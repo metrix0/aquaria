@@ -1,4 +1,4 @@
-import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_HELMET, SWIMMING_HELMET, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_SNORKEL, SNORKEL, SNORKELS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
@@ -129,10 +129,8 @@ export async function connectRoom(config, invite, handlers) {
       id: payload.id, dx: payload.dx, dy: payload.dy, facing: payload.facing,
       x: old?.x ?? x, y: old ? old.y + old.height - height : payload.y,
       targetX: x, targetY: payload.y, seenAt: performance.now(),
-      tank: payload.tank === true,
-      helmet: payload.helmet === true
-        ? (payload.reinforcedHelmet === true ? REINFORCED_HELMET.id : SWIMMING_HELMET.id)
-        : null,
+      snorkel: Object.hasOwn(SNORKELS, payload.snorkel) ? payload.snorkel
+        : payload.helmet === true ? (payload.reinforcedHelmet === true ? REINFORCED_SNORKEL.id : SNORKEL.id) : null,
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       appearance: normalizeAppearance(payload.appearance),
     });
@@ -179,12 +177,12 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, tank, helmet) {
+    tick(now, dt, player, snorkel) {
       const pose = {
         id: peerId,
         x: Math.round(player.x - poseOffset), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
-        facing: player.facing, grounded: player.grounded, tank, helmet: Boolean(helmet), appearance: player.appearance,
-        reinforcedHelmet: helmet === REINFORCED_HELMET.id, armor: player.armor,
+        facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
+        armor: player.armor,
         crawling: player.height === CRAWL_HEIGHT,
       };
       if (connected && now - lastBroadcast >= 125) {

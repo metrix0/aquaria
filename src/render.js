@@ -4,7 +4,7 @@ import { ISLAND_DEEPSTONE_ROW } from './world/island-cave.js';
 import { drawCaveEnemy } from './cave-enemy-art.js';
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
-import { playerInWater } from './gameplay/player.js';
+import { playerHeadInWater, playerInWater } from './gameplay/player.js';
 import { createHelmetWreckArt } from './helmet-wreck-art.js';
 import { ITEMS } from './inventory.js';
 import { hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
@@ -1090,7 +1090,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
+  function draw({ world, player, snorkel, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -1118,11 +1118,17 @@ export function createRenderer(canvas) {
     for (const remote of peers) {
       if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
           remote.y < camera.y - 25 || remote.y > camera.y + camera.height + 25) continue;
-      drawCharacter(remote, remote.appearance, { tank: remote.tank, helmet: remote.helmet, time, reducedMotion, swimming: playerInWater(world, remote) });
+      drawCharacter(remote, remote.appearance, {
+        snorkel: playerHeadInWater(world, remote) ? remote.snorkel : null,
+        time, reducedMotion, swimming: playerInWater(world, remote),
+      });
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, helmet, time, miningSwing, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player) });
+    drawCharacter(player, player.appearance, {
+      snorkel: playerHeadInWater(world, player) ? snorkel : null,
+      time, miningSwing, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player),
+    });
     if (!caveShadowsHidden) shadeCaves(world, player, bounds);
     ctx.restore();
 

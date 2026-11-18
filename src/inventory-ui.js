@@ -1,4 +1,4 @@
-import { CHEST_SIZE, SWIMMING_HELMET } from './content.js';
+import { CHEST_SIZE, SNORKEL } from './content.js';
 import { BACKPACK_SIZE, HOTBAR_SIZE, ITEMS } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 
@@ -45,7 +45,7 @@ function drawSlots(buttons, stacks, selected) {
     const details = stack
       ? ITEMS[stack.id].name + (stack.count > 1 ? ' × ' + stack.count : '')
       : 'Empty';
-    const action = stack?.id === SWIMMING_HELMET.id ? 'Equip ' + details.toLowerCase() : details;
+    const action = stack?.id === SNORKEL.id ? 'Collect ' + details.toLowerCase() : details;
     button.toggleAttribute('data-equip', action !== details);
     drawStack(button, stack);
     button.title = action;
@@ -206,7 +206,7 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
       if (chestId) {
         const slots = getChest(chestId);
         drawSlots(chestSlots, slots);
-        equipHint.hidden = !slots.some((stack) => stack?.id === SWIMMING_HELMET.id);
+        equipHint.hidden = !slots.some((stack) => stack?.id === SNORKEL.id);
         chestCount.textContent = slots.filter(Boolean).length + ' / ' + CHEST_SIZE + ' slots';
       }
       document.getElementById('selected').textContent = ITEMS[hotbar[selected]?.id]?.name ?? 'Empty slot';

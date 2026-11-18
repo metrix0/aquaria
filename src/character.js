@@ -1,5 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, REINFORCED_HELMET, SPEAR } from './content.js';
+import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, SNORKELS, SPEAR } from './content.js';
 import { characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
@@ -7,7 +7,6 @@ import { TILE, clamp } from './world/generation.js';
 
 const eye = '#35303d';
 const sole = '#554851';
-const tankShade = '#37585e';
 const boot = '#8b6353';
 const bootLight = '#b78a69';
 const turn = 2 * Math.PI;
@@ -139,15 +138,17 @@ export function createCharacterRenderer(ctx) {
     rect(x + 2, y + 4, width - 4, 1, metal);
   }
 
-  function divingHelmet(x, y, helmet) {
-    const reinforced = helmet === REINFORCED_HELMET.id;
-    rect(x - 5, y, 11, 9, '#665347');
-    rect(x - 4, y + 1, 9, 7, reinforced ? '#8396c8' : '#cfa368');
-    rect(x - 3, y + 1, 6, 2, reinforced ? '#b6caff' : '#f0ce93');
-    rect(x - 4, y + 8, 9, 1, '#69513e');
-    rect(x, y + 2, 6, 5, '#2b4752');
-    rect(x + 1, y + 3, 5, 3, '#8bdfd0');
-    rect(x + 2, y + 3, 2, 1, '#d8f6ec');
+  function divingSnorkel(x, y, snorkel) {
+    const [shade, light] = snorkel.colors;
+    rect(x - 2, y + 4, 6, 1, shade);
+    rect(x + 2, y + 3, 5, 3, '#314650');
+    rect(x + 3, y + 4, 3, 1, '#b6e7e2');
+    rect(x + 6, y + 1, 3, 7, shade);
+    rect(x + 7, y + 1, 1, 6, light);
+    rect(x + 6, y, 4, 2, shade);
+    rect(x + 7, y, 2, 1, light);
+    rect(x + 4, y + 7, 4, 2, shade);
+    rect(x + 5, y + 7, 2, 1, light);
   }
 
   function pickaxeGrip(tier, skin) {
@@ -252,7 +253,8 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, miningSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
+  return function drawCharacter(player, appearance, { snorkel = null, time = 0, miningSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
+    const gear = SNORKELS[snorkel];
     const crawling = player.height === CRAWL_HEIGHT;
     const speed = Math.abs(player.dx);
     const strideWeight = !reducedMotion && player.grounded && !swimming
@@ -311,13 +313,8 @@ export function createCharacterRenderer(ctx) {
       rect(-5, 8, shoulder - 2, 4, swimming ? shirt.wet : shirt.base);
       rect(-5, 8, shoulder - 3, 1, shirt.light);
       if (armor) chestArmor(-6, 7, shoulder, armor);
-      if (tank) {
-        rect(-7, 4, 7, 4, tankShade);
-        rect(-6, 5, 5, 2, '#55988f');
-        rect(-6, 5, 4, 1, '#bed8ba');
-      }
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
-      if (helmet) divingHelmet(3, 2, helmet);
+      if (gear) divingSnorkel(3, 2, gear);
       drawFrontArm(2 - shuffle, 9);
       ctx.restore();
       return;
@@ -327,12 +324,6 @@ export function createCharacterRenderer(ctx) {
     if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
     arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
-    if (tank) {
-      rect(-shoulderX - 5, 9, 5, 9, tankShade);
-      rect(-shoulderX - 4, 10, 3, 7, '#55988f');
-      rect(-shoulderX - 4, 11, 1, 4, '#bed8ba');
-      rect(-shoulderX - 3, 8, 2, 2, '#d2a673');
-    }
     rect(-(shoulder - 1) / 2, 9, shoulder, 5, shirt.wet);
     rect(-(waist - 1) / 2, 13, waist, 5, pants.back);
     rect(-(shoulder - 3) / 2, 10, shoulder - 2, 4, shirt.base);
@@ -345,7 +336,7 @@ export function createCharacterRenderer(ctx) {
     rect(-1, 16, 2, 1, '#d9ac75');
     if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
-    if (helmet) divingHelmet(0, 0, helmet);
+    if (gear) divingSnorkel(0, 0, gear);
     rect(-2, 9, 5, 1, '#efc48d');
     rect(-2, 10, 2, 1, '#b4755a');
 

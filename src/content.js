@@ -36,17 +36,27 @@ export const BREATH_SECONDS = 18;
 
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 
-export const SWIMMING_HELMET = {
-  id: 'swimming-helmet', name: 'Swimming helmet',
-  chestId: 'wreck-chest',
-  bonusSeconds: 14,
+export const SNORKEL = {
+  id: 'snorkel', name: 'Snorkel', chestId: 'wreck-chest', bonusSeconds: 14,
+  colors: ['#386b6a', '#79caba'],
 };
 
-export const REINFORCED_HELMET = {
-  id: 'reinforced-helmet', name: 'Reinforced swimming helmet',
-  cost: { iron: 4, cobalt: 2, kelp: 2 }, bonusSeconds: 28,
-  requires: SWIMMING_HELMET.id, equipment: 'helmet', station: WORKBENCH.id,
+export const COPPER_SNORKEL = {
+  id: 'copper-snorkel', name: 'Copper snorkel',
+  cost: { copper: 3, kelp: 2 }, bonusSeconds: 20, equipment: 'snorkel',
+  colors: ['#875147', '#f1ac73'],
 };
+
+export const REINFORCED_SNORKEL = {
+  id: 'reinforced-snorkel', name: 'Reinforced snorkel',
+  cost: { iron: 4, cobalt: 2, kelp: 2 }, bonusSeconds: 28,
+  requires: SNORKEL.id, equipment: 'snorkel', station: WORKBENCH.id,
+  colors: ['#48568b', '#a6b7ff'],
+};
+
+export const SNORKELS = Object.freeze(Object.fromEntries(
+  [SNORKEL, COPPER_SNORKEL, REINFORCED_SNORKEL].map((gear) => [gear.id, gear]),
+));
 
 export const ARMOR = Object.freeze({
   'copper-breastplate': {
@@ -64,13 +74,6 @@ export const ARMOR = Object.freeze({
     requires: 'iron-breastplate',
   },
 });
-
-export const AIR_TANK = {
-  id: 'air-tank',
-  cost: { stone: 3, kelp: 2 },
-  breathSeconds: 42,
-};
-
 
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
 export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };

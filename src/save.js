@@ -1,4 +1,4 @@
-import { AIR_TANK, ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_HELMET, SWIMMING_HELMET } from './content.js';
+import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_SNORKEL, SNORKEL, SNORKELS } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
@@ -33,7 +33,14 @@ export function decodeSave(data) {
     Number.isInteger(entry[0]) && isEditableTile(entry[0] + WEST_EXTENSION, entry[1]))
     .map(([x, y]) => [x + WEST_EXTENSION, y]) : [];
   const player = legacy ? data : data.player;
-  const harvested = Array.isArray(world.harvested) ? world.harvested : [];
+  const harvested = Array.isArray(world.harvested) ? [...world.harvested] : [];
+  const oldGear = data.progress ?? {};
+  const oldWreckLoot = (legacy ? data.helmet : oldGear['swimming-helmet']) === true ||
+    oldGear['reinforced-helmet'] === true || harvested.includes('shore-chest');
+  if (oldWreckLoot && !harvested.includes(SNORKEL.chestId)) harvested.push(SNORKEL.chestId);
+  const snorkel = Object.hasOwn(SNORKELS, oldGear.snorkel) ? oldGear.snorkel
+    : oldGear['reinforced-helmet'] === true ? REINFORCED_SNORKEL.id
+    : harvested.includes(SNORKEL.chestId) ? SNORKEL.id : null;
   return {
     inventory: data.inventory,
     appearance: data.appearance,
@@ -44,12 +51,7 @@ export function decodeSave(data) {
       x: player?.x + WEST_EXTENSION * TILE, y: player?.y,
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
-    progress: {
-      reinforcedHelmet: data.progress?.[REINFORCED_HELMET.id] === true,
-      airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
-      swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true ||
-        harvested.includes(SWIMMING_HELMET.chestId) || harvested.includes('shore-chest'),
-    },
+    progress: { snorkel },
     world: { edits, doors, harvested, chests: world.chests, pendingWreckLoot: world.pendingWreckLoot },
   };
 }
@@ -69,11 +71,7 @@ export function encodeSave(game, saveTerrain = true) {
     appearance: { ...player.appearance },
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
-    progress: {
-      [AIR_TANK.id]: progress.airTank,
-      ...(progress.reinforcedHelmet ? { [REINFORCED_HELMET.id]: true } : {}),
-      ...(progress.swimmingHelmet ? { [SWIMMING_HELMET.id]: true } : {}),
-    },
+    progress: progress.snorkel ? { snorkel: progress.snorkel } : {},
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),

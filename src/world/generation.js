@@ -1,4 +1,4 @@
-import { MATERIAL, SWIMMING_HELMET } from '../content.js';
+import { MATERIAL, SNORKEL } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
 
@@ -487,8 +487,8 @@ export function generateFixtures() {
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
   }));
   items.push({
-    id: SWIMMING_HELMET.chestId, name: 'Wreck chest', kind: 'chest',
-    loot: { id: SWIMMING_HELMET.id, count: 1 },
+    id: SNORKEL.chestId, name: 'Wreck chest', kind: 'chest',
+    loot: { id: SNORKEL.id, count: 1 },
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });
   // Preserve saved kelp IDs where the seabed has shifted near cave openings.

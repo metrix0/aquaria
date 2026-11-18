@@ -1,10 +1,10 @@
-import { AIR_TANK, ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, REINFORCED_HELMET, SPEAR, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from './content.js';
-import { canCraftItem, canCraftTank, equipmentCraftStatus, equippedHelmet } from './gameplay/simulation.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, REINFORCED_SNORKEL, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
+import { canCraftItem, equipmentCraftStatus } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
 
 const recipes = [
-  { recipe: AIR_TANK, name: 'Air tank', icon: 'tank' },
+  { recipe: COPPER_SNORKEL, description: 'Lets you stay underwater for ' + (BREATH_SECONDS + COPPER_SNORKEL.bonusSeconds) + ' seconds.' },
   { recipe: WORKBENCH, description: 'Place it from your hotbar to craft advanced gear. Press E, right-click it, or tap Use nearby to open it.' },
   { recipe: SPEAR, description: 'Thrust at nearby creatures to damage them and drive them back.' },
   { recipe: COPPER_SPEAR, description: 'A sturdier spear that deals ' + COPPER_SPEAR.damage + ' damage.' },
@@ -15,14 +15,14 @@ const recipes = [
   ...Object.values(ARMOR).map((recipe) => ({
     recipe, description: 'Reduces incoming health damage by ' + Math.round(recipe.protection * 100) + '%.',
   })),
-  { recipe: REINFORCED_HELMET, description: 'Extends the helmet’s breathing bonus to ' + REINFORCED_HELMET.bonusSeconds + ' seconds.' },
+  { recipe: REINFORCED_SNORKEL, description: 'Extends underwater breathing to ' + (BREATH_SECONDS + REINFORCED_SNORKEL.bonusSeconds) + ' seconds.' },
   { recipe: KELP_DRESSING, description: 'Restores up to ' + KELP_DRESSING.heal + ' health. Put it in the hotbar, select it, and click or tap the world to use it.' },
   { recipe: WOODEN_DOOR, description: 'Place it above a solid floor with two blocks of clearance. Opens as you approach.' },
   { recipe: COPPER_PICKAXE, description: 'Carry it in your inventory to mine Deepstone and cobalt ore.' },
   { recipe: IRON_PICKAXE, description: 'Takes 30% less time per block than the copper pickaxe and can mine cobalt and Deepstone.' },
 ];
 
-export function createCraftingUi(panel, { makeItem, makeTank }) {
+export function createCraftingUi(panel, { makeItem }) {
   const heading = panel.querySelector('#craft-title');
   const grid = panel.querySelector('#craft-recipes');
   const icon = panel.querySelector('#recipe-icon');
@@ -64,12 +64,10 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
     heading.textContent = station === WORKBENCH.id ? ITEMS[WORKBENCH.id].name : 'Crafting';
     if (!availableAt(cards[selected].recipe)) selected = 0;
     const { recipe, name, icon: itemIcon, description: detail } = cards[selected];
-    const tank = recipe === AIR_TANK;
     const equipmentStatus = recipe.equipment ? equipmentCraftStatus(game, recipe) : null;
-    const equipped = (tank && game.progress.airTank) || equipmentStatus === 'Equipped' || equipmentStatus === 'Already upgraded';
-    const bonus = equippedHelmet(game)?.bonusSeconds ?? 0;
+    const equipped = equipmentStatus === 'Equipped' || equipmentStatus === 'Already upgraded';
     const cost = Object.entries(recipe.cost);
-    const ready = cards.map(({ recipe }) => recipe === AIR_TANK ? canCraftTank(game) : canCraftItem(game, recipe, station));
+    const ready = cards.map(({ recipe }) => canCraftItem(game, recipe, station));
 
     for (const [index, { button, recipe }] of cards.entries()) {
       button.hidden = !availableAt(recipe);
@@ -78,13 +76,12 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
     }
     title.textContent = name;
     setItemIcon(icon, itemIcon);
-    description.textContent = tank
-      ? `Extends a dive from ${BREATH_SECONDS + bonus} to ${AIR_TANK.breathSeconds + bonus} seconds. Equips when crafted.`
-      : detail + (recipe.equipment ? ' Equips when crafted.' : '');
+    description.textContent = detail + (recipe.equipment ? ' Equips when crafted.' : '');
     requirement.hidden = !recipe.requires;
     if (recipe.requires) {
-      const base = (ARMOR[recipe.requires] ?? SWIMMING_HELMET).name;
-      requirement.textContent = 'Upgrades your equipped ' + base.toLowerCase() + '.';
+      requirement.textContent = recipe.equipment === 'snorkel'
+        ? 'Requires the wreck snorkel or a copper snorkel.'
+        : 'Upgrades your equipped ' + ARMOR[recipe.requires].name.toLowerCase() + '.';
     }
     materials.replaceChildren(...cost.map(([id, count]) => {
       const row = document.createElement('li');
@@ -112,9 +109,7 @@ export function createCraftingUi(panel, { makeItem, makeTank }) {
 
   craft.addEventListener('click', () => {
     const { recipe, name } = cards[selected];
-    if (recipe === AIR_TANK) {
-      if (makeTank()) status.textContent = 'Air tank equipped.';
-    } else if (makeItem(recipe)) {
+    if (makeItem(recipe)) {
       const amount = (recipe.amount ?? 1) > 1 ? recipe.amount + ' ' : '';
       status.textContent = recipe.equipment
         ? name + ' equipped.'

@@ -4,7 +4,7 @@ import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, equippedHelmet, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equipChestLoot, equippedSnorkel, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -303,11 +303,6 @@ const ui = createUI({
     inventoryChanged();
     return true;
   },
-  makeTank() {
-    if (editPending || !craftTank(game)) return false;
-    inventoryChanged();
-    return true;
-  },
 }, version);
 
 const input = bindInput(canvas, {
@@ -483,13 +478,12 @@ function frame(now) {
     }
   }
   ui.update(game, conditions);
-  const tank = game.progress.airTank;
-  const helmet = equippedHelmet(game)?.id ?? null;
+  const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
-  const peers = room?.tick(now, dt, game.player, tank, helmet);
+  const peers = room?.tick(now, dt, game.player, snorkel);
   const targetMob = aimedMob();
   renderer.draw({
-    world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
+    world: game.world, player: game.player, snorkel, camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,

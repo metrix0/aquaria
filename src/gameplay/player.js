@@ -76,6 +76,10 @@ export function playerInWater(world, player) {
   return inWater(world, player.x, player.y + player.height - PLAYER_SIZE.height * 0.35);
 }
 
+export function playerHeadInWater(world, player) {
+  return inWater(world, player.x, player.y + 5);
+}
+
 export function toggleGodMode(world, player) {
   const { flightOrigin, x, y, height } = player;
   player.dx = 0;
@@ -174,7 +178,7 @@ export function movePlayer(world, player, input, dt) {
 
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
   if (player.flightOrigin) return false;
-  const headInWater = inWater(world, player.x, player.y + 5);
+  const headInWater = playerHeadInWater(world, player);
   const atVent = headInWater && world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
   if (atVent) {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);

@@ -50,7 +50,7 @@ export function createHelmetWreckArt(canvas, context) {
   line([[58, 24], [72, 82]], '#a18a67', 3);
   line([[60, 34], [65, 33]], '#cad0a5', 2);
 
-  // The keel broke in two. The opening frames the helmet chest on the sand below.
+  // The keel broke in two. The opening frames the snorkel chest on the sand below.
   const sections = [
     [[7, 60], [15, 62], [19, 69], [34, 72], [41, 77], [66, 80], [84, 78],
       [79, 85], [89, 85], [83, 91], [93, 95], [86, 98], [89, 105], [77, 111],
