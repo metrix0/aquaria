@@ -233,13 +233,11 @@ const ui = createUI({
   select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
   getInventory: () => game.inventory,
   canMoveInventory: () => !editPending,
-  drawPreview: renderer.drawPreview,
-  customize(part, index) {
-    if (game.player.appearance[part] === index) return;
-    game.player.appearance[part] = index;
+  customize(appearance) {
+    game.player.appearance = appearance;
     game.dirty = true;
-    ui.updateCustomize(game);
     storeProgress();
+    if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
   },
   makeDoor() {
     if (editPending || !craftDoor(game)) return;

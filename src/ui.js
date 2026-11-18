@@ -1,4 +1,5 @@
-import { AIR_TANK, APPEARANCE, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
+import { createCharacterEditor } from './character-editor.js';
+import { AIR_TANK, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { areaDepth, canCraftDoor, canCraftTank, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
@@ -7,12 +8,11 @@ export function createUI(actions, version) {
   const fields = Object.fromEntries([
     'depth', 'air-label', 'world-conditions', 'air-fill',
     'interact', 'selected', 'feedback',
-    'skin-name', 'shirt-name', 'pants-name', 'make-tank', 'recipe-cost', 'make-door', 'door-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
+    'make-tank', 'recipe-cost', 'make-door', 'door-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
-  const preview = byId('character-preview');
-  const swatches = [...byId('customize-panel').querySelectorAll('.swatch')];
+  const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
     getInventory: actions.getInventory,
     onMove: actions.inventoryChanged,
@@ -49,10 +49,6 @@ export function createUI(actions, version) {
   byId('version').textContent = 'v' + version;
   byId('backpack').addEventListener('click', () => open('backpack-panel'));
   byId('customize').addEventListener('click', () => open('customize-panel'));
-  for (const swatch of swatches) swatch.addEventListener('click', () => {
-    const { part, index } = swatch.dataset;
-    if (Object.hasOwn(APPEARANCE, part) && APPEARANCE[part][Number(index)]) actions.customize(part, Number(index));
-  });
   byId('craft').addEventListener('click', () => open('craft-panel'));
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
@@ -73,12 +69,7 @@ export function createUI(actions, version) {
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft,
-    updateCustomize(game) {
-      const appearance = game.player.appearance;
-      for (const [part, choices] of Object.entries(APPEARANCE)) setText(part + '-name', choices[appearance[part]].name);
-      for (const swatch of swatches) swatch.setAttribute('aria-pressed', String(appearance[swatch.dataset.part] === Number(swatch.dataset.index)));
-      actions.drawPreview(preview, appearance, game.progress.airTank);
-    },
+    updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank),
     updateBackpack(game) {
       byId('backpack-tank').hidden = !game.progress.airTank;
     },

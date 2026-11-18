@@ -1,4 +1,5 @@
-import { MATERIAL, MATERIAL_IDS, normalizeAppearance } from '../content.js';
+import { MATERIAL, MATERIAL_IDS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
 
@@ -120,6 +121,8 @@ export async function connectRoom(config, invite, handlers) {
     const old = peers.get(payload.id);
     if (!old && peers.size >= maxPeers) return;
     peers.set(payload.id, {
+      ...PLAYER_SIZE, walkPhase: old?.walkPhase ?? 0,
+      grounded: typeof payload.grounded === 'boolean' ? payload.grounded : payload.dy === 0,
       id: payload.id, dx: payload.dx, dy: payload.dy, facing: payload.facing,
       x: old?.x ?? payload.x, y: old?.y ?? payload.y,
       targetX: payload.x, targetY: payload.y, seenAt: performance.now(),
@@ -173,7 +176,7 @@ export async function connectRoom(config, invite, handlers) {
       const pose = {
         id: peerId,
         x: Math.round(player.x), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
-        facing: player.facing, tank, appearance: player.appearance,
+        facing: player.facing, grounded: player.grounded, tank, appearance: player.appearance,
       };
       if (connected && now - lastBroadcast >= 125) {
         const fingerprint = JSON.stringify(pose);
@@ -189,7 +192,9 @@ export async function connectRoom(config, invite, handlers) {
           continue;
         }
         const blend = Math.min(1, dt * 14);
-        peer.x += (peer.targetX - peer.x) * blend;
+        const horizontal = (peer.targetX - peer.x) * blend;
+        peer.x += horizontal;
+        if (peer.grounded) peer.walkPhase = (peer.walkPhase + Math.abs(horizontal) / WALK_CYCLE_DISTANCE) % 1;
         peer.y += (peer.targetY - peer.y) * blend;
       }
       return peers.values();
