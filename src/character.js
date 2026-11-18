@@ -1,8 +1,12 @@
-import { APPEARANCE } from './content.js';
+import { APPEARANCE, WALK_CYCLE_DISTANCE } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { TILE, clamp } from './world/generation.js';
 
-const ink = '#242633';
+const ink = '#252b3b';
+const sole = '#292e3e';
+const boot = '#8b6353';
+const bootLight = '#b78a69';
+const turn = 2 * Math.PI;
 const bodies = [
   { shoulder: 9, waist: 7 },
   { shoulder: 7, waist: 5 },
@@ -10,11 +14,16 @@ const bodies = [
 ];
 const hairStyles = ['swept', 'cropped', 'bob', 'ponytail', 'shaved'];
 
-function walkFoot(phase) {
-  const stance = 0.55;
-  if (phase < stance) return [Math.round(8 - 16 * phase / stance), 22];
-  const swing = (phase - stance) / (1 - stance);
-  return [Math.round(-8 + 16 * swing), 22 - Math.round(4 * Math.sin(swing * Math.PI))];
+function walkFoot(phase, weight, restX) {
+  const stance = 0.54;
+  const reach = WALK_CYCLE_DISTANCE * stance / 2;
+  const swing = clamp((phase - stance) / (1 - stance), 0, 1);
+  // Move the planted foot backward at the same speed the player moves forward.
+  const travel = phase < stance
+    ? reach - phase * WALK_CYCLE_DISTANCE
+    : reach * (2 * swing * swing * (3 - 2 * swing) - 1);
+  const lift = 4 * Math.sin(swing * Math.PI) ** 1.4;
+  return [Math.round(restX + (travel - restX) * weight), 22 - Math.round(lift * weight)];
 }
 
 export function createCharacterRenderer(ctx) {
@@ -41,8 +50,9 @@ export function createCharacterRenderer(ctx) {
     pixelLine(knee, ankle, 4, ink);
     pixelLine(hip, knee, 2, far ? pants.back : pants.light);
     pixelLine(knee, ankle, 2, far ? pants.back : pants.front);
-    rect(x - 2, y - 1, far ? 4 : 5, 2, ink);
-    rect(x - 1, y - 1, 3, 1, far ? '#584c4b' : '#8c6d59');
+    rect(x - 2, y - 1, far ? 4 : 5, 2, sole);
+    rect(x - 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
+    if (!far) rect(x + 1, y - 1, 1, 1, bootLight);
   }
 
   function arm(x, y, swing, skin, shirt, far) {
@@ -53,7 +63,11 @@ export function createCharacterRenderer(ctx) {
     pixelLine(elbow, hand, 3, ink);
     pixelLine(shoulder, elbow, 2, far ? shirt.wet : shirt.base);
     pixelLine(elbow, hand, 2, far ? skin.shade : skin.face);
-    if (!far) rect(hand[0], hand[1] - 1, 1, 2, skin.arm);
+    if (!far) {
+      rect(elbow[0], elbow[1], 1, 1, shirt.light);
+      rect(hand[0], hand[1] - 1, 1, 1, skin.arm);
+      rect(hand[0], hand[1], 1, 1, skin.hand);
+    }
   }
 
   function head(style, hair, skin, x, y, sway) {
@@ -63,6 +77,7 @@ export function createCharacterRenderer(ctx) {
       rect(-7, 4, 4, 5, ink);
       rect(-8 + sway, 6, 4, 4, ink);
       rect(-7 + sway, 6, 2, 3, hair.base);
+      rect(-7 + sway, 6, 1, 2, hair.light);
       rect(-6, 4, 2, 2, '#e8ba79');
     }
     rect(-4, 1, 9, 8, ink);
@@ -73,16 +88,18 @@ export function createCharacterRenderer(ctx) {
     rect(4, 5, 2, 2, skin.arm);
     rect(1, 8, 3, 1, skin.face);
     rect(3, 4, 1, 2, ink);
-    rect(-2, 6, 1, 1, skin.arm);
+    rect(-2, 6, 1, 1, skin.hand);
+    rect(2, 7, 2, 1, skin.hand);
     if (style !== 'shaved') {
       rect(-4, 1, 8, 3, hair.base);
       rect(-3, 0, 6, 1, hair.shade);
-      rect(-3, 1, 5, 1, hair.light);
+      rect(-3, 1, 4, 1, hair.light);
+      rect(0, 2, 2, 1, hair.light);
       rect(-4, 3, 3, 3, hair.shade);
     }
     if (style === 'swept') {
       rect(0, 2, 5, 2, hair.base);
-      rect(3, 2, 2, 1, hair.light);
+      rect(1, 2, 3, 1, hair.light);
     }
     if (style === 'cropped') rect(-3, 2, 7, 1, hair.light);
     if (style === 'bob') {
@@ -117,25 +134,31 @@ export function createCharacterRenderer(ctx) {
 
   return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, reducedMotion = false, swimming = false } = {}) {
     const crawling = player.height === CRAWL_HEIGHT;
-    const moving = Math.abs(player.dx) > 9;
-    const walking = moving && player.grounded && !swimming;
+    const speed = Math.abs(player.dx);
+    const strideWeight = !reducedMotion && player.grounded && !swimming
+      ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
-    const bob = walking && !reducedMotion ? -Math.round(Math.sin(phase * 2 * Math.PI) ** 2) : 0;
+    const angle = phase * turn;
+    const bob = Math.round(-(Math.sin(angle) ** 2) * strideWeight);
     const targetX = mining ? (mining.tx + 0.5) * TILE - player.x : 0;
     const facing = Math.sign(targetX) || player.facing;
     const tilt = swimming ? clamp(player.dy * .0022, -.3, .3) * facing : 0;
-    const lean = Number(walking && facing === player.facing);
-    const stride = walking && !reducedMotion ? Math.round(Math.cos(phase * 2 * Math.PI) * 4) : 0;
-    const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 11) * (moving ? 3 : 1)) : 0;
+    const lean = Number(strideWeight > 0.5 && facing === player.facing);
+    const armSwing = Math.round(Math.cos(angle + 0.18) * 5 * strideWeight);
+    const hairSway = Math.round(Math.cos(angle - 0.6) * strideWeight);
+    const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 10) * (1 + 2 * clamp(speed / 70, 0, 1))) : 0;
     const { shoulder, waist } = bodies[appearance.body];
     const skin = APPEARANCE.skin[appearance.skin];
     const hair = APPEARANCE.hairColor[appearance.hairColor];
     const shirt = APPEARANCE.shirt[appearance.shirt];
     const pants = APPEARANCE.pants[appearance.pants];
     const shoulderX = (shoulder - 5) / 2 + lean;
-    const nearFoot = swimming ? [-1 + kick, 21] : !player.grounded ? [3, 20] : [2, 22];
-    const farFoot = swimming ? [-4 - kick, 22] : !player.grounded ? [-4, 21] : [-3, 22];
     const nearPhase = facing === player.facing ? phase : (1 - phase) % 1;
+    const rising = player.dy < -35;
+    const nearFoot = swimming ? [-2 + kick, 21 - Math.max(kick, 0)]
+      : player.grounded ? walkFoot(nearPhase, strideWeight, 2) : [3, rising ? 19 : 21];
+    const farFoot = swimming ? [-5 - kick, 22 + Math.min(kick, 0)]
+      : player.grounded ? walkFoot((nearPhase + 0.5) % 1, strideWeight, -3) : [-4, rising ? 20 : 22];
     const targetY = mining ? (mining.ty + 0.5) * TILE - player.y : 0;
     const swingPhase = mining && !reducedMotion ? mining.progress * Math.round(mining.duration / 0.26) : 0;
 
@@ -144,7 +167,7 @@ export function createCharacterRenderer(ctx) {
     ctx.translate(Math.round(player.x), Math.round(player.y));
     ctx.scale(facing, 1);
     if (crawling) {
-      const shuffle = Math.round(stride / 2);
+      const shuffle = Math.round(armSwing * 0.4);
       rect(-6 - shuffle, 13, 5, 3, ink);
       rect(-5 - shuffle, 13, 3, 2, pants.back);
       rect(-5, 11, 6, 4, pants.front);
@@ -163,8 +186,8 @@ export function createCharacterRenderer(ctx) {
       return;
     }
     if (swimming) ctx.rotate(tilt);
-    leg([-2, 17 + bob], walking && !reducedMotion ? walkFoot((nearPhase + 0.5) % 1) : farFoot, pants, true);
-    arm(-shoulderX, 11 + bob, stride - Number(swimming) * 2, skin, shirt, true);
+    leg([-2, 17 + bob], farFoot, pants, true);
+    arm(-shoulderX, 11 + bob, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     if (tank) {
       rect(-shoulderX - 5, 9 + bob, 5, 9, ink);
@@ -178,16 +201,19 @@ export function createCharacterRenderer(ctx) {
     rect(-(waist - 3) / 2, 13 + bob, waist - 2, 3, shirt.base);
     rect(-(waist - 3) / 2, 15 + bob, waist - 2, 1, shirt.wet);
     rect(lean - 2, 10 + bob, 4, 1, shirt.light);
-    rect(-1, 16 + bob, 2, 1, '#ddb57b');
-    leg([1, 17 + bob], walking && !reducedMotion ? walkFoot(nearPhase) : nearFoot, pants, false);
-    head(hairStyles[appearance.hair], hair, skin, lean, bob, Math.sign(stride));
-    rect(lean - 2, 9 + bob, 5, 1, '#edb77b');
-    rect(lean - 2, 10 + bob, 2, 1, '#b77357');
+    rect(lean - 2, 12 + bob, 1, 3, shirt.wet);
+    rect(0, 13 + bob, 2, 1, shirt.light);
+    rect(-(waist - 3) / 2, 16 + bob, waist - 2, 1, '#5e4946');
+    rect(-1, 16 + bob, 2, 1, '#d9ac75');
+    leg([1, 17 + bob], nearFoot, pants, false);
+    head(hairStyles[appearance.hair], hair, skin, lean, bob, swimming ? -Math.sign(kick) : hairSway);
+    rect(lean - 2, 9 + bob, 5, 1, '#efc48d');
+    rect(lean - 2, 10 + bob, 2, 1, '#b4755a');
 
     if (mining) {
       miningArm(shoulderX, 11 + bob, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, mining.tier);
     } else {
-      arm(shoulderX, 11 + bob, swimming ? 4 + Math.sign(kick) : -stride, skin, shirt, false);
+      arm(shoulderX, 11 + bob, swimming ? 4 + Math.sign(kick) : -armSwing, skin, shirt, false);
     }
 
     if (swimming) {
