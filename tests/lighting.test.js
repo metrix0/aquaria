@@ -28,12 +28,39 @@ test('cave light follows open passages and reacts to terrain edits', () => {
   light.update(world, player);
   assert.ok(light.at(column + 2, row) > light.at(column + 4, row));
   assert.ok(light.at(column + 4, row) > 0);
-  assert.equal(light.at(column + 5, row), 0);
+  assert.ok(light.at(column + 4, row) > light.at(column + 5, row));
+  assert.ok(light.at(column + 5, row) > 0);
 
   editTile(world, column + 1, row, MATERIAL.wood);
   light.update(world, player);
   assert.equal(light.at(column + 4, row), 0);
   assert.equal(light.at(column + 18, row), 0);
+});
+
+test('light fades over several rock tiles and follows the player within a tile', () => {
+  const world = createWorld();
+  const light = createCaveLight();
+  const column = 100;
+  const row = 24;
+  const player = { x: (column + .5) * TILE, y: row * TILE, height: TILE };
+  for (let x = column - 1; x <= column + 6; x++) {
+    for (let y = row - 1; y <= row + 1; y++) editTile(world, x, y, MATERIAL.stone);
+  }
+  editTile(world, column, row, MATERIAL.air);
+  light.update(world, player);
+  for (let dx = 1; dx <= 4; dx++) {
+    const brightness = light.at(column + dx, row);
+    assert.ok(brightness > 0 && brightness < light.at(column + dx - 1, row));
+  }
+  assert.equal(light.at(column + 5, row), 0);
+
+  for (let dx = 1; dx <= 13; dx++) editTile(world, column + dx, row, MATERIAL.air);
+  light.update(world, player);
+  const before = light.at(column + 7, row);
+  player.x += TILE / 4;
+  light.update(world, player);
+  assert.ok(light.at(column + 7, row) > before);
+  assert.ok(light.at(column + 13, row) > 0);
 });
 
 test('ore mining requires an open face, including naturally flooded space', () => {

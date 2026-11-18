@@ -42,6 +42,9 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
   const caveLight = createCaveLight();
+  const lightCanvas = canvas.ownerDocument.createElement('canvas');
+  const lightCtx = lightCanvas.getContext('2d');
+  let lightPixels;
 
   function rect(x, y, w, h, color) {
     ctx.fillStyle = color;
@@ -289,10 +292,12 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawTile(world, tx, ty, material) {
+  function drawTile(world, tx, ty, material, oreOpacity) {
     const x = tx * TILE;
     const y = ty * TILE;
-    const [base, light, dark, bright] = palettes[material];
+    const ore = ORE_MATERIALS.has(material);
+    const rock = ore ? (ty >= deepstoneStartAt(tx) ? MATERIAL.deepstone : MATERIAL.stone) : material;
+    const [base, light, dark, bright] = palettes[rock];
     const seed = tx - WEST_EXTENSION;
     const variation = noise(seed, ty, 9);
     const top = !tileAt(world, tx, ty - 1);
@@ -310,17 +315,7 @@ export function createRenderer(canvas) {
     for (let i = 0; i < 5; i++) {
       const sx = 1 + Math.floor(noise(seed, ty, i * 2 + 31) * 12);
       const sy = 2 + Math.floor(noise(seed, ty, i * 2 + 32) * 12);
-      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 && !ORE_MATERIALS.has(material) ? light : dark);
-    }
-    if (ORE_MATERIALS.has(material)) {
-      for (let i = 0; i < 3; i++) {
-        const px = x + 2 + i * 4;
-        const py = y + 3 + Math.floor(noise(seed, ty, 85 + i) * 8);
-        const size = i === 1 ? 5 : 4;
-        polygon([[px, py + 2], [px + 2, py], [px + size, py + 1], [px + size - 1, py + 4], [px + 1, py + 5]], light);
-        rect(px + 2, py + 1, size - 2, 1, bright);
-        rect(px + 1, py + 4, size - 2, 1, dark);
-      }
+      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 ? light : dark);
     }
     if (variation < .29 && material !== MATERIAL.sand) {
       const h = 3 + Math.floor(variation * 25);
@@ -333,6 +328,19 @@ export function createRenderer(canvas) {
     }
     if (left) rect(x, y + 2, 1, 14, light);
     if (right) rect(x + 14, y + 2, 2, 14, dark);
+    if (oreOpacity > 0) {
+      const [, mineral, shadow, glint] = palettes[material];
+      ctx.globalAlpha = oreOpacity;
+      for (let i = 0; i < 3; i++) {
+        const px = x + 2 + i * 4;
+        const py = y + 3 + Math.floor(noise(seed, ty, 85 + i) * 8);
+        const size = i === 1 ? 5 : 4;
+        polygon([[px, py + 2], [px + 2, py], [px + size, py + 1], [px + size - 1, py + 4], [px + 1, py + 5]], mineral);
+        rect(px + 2, py + 1, size - 2, 1, glint);
+        rect(px + 1, py + 4, size - 2, 1, shadow);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
 
   function coral(x, y, seed) {
@@ -422,28 +430,46 @@ export function createRenderer(canvas) {
     };
   }
 
-  function brightness(world, player, tx, ty, ground, westGround, eastGround) {
-    if (ty < ground ||
+  function hasDaylight(world, player, tx, ty, ground, westGround, eastGround) {
+    return ty < ground ||
         (ty === ground && !solidAt(world, tx, ty - 1, player)) ||
         (ty < westGround && !solidAt(world, tx - 1, ty, player)) ||
-        (ty < eastGround && !solidAt(world, tx + 1, ty, player))) return 1;
-    return caveLight.at(tx, ty);
+        (ty < eastGround && !solidAt(world, tx + 1, ty, player));
+  }
+
+  function oreOpacityAt(world, player, tx, ty, ground, westGround, eastGround) {
+    if (hasDaylight(world, player, tx, ty, ground, westGround, eastGround) && hasOpenFace(world, tx, ty, player)) return 1;
+    return clamp((caveLight.at(tx, ty) - .1) / .45, 0, 1);
   }
 
   function shadeCaves(world, player, { left, right, top, bottom }) {
-    ctx.save();
-    ctx.fillStyle = '#050912';
+    const width = right - left;
+    const height = bottom - top;
+    if (!lightPixels || lightPixels.width !== width || lightPixels.height !== height) {
+      lightCanvas.width = width;
+      lightCanvas.height = height;
+      lightPixels = lightCtx.createImageData(width, height);
+      const { data } = lightPixels;
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = 5;
+        data[i + 1] = 9;
+        data[i + 2] = 18;
+      }
+    }
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
       const westGround = groundAt(x - 1);
       const eastGround = groundAt(x + 1);
-      for (let y = Math.max(top, ground); y < bottom; y++) {
-        const light = brightness(world, player, x, y, ground, westGround, eastGround);
-        if (light === 1) continue;
-        ctx.globalAlpha = (1 - light) * .96;
-        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+      let alpha = (x - left) * 4 + 3;
+      for (let y = top; y < bottom; y++, alpha += width * 4) {
+        const light = hasDaylight(world, player, x, y, ground, westGround, eastGround) ? 1 : caveLight.at(x, y);
+        lightPixels.data[alpha] = (1 - light) * 245;
       }
     }
+    lightCtx.putImageData(lightPixels, 0, 0);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(lightCanvas, left * TILE, top * TILE, width * TILE, height * TILE);
     ctx.restore();
   }
 
@@ -454,12 +480,9 @@ export function createRenderer(canvas) {
       const eastGround = groundAt(x + 1);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
-        let material = tileAt(world, x, y);
-        if (ORE_MATERIALS.has(material) && (!hasOpenFace(world, x, y, player) ||
-            brightness(world, player, x, y, ground, westGround, eastGround) < .1)) {
-          material = y >= deepstoneStartAt(x) ? MATERIAL.deepstone : MATERIAL.stone;
-        }
-        if (material) drawTile(world, x, y, material);
+        const material = tileAt(world, x, y);
+        const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y, ground, westGround, eastGround) : 0;
+        if (material) drawTile(world, x, y, material, oreOpacity);
         else if (y >= firstCaveRow) caveWall(world, x, y);
       }
     }
