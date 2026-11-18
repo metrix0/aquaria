@@ -5,9 +5,9 @@ import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/c
 import { updateEnemySpawns } from '../src/enemies.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, chestAt, collectItem, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, resetRoomProgress, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, chestAt, commitTileAction, createGame, craftItem, craftTank, equipChestLoot, moveChestStack, nearestItem, oxygenCapacity, resetRoomProgress, stepGame, targetTile, useWeapon } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
-import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
+import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
@@ -205,7 +205,6 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.grounded && Math.abs(player.x - cache.x) < TILE / 4, { left: true });
   assert.equal(nearestItem(game), cache);
   assert.equal(chestAt(game, cache.x, cache.y), cache);
-  assert.equal(collectItem(game), undefined);
   assert.equal(moveChestStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), true);
   assert.equal(game.inventory.count('copper'), 2);
   const restored = createGame(decodeSave(encodeSave(game)));
@@ -380,14 +379,58 @@ test('fixed-step simulation supports mining, jumping and crafting without a brow
   assert.equal(craftTank(game), false);
 });
 
-test('harvested palms migrate from the previous save and stay removed on reload', () => {
+test('kelp is mined from its stalk or its supporting block and stays harvested on reload', () => {
+  const game = createGame();
+  const plants = game.world.items.filter(({ kind }) => kind === 'kelp');
+  for (const plant of plants) {
+    assert.notEqual(tileAt(game.world, plant.tx, plant.ty), MATERIAL.air, plant.id);
+    assert.equal(tileAt(game.world, plant.tx, plant.ty - 1), MATERIAL.air, plant.id);
+  }
+  const kelp = plants.find(({ id }) => id === 'kelp-34');
+  const { x, y, tx, ty } = kelp;
+  Object.assign(game.player, { x, y: y - game.player.height / 2 });
+  const stalk = targetTile(game, x, y);
+  const root = targetTile(game, x, (ty + .5) * TILE);
+  assert.equal(nearestItem(game), undefined);
+  const mining = advanceMining(game, stalk, null, 0.15);
+  const tip = targetTile(game, x + 9, y - TILE);
+  const finish = advanceMining(game, tip, mining, 0.15);
+  assert.ok(finish.progress >= 1);
+  commitTileAction(game, finish.action);
+  assert.equal(game.inventory.count('kelp'), 1);
+  assert.equal(tileAt(game.world, tx, ty), MATERIAL.sand);
+  assert.equal(advanceMining(game, stalk, null, 1), null);
+
+  const withRoot = createGame();
+  commitTileAction(withRoot, advanceMining(withRoot, root, null, 1).action);
+  assert.equal(tileAt(withRoot.world, tx, ty), MATERIAL.air);
+  assert.equal(withRoot.inventory.count('sand'), 1);
+  assert.equal(withRoot.inventory.count('kelp'), 1);
+  applyTerrain(withRoot, tx, ty, MATERIAL.sand);
+  const restored = createGame(decodeSave(encodeSave(withRoot)));
+  assert.equal(advanceMining(restored, stalk, null, 1), null);
+  assert.equal(restored.inventory.count('kelp'), 1);
+
+  const peer = createGame();
+  applyTerrain(peer, tx, ty, MATERIAL.air);
+  assert.equal(advanceMining(peer, stalk, null, 1), null);
+  assert.equal(peer.inventory.count('kelp'), 0);
+});
+
+test('palms survive mining their base across reloads and can still be chopped', () => {
   const migrated = createGame(decodeSave({ format: 1, harvested: ['palm-62'] }));
   assert.equal(migrated.world.harvested.has('palm-62'), true);
 
-  const game = createGame();
+  let game = createGame();
+  const tree = game.world.trees.find(({ id }) => id === 'palm-62');
+  const base = targetTile(game, tree.x, (tree.ty + .5) * TILE);
+  commitTileAction(game, advanceMining(game, base, null, 1).action);
+  assert.equal(tileAt(game.world, tree.tx, tree.ty), MATERIAL.air);
+  game = createGame(decodeSave(encodeSave(game)));
+  assert.equal(isTreeStanding(game.world, tree), true);
   const target = targetTile(game, (62 + WEST_EXTENSION) * 16 + 8, 9 * 16 + 8);
   const mining = advanceMining(game, target, null, 0.5);
-  assert.equal(mining.action.treeId, 'palm-62');
+  assert.equal(mining.action.fixtureId, 'palm-62');
   assert.equal(mining.progress, 1);
   commitTileAction(game, mining.action);
   assert.equal(game.inventory.count('wood'), 6);
@@ -524,7 +567,6 @@ test('the wreck chest opens before equipping the swimming helmet and stays avail
   game.player.x = chest.x;
   game.player.y = chest.y + 8 - game.player.height;
   assert.equal(nearestItem(game), chest);
-  assert.equal(collectItem(game), undefined);
   assert.equal(oxygenCapacity(game), 18);
   assert.equal(game.chests.get(chest.id)[0].id, SWIMMING_HELMET.id);
   assert.equal(moveChestStack(game, chest.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), false);

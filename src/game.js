@@ -4,7 +4,7 @@ import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectItem, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, craftTank, createGame, equipChestLoot, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -67,12 +67,13 @@ function aimedMob() {
   return pointer.active ? targetMobAt(game, pointer.x + camera.x, pointer.y + camera.y) : null;
 }
 
-function showTileEffect({ tx, ty, before, amount }) {
+function showTileEffect({ tx, ty, before, amount, item }) {
   if (amount < 0) return;
   for (let i = 0; i < 8; i++) {
     particles.push({
       x: tx * TILE + 8, y: ty * TILE + 8, dx: (Math.random() - 0.5) * 55,
       dy: Math.random() * -44, life: 0.25 + Math.random() * 0.35, material: before,
+      color: item === 'kelp' ? '#72a78a' : undefined,
     });
   }
 }
@@ -96,16 +97,16 @@ function emitEffect({ x, y, material, color, count, spread, message }) {
 
 async function editTile(action) {
   if (!action || editPending) return;
-  const rewards = action.supportedDoor ? new Inventory(game.inventory) : null;
-  const missing = action.amount > 0 && (rewards
-    ? (!rewards.add(action.item, action.amount) ? action.item : !rewards.add('door', 1) ? 'door' : null)
-    : !game.inventory.canAdd(action.item, action.amount) ? action.item : null);
+  const rewards = action.amount > 0 ? new Inventory(game.inventory) : null;
+  const missing = rewards && [
+    [action.item, action.amount], ['door', action.supportedDoor ? 1 : 0], ['kelp', action.supportedKelp?.amount ?? 0],
+  ].find(([item, amount]) => amount > 0 && !rewards.add(item, amount));
   if (missing) {
     input.stopMining();
-    ui.notify('No room for more ' + ITEMS[missing].name.toLowerCase() + '.');
+    ui.notify('No room for more ' + ITEMS[missing[0]].name.toLowerCase() + '.');
     return;
   }
-  if (!room || action.treeId) commitTileAction(game, action);
+  if (!room || action.fixtureId) commitTileAction(game, action);
   else {
     editPending = true;
     try {
@@ -291,16 +292,8 @@ const input = bindInput(canvas, {
   chestOpen: ui.openChestId,
   interact() {
     if (editPending) return;
-    const item = nearestItem(game);
-    if (item?.kind === 'chest') {
-      ui.open('backpack-panel', item);
-      return;
-    }
-    const note = collectItem(game, item);
-    if (note) {
-      inventoryChanged();
-      ui.notify(note);
-    }
+    const chest = nearestItem(game);
+    if (chest) ui.open('backpack-panel', chest);
   },
   interactAtPointer() {
     const { pointer } = input;

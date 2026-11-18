@@ -135,7 +135,7 @@ export function createUI(actions, version) {
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;
         const label = prompt.querySelector('span');
-        const action = focusedItem.kind === 'chest' ? 'Open ' + focusedItem.name.toLowerCase() : 'Harvest kelp';
+        const action = 'Open ' + focusedItem.name.toLowerCase();
         if (label.textContent !== action) label.textContent = action;
       }
     },

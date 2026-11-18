@@ -477,8 +477,12 @@ export function generateFixtures() {
     loot: { id: SWIMMING_HELMET.id, count: 1 },
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });
-  for (const x of [-105, -100, -57, -50, -46, 34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {
-    items.push({ id: 'kelp-' + x, kind: 'kelp', amount: 1, x: (x + WEST_EXTENSION) * TILE + 8, y: groundAt(x + WEST_EXTENSION) * TILE - 12 });
+  // Preserve saved kelp IDs where the seabed has shifted near cave openings.
+  const kelpLocations = [[-105], [-100], [-57], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144]];
+  for (const [id, column = id] of kelpLocations) {
+    const tx = column + WEST_EXTENSION;
+    const ty = groundAt(tx);
+    items.push({ id: 'kelp-' + id, kind: 'kelp', amount: 1, tx, ty, x: (tx + .5) * TILE, y: ty * TILE - 12 });
   }
 
   return items;

@@ -1,5 +1,5 @@
-import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
-import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, inWater, isEditableTile, placeDoor, setDoor, solidAt, tileAt, treeAt } from '../world.js';
+import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR } from '../content.js';
+import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, updateOxygen } from './player.js';
@@ -57,6 +57,10 @@ export function createGame(snapshot) {
 export function resetRoomProgress(previous) {
   const world = previous.world;
   world.harvested.clear();
+  for (const [tx, ty, material] of editedTiles(world)) {
+    const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
+    if (uprooted) world.harvested.add(uprooted.id);
+  }
   world.mobs = generateMobs();
   world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
@@ -268,7 +272,7 @@ export function nearestItem(game) {
   let result;
   let distance = INTERACTION_RANGE;
   for (const item of world.items) {
-    if (item.kind !== 'chest' && world.harvested.has(item.id)) continue;
+    if (item.kind !== 'chest') continue;
     const difference = itemDistance(player, item);
     if (difference < distance) {
       distance = difference;
@@ -276,15 +280,6 @@ export function nearestItem(game) {
     }
   }
   return result;
-}
-
-export function collectItem(game, item = nearestItem(game)) {
-  if (item?.kind !== 'kelp') return;
-
-  if (!game.inventory.add('kelp', item.amount)) return 'No room for more kelp.';
-  game.world.harvested.add(item.id);
-  game.dirty = true;
-  return '+' + item.amount + ' kelp';
 }
 
 export function canCraftTank(game) {
@@ -325,7 +320,7 @@ export function targetTile(game, x, y) {
   const ty = Math.floor(y / TILE);
   const { player } = game;
   const reachable = Math.hypot(tx * TILE + 8 - player.x, ty * TILE + 8 - player.y - Math.floor(player.height / 2)) <= 5 * TILE;
-  return { tx, ty, reachable };
+  return { tx, ty, x, reachable };
 }
 
 export function planTileAction(game, target, build, slot) {
@@ -338,10 +333,13 @@ export function planTileAction(game, target, build, slot) {
     const door = doorAt(world, tx, ty);
     if (door) return { ...door, before: MATERIAL.wood, after: MATERIAL.air, door, item: WOODEN_DOOR.id, amount: 1 };
     const tree = before === MATERIAL.air && treeAt(world, tx, ty);
-    if (tree) return { tx, ty, before: MATERIAL.wood, treeId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE) };
+    if (tree) return { tx, ty, before: MATERIAL.wood, fixtureId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE) };
+    const kelp = before === MATERIAL.air && kelpAt(world, target.x ?? (tx + .5) * TILE, ty);
+    if (kelp) return { tx, ty, before, fixtureId: kelp.id, item: 'kelp', amount: kelp.amount };
     const item = DROPS[before];
     if (ORE_MATERIALS.has(before) && !hasOpenFace(world, tx, ty, player)) return;
-    return item && { tx, ty, before, after: MATERIAL.air, item, supportedDoor: doorAt(world, tx, ty - 1), amount: 1 };
+    return item && { tx, ty, before, after: MATERIAL.air, item, amount: 1,
+      supportedDoor: doorAt(world, tx, ty - 1), supportedKelp: rootedKelpAt(world, tx, ty) };
   }
   const item = inventory.hotbar[slot]?.id;
   if (!buildCellFree(world, tx, ty)) return;
@@ -367,14 +365,14 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const { before } = action;
   const tool = game.inventory.hotbar[slot]?.id;
   const tier = ITEMS[tool]?.pickaxe ?? 0;
-  const rule = MINING_RULES[before];
+  const rule = action.item === 'kelp' ? KELP_MINING_RULE : MINING_RULES[before];
   if (tier < (rule.tier ?? 0)) {
     const required = rule.tier === 2 ? 'a Copper pickaxe' : 'a pickaxe';
     return { blocked: rule.name + ' requires ' + required + '.' };
   }
-  const same = current?.action && current.tier === tier && (action.door || action.treeId
-    ? action.door === current.action.door && action.treeId === current.action.treeId
-    : !current.action.door && !current.action.treeId && current.tx === tx && current.ty === ty && current.material === before);
+  const fixture = action.door ?? action.fixtureId;
+  const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
+    (fixture || (current.tx === tx && current.ty === ty && current.material === before));
   const duration = tier ? rule.pickaxe : rule.hand;
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier };
@@ -392,7 +390,9 @@ export function applyTerrain(game, tx, ty, material) {
     const supported = doorAt(world, tx, ty - 1);
     if (supported?.ty === ty - 1) setDoor(world, supported.tx, supported.ty, false);
   }
+  const harvested = world.harvested.size;
   if (!editTile(world, tx, ty, material)) return;
+  if (world.harvested.size !== harvested) game.dirty = true;
   if (material && collides(world, player.x, player.y, player.height)) {
     game.player = spawn(game.world, oxygenCapacity(game), player.appearance);
     game.attack = null;
@@ -402,15 +402,16 @@ export function applyTerrain(game, tx, ty, material) {
 }
 
 export function commitTileAction(game, action) {
-  if (action.treeId) game.world.harvested.add(action.treeId);
+  if (action.fixtureId) game.world.harvested.add(action.fixtureId);
   else applyTerrain(game, action.tx, action.ty, action.after);
   awardTileAction(game, action);
 }
 
-export function awardTileAction(game, { item, amount, slot, supportedDoor }, removedDoor = Boolean(supportedDoor)) {
+export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp }, removedDoor = Boolean(supportedDoor)) {
   if (amount > 0) game.inventory.add(item, amount);
   else game.inventory.consume(game.inventory.hotbar, slot, -amount);
   if (removedDoor) game.inventory.add(WOODEN_DOOR.id, 1);
+  if (supportedKelp) game.inventory.add('kelp', supportedKelp.amount);
   game.dirty = true;
 }
 

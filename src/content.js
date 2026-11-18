@@ -25,6 +25,7 @@ export const MINING_RULES = {
   [MATERIAL.deepstone]: { name: 'Deepstone', tier: 2, pickaxe: 1.7 },
 };
 
+export const KELP_MINING_RULE = { hand: 0.3, pickaxe: 0.25 };
 export const CHEST_SIZE = 8;
 export const INTERACTION_RANGE = 35;
 export const BREATH_SECONDS = 18;

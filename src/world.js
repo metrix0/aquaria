@@ -117,8 +117,7 @@ export function hasOpenFace(world, tx, ty, viewer) {
 }
 
 export function isTreeStanding(world, tree) {
-  const { tx, ty, id } = tree;
-  return !world.harvested.has(id) && tileAt(world, tx, ty) && !tileAt(world, tx, ty - 1);
+  return !world.harvested.has(tree.id);
 }
 
 export function treeAt(world, tx, ty) {
@@ -126,6 +125,17 @@ export function treeAt(world, tx, ty) {
   const y = ty * TILE;
   return world.trees.find((tree) => isTreeStanding(world, tree) && tree.trunk.some((strip) =>
     strip.x < x + TILE && strip.x + strip.width > x && strip.y < y + TILE && strip.y + 2 > y
+  ));
+}
+
+export function rootedKelpAt(world, tx, ty) {
+  return world.items.find((item) => item.kind === 'kelp' && item.tx === tx && item.ty === ty && !world.harvested.has(item.id));
+}
+
+export function kelpAt(world, x, ty) {
+  return world.items.find((item) => item.kind === 'kelp' && !world.harvested.has(item.id) && (
+    (ty === item.ty - 1 && Math.abs(x - item.x) < TILE / 2) ||
+    (ty === item.ty - 2 && Math.abs(x - item.x) < TILE)
   ));
 }
 
@@ -144,6 +154,8 @@ export function editTile(world, tx, ty, material) {
   world.edits.set(key, edits);
   const cached = world.chunks.get(key);
   if (cached) cached.tiles[index] = material;
+  const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
+  if (uprooted) world.harvested.add(uprooted.id);
   return true;
 }
 
