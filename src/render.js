@@ -480,7 +480,7 @@ export function createRenderer(canvas) {
       polygon([[x + 7, floor], [x + 2, floor - 7], [x + 4, floor - 11], [x + 8, floor - 8], [x + 12, floor - 12], [x + 15, floor - 8], [x + 10, floor]], '#406e71');
       rect(x + 3, floor - 9, 2, 2, '#86c4b0');
       rect(x + 11, floor - 10, 2, 3, '#86c4b0');
-    } else {
+    } else if (detail > .985) {
       rect(x + 4, floor - 5, 2, 5, '#a98465');
       rect(x + 9, floor - 3, 2, 3, '#a98465');
       rect(x + 2, floor - 7, 6, 3, '#b97658');
