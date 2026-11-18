@@ -1,3 +1,4 @@
+import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { AIR_TANK, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
@@ -200,6 +201,9 @@ export function stepGame(game, input, dt) {
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
   stepProjectiles(game, dt);
+  stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
+    damageMob(world, mob, 4, mob.x >= x ? 0 : Math.PI, 65, game.effects);
+  });
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
     player.health = Math.max(0, player.health - (hit.healthLoss ?? 10));
@@ -355,6 +359,8 @@ export function planTileAction(game, target, build, slot) {
   if (!build) {
     const door = doorAt(world, tx, ty);
     if (door) return { ...door, before: MATERIAL.wood, after: MATERIAL.air, door, item: WOODEN_DOOR.id, amount: 1 };
+    const trap = caveTrapAt(world, tx, ty);
+    if (trap) return { tx, ty, before: MATERIAL.wood, after: MATERIAL.air, trap, amount: 0 };
     const tree = before === MATERIAL.air && treeAt(world, tx, ty);
     if (tree) return { tx, ty, before: MATERIAL.wood, fixtureId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE) };
     const kelp = before === MATERIAL.air && kelpAt(world, target.x ?? (tx + .5) * TILE, ty);
@@ -388,7 +394,7 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const { before } = action;
   const tool = game.inventory.hotbar[slot]?.id;
   const tier = ITEMS[tool]?.pickaxe ?? 0;
-  const rule = action.item === 'kelp' ? KELP_MINING_RULE : MINING_RULES[before];
+  const rule = action.trap ? { hand: 1.1, pickaxe: .42 } : action.item === 'kelp' ? KELP_MINING_RULE : MINING_RULES[before];
   if (tier < (rule.tier ?? 0)) {
     const required = rule.tier === 2 ? 'a Copper pickaxe' : 'a pickaxe';
     return { blocked: rule.name + ' requires ' + required + '.' };
@@ -432,7 +438,7 @@ export function commitTileAction(game, action) {
 
 export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp }, removedDoor = Boolean(supportedDoor)) {
   if (amount > 0) game.inventory.add(item, amount);
-  else game.inventory.consume(game.inventory.hotbar, slot, -amount);
+  else if (amount < 0) game.inventory.consume(game.inventory.hotbar, slot, -amount);
   if (removedDoor) game.inventory.add(WOODEN_DOOR.id, 1);
   if (supportedKelp) game.inventory.add('kelp', supportedKelp.amount);
   game.dirty = true;

@@ -1,3 +1,5 @@
+import { ISLAND_DEEPSTONE_ROW, isDryIslandCave } from './world/island-cave.js';
+import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
@@ -7,7 +9,7 @@ import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
-    'depth', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
+    'depth', 'depth-label', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
     'interact', 'feedback', 'backpack-head-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
@@ -154,6 +156,10 @@ export function createUI(actions, version) {
       const air = Math.round(game.player.oxygen / oxygenCapacity(game) * 100);
       const airValue = air + '%';
       setText('depth', areaDepth(game) + ' m');
+      const row = Math.floor((game.player.y + game.player.height / 2) / TILE);
+      const column = Math.floor(game.player.x / TILE) - WEST_EXTENSION;
+      const zone = isDryIslandCave(column, row) ? (row >= ISLAND_DEEPSTONE_ROW ? 'UNDERGROUND' : 'CAVES') : 'DEPTH';
+      setText('depth-label', zone);
       setText('health-label', healthValue);
       const healthFill = fields['health-fill'];
       if (healthFill.style.width !== healthValue) {

@@ -130,7 +130,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       if (mob.respawn === 0) {
         Object.assign(mob, {
           x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, hurt: 0, health: mob.maxHealth, grounded: mob.kind === 'crab',
-          attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
+          attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, minerSwing: null, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
         });
       }
       continue;
@@ -490,7 +490,7 @@ export function resetHostiles(world) {
     if ((enemySpecs[mob.kind] || caveEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
       Object.assign(mob, {
         x: mob.homeX, y: mob.homeY, dx: 0, dy: 0, flee: 0, cooldown: 0, health: mob.maxHealth,
-        attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
+        attackTimer: 1.4 + (mob.phase % 1.5), windup: 0, minerSwing: null, dash: 0, dashDx: 0, dashDy: 0, shock: 0, shockHit: false,
       });
     }
   }

@@ -1,3 +1,6 @@
+import { pickaxePose } from './gameplay/melee.js';
+import { drawPickaxe } from './pickaxe-art.js';
+
 export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   const moving = Math.abs(mob.dx) > 2;
   const stride = moving ? Math.round(Math.sin(time * (mob.dash > 0 ? 24 : 13) + mob.phase) * 2) : 0;
@@ -35,7 +38,7 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   const bone = heavy ? '#b5ae9e' : '#e3cfaf';
   const shade = '#918578';
   const cloth = heavy ? '#454151' : archer ? '#5e6363' : '#755652';
-  if (heavy) ctx.scale(1.18, 1.14);
+  if (heavy) ctx.scale(1.77, 1.71);
 
   rect(-5 - stride, -5, 4, 4, cloth);
   rect(2 + stride, -5, 4, 4, shade);
@@ -62,14 +65,19 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   } else {
     rect(-7, -23, 13, 3, heavy ? '#656476' : '#9d784b');
     rect(-4, -25, 8, 3, heavy ? '#777789' : '#b69159');
-    ctx.translate(5, -13);
-    ctx.rotate(windingUp ? -.64 : .44);
-    rect(-1, -2, 2, 10, '#ae8463');
     if (heavy) {
+      ctx.translate(5, -13);
+      ctx.rotate(windingUp ? -.64 : .44);
+      rect(-1, -2, 2, 10, '#ae8463');
       rect(-5, -7, 10, 6, '#828494');
       rect(-5, -7, 10, 2, '#b7b5be');
     } else {
-      polygon([[-6, -2], [-3, -7], [2, -8], [6, -3], [2, -5], [-2, -5]], '#b0acaa');
+      ctx.translate(2, -12);
+      const phase = mob.minerSwing == null ? 0 : mob.minerSwing / .44;
+      ctx.rotate(pickaxePose(phase).angle);
+      rect(-2, -2, 6, 4, cloth);
+      rect(2, -1, 5, 3, bone);
+      drawPickaxe(rect, 1);
     }
   }
 }

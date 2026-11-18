@@ -1,5 +1,5 @@
 import { MATERIAL, SWIMMING_HELMET } from '../content.js';
-import { ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
+import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
 import { placeShipwreck, shipwreckCaches, shipwreckVentColumn } from './shipwreck.js';
 
 export { ISLAND_CAVE };
@@ -9,7 +9,8 @@ export const WORLD_VERSION = 2;
 export const ORIGINAL_WEST_EXTENSION = 44;
 export const WEST_EXTENSION = ORIGINAL_WEST_EXTENSION + 64;
 export const COLS = 224 + WEST_EXTENSION;
-export const ROWS = 176;
+const OCEAN_ROWS = 176;
+export const ROWS = ISLAND_BOTTOM;
 export const WATER_ROW = 16;
 export const WATER = WATER_ROW * TILE;
 
@@ -64,10 +65,10 @@ export function groundAt(tx) {
   return oceanFloor(tx - WEST_EXTENSION);
 }
 
-export function deepstoneStartAt(tx) {
+export function deepstoneStartAt(tx, row) {
   const x = tx - WEST_EXTENSION;
-  return x >= 29 && x <= 88 ? ISLAND_DEEPSTONE_ROW + Math.round(Math.sin(x * .19))
-    : 84 + Math.round(4 * Math.sin((x + ORIGINAL_WEST_EXTENSION) * 0.12));
+  if ((x >= -51 && x <= 177) && (row >= OCEAN_ROWS || protectsIslandCave(x, row))) return ISLAND_DEEPSTONE_ROW;
+  return 84 + Math.round(4 * Math.sin((x + ORIGINAL_WEST_EXTENSION) * 0.12));
 }
 
 function valueNoise(x, y, scale, seed) {
@@ -116,9 +117,9 @@ function wormTunnel([x0, y0, r0], [x1, y1, r1], seed, minY = WATER_ROW + 5) {
     const t = i / segments;
     const envelope = Math.sin(t * Math.PI);
     const sway = (noise(i, seed, 81) - 0.5) * Math.min(13, length * 0.26) * envelope;
-    const wx = clamp(x0 + dx * t + nx * sway, -ORIGINAL_WEST_EXTENSION + 6, COLS - WEST_EXTENSION - 6);
+    const wx = clamp(x0 + dx * t + nx * sway, -WEST_EXTENSION + 6, COLS - WEST_EXTENSION - 6);
     const floorClearance = groundAt(Math.round(wx) + WEST_EXTENSION) + 5;
-    const wy = clamp(y0 + dy * t + ny * sway * 0.55, Math.max(minY, floorClearance), ROWS - 7);
+    const wy = clamp(y0 + dy * t + ny * sway * 0.55, Math.max(minY, floorClearance), OCEAN_ROWS - 7);
     const radius = r0 + (r1 - r0) * t + (noise(i, seed, 82) - 0.45) * 0.85 * envelope;
     points.push([wx, wy, Math.max(3.0, radius)]);
   }
@@ -153,9 +154,9 @@ function makeChamber(tier, x, y, rx, ry) {
 }
 
 export function generateCaveSystem(seed = 61) {
-  const upperAnchors = [-14, 24, 92, 108, 154];
+  const upperAnchors = [-78, -54, 172, 190, 203];
   const upper = upperAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 1, seed) - 0.5) * 8), -ORIGINAL_WEST_EXTENSION + 20, COLS - WEST_EXTENSION - 24);
+    const x = clamp(anchorX + Math.round((noise(i, 1, seed) - 0.5) * 8), -WEST_EXTENSION + 20, COLS - WEST_EXTENSION - 24);
     const rx = 17 + Math.round(noise(i, 3, seed) * 8);
     const ry = 8 + Math.round(noise(i, 4, seed) * 4);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
@@ -163,9 +164,9 @@ export function generateCaveSystem(seed = 61) {
     return makeChamber(0, x, y, rx, ry);
   });
 
-  const midAnchors = [-8, 44, 94, 142, 190];
+  const midAnchors = [-78, -58, 175, 193, 206];
   const mid = midAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 11, seed) - 0.5) * 10), -ORIGINAL_WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 24);
+    const x = clamp(anchorX + Math.round((noise(i, 11, seed) - 0.5) * 10), -WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 24);
     const rx = 20 + Math.round(noise(i, 13, seed) * 8);
     const ry = 11 + Math.round(noise(i, 14, seed) * 5);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
@@ -173,12 +174,12 @@ export function generateCaveSystem(seed = 61) {
     return makeChamber(1, x, y, rx, ry);
   });
 
-  const abyssAnchors = [8, 52, 96, 144, 196];
+  const abyssAnchors = [-80, -61, 170, 193, 204];
   const abyss = abyssAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 21, seed) - 0.5) * 10), -ORIGINAL_WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 22);
+    const x = clamp(anchorX + Math.round((noise(i, 21, seed) - 0.5) * 10), -WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 22);
     const rx = 18 + Math.round(noise(i, 23, seed) * 10);
     const ry = 11 + Math.round(noise(i, 24, seed) * 5);
-    const y = clamp(Math.round(138 + noise(i, 22, seed) * 16), 134, ROWS - ry - 6);
+    const y = clamp(Math.round(138 + noise(i, 22, seed) * 16), 134, OCEAN_ROWS - ry - 6);
     return makeChamber(2, x, y, rx, ry);
   });
 
@@ -186,10 +187,10 @@ export function generateCaveSystem(seed = 61) {
 
   // Carve underwater seafloor entrances in distinct reef/shelf zones, away from the island and wreck.
   const entranceZones = [
-    { min: -18, max: -4, target: upper[0] },
-    { min: 18, max: 34, target: upper[1] },
-    { min: 76, max: 98, target: upper[2] },
-    { min: 122, max: 168, target: upper[3] },
+    { min: -98, max: -91, target: upper[0] },
+    { min: -61, max: -54, target: upper[1] },
+    { min: 171, max: 183, target: upper[2] },
+    { min: 192, max: 210, target: upper[3] },
   ];
 
   const entrances = [];
@@ -219,8 +220,8 @@ export function generateCaveSystem(seed = 61) {
   for (let i = 0; i < 4; i++) {
     const host = chambers[Math.floor(noise(i, 35, seed) * chambers.length)];
     const dir = noise(i, 36, seed) < 0.5 ? -1 : 1;
-    const endX = clamp(host.x + dir * Math.round(host.rx + 8 + noise(i, 37, seed) * 10), -ORIGINAL_WEST_EXTENSION + 10, COLS - WEST_EXTENSION - 10);
-    const endY = clamp(host.y + Math.round((noise(i, 38, seed) - 0.45) * 14), Math.max(WATER_ROW + 8, groundAt(endX + WEST_EXTENSION) + 6), ROWS - 8);
+    const endX = clamp(host.x + dir * Math.round(host.rx + 8 + noise(i, 37, seed) * 10), -WEST_EXTENSION + 10, COLS - WEST_EXTENSION - 10);
+    const endY = clamp(host.y + Math.round((noise(i, 38, seed) - 0.45) * 14), Math.max(WATER_ROW + 8, groundAt(endX + WEST_EXTENSION) + 6), OCEAN_ROWS - 8);
     rawPassages.push(wormTunnel([host.x, host.y, 3.2], [endX, endY, 3.6], seed + 430 + i * 11));
   }
 
@@ -266,7 +267,7 @@ export const CAVE_SYSTEM = generateCaveSystem();
 const oreLayers = [
   { material: MATERIAL.copper, top: 27, bottom: 58, step: 11, seed: 71 },
   { material: MATERIAL.iron, top: 62, bottom: 108, step: 13, seed: 72 },
-  { material: MATERIAL.cobalt, top: 115, bottom: ROWS - 2, step: 16, seed: 73 },
+  { material: MATERIAL.cobalt, top: 115, bottom: OCEAN_ROWS - 2, step: 16, seed: 73 },
 ];
 
 function stamp(cx, cy, rx, ry, seed, visit, bounds) {
@@ -305,7 +306,7 @@ function isEntranceZone(tx, ty) {
 }
 
 function isCarvedAt(tx, ty) {
-  if (ty < WATER_ROW + 4 || ty >= ROWS - 2 || protectsIslandCave(tx - WEST_EXTENSION, ty)) return false;
+  if (ty < WATER_ROW + 4 || ty >= OCEAN_ROWS - 2 || protectsIslandCave(tx - WEST_EXTENSION, ty)) return false;
   if (ty <= groundAt(tx) + 3 && !isEntranceZone(tx, ty)) return false;
   for (const chamber of CAVE_SYSTEM.chambers) {
     if (tx >= chamber.minX && tx <= chamber.maxX && ty >= chamber.minY && ty <= chamber.maxY) {
@@ -314,7 +315,7 @@ function isCarvedAt(tx, ty) {
       }
     }
   }
-  return ty >= WATER_ROW + 14 && ty <= ROWS - 7 && ty > groundAt(tx) + 8 && caveField(tx, ty, CAVE_SYSTEM.seed) > 0.76;
+  return ty >= WATER_ROW + 14 && ty <= OCEAN_ROWS - 7 && ty > groundAt(tx) + 8 && caveField(tx, ty, CAVE_SYSTEM.seed) > 0.76;
 }
 
 function applyCaves(get, set, bounds) {
@@ -330,7 +331,7 @@ function applyCaves(get, set, bounds) {
     if (overlaps(passage, bounds)) trace(passage.points, 62, carve, bounds);
   }
 
-  for (let y = Math.max(bounds.top, WATER_ROW + 14); y <= Math.min(bounds.bottom, ROWS - 7); y++) {
+  for (let y = Math.max(bounds.top, WATER_ROW + 14); y <= Math.min(bounds.bottom, OCEAN_ROWS - 7); y++) {
     for (let x = bounds.left; x <= bounds.right; x++) {
       if (y <= groundAt(x) + 8 || protectsIslandCave(x - WEST_EXTENSION, y)) continue;
       if (caveField(x, y, CAVE_SYSTEM.seed) > 0.76) set(x, y, MATERIAL.air);
@@ -359,11 +360,11 @@ function applyCaves(get, set, bounds) {
 
 export function generateVents(get) {
   const vents = [];
-  for (const [x, y] of [...CAVE_SYSTEM.ventCandidates, [22, 51], [92, 102]]) {
+  for (const [x, y] of CAVE_SYSTEM.ventCandidates) {
     const column = x + WEST_EXTENSION;
     let floor = y;
-    while (floor < ROWS - 2 && get(column, floor) === MATERIAL.air) floor++;
-    if (floor >= y + 3 && floor < ROWS - 2 && floor > groundAt(column) + 3) {
+    while (floor < OCEAN_ROWS - 2 && get(column, floor) === MATERIAL.air) floor++;
+    if (floor >= y + 3 && floor < OCEAN_ROWS - 2 && floor > groundAt(column) + 3) {
       vents.push({ x: column * TILE + TILE / 2, y: floor * TILE });
     }
   }
@@ -372,88 +373,100 @@ export function generateVents(get) {
   return vents;
 }
 
+// Start at the center, then grow a compact, connected vein out from it.
+const veinOffsets = [[0, 0], [-1, 0], [1, 0], [0, 1], [-1, 1], [0, -1], [1, -1]];
 const islandOreVeins = [
-  [51, 21, 1.8, 1.15, MATERIAL.copper], [64, 23, 1.5, 1.15, MATERIAL.iron],
-  [39, 87, 2, 1.4, MATERIAL.iron], [46, 95, 2.3, 1.5, MATERIAL.iron],
-  [53, 95, 2.2, 1.5, MATERIAL.iron], [65, 98, 2.2, 1.5, MATERIAL.iron],
-  [39, 104, 1.9, 1.4, MATERIAL.iron], [58, 117, 2.1, 1.5, MATERIAL.iron],
-  [73, 113, 1.9, 1.4, MATERIAL.iron], [84, 111, 1.8, 1.4, MATERIAL.iron],
+  [51, 21, 5, MATERIAL.copper], [64, 23, 5, MATERIAL.iron],
+  [5, 134, 5, MATERIAL.copper], [143, 108, 4, MATERIAL.copper], [-22, 123, 5, MATERIAL.copper],
+  [48, 185, 4, MATERIAL.copper], [122, 217, 5, MATERIAL.copper], [-22, 253, 3, MATERIAL.iron],
+  [46, 316, 5, MATERIAL.copper],
+  [22, 343, 5], [77, 343, 6], [135, 343, 4], [-15, 402, 7], [19, 402, 5], [85, 402, 4], [130, 402, 5],
+  [12, 460, 4], [35, 460, 6], [65, 460, 4], [101, 460, 5], [134, 460, 6],
+  [0, 509, 3], [37, 509, 6], [69, 509, 5], [133, 509, 4],
+  [16, 563, 6], [52, 563, 5], [103, 563, 4], [128, 563, 5], [40, 613, 4], [104, 613, 4],
+  [9, 563, 5, MATERIAL.cobalt], [98, 510, 5, MATERIAL.cobalt], [51, 614, 4, MATERIAL.cobalt],
+  [-31, 50, 5, MATERIAL.copper], [-28, 60, 5, MATERIAL.iron],
 ];
+
+function writeVein(get, set, bounds, x, y, count, material, flip = 1) {
+  if (x < bounds.left - 1 || x > bounds.right + 1 ||
+      y < bounds.top - 1 || y > bounds.bottom + 1) return;
+  const cells = veinOffsets.slice(0, count).map(([dx, dy]) => [x + dx * flip, y + dy]);
+  const clipped = cells.findIndex(([tx, ty]) => tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2 ||
+    get(tx, ty) !== MATERIAL.stone);
+  const length = clipped < 0 ? count : clipped;
+  if (length < 3) return;
+  for (let i = 0; i < length; i++) {
+    const [tx, ty] = cells[i];
+    if (tx >= bounds.left && tx <= bounds.right && ty >= bounds.top && ty <= bounds.bottom) set(tx, ty, material);
+  }
+}
 
 function applyOres(get, set, bounds) {
   const shift = WEST_EXTENSION - ORIGINAL_WEST_EXTENSION;
   for (const { material, top, bottom, step, seed } of oreLayers) {
     for (let row = top; row < bottom; row += step) {
-      if (row + step + 5 < bounds.top || row - 5 > bounds.bottom) continue;
+      if (row + step < bounds.top || row > bounds.bottom) continue;
       for (let column = -Math.ceil(shift / step) * step; column < COLS - shift; column += step) {
         const tx = column + shift;
-        if (tx + step + 5 < bounds.left || tx - 5 > bounds.right) continue;
-        if (noise(column, row, seed + 4) < 0.33) continue;
-        const x = tx + noise(column, row, seed) * step;
-        const y = row + noise(column, row, seed + 1) * step;
-        const width = 1.25 + noise(column, row, seed + 2) * 1.85;
-        const height = 1 + noise(column, row, seed + 3) * 1.25;
-        stamp(x, y, width, height, seed, (tx, ty) => {
-          const x = tx - WEST_EXTENSION;
-          if (material === MATERIAL.iron && x >= 27 && x <= 91 && ty < ISLAND_DEEPSTONE_ROW) return;
-          if (ty >= top && ty < bottom && get(tx, ty) === MATERIAL.stone) set(tx, ty, material);
-        }, bounds);
+        if (tx + step < bounds.left || tx > bounds.right || noise(column, row, seed + 4) < .33) continue;
+        const x = tx + 3 + Math.floor(noise(column, row, seed) * (step - 6));
+        const y = row + 1 + Math.floor(noise(column, row, seed + 1) * Math.max(1, Math.min(step - 3, bottom - row - 2)));
+        if (protectsIslandCave(x - WEST_EXTENSION, y)) continue;
+        const count = 3 + Math.floor(noise(column, row, seed + 2) * 5);
+        writeVein(get, set, bounds, x, y, count, material, column % 2 ? 1 : -1);
       }
     }
   }
-
-  for (const [x, y, width, height, material] of islandOreVeins) {
-    stamp(x + WEST_EXTENSION, y, width, height, 76, (tx, ty) => {
-      if (get(tx, ty) === MATERIAL.stone) set(tx, ty, material);
-    }, bounds);
+  for (const [x, y, count, material = MATERIAL.iron] of islandOreVeins) {
+    if (y + 1 >= bounds.top && y - 1 <= bounds.bottom) writeVein(get, set, bounds, x + WEST_EXTENSION, y, count, material);
   }
-
-  // The exposed western vein is the one place shallow swimmers can find iron.
-  const mineralize = (x, y) => {
-    const oldX = x - WEST_EXTENSION + ORIGINAL_WEST_EXTENSION;
-    const mineral = noise(oldX, y, 79);
-    const seam = Math.sin(oldX * 0.86 + y * 0.32) + Math.cos(y * 0.51) * 0.65;
-    if (seam > 0.05 && mineral > 0.48) {
-      set(x, y, MATERIAL.copper);
-    } else if (seam <= 0.05 && mineral > 0.87) {
-      set(x, y, MATERIAL.iron);
-    } else if (get(x, y) === MATERIAL.air) {
-      set(x, y, MATERIAL.stone);
-    }
-  };
-  trace([[-25, 65, 2.7], [-27, 58, 2.3], [-31, 51, 1.7], [-32, 47, 1]], 77, mineralize, bounds);
-  trace([[-29, 54, 1.6], [-33, 52, 1.35], [-34, 49, 1]], 77, mineralize, bounds);
 }
 
 export function generateChunk(left, top, size) {
-  const tiles = new Uint8Array(size * size);
-  const index = (x, y) => (y - top) * size + x - left;
+  // Veins are selected against a two-cell halo so a chunk edge never clips a deposit.
+  const halo = 2;
+  const stride = size + halo * 2;
+  const tiles = new Uint8Array(stride * stride);
+  const flooded = new Uint8Array(tiles.length);
+  const index = (x, y) => (y - top + halo) * stride + x - left + halo;
   const get = (x, y) => tiles[index(x, y)];
   const set = (x, y, material) => { tiles[index(x, y)] = material; };
-  for (let x = left; x < left + size; x++) {
+  for (let x = left - halo; x < left + size + halo; x++) {
     const ground = groundAt(x);
-    for (let y = top; y < top + size; y++) set(x, y, generateTile(x, y, ground));
+    for (let y = top - halo; y < top + size + halo; y++) set(x, y, generateTile(x, y, ground));
   }
   const bounds = { left, top, right: Math.min(COLS - 1, left + size - 1), bottom: Math.min(ROWS - 3, top + size - 1) };
-  applyCaves(get, set, bounds);
+  const geology = {
+    left: Math.max(0, left - halo), top: Math.max(0, top - halo),
+    right: Math.min(COLS - 1, left + size + halo - 1), bottom: Math.min(ROWS - 3, top + size + halo - 1),
+  };
+  applyCaves(get, set, geology);
 
-  const flooded = new Uint8Array(tiles.length);
-  applyOres(get, set, bounds);
-  for (let i = Math.max(0, WATER_ROW - top) * size; i < tiles.length; i++) {
-    flooded[i] = Number(tiles[i] === MATERIAL.air);
+  for (let y = Math.max(top, WATER_ROW); y < top + size; y++) {
+    for (let x = left; x < left + size; x++) flooded[index(x, y)] = Number(get(x, y) === MATERIAL.air);
   }
 
   carveIslandCave((x, y, wet) => {
     set(x, y, MATERIAL.air);
     flooded[index(x, y)] = Number(wet);
-  }, bounds, WEST_EXTENSION);
+  }, geology, WEST_EXTENSION);
+  placeShipwreck(set, geology, WEST_EXTENSION);
+  applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
-    for (let y = Math.max(bounds.top, deepstoneStartAt(x)); y <= bounds.bottom; y++) {
-      if (get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
+    for (let y = Math.max(bounds.top, 80); y <= bounds.bottom; y++) {
+      if (y >= deepstoneStartAt(x, y) && get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
     }
   }
-  placeShipwreck(set, bounds, WEST_EXTENSION);
-  return { tiles, flooded };
+
+  const chunk = new Uint8Array(size * size);
+  const water = new Uint8Array(chunk.length);
+  for (let row = 0; row < size; row++) {
+    const start = index(left, top + row);
+    chunk.set(tiles.subarray(start, start + size), row * size);
+    water.set(flooded.subarray(start, start + size), row * size);
+  }
+  return { tiles: chunk, flooded: water };
 }
 
 export function generateCaveMushrooms() {
@@ -466,8 +479,8 @@ export function generateFixtures() {
     ...shipwreckCaches,
     { id: 'wreck-cache', name: 'Wreck cache', column: 111, floor: groundAt(111 + WEST_EXTENSION), resource: 'wood', amount: 8 },
     ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
-    { id: 'western-grotto-cache', name: 'Grotto cache', column: 20, floor: 62, resource: 'kelp', amount: 2 },
-    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 90, floor: 118, resource: 'iron', amount: 3 },
+    { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
+    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
   ].map(({ id, name, column, floor, resource, amount }) => ({
     id, name, kind: 'chest', loot: { id: resource, count: amount },
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
@@ -478,7 +491,7 @@ export function generateFixtures() {
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });
   // Preserve saved kelp IDs where the seabed has shifted near cave openings.
-  const kelpLocations = [[-105], [-100], [-57], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144]];
+  const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144]];
   for (const [id, column = id] of kelpLocations) {
     const tx = column + WEST_EXTENSION;
     const ty = groundAt(tx);
@@ -529,7 +542,7 @@ export function generateMobs() {
     { id: 'jelly-reef', kind: 'jellyfish', x: 86 * TILE, y: (groundAt(86 + WEST_EXTENSION) - 4) * TILE, span: 24, speed: 13, phase: 1.7 },
     { id: 'jelly-wreck', kind: 'jellyfish', x: 118 * TILE, y: 30 * TILE, span: 32, speed: 14, phase: 4.5 },
     { id: 'squid-channel', kind: 'squid', x: 102 * TILE, y: 25 * TILE, span: 58, speed: 48, phase: 2.2 },
-    { id: 'squid-deep', kind: 'squid', x: caveSquid.x, y: caveSquid.y, span: 68, speed: 54, phase: 5.1 },
+    { id: 'squid-deep', kind: 'squid', x: caveSquid.x, y: caveSquid.y - 4 * TILE, span: 68, speed: 54, phase: 5.1 },
     { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
     { id: 'shark-deep', kind: 'shark', x: 146 * TILE, y: 33 * TILE, span: 104, speed: 66, phase: 2.9 },
     ...islandMobs.map(([id, kind, column, floor, respawnDelay], index) => ({

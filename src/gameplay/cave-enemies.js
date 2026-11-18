@@ -1,3 +1,4 @@
+import { overlapsMob, pickaxePose, toolHitbox } from './melee.js';
 import { MATERIAL } from '../content.js';
 import { solidAt, waterTileAt } from '../world.js';
 import { MOB_HEALTH, TILE, clamp } from '../world/generation.js';
@@ -5,9 +6,9 @@ import { MOB_HEALTH, TILE, clamp } from '../world/generation.js';
 export const caveEnemySpecs = Object.fromEntries([
   ['spider', 'cave spider', 13, 8, 34, 13, 86],
   ['archer', 'skeleton archer', 12, 23, 25, 12, 135],
-  ['miner', 'skeletal miner', 14, 23, 34, 18, 19],
+  ['miner', 'skeletal miner', 14, 23, 34, 18, 22],
   ['scorpion', 'cave scorpion', 20, 13, 37, 18, 94],
-  ['hammer', 'hammer skeleton', 19, 27, 26, 26, 26],
+  ['hammer', 'hammer skeleton', 29, 41, 26, 26, 35],
 ].map(([kind, name, width, height, speed, damage, reach]) => [kind, {
   name, width, height, speed, damage, reach, centerY: -height / 2, radius: Math.max(width, height) / 2,
   maxHealth: MOB_HEALTH[kind], material: MATERIAL.deepstone,
@@ -70,8 +71,19 @@ export function stepCaveEnemy(world, player, mob, dt, effects) {
 
   if (mob.flee > 0) {
     mob.windup = 0;
+    mob.minerSwing = null;
     mob.dash = 0;
     speed = mob.dx * .8;
+  } else if (mob.minerSwing != null) {
+    mob.minerSwing += dt;
+    const { angle, bounds } = pickaxePose(Math.min(1, mob.minerSwing / .44));
+    if (active && bounds) {
+      const hitbox = toolHitbox(Math.round(mob.x) + mob.facing * 2, Math.round(mob.y) - 12, mob.facing, angle, bounds);
+      if (overlapsMob(hitbox, player, { width: player.width, height: player.height, centerY: player.height / 2 })) {
+        hurtPlayer(player, spec.damage, mob.facing, 'Struck by a ' + spec.name + '!', '#d88e6d', effects);
+      }
+    }
+    if (mob.minerSwing >= .44) mob.minerSwing = null;
   } else if (mob.dash > 0) {
     mob.dash = Math.max(0, mob.dash - dt);
     speed = mob.facing * 168;
@@ -94,7 +106,14 @@ export function stepCaveEnemy(world, player, mob, dt, effects) {
     }
   } else if (active) {
     mob.facing = deltaX >= 0 ? 1 : -1;
-    if (distance <= spec.reach && mob.attackTimer === 0) mob.windup = mob.kind === 'hammer' ? .65 : .38;
+    if (distance <= spec.reach && mob.attackTimer === 0) {
+      if (mob.kind === 'miner') {
+        mob.minerSwing = 0;
+        mob.attackTimer = 1.45;
+      } else {
+        mob.windup = mob.kind === 'hammer' ? .65 : .38;
+      }
+    }
     else if (distance > (archer ? 90 : 14) && Math.abs(mob.x - mob.homeX) < 170) speed = mob.facing * spec.speed;
   } else if (Math.abs(mob.x - mob.homeX) > 3) {
     mob.facing = Math.sign(mob.homeX - mob.x);

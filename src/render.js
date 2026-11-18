@@ -1,10 +1,13 @@
+import { drawCaveStructure } from './cave-structure-art.js';
+import { isTrapIntact, swingHead } from './gameplay/cave-traps.js';
+import { ISLAND_DEEPSTONE_ROW } from './world/island-cave.js';
 import { drawCaveEnemy } from './cave-enemy-art.js';
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
-import { hasOpenFace, isCaveMushroomExposed, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
-import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
+import { hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { createShipwreckArt } from './shipwreck-art.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
@@ -343,7 +346,7 @@ export function createRenderer(canvas) {
       return;
     }
     const ore = ORE_MATERIALS.has(material);
-    const rock = ore ? (ty >= deepstoneStartAt(tx) ? MATERIAL.deepstone : MATERIAL.stone) : material;
+    const rock = ore ? (ty >= deepstoneStartAt(tx, ty) ? MATERIAL.deepstone : MATERIAL.stone) : material;
     const [base, light, dark, bright] = palettes[rock];
     const seed = tx - WEST_EXTENSION;
     const variation = noise(seed, ty, 9);
@@ -436,13 +439,24 @@ export function createRenderer(canvas) {
     const wet = waterTileAt(world, tx, ty);
     const abyss = ty >= 113;
     const palette = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
-    const [base, shadow, grain] = wet ? palette : ['#332d2d', '#28262c', '#45383a'];
+    const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
+    const [base, shadow, grain] = wet ? palette : underground
+      ? ['#292139', '#201a30', '#3e304e'] : ['#332d2d', '#28262c', '#45383a'];
     const context = fadeTop ? tileCtx : ctx;
     const tileX = fadeTop ? 0 : x;
     const tileY = fadeTop ? 0 : y;
     rect(tileX, tileY, TILE, TILE, base, context);
-    rect(tileX + Math.floor(detail * 8), tileY + 3, 6, 1, grain, context);
-    rect(tileX + 2, tileY + 10 + Math.floor(detail * 3), 9, 2, shadow, context);
+    if (underground) {
+      const stagger = ty % 2 ? 5 : 11;
+      rect(tileX, tileY, TILE, 1, shadow, context);
+      rect(tileX, tileY + 8, TILE, 1, shadow, context);
+      rect(tileX + stagger, tileY + 1, 1, 7, shadow, context);
+      rect(tileX + TILE - stagger, tileY + 9, 1, 7, shadow, context);
+      rect(tileX + Math.floor(detail * 7), tileY + 3, 4, 1, grain, context);
+    } else {
+      rect(tileX + Math.floor(detail * 8), tileY + 3, 6, 1, grain, context);
+      rect(tileX + 2, tileY + 10 + Math.floor(detail * 3), 9, 2, shadow, context);
+    }
     if (fadeTop) {
       tileCtx.globalCompositeOperation = 'destination-out';
       tileCtx.fillStyle = caveWallFade;
@@ -595,25 +609,16 @@ export function createRenderer(canvas) {
           vent.y >= camera.y && vent.y <= camera.y + camera.height + 60) airVent(vent, time);
     }
 
-    const camp = WEST_EXTENSION + ISLAND_CAVE.camp;
-    const floor = ISLAND_CAVE.campFloor;
-    if (camp >= left && camp < right && floor >= top && floor <= bottom &&
-        tileAt(world, camp, floor) && !tileAt(world, camp, floor - 1)) {
-      const x = (camp + .5) * TILE;
-      const y = floor * TILE;
-      rect(x - 1, y - 17, 3, 17, '#664b43');
-      rect(x - 6, y - 17, 9, 2, '#956749');
-      rect(x - 12, y - 20, 14, 14, '#efb16430');
-      rect(x - 8, y - 16, 6, 8, '#5f4d49');
-      rect(x - 7, y - 15, 4, 5, '#f5be76');
-      rect(x - 6, y - 15, 2, 3, '#ffe3a3');
-      rect(x + 4, y - 4, 11, 4, '#71513e');
-      rect(x + 5, y - 4, 9, 1, '#b58259');
+    for (const structure of world.caveStructures) {
+      const { tx, floor } = structure;
+      if (tx < left - 3 || tx >= right + 3 || floor <= top || floor > bottom + 4) continue;
+      if (!hasExposedCaveFloor(world, structure)) continue;
+      drawCaveStructure(rect, polygon, structure, (tx + .5) * TILE, floor * TILE);
     }
 
     for (const mushroom of world.caveMushrooms) {
       const { tx, floor } = mushroom;
-      if (tx < left || tx >= right || floor <= top || floor > bottom || !isCaveMushroomExposed(world, mushroom)) continue;
+      if (tx < left || tx >= right || floor <= top || floor > bottom || !hasExposedCaveFloor(world, mushroom)) continue;
       const x = (tx + .5) * TILE;
       const y = floor * TILE;
       rect(x - 2, y - 8, 3, 8, '#48787a');
@@ -692,6 +697,44 @@ export function createRenderer(canvas) {
       polygon([[3, -3], [8, 0], [3, 3]], '#6e888a');
       polygon([[4, -2], [7, 0], [4, 1]], '#d9e1cf');
       ctx.restore();
+    }
+  }
+
+  function caveTraps(world, camera, elapsed) {
+    for (const trap of world.caveTraps) {
+      const x = (trap.tx + .5) * TILE;
+      const y = (trap.ty + 1) * TILE;
+      if (x < camera.x - 60 || x > camera.x + camera.width + 60 ||
+          y < camera.y - 60 || y > camera.y + camera.height + 60 || !isTrapIntact(world, trap)) continue;
+      if (trap.kind === 'swing') {
+        const floor = y + 2 * TILE;
+        for (const support of [-48, 45]) {
+          rect(x + support, y - 16, 4, floor - y + 16, '#5e4e64');
+          rect(x + support - 2, floor - 3, 8, 3, '#817287');
+        }
+        rect(x - 48, y - 16, 97, 4, '#70607b');
+        const head = swingHead(trap, elapsed);
+        rect(head.anchorX - 7, head.anchorY - 3, 14, 5, '#76617b');
+        rect(head.anchorX - 3, head.anchorY - 1, 6, 4, '#b0907e');
+        for (let link = 1; link < 11; link++) {
+          const t = link / 11;
+          rect(head.anchorX + (head.x - head.anchorX) * t - 1,
+            head.anchorY + (head.y - head.anchorY) * t - 2, 3, 4, link % 2 ? '#a5979b' : '#5c505d');
+        }
+        rect(head.x - 5, head.y - 5, 10, 10, '#847482');
+        for (const side of [-1, 1]) {
+          polygon([[head.x, head.y + side * 9], [head.x - 3, head.y + side * 4], [head.x + 3, head.y + side * 4]], '#c2a5a2');
+          polygon([[head.x + side * 9, head.y], [head.x + side * 4, head.y - 3], [head.x + side * 4, head.y + 3]], '#c2a5a2');
+        }
+      } else {
+        const color = trap.state === 'springing' ? '#ed9e6d' : '#9c8b8b';
+        rect(x - 10, y - 3, 20, 3, '#514252');
+        rect(x - 5, y - 4, 10, 1, '#b09184');
+        for (const side of [-1, 1]) {
+          const tip = x + side * (trap.state === 'spent' ? 2 : 9);
+          polygon([[x, y - 2], [tip, y - 8], [tip + side, y - 5], [x + side * 6, y - 1]], color);
+        }
+      }
     }
   }
 
@@ -933,7 +976,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, helmet, camera, time, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -948,6 +991,7 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     terrain(world, player, camera, time, bounds, openChestId);
     doors(world, player, camera);
+    caveTraps(world, camera, elapsed);
     mobs(world, camera, time, targetMob);
     projectiles(world, camera);
     arrows(playerArrows, camera);

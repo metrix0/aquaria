@@ -11,19 +11,20 @@ export function characterTilt(player, swimming, facing) {
   return swimming && player.height !== CRAWL_HEIGHT ? clamp(player.dy * 0.0022, -0.3, 0.3) * facing : 0;
 }
 
+export function pickaxePose(phase, aim = 0) {
+  const raised = .22;
+  const impact = .68;
+  const swing = phase < raised ? -phase / raised
+    : phase <= impact ? -1 + 1.3 * (phase - raised) / (impact - raised)
+      : .3 * (1 - phase) / (1 - impact);
+  return { angle: aim + swing, bounds: phase >= raised && phase <= impact ? [12, -4, 3, 8] : null };
+}
+
 // Pose is in front-arm coordinates, with positive x toward the weapon tip.
 export function meleePose(attack) {
   const phase = clamp(1 - attack.timer / attack.duration, 0, 1);
   const aim = Math.atan2(Math.sin(attack.angle), Math.abs(Math.cos(attack.angle)));
-  if (attack.tier) {
-    const windup = 0.22;
-    const followThrough = 0.68;
-    const swing = phase < windup ? -phase / windup
-      : phase <= followThrough ? -1 + 1.3 * (phase - windup) / (followThrough - windup)
-        : 0.3 * (1 - phase) / (1 - followThrough);
-    const active = phase >= windup && phase <= followThrough;
-    return { angle: aim + swing, bounds: active ? [12, -4, 3, 8] : null };
-  }
+  if (attack.tier) return pickaxePose(phase, aim);
 
   const spear = attack.kind !== 'melee';
   const thrust = Math.round(Math.sin(phase * Math.PI) * (spear ? 9 : 5));
@@ -41,14 +42,19 @@ export function meleeHitbox(player, attack, swimming) {
   const shoulder = frontShoulder(player, player.appearance);
   const shoulderX = Math.cos(tilt) * shoulder.x - Math.sin(tilt) * shoulder.y;
   const shoulderY = Math.sin(tilt) * shoulder.x + Math.cos(tilt) * shoulder.y;
+  return toolHitbox(Math.round(player.x) + facing * shoulderX, Math.round(player.y) + shoulderY,
+    facing, angle, bounds);
+}
+
+export function toolHitbox(x, y, facing, angle, bounds) {
   const [left, top, width, height] = bounds;
   const localX = left + width / 2;
   const localY = top + height / 2;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   return {
-    x: Math.round(player.x) + facing * (shoulderX + cos * localX - sin * localY),
-    y: Math.round(player.y) + shoulderY + sin * localX + cos * localY,
+    x: x + facing * (cos * localX - sin * localY),
+    y: y + sin * localX + cos * localY,
     ux: facing * cos, uy: sin, halfWidth: width / 2, halfHeight: height / 2,
   };
 }

@@ -1,5 +1,6 @@
+import { caveStructures, islandTraps } from './world/island-cave.js';
 import { MATERIAL, MATERIAL_IDS } from './content.js';
-import { COLS, ROWS, TILE, WATER_ROW, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
+import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
 export const CHUNK_SIZE = 32;
 export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -28,6 +29,10 @@ export function createWorld() {
   return {
     items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(),
     mobs: generateMobs(),
+    caveTraps: islandTraps.map(([kind, column, ty], index) => ({
+      kind, tx: column + WEST_EXTENSION, ty, phase: index * .76, timer: 0, state: 'armed',
+    })),
+    caveStructures: caveStructures.map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor })),
     projectiles: [],
     get vents() { return baseVents(); },
     fixtureIds: new Set([...items, ...trees].map(({ id }) => id)),
@@ -67,7 +72,7 @@ export function waterTileAt(world, tx, ty) {
   return flooded[index] === 1 && tiles[index] === MATERIAL.air;
 }
 
-export function isCaveMushroomExposed(world, { tx, floor }) {
+export function hasExposedCaveFloor(world, { tx, floor }) {
   return !tileAt(world, tx, floor - 1) && tileAt(world, tx, floor) !== MATERIAL.air;
 }
 
@@ -141,6 +146,10 @@ export function kelpAt(world, x, ty) {
 
 export function isEditableTile(tx, ty) {
   return Number.isInteger(tx) && Number.isInteger(ty) && tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS - 2;
+}
+
+export function hasTileEdit(world, tx, ty) {
+  return world.edits.get(chunkKey(Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE)))?.has(offset(tx, ty)) ?? false;
 }
 
 export function editTile(world, tx, ty, material) {

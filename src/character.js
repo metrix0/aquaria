@@ -1,5 +1,6 @@
+import { drawPickaxe } from './pickaxe-art.js';
 import { APPEARANCE, CHARACTER_BODIES } from './content.js';
-import { characterTilt, frontShoulder, meleePose } from './gameplay/melee.js';
+import { characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { TILE, clamp } from './world/generation.js';
 
@@ -138,25 +139,16 @@ export function createCharacterRenderer(ctx) {
     rect(x + 2, y + 3, 2, 1, '#d8f6ec');
   }
 
-  function pickaxe(tier) {
-    rect(7, -1, 7, 2, '#85604c');
-    rect(8, -1, 5, 1, '#d29c65');
-    rect(12, -4, 3, 8, tier === 2 ? '#a35646' : '#6e888a');
-    rect(13, -3, 2, 6, tier === 2 ? '#e09b71' : '#b5c6bd');
-    rect(12, -4, 2, 1, tier === 2 ? '#ffd3a0' : '#d9e1cf');
-  }
-
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
-    const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle - tilt - swing);
+    ctx.rotate(pickaxePose(phase, angle).angle - tilt);
     rect(-2, -2, 6, 4, shirt.wet);
     rect(-1, -1, 4, 3, shirt.base);
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
-    if (tier) pickaxe(tier);
+    if (tier) drawPickaxe(rect, tier);
     ctx.restore();
   }
 
@@ -180,7 +172,7 @@ export function createCharacterRenderer(ctx) {
     rect(2, -1, 5, 3, skin.face);
     rect(5, -1, 2, 2, skin.arm);
     if (weapon === 'melee') {
-      pickaxe(attack.tier);
+      drawPickaxe(rect, attack.tier);
     } else if (weapon === 'spear' || weapon === 'copper-spear') {
       const copper = weapon === 'copper-spear';
       const thrust = melee?.thrust ?? 0;

@@ -477,7 +477,7 @@ function frame(now) {
   const peers = room?.tick(now, dt, game.player, tank, helmet);
   const targetMob = aimedMob();
   renderer.draw({
-    world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
+    world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, caveShadowsHidden, openChestId: ui.openChestId(),

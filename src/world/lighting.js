@@ -1,4 +1,4 @@
-import { hasOpenFace, isCaveMushroomExposed, solidAt, TILE_NEIGHBORS } from '../world.js';
+import { hasOpenFace, hasExposedCaveFloor, solidAt, TILE_NEIGHBORS } from '../world.js';
 import { COLS, ROWS, TILE, groundAt } from './generation.js';
 
 const source = 72;
@@ -65,8 +65,16 @@ export function createCaveLight() {
     for (const mushroom of world.caveMushrooms) {
       const x = mushroom.tx - left;
       const y = mushroom.floor - 1 - top;
-      if (x < 0 || y < 0 || x >= size || y >= size || !isCaveMushroomExposed(world, mushroom)) continue;
+      if (x < 0 || y < 0 || x >= size || y >= size || !hasExposedCaveFloor(world, mushroom)) continue;
       lightCell(y * size + x, mushroomLight);
+    }
+
+    for (const lamp of world.caveStructures ?? []) {
+      if (lamp.kind !== 'lamp') continue;
+      const x = lamp.tx - left;
+      const y = lamp.floor - 2 - top;
+      if (x < 0 || y < 0 || x >= size || y >= size || !hasExposedCaveFloor(world, lamp)) continue;
+      if (!isSolid(world, player, y * size + x)) lightCell(y * size + x, 53);
     }
 
     for (let start = 0; start < queue.length; start++) {
