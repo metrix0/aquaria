@@ -30,7 +30,7 @@ export const BREATH_SECONDS = 18;
 
 export const SWIMMING_HELMET = {
   id: 'swimming-helmet',
-  chestId: 'shore-chest',
+  chestId: 'wreck-chest',
   bonusSeconds: 14,
 };
 

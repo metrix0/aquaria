@@ -335,17 +335,20 @@ test('mob generation and dynamic enemy spawns stay sparse across friendly and ho
   assert.equal(peakDynamic, 1);
 });
 
-test('the eastern shore chest grants a swimming helmet that extends oxygen capacity', () => {
+test('the wreck chest grants a swimming helmet that extends oxygen capacity', () => {
   const game = createGame();
   assert.equal(oxygenCapacity(game), 18);
 
-  const chest = game.world.items.find((item) => item.id === 'shore-chest');
-  assert.ok(chest);
+  const chest = game.world.items.find((item) => item.id === 'wreck-chest');
+  const wreckCache = game.world.items.find((item) => item.id === 'wreck-cache');
+  assert.ok(chest && wreckCache);
   assert.equal(chest.kind, 'helmet');
-  assert.ok(chest.x > SPAWN.x);
+  assert.ok(chest.y > WATER);
+  assert.ok(Math.abs(chest.x - wreckCache.x) <= 5 * TILE);
+  assert.ok(Math.hypot(chest.x - wreckCache.x, chest.y - wreckCache.y) >= 35);
 
-  game.player.x = chest.x - game.player.width / 2;
-  game.player.y = chest.y - game.player.height;
+  game.player.x = chest.x;
+  game.player.y = chest.y - Math.ceil(game.player.height / 2);
   assert.equal(collectItem(game), 'Swimming helmet equipped. +14s oxygen');
   assert.equal(game.progress.swimmingHelmet, true);
   assert.equal(oxygenCapacity(game), 32);
@@ -353,11 +356,11 @@ test('the eastern shore chest grants a swimming helmet that extends oxygen capac
 
   const reloaded = decodeSave(encodeSave(game));
   assert.equal(reloaded.progress.swimmingHelmet, true);
-  assert.ok(reloaded.world.harvested.includes('shore-chest'));
+  assert.ok(reloaded.world.harvested.includes('wreck-chest'));
 
   const reloadedGame = createGame(reloaded);
   assert.equal(reloadedGame.progress.swimmingHelmet, true);
   assert.equal(oxygenCapacity(reloadedGame), 32);
-  assert.ok(reloadedGame.world.harvested.has('shore-chest'));
+  assert.ok(reloadedGame.world.harvested.has('wreck-chest'));
   assert.equal(nearestItem(reloadedGame), undefined);
 });

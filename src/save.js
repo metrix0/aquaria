@@ -45,7 +45,8 @@ export function decodeSave(data) {
     },
     progress: {
       airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
-      swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true || harvested.includes(SWIMMING_HELMET.chestId),
+      swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true ||
+        harvested.includes(SWIMMING_HELMET.chestId) || harvested.includes('shore-chest'),
     },
     world: { edits, doors, harvested },
   };

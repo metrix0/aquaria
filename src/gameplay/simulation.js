@@ -27,7 +27,10 @@ export function createGame(snapshot) {
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
-  if (world.harvested.has(SWIMMING_HELMET.chestId)) game.progress.swimmingHelmet = true;
+  if (game.progress.swimmingHelmet || world.harvested.has(SWIMMING_HELMET.chestId)) {
+    game.progress.swimmingHelmet = true;
+    world.harvested.add(SWIMMING_HELMET.chestId);
+  }
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance);
 

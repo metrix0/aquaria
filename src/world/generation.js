@@ -423,14 +423,14 @@ export function generateChunk(left, top, size) {
 }
 
 export function generateFixtures() {
-  const shoreColumn = 68 + WEST_EXTENSION;
+  const wreckChestColumn = 107 + WEST_EXTENSION;
   const items = [
     { id: 'wreck-cache', name: 'Wreck cache', column: 111, floor: groundAt(111 + WEST_EXTENSION), resource: 'wood', amount: 8 },
     { id: 'island-cave-cache', name: 'Survey cache', column: 43, floor: ISLAND_CAVE.lowestFloor, resource: 'copper', amount: 2 },
     { id: 'western-grotto-cache', name: 'Grotto cache', column: 20, floor: 62, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 90, floor: 118, resource: 'iron', amount: 3 },
   ].map(({ column, floor, ...cache }) => ({ kind: 'cache', ...cache, x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 9 }));
-  items.push({ id: SWIMMING_HELMET.chestId, kind: 'helmet', x: shoreColumn * TILE + 8, y: groundAt(shoreColumn) * TILE - 5 });
+  items.push({ id: SWIMMING_HELMET.chestId, kind: 'helmet', x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 5 });
   for (const x of [34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {
     items.push({ id: 'kelp-' + x, kind: 'kelp', amount: 1, x: (x + WEST_EXTENSION) * TILE + 8, y: groundAt(x + WEST_EXTENSION) * TILE - 12 });
   }
