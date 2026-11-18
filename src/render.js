@@ -7,7 +7,7 @@ import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerHeadInWater, playerInWater } from './gameplay/player.js';
 import { createHelmetWreckArt } from './helmet-wreck-art.js';
 import { ITEMS } from './inventory.js';
-import { hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
+import { TILE_NEIGHBORS, hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { createShipwreckArt } from './shipwreck-art.js';
 import { birdFlightAt } from './world/birds.js';
@@ -31,6 +31,11 @@ const palettes = {
 };
 
 const caveWallFadeDepth = 10;
+const firstCaveRows = Array.from({ length: COLS }, (_, x) => {
+  const ground = groundAt(x);
+  return ground < WATER_ROW ? ground + 1 : ground;
+});
+
 const glowCoralBranches = [
   [[0, 0], [-1, -10], [1, -19], [-1, -29], [2, -40], [0, -48]],
   [[-1, -8], [-10, -13], [-14, -22], [-13, -30]],
@@ -74,10 +79,15 @@ export function createRenderer(canvas) {
   const tileCanvas = canvas.ownerDocument.createElement('canvas');
   tileCanvas.width = tileCanvas.height = TILE;
   const tileCtx = tileCanvas.getContext('2d');
-  const caveWallFade = tileCtx.createLinearGradient(0, 0, 0, caveWallFadeDepth);
-  caveWallFade.addColorStop(0, '#000a');
-  caveWallFade.addColorStop(.45, '#0005');
-  caveWallFade.addColorStop(1, '#0000');
+  const caveWallEdges = TILE_NEIGHBORS.map(([dx, dy], index) => {
+    const x = dx > 0 ? TILE : 0;
+    const y = dy > 0 ? TILE : 0;
+    const fade = tileCtx.createLinearGradient(x, y, x - dx * caveWallFadeDepth, y - dy * caveWallFadeDepth);
+    fade.addColorStop(0, '#000a');
+    fade.addColorStop(.45, '#0005');
+    fade.addColorStop(1, '#0000');
+    return { dx, dy, fade, bit: 1 << index };
+  });
   let lightPixels;
 
   function rect(x, y, w, h, color, context = ctx) {
@@ -522,7 +532,7 @@ export function createRenderer(canvas) {
     rect(topX - 3, topY, 6, 4, '#745747');
   }
 
-  function caveWall(world, tx, ty, fadeTop) {
+  function caveWall(world, tx, ty) {
     const x = tx * TILE;
     const y = ty * TILE;
     const detail = noise(tx, ty, 91);
@@ -532,9 +542,16 @@ export function createRenderer(canvas) {
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const [base, shadow, grain] = wet ? palette : underground
       ? ['#292139', '#201a30', '#3e304e'] : ['#302b2f', '#27242b', '#44393c'];
-    const context = fadeTop ? tileCtx : ctx;
-    const tileX = fadeTop ? 0 : x;
-    const tileY = fadeTop ? 0 : y;
+    let exposedEdges = 0;
+    for (const { dx, dy, bit } of caveWallEdges) {
+      const neighborX = tx + dx;
+      const neighborY = ty + dy;
+      // Air below the surface can still have a cave wall behind it.
+      if (neighborY < firstCaveRows[neighborX] && !tileAt(world, neighborX, neighborY)) exposedEdges |= bit;
+    }
+    const context = exposedEdges ? tileCtx : ctx;
+    const tileX = exposedEdges ? 0 : x;
+    const tileY = exposedEdges ? 0 : y;
     rect(tileX, tileY, TILE, TILE, base, context);
     if (underground) {
       const stagger = ty % 2 ? 5 : 11;
@@ -556,10 +573,13 @@ export function createRenderer(canvas) {
         rect(tileX + 3, tileY + 13, 3, 1, grain, context);
       }
     }
-    if (fadeTop) {
+    if (exposedEdges) {
       tileCtx.globalCompositeOperation = 'destination-out';
-      tileCtx.fillStyle = caveWallFade;
-      tileCtx.fillRect(0, 0, TILE, caveWallFadeDepth);
+      for (const { fade, bit } of caveWallEdges) {
+        if (!(exposedEdges & bit)) continue;
+        tileCtx.fillStyle = fade;
+        tileCtx.fillRect(0, 0, TILE, TILE);
+      }
       tileCtx.globalCompositeOperation = 'source-over';
       ctx.drawImage(tileCanvas, x, y);
     }
@@ -650,14 +670,12 @@ export function createRenderer(canvas) {
     shipwreckArt.backdrop(world, bounds);
     helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
-      const ground = groundAt(x);
-      const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
           if (!shipwreckArt.timber(world, x, y, material)) drawTile(world, x, y, material, oreOpacity);
-        } else if (y >= firstCaveRow) caveWall(world, x, y, y === firstCaveRow && !tileAt(world, x, y - 1));
+        } else if (y >= firstCaveRows[x]) caveWall(world, x, y);
       }
     }
 
