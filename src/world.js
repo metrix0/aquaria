@@ -1,5 +1,5 @@
 import { MATERIAL, MATERIAL_IDS } from './content.js';
-import { COLS, ROWS, TILE, WATER_ROW, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
+import { COLS, ROWS, TILE, WATER_ROW, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
 export const CHUNK_SIZE = 32;
 export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -26,7 +26,7 @@ export function createWorld() {
   const items = generateFixtures();
   const trees = generateTrees();
   return {
-    items, trees, doors: new Map(),
+    items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(),
     mobs: generateMobs(),
     projectiles: [],
     get vents() { return baseVents(); },
@@ -65,6 +65,10 @@ export function waterTileAt(world, tx, ty) {
   const { tiles, flooded } = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
   const index = offset(tx, ty);
   return flooded[index] === 1 && tiles[index] === MATERIAL.air;
+}
+
+export function isCaveMushroomExposed(world, { tx, floor }) {
+  return !tileAt(world, tx, floor - 1) && tileAt(world, tx, floor) !== MATERIAL.air;
 }
 
 export function inWater(world, x, y) {

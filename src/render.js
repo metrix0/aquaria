@@ -2,7 +2,7 @@ import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
-import { hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
+import { hasOpenFace, isCaveMushroomExposed, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
@@ -584,6 +584,20 @@ export function createRenderer(canvas) {
       rect(x - 6, y - 15, 2, 3, '#ffe3a3');
       rect(x + 4, y - 4, 11, 4, '#71513e');
       rect(x + 5, y - 4, 9, 1, '#b58259');
+    }
+
+    for (const mushroom of world.caveMushrooms) {
+      const { tx, floor } = mushroom;
+      if (tx < left || tx >= right || floor <= top || floor > bottom || !isCaveMushroomExposed(world, mushroom)) continue;
+      const x = (tx + .5) * TILE;
+      const y = floor * TILE;
+      rect(x - 2, y - 8, 3, 8, '#48787a');
+      rect(x - 4, y - 11, 7, 2, '#97dced');
+      rect(x - 6, y - 9, 11, 2, '#53b9bc');
+      rect(x - 5, y - 7, 9, 1, '#b5f6de');
+      rect(x + 4, y - 4, 2, 4, '#48787a');
+      rect(x + 3, y - 5, 5, 2, '#97dced');
+      rect(x - 3, y - 10, 2, 1, '#e2ffee');
     }
 
     for (const item of world.items) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { MATERIAL } from '../src/content.js';
 import { advanceMining, createGame, targetTile } from '../src/gameplay/simulation.js';
-import { createWorld, editTile, hasOpenFace, waterTileAt } from '../src/world.js';
+import { createWorld, editTile, hasOpenFace, tileAt, waterTileAt } from '../src/world.js';
 import { groundAt, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from '../src/world/lighting.js';
 
@@ -67,6 +67,28 @@ test('light fades over several rock tiles and follows the player within a tile',
   light.update(world, player);
   assert.ok(light.at(column + 7, row) > before);
   assert.ok(light.at(column + 21, row) > 0);
+});
+
+test('glowing mushrooms light the lower island cave while exposed', () => {
+  const world = createWorld();
+  const light = createCaveLight();
+  for (const { tx, floor } of world.caveMushrooms) {
+    assert.equal(tileAt(world, tx, floor - 1), MATERIAL.air);
+    assert.ok(tileAt(world, tx, floor));
+    assert.equal(waterTileAt(world, tx, floor - 1), false);
+  }
+
+  const { tx, floor } = world.caveMushrooms[0];
+  const row = floor - 1;
+  // Stand far enough from the mushroom to distinguish its light from the player's.
+  const player = { x: (tx + 22.5) * TILE, y: row * TILE, height: TILE };
+  light.update(world, player);
+  assert.ok(light.at(tx, row) > light.at(tx + 1, row));
+  assert.ok(light.at(tx + 1, row) > 0.5);
+
+  editTile(world, tx, row, MATERIAL.wood);
+  light.update(world, player);
+  assert.equal(light.at(tx + 1, row), 0);
 });
 
 test('surface light fades into rock without lighting a sealed pocket', () => {

@@ -1,7 +1,8 @@
-import { hasOpenFace, solidAt, TILE_NEIGHBORS } from '../world.js';
+import { hasOpenFace, isCaveMushroomExposed, solidAt, TILE_NEIGHBORS } from '../world.js';
 import { COLS, ROWS, TILE, groundAt } from './generation.js';
 
 const source = 72;
+const mushroomLight = 46;
 const openFalloff = 3;
 const rockFalloff = 10;
 const reach = Math.ceil(source / openFalloff);
@@ -61,13 +62,23 @@ export function createCaveLight() {
     if (openY) seed(0, dy);
     if ((openX || openY) && !isSolid(world, player, center + dx + dy * size)) seed(dx, dy);
 
+    for (const mushroom of world.caveMushrooms) {
+      const x = mushroom.tx - left;
+      const y = mushroom.floor - 1 - top;
+      if (x < 0 || y < 0 || x >= size || y >= size || !isCaveMushroomExposed(world, mushroom)) continue;
+      lightCell(y * size + x, mushroomLight);
+    }
+
     for (let start = 0; start < queue.length; start++) {
       const index = queue[start];
       queued[index] = 0;
       const level = levels[index];
       if (level <= openFalloff) continue;
       const fromRock = isSolid(world, player, index);
+      const x = index % size;
+      const y = Math.floor(index / size);
       for (const [dx, dy] of TILE_NEIGHBORS) {
+        if (x + dx < 0 || x + dx >= size || y + dy < 0 || y + dy >= size) continue;
         const neighbor = index + dy * size + dx;
         const intoRock = isSolid(world, player, neighbor);
         // Rock carries a soft glow without lighting a disconnected chamber on its far side.

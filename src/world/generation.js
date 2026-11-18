@@ -10,7 +10,7 @@ export const WATER = WATER_ROW * TILE;
 export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
 export const ISLAND_CAVE = { center: 56, camp: 40, campFloor: 42 };
 
-const islandCaveProfile = [
+const upperIslandCaveProfile = [
   // Column from the original west edge, ceiling, floor.
   [38, 36, 42],
   [ISLAND_CAVE.camp, 32, ISLAND_CAVE.campFloor],
@@ -20,23 +20,46 @@ const islandCaveProfile = [
   [ISLAND_CAVE.center, 22, 28],
   [59, 24, 30],
   [64, 28, 35],
-  [69, 30, 40],
+  [67, 29, 39],
+  [68, 30, 41],
+  [69, 30, 42],
   [72, 31, 42],
   [74, 36, 42],
 ];
-const islandCaveColumns = new Map();
-for (let i = 1; i < islandCaveProfile.length; i++) {
-  const [left, leftRoof, leftFloor] = islandCaveProfile[i - 1];
-  const [right, rightRoof, rightFloor] = islandCaveProfile[i];
-  for (let x = left; x <= right; x++) {
-    const t = (x - left) / (right - left);
-    islandCaveColumns.set(WEST_EXTENSION + x, {
-      roof: Math.round(leftRoof + (rightRoof - leftRoof) * t),
-      floor: Math.round(leftFloor + (rightFloor - leftFloor) * t),
-    });
+const lowerIslandCaveProfile = [
+  [30, 68, 80],
+  [34, 61, 80],
+  [39, 57, 75],
+  [44, 50, 70],
+  [49, 47, 65],
+  [55, 42, 59],
+  [61, 39, 53],
+  [65, 38, 49],
+  [67, 40, 47],
+  [69, 43, 45],
+  [70, 39, 45],
+  [72, 38, 42],
+  [74, 39, 42],
+];
+
+function caveColumns(profile) {
+  const columns = new Map();
+  for (let i = 1; i < profile.length; i++) {
+    const [left, leftRoof, leftFloor] = profile[i - 1];
+    const [right, rightRoof, rightFloor] = profile[i];
+    for (let x = left; x <= right; x++) {
+      const t = (x - left) / (right - left);
+      columns.set(WEST_EXTENSION + x, {
+        roof: Math.round(leftRoof + (rightRoof - leftRoof) * t),
+        floor: Math.round(leftFloor + (rightFloor - leftFloor) * t),
+      });
+    }
   }
+  return columns;
 }
 
+const lowerIslandCave = caveColumns(lowerIslandCaveProfile);
+const islandCaveColumns = [...caveColumns(upperIslandCaveProfile), ...lowerIslandCave];
 const islandCaveRockBuffer = 2;
 const islandCaveShell = new Map();
 for (const [x, { roof, floor }] of islandCaveColumns) {
@@ -51,7 +74,10 @@ for (const [x, { roof, floor }] of islandCaveColumns) {
 
 function protectsIslandCave(tx, ty) {
   const shell = islandCaveShell.get(tx);
-  return shell && ty >= shell.roof && ty < shell.floor;
+  if (!shell || ty < shell.roof) return false;
+  // Close the old flooded tunnel across the island, including below the east landing.
+  const oldTunnel = tx >= WEST_EXTENSION + 40 && tx <= WEST_EXTENSION + 76 && ty < 60;
+  return ty < shell.floor || oldTunnel;
 }
 export const MOB_HEALTH = Object.freeze({
   crab: 2,
@@ -176,7 +202,7 @@ function makeChamber(tier, x, y, rx, ry) {
 }
 
 export function generateCaveSystem(seed = 61) {
-  const upperAnchors = [-14, 24, 68, 108, 154];
+  const upperAnchors = [-14, 24, 92, 108, 154];
   const upper = upperAnchors.map((anchorX, i) => {
     const x = clamp(anchorX + Math.round((noise(i, 1, seed) - 0.5) * 8), -WEST_EXTENSION + 20, COLS - WEST_EXTENSION - 24);
     const rx = 17 + Math.round(noise(i, 3, seed) * 8);
@@ -463,6 +489,13 @@ export function generateChunk(left, top, size) {
     }
   }
   return { tiles, flooded };
+}
+
+export function generateCaveMushrooms() {
+  return [33, 46, 59].map((column) => {
+    const tx = column + WEST_EXTENSION;
+    return { tx, floor: lowerIslandCave.get(tx).floor };
+  });
 }
 
 export function generateFixtures() {

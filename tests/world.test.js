@@ -109,10 +109,16 @@ test('the island cave expands below the surface with solid rock separating it fr
     }
   }
   assert.ok(left <= center - 16 && right >= center + 16);
-  assert.ok(deepest >= 40);
+  assert.equal(deepest, 79);
+  assert.ok(cells.length > 700);
+  for (let x = WEST_EXTENSION + 42; x <= WEST_EXTENSION + 74; x++) {
+    for (let y = 43; y <= 57; y++) {
+      assert.equal(waterTileAt(world, x, y), false, `old flooded chamber remains at ${x},${y}`);
+    }
+  }
 });
 
-test('after digging in, both island cave branches are walkable and the survey cache stays collected', () => {
+test('after digging in, the expanded island cave is walkable and the survey cache stays collected', () => {
   const game = createGame();
   const { world, player } = game;
   const center = WEST_EXTENSION + ISLAND_CAVE.center;
@@ -122,7 +128,7 @@ test('after digging in, both island cave branches are walkable and the survey ca
   player.y = surface * TILE - player.height;
 
   function walkUntil(reached, { left = false, right = false, up = false } = {}) {
-    for (let frame = 0; frame < 420 && !reached(); frame++) {
+    for (let frame = 0; frame < 1000 && !reached(); frame++) {
       movePlayer(world, player, { left, right, up, down: false, jump: up && player.grounded }, 1 / 60);
       assert.equal(playerInWater(world, player), false);
     }
@@ -139,9 +145,12 @@ test('after digging in, both island cave branches are walkable and the survey ca
   assert.equal(restored.inventory.count('copper'), 2);
 
   walkUntil(() => player.x >= center * TILE, { right: true, up: true });
-  walkUntil(() => player.x >= (center + 17.5) * TILE && player.grounded, { right: true });
-  assert.ok(player.y >= 39 * TILE);
-  walkUntil(() => player.x <= (center + 0.5) * TILE, { left: true, up: true });
+  const eastLanding = (center + 17.5) * TILE;
+  walkUntil(() => player.x >= eastLanding && player.grounded, { right: true, up: true });
+  walkUntil(() => player.x <= (center - 22.5) * TILE && player.grounded, { left: true });
+  assert.ok(player.y >= 78 * TILE);
+  walkUntil(() => player.x >= eastLanding && player.grounded, { right: true, up: true });
+  walkUntil(() => player.x <= (center + 0.5) * TILE && player.grounded && player.y < 28 * TILE, { left: true, up: true });
 });
 
 test('underwater caches are above a flooded floor with an air vent nearby', () => {
