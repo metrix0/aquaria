@@ -140,6 +140,30 @@ export function createCharacterRenderer(ctx) {
     rect(x + 2, y + 3, 2, 1, '#d8f6ec');
   }
 
+  function pickaxeGrip(tier, skin, far = false) {
+    drawPickaxe(rect, tier);
+    rect(5, -1, 3, 3, skin.shade);
+    rect(5, -1, 2, 2, far ? skin.face : skin.arm);
+    rect(7, 0, 1, 1, skin.hand);
+  }
+
+  function carryPickaxe(x, y, sway, tilt, skin, shirt, tier, swimming, crawling) {
+    const shoulder = [x, y];
+    const elbow = [x + Math.round(sway * .2), y + 4];
+    const hand = [x + 4 + Math.round(sway * .4), y + (crawling ? 3 : 5)];
+    pixelLine(shoulder, elbow, 3, shirt.wet);
+    pixelLine(shoulder, elbow, 2, shirt.base);
+    pixelLine(elbow, hand, 3, skin.shade);
+    pixelLine(elbow, hand, 2, skin.face);
+
+    ctx.save();
+    ctx.translate(hand[0], hand[1]);
+    ctx.rotate((swimming || crawling ? -.65 : -.95) + sway * .045 - tilt);
+    ctx.translate(-6, 0);
+    pickaxeGrip(tier, skin);
+    ctx.restore();
+  }
+
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, far = false) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
@@ -148,8 +172,8 @@ export function createCharacterRenderer(ctx) {
     rect(-2, -2, 6, 4, shirt.wet);
     rect(-1, -1, 4, 3, far ? shirt.wet : shirt.base);
     rect(2, -1, 5, 3, far ? skin.shade : skin.face);
-    if (tier) drawPickaxe(rect, tier);
-    rect(5, -1, 2, 2, far ? skin.face : skin.arm);
+    if (tier) pickaxeGrip(tier, skin, far);
+    else rect(5, -1, 2, 2, far ? skin.face : skin.arm);
     ctx.restore();
   }
 
@@ -171,10 +195,9 @@ export function createCharacterRenderer(ctx) {
       return;
     }
     rect(2, -1, 5, 3, skin.face);
-    rect(5, -1, 2, 2, skin.arm);
-    if (weapon === 'melee') {
-      drawPickaxe(rect, attack.tier);
-    } else if (weapon === 'spear' || weapon === 'copper-spear') {
+    if (weapon === 'melee') pickaxeGrip(attack.tier, skin);
+    else rect(5, -1, 2, 2, skin.arm);
+    if (weapon === 'spear' || weapon === 'copper-spear') {
       const copper = weapon === 'copper-spear';
       const thrust = melee?.thrust ?? 0;
       rect(-3 + thrust, -1, 18, 2, '#85604c');
@@ -240,7 +263,7 @@ export function createCharacterRenderer(ctx) {
       } else if (mainSwing) {
         miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier);
       } else if (heldItem?.pickaxe) {
-        miningArm(shoulderX, shoulderY, shoulderX + 10, shoulderY + 5, tilt, 0, skin, shirt, heldItem.pickaxe);
+        carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling);
       } else {
         arm(shoulderX, restY, restSwing, skin, shirt, false);
       }
