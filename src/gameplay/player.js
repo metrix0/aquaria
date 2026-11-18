@@ -1,6 +1,6 @@
 import { normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { solidAt } from '../world.js';
-import { SPAWN, TILE, WATER, clamp } from '../world/generation.js';
+import { inWater, solidAt } from '../world.js';
+import { SPAWN, TILE, clamp } from '../world/generation.js';
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
@@ -56,15 +56,20 @@ function moveAxis(world, player, axis, amount) {
 }
 
 function canJumpAshore(world, player, direction) {
-  if (!direction || player.dy < -swimSpeed || player.y + 5 > WATER || player.y + player.height <= WATER) return false;
+  if (!direction || player.dy < -swimSpeed || inWater(world, player.x, player.y + 5)
+    || !inWater(world, player.x, player.y + player.height - 0.01)) return false;
   const shoreX = player.x + direction * player.width;
   const clearanceY = player.y - 2 * TILE;
   return collides(world, shoreX, player.y) && !collides(world, player.x, clearanceY) && !collides(world, shoreX, clearanceY);
 }
 
+export function playerInWater(world, player) {
+  return inWater(world, player.x, player.y + player.height * 0.65);
+}
+
 export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
-  const bodyInWater = player.y + player.height * 0.65 > WATER;
+  const bodyInWater = playerInWater(world, player);
   const horizontal = Number(right) - Number(left);
 
   if (horizontal) player.facing = horizontal;
@@ -100,11 +105,12 @@ export function movePlayer(world, player, { left, right, up, down, jump }, dt) {
 }
 
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
-  const atVent = world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
+  const headInWater = inWater(world, player.x, player.y + 5);
+  const atVent = headInWater && world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
   if (atVent) {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
     if (player.hurt <= 0) player.health = Math.min(MAX_HEALTH, player.health + 6 * dt);
-  } else if (player.y + 5 > WATER) {
+  } else if (headInWater) {
     player.oxygen = Math.max(0, player.oxygen - dt);
     if (player.hurt <= 0 && outOfCombat && player.oxygen > 0) {
       player.health = Math.min(MAX_HEALTH, player.health + 1.5 * dt);

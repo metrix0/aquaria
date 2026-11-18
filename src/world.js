@@ -1,5 +1,5 @@
 import { MATERIAL, MATERIAL_IDS } from './content.js';
-import { COLS, ROWS, TILE, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
+import { COLS, ROWS, TILE, WATER_ROW, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
 export const CHUNK_SIZE = 32;
 const CACHE_LIMIT = 64;
@@ -41,9 +41,9 @@ function getChunk(world, cx, cy) {
   const key = chunkKey(cx, cy);
   let chunk = world.chunks.get(key);
   if (!chunk) {
-    const tiles = generateChunk(cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE);
+    const { tiles, flooded } = generateChunk(cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE);
     for (const [index, material] of world.edits.get(key) ?? []) tiles[index] = material;
-    chunk = { cx, cy, tiles };
+    chunk = { cx, cy, tiles, flooded };
     if (world.chunks.size >= CACHE_LIMIT) world.chunks.delete(world.chunks.keys().next().value);
     world.chunks.set(key, chunk);
   }
@@ -56,6 +56,17 @@ export function tileAt(world, tx, ty) {
   if (ty < 0) return MATERIAL.air;
   const chunk = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
   return chunk.tiles[offset(tx, ty)];
+}
+
+export function waterTileAt(world, tx, ty) {
+  if (tx < 0 || tx >= COLS || ty < WATER_ROW || ty >= ROWS) return false;
+  const { tiles, flooded } = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
+  const index = offset(tx, ty);
+  return flooded[index] === 1 && tiles[index] === MATERIAL.air;
+}
+
+export function inWater(world, x, y) {
+  return waterTileAt(world, Math.floor(x / TILE), Math.floor(y / TILE));
 }
 
 export function doorAt(world, tx, ty) {

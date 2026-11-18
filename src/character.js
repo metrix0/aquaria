@@ -1,5 +1,5 @@
 import { APPEARANCE } from './content.js';
-import { TILE, WATER, clamp } from './world/generation.js';
+import { TILE, clamp } from './world/generation.js';
 
 const ink = '#242633';
 const bodies = [
@@ -112,8 +112,7 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, reducedMotion = false } = {}) {
-    const swimming = player.y + player.height * 0.65 > WATER;
+  return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, reducedMotion = false, swimming = false } = {}) {
     const moving = Math.abs(player.dx) > 9;
     const walking = moving && player.grounded && !swimming;
     const phase = player.walkPhase;

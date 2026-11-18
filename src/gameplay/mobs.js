@@ -1,6 +1,6 @@
 import { MATERIAL } from '../content.js';
 import { updateEnemySpawns } from '../enemies.js';
-import { solidAt } from '../world.js';
+import { inWater, solidAt, waterTileAt } from '../world.js';
 import { COLS, TILE, WATER, clamp } from '../world/generation.js';
 
 const enemySpecs = {
@@ -17,7 +17,7 @@ function fishCollides(world, player, x, y, width = 12, height = 8) {
   const bottom = Math.floor((y + height / 2 - 0.01) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      if (solidAt(world, tx, ty, player)) return true;
+      if (!waterTileAt(world, tx, ty) || solidAt(world, tx, ty, player)) return true;
     }
   }
   return false;
@@ -64,9 +64,10 @@ export function syncMobs(world, player) {
 export function stepMobs(world, player, dt, time, mining, night, enemies, effects) {
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) => fishCollides(world, player, x, y));
   enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
-  const underwater = player.y + 5 > WATER;
   const px = player.x;
   const py = player.y + 11;
+  const playerInWater = inWater(world, px, py);
+  const underwater = inWater(world, px, player.y + 5);
   const playerMoving = Math.hypot(player.dx, player.dy) > 14 || mining;
   let hit;
 
@@ -77,7 +78,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     const dist = Math.hypot(diffX, diffY) || 1;
 
     if (mob.kind === 'fish') {
-      if (!mob.enemyType && py > WATER && dist < 44 && playerMoving) {
+      if (!mob.enemyType && playerInWater && dist < 44 && playerMoving) {
         mob.flee = 1.1;
         if (Math.abs(diffX) > 1) mob.facing = diffX < 0 ? -1 : 1;
       }
@@ -155,8 +156,8 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         }
       }
 
-      const inWater = mob.y > WATER;
-      mob.dy = Math.min(mob.dy + (inWater ? 260 : 480) * dt, inWater ? 120 : 210);
+      const submerged = inWater(world, mob.x, mob.y - 1);
+      mob.dy = Math.min(mob.dy + (submerged ? 260 : 480) * dt, submerged ? 120 : 210);
       const nextY = mob.y + mob.dy * dt;
       if (!crabCollides(world, player, mob.x, nextY)) {
         mob.y = nextY;
@@ -169,7 +170,6 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     } else if (enemySpecs[mob.kind]) {
       const spec = enemySpecs[mob.kind];
       mob.cooldown = Math.max(0, (mob.cooldown ?? 0) - dt);
-      const playerInWater = py > WATER + 6;
       const toPlayerX = px - mob.x;
       const toPlayerY = py - mob.y;
       let targetDx = 0;

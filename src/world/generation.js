@@ -176,8 +176,15 @@ export function generateChunk(left, top, size) {
   }
   const bounds = { left, top, right: Math.min(COLS - 1, left + size - 1), bottom: Math.min(ROWS - 3, top + size - 1) };
   applyCaves(set, bounds);
+
+  // Only the original ocean and generated caverns supply water.
+  const flooded = new Uint8Array(tiles.length);
+  for (let i = Math.max(0, WATER_ROW - top) * size; i < tiles.length; i++) {
+    flooded[i] = Number(tiles[i] === MATERIAL.air);
+  }
+
   applyOres(get, set, bounds);
-  return tiles;
+  return { tiles, flooded };
 }
 
 export function generateFixtures() {

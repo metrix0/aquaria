@@ -1,7 +1,8 @@
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL } from './content.js';
-import { isDoorOpen, isTreeStanding, tileAt } from './world.js';
-import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, groundAt, noise } from './world/generation.js';
+import { playerInWater } from './gameplay/player.js';
+import { isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
+import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, groundAt, noise } from './world/generation.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -178,15 +179,16 @@ export function createRenderer(canvas) {
     const left = Math.floor(xOffset / TILE);
     const right = Math.min(COLS, Math.ceil((xOffset + width) / TILE));
     const impacts = [];
+    const bottom = Math.min(ROWS, Math.ceil((camera.y + camera.height + 5) / TILE));
     ctx.save();
     ctx.beginPath();
     for (let tx = left; tx < right; tx++) {
       let ty = 0;
-      while (ty * TILE < WATER && !tileAt(world, tx, ty)) ty++;
+      while (ty <= bottom && !tileAt(world, tx, ty) && !waterTileAt(world, tx, ty)) ty++;
       const height = ty * TILE - Math.round(camera.y);
       if (height <= 0) continue;
       ctx.rect(tx * TILE - xOffset, 0, TILE, height);
-      if (height <= camera.height + 5) impacts.push({ tx, y: height, water: ty * TILE === WATER });
+      if (height <= camera.height + 5) impacts.push({ tx, y: height, water: waterTileAt(world, tx, ty) });
     }
     ctx.clip();
     ctx.globalAlpha = intensity * 0.74;
@@ -194,7 +196,7 @@ export function createRenderer(canvas) {
     ctx.strokeStyle = '#bed9e0';
     ctx.beginPath();
     const span = width + 24;
-    const fall = surface + 28;
+    const fall = Math.max(surface, ...impacts.map(({ y }) => y)) + 28;
     for (let i = 0; i < Math.ceil(width / 5); i++) {
       const drift = noise(i, 271) * span - time * 33;
       const x = ((drift % span) + span) % span - 12;
@@ -208,17 +210,39 @@ export function createRenderer(canvas) {
     rainSplashes(impacts, camera, time, intensity);
   }
 
-  function ocean(camera, surface, time, conditions) {
+  function waterClip(world, camera) {
+    let path;
+    const x = Math.round(camera.x);
+    const y = Math.round(camera.y);
+    const left = Math.floor(x / TILE);
+    const right = Math.min(COLS, Math.ceil((x + camera.width) / TILE));
+    const top = Math.max(WATER_ROW, Math.floor(y / TILE));
+    const bottom = Math.min(ROWS, Math.ceil((y + camera.height) / TILE));
+    for (let ty = top; ty < bottom; ty++) {
+      let tx = left;
+      while (tx < right) {
+        if (!waterTileAt(world, tx, ty)) {
+          tx++;
+          continue;
+        }
+        const start = tx++;
+        while (tx < right && waterTileAt(world, tx, ty)) tx++;
+        path ??= new Path2D();
+        path.rect(start * TILE - x, ty * TILE - y, (tx - start) * TILE, TILE);
+      }
+    }
+    return path;
+  }
+
+  function ocean(camera, surface, time, conditions, water) {
     const { width, height } = camera;
-    if (surface >= height) return;
+    if (!water) return;
+    ctx.save();
+    ctx.clip(water);
     gradient(0, Math.max(0, surface), width, height - Math.max(0, surface),
       [[0, '#307e83'], [.10, '#236a77'], [.24, '#1a4b65'], [.49, '#12364e'], [1, '#081927']], surface, surface + 850);
 
     const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, Math.max(0, surface), width, height);
-    ctx.clip();
     for (let band = 0; band < 3; band++) {
       const shift = horizontalOffset * (0.17 + band * 0.17);
       const yShift = surface + 65 + band * 59;
@@ -353,8 +377,10 @@ export function createRenderer(canvas) {
     const x = tx * TILE;
     const y = ty * TILE;
     const detail = noise(tx, ty, 91);
+    const wet = waterTileAt(world, tx, ty);
     const abyss = ty >= 113;
-    const [base, shadow, grain] = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
+    const palette = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
+    const [base, shadow, grain] = wet ? palette : ['#332d2d', '#28262c', '#45383a'];
     rect(x, y, TILE, TILE, base);
     rect(x + Math.floor(detail * 8), y + 3, 6, 1, grain);
     rect(x + 2, y + 10 + Math.floor(detail * 3), 9, 2, shadow);
@@ -392,10 +418,12 @@ export function createRenderer(canvas) {
     const top = Math.max(0, Math.floor(camera.y / TILE) - 1);
     const bottom = Math.min(ROWS, Math.ceil((camera.y + camera.height) / TILE) + 1);
     for (let x = left; x < right; x++) {
+      const ground = groundAt(x);
+      const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         if (material) drawTile(world, x, y, material);
-        else if (y >= groundAt(x)) caveWall(world, x, y);
+        else if (y >= firstCaveRow) caveWall(world, x, y);
       }
     }
 
@@ -617,20 +645,28 @@ export function createRenderer(canvas) {
     }
   }
 
-  function surfaceLine(width, y, xOffset, time) {
-    for (let x = 0; x < width; x += 3) {
-      const dy = surfaceWave(x + xOffset, time);
-      rect(x, y + dy, 3, 1, '#c3e3c7b9');
-      if (noise(Math.floor((x + xOffset) / 5), 9) > .68) rect(x, y + dy + 4, 3, 1, '#a0d5bc93');
+  function surfaceLine(world, camera, y, time) {
+    const xOffset = Math.round(camera.x);
+    for (let x = 0; x < camera.width;) {
+      const tx = Math.floor((x + xOffset) / TILE);
+      const width = Math.min(3, (tx + 1) * TILE - (x + xOffset));
+      if (waterTileAt(world, tx, WATER_ROW)) {
+        const phase = x + xOffset - WEST_EXTENSION * TILE;
+        const dy = surfaceWave(phase, time);
+        rect(x, y + dy, width, 1, '#c3e3c7b9');
+        if (noise(Math.floor(phase / 5), 9) > .68) rect(x, y + dy + 4, width, 1, '#a0d5bc93');
+      }
+      x += width;
     }
   }
 
   function draw({ world, player, tank, camera, time, aim, mining, particles, reducedMotion, conditions, peers = [] }) {
-    const surface = Math.round(WATER - camera.y);
+    const surface = WATER - Math.round(camera.y);
+    const water = waterClip(world, camera);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
-    ocean(camera, surface, time, conditions);
-    if (surface > -5 && surface < camera.height + 5) surfaceLine(camera.width, surface, Math.round(camera.x) - WEST_EXTENSION * TILE, time);
+    ocean(camera, surface, time, conditions, water);
+    if (surface > -5 && surface < camera.height + 5) surfaceLine(world, camera, surface, time);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
@@ -643,11 +679,11 @@ export function createRenderer(canvas) {
     for (const remote of peers) {
       if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
           remote.y < camera.y - 25 || remote.y > camera.y + camera.height + 25) continue;
-      drawCharacter(remote, remote.appearance, { tank: remote.tank, time, reducedMotion });
+      drawCharacter(remote, remote.appearance, { tank: remote.tank, time, reducedMotion, swimming: playerInWater(world, remote) });
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, time, mining, reducedMotion });
+    drawCharacter(player, player.appearance, { tank, time, mining, reducedMotion, swimming: playerInWater(world, player) });
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
@@ -675,9 +711,12 @@ export function createRenderer(canvas) {
     }
     ctx.restore();
 
-    if (surface < camera.height) {
+    if (water) {
+      ctx.save();
+      ctx.clip(water);
       const start = Math.max(0, surface);
       gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
+      ctx.restore();
     }
   }
 

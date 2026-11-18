@@ -5,8 +5,8 @@ import { MATERIAL } from '../src/content.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, commitTileAction, createGame, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
-import { CHUNK_SIZE, createWorld, editTile, tileAt } from '../src/world.js';
-import { COLS, ROWS, SPAWN, TILE, WEST_EXTENSION } from '../src/world/generation.js';
+import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
+import { COLS, ROWS, SPAWN, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
 
 test('chunks generate the same starter terrain as the pre-refactor build', () => {
   const world = createWorld();
@@ -98,4 +98,36 @@ test('the expanded-map save migrates western edits and ore inventory', () => {
   assert.deepEqual(saved.world.edits, [[-10, 107, 'air'], [-9, 107, 'iron']]);
   assert.equal(new Inventory(saved.inventory).count('copper'), 4);
   assert.equal(new Inventory(saved.inventory).count('iron'), 2);
+});
+
+test('only the generated ocean and caverns supply water', () => {
+  const world = createWorld();
+  const shore = WEST_EXTENSION + 90;
+  const shaft = WEST_EXTENSION + 63;
+  const vent = world.vents.at(-1);
+  assert.equal(waterTileAt(world, shore, WATER_ROW - 1), false);
+  assert.equal(waterTileAt(world, shore, WATER_ROW), true);
+  assert.equal(inWater(world, vent.x, vent.y - 18), true);
+
+  editTile(world, shaft, WATER_ROW + 1, MATERIAL.air);
+  assert.equal(tileAt(world, shaft, WATER_ROW + 1), MATERIAL.air);
+  assert.equal(waterTileAt(world, shaft, WATER_ROW + 1), false);
+
+  editTile(world, shore, WATER_ROW, MATERIAL.wood);
+  assert.equal(waterTileAt(world, shore, WATER_ROW), false);
+  editTile(world, shore, WATER_ROW, MATERIAL.air);
+  assert.equal(waterTileAt(world, shore, WATER_ROW), true);
+});
+
+test('a saved shaft dug from the island remains breathable below sea level', () => {
+  const x = 63;
+  const edits = Array.from({ length: 19 }, (_, index) => [x, 11 + index, MATERIAL.air]);
+  const snapshot = decodeSave({ format: 2, x: x * TILE + 8, y: 17 * TILE, oxygen: 9, edits });
+  const game = createGame(snapshot);
+  const neutral = { left: false, right: false, up: false, down: false, jump: false };
+  for (let i = 0; i < 120; i++) stepGame(game, neutral, 1 / 60);
+
+  assert.ok(game.player.y > 28 * TILE);
+  assert.equal(game.player.grounded, true);
+  assert.equal(game.player.oxygen, 18);
 });
