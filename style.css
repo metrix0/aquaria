@@ -169,9 +169,6 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 .dialog-actions { display: flex; gap: 8px; }
 #version { margin-bottom: 0; font: 10px var(--mono); }
 
-@media (min-width: 900px) {
-  #backpack-panel:has(.chest-storage:not([hidden])) { margin-inline: auto 24px; }
-}
 @media (max-width: 540px) {
   .craft-layout { grid-template-columns: 1fr; gap: 8px; }
   .craft-library, .craft-detail { padding: 10px; }
