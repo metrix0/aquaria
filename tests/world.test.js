@@ -690,8 +690,13 @@ test('the wreck chest opens before equipping the swimming helmet and stays avail
   assert.ok(chest && wreckCache);
   assert.equal(chest.kind, 'chest');
   assert.ok(chest.y > WATER);
-  assert.ok(Math.abs(chest.x - wreckCache.x) <= 5 * TILE);
-  assert.ok(Math.hypot(chest.x - wreckCache.x, chest.y - wreckCache.y) >= 35);
+  const nearbyChests = game.world.items.filter((item) => item.kind === 'chest'
+    && Math.abs(item.x - chest.x) <= 16 * TILE && Math.abs(item.y - chest.y) <= 8 * TILE);
+  assert.deepEqual(nearbyChests, [chest]);
+  const reefColumn = Math.floor(wreckCache.x / TILE);
+  const reefFloor = Math.floor((wreckCache.y + 8) / TILE);
+  assert.equal(tileAt(game.world, reefColumn, reefFloor - 1), MATERIAL.air);
+  assert.notEqual(tileAt(game.world, reefColumn, reefFloor), MATERIAL.air);
 
   game.player.x = chest.x;
   game.player.y = chest.y + 8 - game.player.height;

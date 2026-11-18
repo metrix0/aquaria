@@ -2,6 +2,7 @@ import { MATERIAL } from '../content.js';
 
 const left = -98;
 const top = 27;
+export const HELMET_WRECK_COLUMN = 107;
 export const shipwreckOrigin = { column: left, row: top };
 
 // Side view of the wreck. Gaps in the decks and hull let swimmers enter the holds.

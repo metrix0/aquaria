@@ -5,11 +5,13 @@ import { drawCaveEnemy } from './cave-enemy-art.js';
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
+import { createHelmetWreckArt } from './helmet-wreck-art.js';
 import { ITEMS } from './inventory.js';
 import { hasExposedCaveFloor, hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
 import { createShipwreckArt } from './shipwreck-art.js';
 import { birdFlightAt } from './world/birds.js';
+import { HELMET_WRECK_COLUMN } from './world/shipwreck.js';
 import { caveAmbientAt, createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const woodPalette = ['#85604c', '#bc8b62', '#513a3b', '#e3ae72'];
@@ -29,6 +31,15 @@ const palettes = {
 };
 
 const caveWallFadeDepth = 10;
+const glowCoralBranches = [
+  [[0, 0], [-1, -10], [1, -19], [-1, -29], [2, -40], [0, -48]],
+  [[-1, -8], [-10, -13], [-14, -22], [-13, -30]],
+  [[-10, -13], [-19, -17], [-22, -24]],
+  [[1, -14], [10, -19], [15, -27], [15, -36]],
+  [[10, -19], [21, -22], [23, -29]],
+  [[-1, -27], [-8, -33], [-9, -41]],
+  [[1, -36], [8, -41], [9, -46]],
+];
 
 const coralColors = [
   ['#7e4268', '#b0667d', '#da9292'],
@@ -54,6 +65,8 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
   const shipwreckArt = createShipwreckArt(canvas, ctx);
+  const helmetWreckArt = createHelmetWreckArt(canvas, ctx);
+  const glowCoral = makeGlowCoral();
   const caveLight = createCaveLight();
   const surfaceLight = createSurfaceLight();
   const lightCanvas = canvas.ownerDocument.createElement('canvas');
@@ -448,6 +461,47 @@ export function createRenderer(canvas) {
     }
   }
 
+  function makeGlowCoral() {
+    const sprite = canvas.ownerDocument.createElement('canvas');
+    sprite.width = 84;
+    sprite.height = 84;
+    const art = sprite.getContext('2d');
+    const glow = art.createRadialGradient(42, 36, 5, 42, 36, 41);
+    glow.addColorStop(0, '#46f9ba55');
+    glow.addColorStop(.53, '#2cdfa82d');
+    glow.addColorStop(1, '#2cdfa800');
+    art.fillStyle = glow;
+    art.fillRect(0, 0, sprite.width, sprite.height);
+    art.translate(42, 62);
+    rect(-8, -3, 16, 3, '#285c5d', art);
+    art.lineJoin = 'bevel';
+
+    for (const [width, color, offset] of [[6, '#245e61', 0], [4, '#39af90', 0], [1, '#9cf4c8', -1]]) {
+      art.lineWidth = width;
+      art.strokeStyle = color;
+      for (const branch of glowCoralBranches) {
+        art.beginPath();
+        art.moveTo(branch[0][0] + offset, branch[0][1]);
+        for (const [x, y] of branch.slice(1)) art.lineTo(x + offset, y);
+        art.stroke();
+      }
+    }
+    for (const branch of glowCoralBranches) {
+      const [x, y] = branch.at(-1);
+      rect(x - 3, y - 2, 7, 4, '#5bdfae', art);
+      rect(x - 2, y - 3, 4, 3, '#d4ffcb', art);
+    }
+    return sprite;
+  }
+
+  function drawGlowCoral(x, y, mirrored) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (mirrored) ctx.scale(-1, 1);
+    ctx.drawImage(glowCoral, -42, -62);
+    ctx.restore();
+  }
+
   function palm(tree) {
     for (const [i, strip] of tree.trunk.entries()) {
       rect(strip.x, strip.y, strip.width, 2, i % 4 === 0 ? '#7f5b4a' : '#9d7557');
@@ -594,6 +648,7 @@ export function createRenderer(canvas) {
   function terrain(world, player, camera, time, bounds, openChestId) {
     const { left, right, top, bottom } = bounds;
     shipwreckArt.backdrop(world, bounds);
+    helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
@@ -607,17 +662,23 @@ export function createRenderer(canvas) {
     }
 
     shipwreckArt.fittings(world, bounds);
-    for (let x = left; x < right; x++) {
+    // Scan beyond the viewport edge so tall colonies and their halos never pop in.
+    for (let x = Math.max(0, left - 2); x < Math.min(COLS, right + 2); x++) {
       const y = groundAt(x);
-      if (y < top - 2 || y > bottom + 2 || !tileAt(world, x, y) || tileAt(world, x, y - 1)) continue;
-      const seed = noise(x - WEST_EXTENSION, 44);
-      if (y >= 17 && seed > .27) {
-        coral(x * TILE + 4 + seed * 8, y * TILE, x - WEST_EXTENSION);
-        if (seed > .76) rect(x * TILE + 3, y * TILE - 3, 3, 2, '#d3a9a0');
-      } else if (y < 15 && seed > .2) {
+      if (y < top - 2 || y > bottom + 4 || !tileAt(world, x, y) || tileAt(world, x, y - 1)) continue;
+      const column = x - WEST_EXTENSION;
+      const seed = noise(column, 44);
+      const fromChest = column - HELMET_WRECK_COLUMN;
+      if (fromChest === -2 || fromChest === 3) {
+        drawGlowCoral((x + .5) * TILE, y * TILE, fromChest < 0);
+      } else if (y >= WATER_ROW + 4 && Math.abs(fromChest) > 10 && noise(column, 184) > .98) {
+        drawGlowCoral((x + .5) * TILE, y * TILE, seed > .5);
+      } else if (y >= WATER_ROW + 1 && seed > .79 && Math.abs(fromChest) > 5) {
+        coral(x * TILE + 4 + seed * 8, y * TILE, column);
+      } else if (y < WATER_ROW - 1 && seed > .2) {
         for (let i = 0; i < 4; i++) {
           const bx = x * TILE + 2 + i * 3;
-          const h = 2 + Math.floor(noise(x - WEST_EXTENSION, i, 8) * 5);
+          const h = 2 + Math.floor(noise(column, i, 8) * 5);
           rect(bx, y * TILE - h, 1, h, i % 2 ? '#667654' : '#87915f');
         }
       }
@@ -626,19 +687,6 @@ export function createRenderer(canvas) {
       if (tree.tx >= left - 2 && tree.tx <= right + 2 && isTreeStanding(world, tree)) palm(tree);
     }
 
-    const wreckColumn = 111 + WEST_EXTENSION;
-    const wreckX = wreckColumn * TILE + 8;
-    const wreckY = groundAt(wreckColumn) * TILE;
-    if (wreckX > camera.x - 120 && wreckX < camera.x + camera.width + 120) {
-      polygon([[wreckX - 61, wreckY - 44], [wreckX + 73, wreckY - 34], [wreckX + 53, wreckY - 10], [wreckX - 34, wreckY - 6]], '#213b48');
-      polygon([[wreckX - 53, wreckY - 39], [wreckX + 61, wreckY - 30], [wreckX + 50, wreckY - 22], [wreckX - 43, wreckY - 22]], '#4d5450');
-      for (let i = 0; i < 7; i++) {
-        rect(wreckX - 40 + i * 14, wreckY - 27, 2, 12, '#77745e');
-      }
-      polygon([[wreckX - 13, wreckY - 34], [wreckX - 21, wreckY - 86], [wreckX - 17, wreckY - 87], [wreckX - 6, wreckY - 34]], '#675b50');
-      polygon([[wreckX - 17, wreckY - 84], [wreckX + 21, wreckY - 70], [wreckX - 3, wreckY - 57]], '#527777');
-      rect(wreckX - 52, wreckY - 40, 25, 2, '#8a7e62');
-    }
     const shelterColumn = 53 + WEST_EXTENSION;
     const shelterX = shelterColumn * TILE;
     const shelterY = groundAt(shelterColumn) * TILE;

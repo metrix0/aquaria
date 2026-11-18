@@ -1,6 +1,6 @@
 import { MATERIAL, SWIMMING_HELMET } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
-import { placeShipwreck, shipwreckCaches, shipwreckVentColumn } from './shipwreck.js';
+import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckVentColumn } from './shipwreck.js';
 
 export { ISLAND_CAVE };
 
@@ -474,10 +474,10 @@ export function generateCaveMushrooms() {
 }
 
 export function generateFixtures() {
-  const wreckChestColumn = 107 + WEST_EXTENSION;
+  const wreckChestColumn = HELMET_WRECK_COLUMN + WEST_EXTENSION;
   const items = [
     ...shipwreckCaches,
-    { id: 'wreck-cache', name: 'Wreck cache', column: 111, floor: groundAt(111 + WEST_EXTENSION), resource: 'wood', amount: 8 },
+    { id: 'wreck-cache', name: 'Reef cache', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
     ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
     { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
