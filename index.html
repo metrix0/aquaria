@@ -80,7 +80,7 @@
         <section class="backpack-gear" aria-labelledby="backpack-gear-label">
           <h3 id="backpack-gear-label">Equipment</h3>
           <ul class="gear-slots">
-            <li><span class="slot" aria-hidden="true"></span><span>Head</span></li>
+            <li><span class="slot" aria-hidden="true"><span id="backpack-helmet" class="item item-helmet" hidden></span></span><span id="backpack-head-label">Head</span></li>
             <li><span class="slot" aria-hidden="true"></span><span>Chest</span></li>
             <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
             <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
@@ -97,7 +97,7 @@
       <div class="dialog-head"><h2 id="craft-title">Crafting</h2><button data-close aria-label="Close crafting">×</button></div>
       <div class="craft-recipes">
         <section>
-          <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p>Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
+          <div class="recipe"><span class="item item-tank" aria-hidden="true"></span><div><h3>Air tank</h3><p id="recipe-desc">Extends a dive from 18 to 42 seconds.</p><p id="recipe-cost"></p></div></div>
           <button id="make-tank" class="primary">Craft air tank</button>
         </section>
         <section>

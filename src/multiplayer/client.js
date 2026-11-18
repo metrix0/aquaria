@@ -128,6 +128,7 @@ export async function connectRoom(config, invite, handlers) {
       x: old?.x ?? payload.x, y: old ? old.y + old.height - height : payload.y,
       targetX: payload.x, targetY: payload.y, seenAt: performance.now(),
       tank: payload.tank === true,
+      helmet: payload.helmet === true,
       appearance: normalizeAppearance(payload.appearance),
     });
     if (!old) handlers.count(peers.size + 1);
@@ -173,11 +174,11 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, tank) {
+    tick(now, dt, player, tank, helmet = false) {
       const pose = {
         id: peerId,
         x: Math.round(player.x), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
-        facing: player.facing, grounded: player.grounded, tank, appearance: player.appearance,
+        facing: player.facing, grounded: player.grounded, tank, helmet, appearance: player.appearance,
         crawling: player.height === CRAWL_HEIGHT,
       };
       if (connected && now - lastBroadcast >= 125) {

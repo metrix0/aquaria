@@ -525,15 +525,17 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, '#8fb39a');
           }
         }
-      } else if (item.kind === 'cache') {
-        const size = 19;
+      } else if (item.kind === 'cache' || item.kind === 'helmet') {
+        const cache = item.kind === 'cache';
+        const size = cache ? 19 : 17;
+        const base = cache ? '#9f7858' : '#8c6d53';
         const highlight = '#efd089';
         rect(x - size / 2, y - 5, size, 10, '#302d34');
-        rect(x - size / 2 + 1, y - 4, size - 2, 8, '#9f7858');
+        rect(x - size / 2 + 1, y - 4, size - 2, 8, base);
         rect(x - size / 2, y - 5, size, 2, highlight);
         rect(x - size / 2 + 3, y - 3, 2, 7, '#655449');
         rect(x + size / 2 - 5, y - 3, 2, 7, '#655449');
-        rect(x - 1, y - 1, 3, 3, highlight);
+        rect(x - 1, y - 1, 3, 3, cache ? highlight : '#8bdfd0');
         rect(x, y - 12, 1, 5, '#f1dca4');
         rect(x - 2, y - 10, 5, 1, '#f1dca4');
       }
@@ -711,7 +713,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw({ world, player, tank, camera, time, aim, mining, attackSwing, targetMob, particles, reducedMotion, conditions, peers = [] }) {
+  function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, targetMob, particles, reducedMotion, conditions, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
@@ -732,11 +734,11 @@ export function createRenderer(canvas) {
     for (const remote of peers) {
       if (remote.x < camera.x - 16 || remote.x > camera.x + camera.width + 16 ||
           remote.y < camera.y - 25 || remote.y > camera.y + camera.height + 25) continue;
-      drawCharacter(remote, remote.appearance, { tank: remote.tank, time, reducedMotion, swimming: playerInWater(world, remote) });
+      drawCharacter(remote, remote.appearance, { tank: remote.tank, helmet: remote.helmet, time, reducedMotion, swimming: playerInWater(world, remote) });
       polygon([[remote.x, remote.y - 9], [remote.x + 3, remote.y - 6],
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
-    drawCharacter(player, player.appearance, { tank, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
+    drawCharacter(player, player.appearance, { tank, helmet, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
     shadeCaves(world, player, bounds);
     ctx.restore();
 

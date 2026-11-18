@@ -1,5 +1,5 @@
 import { createCharacterEditor } from './character-editor.js';
-import { AIR_TANK, COPPER_PICKAXE, ITEM_PROMPTS, WOODEN_DOOR } from './content.js';
+import { AIR_TANK, BREATH_SECONDS, COPPER_PICKAXE, ITEM_PROMPTS, SWIMMING_HELMET, WOODEN_DOOR } from './content.js';
 import { ITEMS } from './inventory.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { MAX_HEALTH } from './gameplay/player.js';
@@ -12,7 +12,7 @@ export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
     'depth', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
-    'interact', 'selected', 'feedback',
+    'interact', 'selected', 'feedback', 'backpack-head-label', 'recipe-desc',
     'make-tank', 'recipe-cost', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
@@ -46,6 +46,8 @@ export function createUI(actions, version) {
   function updateCraft(game) {
     for (const [recipe, control] of itemRecipes) byId('make-' + control).disabled = !canCraftItem(game, recipe);
     fields['make-tank'].disabled = !canCraftTank(game);
+    const bonus = game.progress.swimmingHelmet ? SWIMMING_HELMET.bonusSeconds : 0;
+    setText('recipe-desc', `Extends a dive from ${BREATH_SECONDS + bonus} to ${AIR_TANK.breathSeconds + bonus} seconds.`);
     setText('make-tank', game.progress.airTank ? 'Equipped' : 'Craft air tank');
     setText('recipe-cost', game.progress.airTank ? 'Air tank equipped' : formatCost(AIR_TANK.cost));
   }
@@ -76,8 +78,10 @@ export function createUI(actions, version) {
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft,
-    updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank),
+    updateCustomize: (game) => characterEditor.open(game.player.appearance, game.progress.airTank, game.progress.swimmingHelmet),
     updateBackpack(game) {
+      byId('backpack-helmet').hidden = !game.progress.swimmingHelmet;
+      setText('backpack-head-label', game.progress.swimmingHelmet ? 'Swimming helmet' : 'Head');
       byId('backpack-tank').hidden = !game.progress.airTank;
     },
     clearNotice() {

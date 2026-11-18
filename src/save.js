@@ -1,4 +1,4 @@
-import { AIR_TANK, MATERIAL, MATERIAL_IDS } from './content.js';
+import { AIR_TANK, MATERIAL, MATERIAL_IDS, SWIMMING_HELMET } from './content.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
@@ -33,6 +33,7 @@ export function decodeSave(data) {
     Number.isInteger(entry[0]) && isEditableTile(entry[0] + WEST_EXTENSION, entry[1]))
     .map(([x, y]) => [x + WEST_EXTENSION, y]) : [];
   const player = legacy ? data : data.player;
+  const harvested = Array.isArray(world.harvested) ? world.harvested : [];
   return {
     inventory: data.inventory,
     appearance: data.appearance,
@@ -44,8 +45,9 @@ export function decodeSave(data) {
     },
     progress: {
       airTank: (legacy ? data.tank : data.progress?.[AIR_TANK.id]) === true,
+      swimmingHelmet: (legacy ? data.helmet : data.progress?.[SWIMMING_HELMET.id]) === true || harvested.includes(SWIMMING_HELMET.chestId),
     },
-    world: { edits, doors, harvested: Array.isArray(world.harvested) ? world.harvested : [] },
+    world: { edits, doors, harvested },
   };
 }
 
@@ -62,7 +64,10 @@ export function encodeSave(game, saveTerrain = true) {
     appearance: { ...player.appearance },
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
-    progress: { [AIR_TANK.id]: progress.airTank },
+    progress: {
+      [AIR_TANK.id]: progress.airTank,
+      ...(progress.swimmingHelmet ? { [SWIMMING_HELMET.id]: true } : {}),
+    },
     world: { generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested) },
   };
 }

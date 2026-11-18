@@ -112,6 +112,16 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
+  function divingHelmet(x, y) {
+    rect(x - 5, y, 11, 9, ink);
+    rect(x - 4, y + 1, 9, 7, '#cfa368');
+    rect(x - 3, y + 1, 6, 2, '#f0ce93');
+    rect(x - 4, y + 8, 9, 1, '#69513e');
+    rect(x, y + 2, 6, 5, '#2b4752');
+    rect(x + 1, y + 3, 5, 3, '#8bdfd0');
+    rect(x + 2, y + 3, 2, 1, '#d8f6ec');
+  }
+
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     const swing = 0.52 * (1 - Math.cos(phase * 2 * Math.PI));
@@ -132,7 +142,7 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  return function drawCharacter(player, appearance, { tank = false, time = 0, mining = null, attackSwing = null, reducedMotion = false, swimming = false } = {}) {
+  return function drawCharacter(player, appearance, { tank = false, helmet = false, time = 0, mining = null, attackSwing = null, reducedMotion = false, swimming = false } = {}) {
     const crawling = player.height === CRAWL_HEIGHT;
     const speed = Math.abs(player.dx);
     const strideWeight = !reducedMotion && player.grounded && !swimming
@@ -184,6 +194,7 @@ export function createCharacterRenderer(ctx) {
         rect(-6, 5, 4, 1, '#bed8ba');
       }
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
+      if (helmet) divingHelmet(3, 2);
       if (mining || attackSwing) miningArm(1, 10, Math.abs(targetX), targetY, 0, swingPhase, skin, shirt, mining?.tier ?? 1);
       else arm(1, 9, 2 - shuffle, skin, shirt, false);
       ctx.restore();
@@ -211,6 +222,7 @@ export function createCharacterRenderer(ctx) {
     rect(-1, 16 + bob, 2, 1, '#d9ac75');
     leg([1, 17 + bob], nearFoot, pants, false);
     head(hairStyles[appearance.hair], hair, skin, lean, bob, swimming ? -Math.sign(kick) : hairSway);
+    if (helmet) divingHelmet(lean, bob);
     rect(lean - 2, 9 + bob, 5, 1, '#efc48d');
     rect(lean - 2, 10 + bob, 2, 1, '#b4755a');
 

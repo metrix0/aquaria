@@ -5,7 +5,7 @@ import { COPPER_PICKAXE, MATERIAL } from '../src/content.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { movePlayer, PLAYER_SIZE } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, commitTileAction, createGame, craftItem, craftTank, stepGame, targetTile } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, collectItem, commitTileAction, createGame, craftItem, craftTank, nearestItem, oxygenCapacity, stepGame, targetTile } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, createWorld, editTile, inWater, tileAt, waterTileAt } from '../src/world.js';
 import { COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
@@ -244,4 +244,31 @@ test('mob generation and dynamic enemy spawns stay sparse across friendly and ho
     assert.ok(dynamic <= 1);
   }
   assert.equal(peakDynamic, 1);
+});
+
+test('the eastern shore chest grants a swimming helmet that extends oxygen capacity', () => {
+  const game = createGame();
+  assert.equal(oxygenCapacity(game), 18);
+
+  const chest = game.world.items.find((item) => item.id === 'shore-chest');
+  assert.ok(chest);
+  assert.equal(chest.kind, 'helmet');
+  assert.ok(chest.x > SPAWN.x);
+
+  game.player.x = chest.x - game.player.width / 2;
+  game.player.y = chest.y - game.player.height;
+  assert.equal(collectItem(game), 'Swimming helmet equipped. +14s oxygen');
+  assert.equal(game.progress.swimmingHelmet, true);
+  assert.equal(oxygenCapacity(game), 32);
+  assert.equal(game.player.oxygen, 32);
+
+  const reloaded = decodeSave(encodeSave(game));
+  assert.equal(reloaded.progress.swimmingHelmet, true);
+  assert.ok(reloaded.world.harvested.includes('shore-chest'));
+
+  const reloadedGame = createGame(reloaded);
+  assert.equal(reloadedGame.progress.swimmingHelmet, true);
+  assert.equal(oxygenCapacity(reloadedGame), 32);
+  assert.ok(reloadedGame.world.harvested.has('shore-chest'));
+  assert.equal(nearestItem(reloadedGame), undefined);
 });

@@ -22,6 +22,7 @@ export function createCharacterEditor(panel, onApply) {
   const preview = { x: 18, y: 5, height: 23, grounded: true, facing: 1, dx: 0, walkPhase: 0 };
   let draft;
   let tank;
+  let helmet;
   let frame = 0;
 
   for (const [name, { label, color }] of Object.entries(fieldsByPart)) {
@@ -59,7 +60,7 @@ export function createCharacterEditor(panel, onApply) {
 
   function paint() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawCharacter(preview, draft, { tank });
+    drawCharacter(preview, draft, { tank, helmet });
   }
 
   function animate(now) {
@@ -75,9 +76,10 @@ export function createCharacterEditor(panel, onApply) {
     walkButton.setAttribute('aria-pressed', 'false');
   }
 
-  function open(appearance, hasTank) {
+  function open(appearance, hasTank, hasHelmet = false) {
     draft = appearance;
     tank = hasTank;
+    helmet = hasHelmet;
     for (const [name, value] of Object.entries(appearance)) form.elements.namedItem(name).value = String(value);
     stopPreview();
     walkButton.hidden = reducedMotion.matches;

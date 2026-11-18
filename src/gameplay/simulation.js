@@ -1,4 +1,4 @@
-import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
+import { AIR_TANK, BREATH_SECONDS, DROPS, MATERIAL, MINING_RULES, ORE_MATERIALS, SWIMMING_HELMET, WOODEN_DOOR, WRECK_CACHE } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, hasOpenFace, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
@@ -6,14 +6,15 @@ import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } f
 import { resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
 export function oxygenCapacity(game) {
-  return game.progress.airTank ? AIR_TANK.breathSeconds : BREATH_SECONDS;
+  return (game.progress.airTank ? AIR_TANK.breathSeconds : BREATH_SECONDS) +
+    (game.progress.swimmingHelmet ? SWIMMING_HELMET.bonusSeconds : 0);
 }
 
 export function createGame(snapshot) {
   const game = {
     world: createWorld(),
     inventory: new Inventory(snapshot?.inventory),
-    progress: { airTank: false, ...snapshot?.progress },
+    progress: { airTank: false, swimmingHelmet: false, ...snapshot?.progress },
     dirty: false,
     elapsed: 0,
     worldTime: snapshot?.worldTime ?? 0,
@@ -26,6 +27,7 @@ export function createGame(snapshot) {
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
+  if (world.harvested.has(SWIMMING_HELMET.chestId)) game.progress.swimmingHelmet = true;
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance);
 
@@ -54,7 +56,7 @@ export function resetRoomProgress(previous) {
   return {
     world,
     inventory: new Inventory(),
-    progress: { airTank: false },
+    progress: { airTank: false, swimmingHelmet: false },
     player,
     dirty: true,
     elapsed: 0,
@@ -106,6 +108,14 @@ export function collectItem(game) {
   const item = nearestItem(game);
   if (!item) return;
 
+  if (item.kind === 'helmet') {
+    game.world.harvested.add(item.id);
+    game.progress.swimmingHelmet = true;
+    game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + SWIMMING_HELMET.bonusSeconds);
+    game.dirty = true;
+    return 'Swimming helmet equipped. +' + SWIMMING_HELMET.bonusSeconds + 's oxygen';
+  }
+
   const resource = item.kind === 'cache' ? 'wood' : item.kind;
   const amount = item.kind === 'cache' ? WRECK_CACHE.wood : item.amount;
   if (!game.inventory.add(resource, amount)) return 'No room for more ' + ITEMS[resource].name.toLowerCase() + '.';
@@ -122,7 +132,7 @@ export function craftTank(game) {
   if (!canCraftTank(game)) return false;
   for (const [item, cost] of Object.entries(AIR_TANK.cost)) game.inventory.spend(item, cost);
   game.progress.airTank = true;
-  game.player.oxygen = Math.min(AIR_TANK.breathSeconds, game.player.oxygen + AIR_TANK.breathSeconds - BREATH_SECONDS);
+  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + AIR_TANK.breathSeconds - BREATH_SECONDS);
   game.dirty = true;
   return true;
 }

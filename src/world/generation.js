@@ -1,4 +1,4 @@
-import { MATERIAL, WRECK_CACHE } from '../content.js';
+import { MATERIAL, SWIMMING_HELMET, WRECK_CACHE } from '../content.js';
 
 export const TILE = 16;
 export const WORLD_VERSION = 2;
@@ -204,7 +204,9 @@ export function generateChunk(left, top, size) {
 }
 
 export function generateFixtures() {
+  const shoreColumn = 68 + WEST_EXTENSION;
   const items = [
+    { id: SWIMMING_HELMET.chestId, kind: 'helmet', x: shoreColumn * TILE + 8, y: groundAt(shoreColumn) * TILE - 5 },
     { id: WRECK_CACHE.id, kind: 'cache', x: (111 + WEST_EXTENSION) * TILE + 8, y: groundAt(111 + WEST_EXTENSION) * TILE - 9 },
   ];
   for (const x of [34, 41, 76, 79, 84, 91, 96, 104, 114, 127, 132, 144]) {

@@ -396,10 +396,11 @@ function frame(now) {
   }
   ui.update(game, conditions);
   const tank = game.progress.airTank;
-  const peers = room?.tick(now, dt, game.player, tank);
+  const helmet = game.progress.swimmingHelmet;
+  const peers = room?.tick(now, dt, game.player, tank, helmet);
   const targetMob = aimedMob();
   renderer.draw({
-    world: game.world, player: game.player, tank, camera, time: reducedMotion ? 0 : time,
+    world: game.world, player: game.player, tank, helmet, camera, time: reducedMotion ? 0 : time,
     aim: targetMob ? null : aimedTile(), mining, attackSwing, targetMob, particles, peers, reducedMotion, conditions,
   });
   requestAnimationFrame(frame);
