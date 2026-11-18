@@ -19,12 +19,7 @@ const palettes = {
   [MATERIAL.soil]: ['#6f594e', '#8e6b51', '#513f46', '#ab8056'],
 };
 
-const rockMaterials = new Set([MATERIAL.stone, MATERIAL.reef, MATERIAL.deepstone, MATERIAL.bedrock]);
-const submergedFadeDepth = 10;
-
-function hasWaterAboveRock(world, tx, ty, material) {
-  return (rockMaterials.has(material) || ORE_MATERIALS.has(material)) && waterTileAt(world, tx, ty - 1);
-}
+const caveWallFadeDepth = 10;
 
 const coralColors = [
   ['#7e4268', '#b0667d', '#da9292'],
@@ -56,10 +51,10 @@ export function createRenderer(canvas) {
   const tileCanvas = canvas.ownerDocument.createElement('canvas');
   tileCanvas.width = tileCanvas.height = TILE;
   const tileCtx = tileCanvas.getContext('2d');
-  const submergedFade = tileCtx.createLinearGradient(0, 0, 0, submergedFadeDepth);
-  submergedFade.addColorStop(0, '#000a');
-  submergedFade.addColorStop(.45, '#0005');
-  submergedFade.addColorStop(1, '#0000');
+  const caveWallFade = tileCtx.createLinearGradient(0, 0, 0, caveWallFadeDepth);
+  caveWallFade.addColorStop(0, '#000a');
+  caveWallFade.addColorStop(.45, '#0005');
+  caveWallFade.addColorStop(1, '#0000');
   let lightPixels;
 
   function rect(x, y, w, h, color, context = ctx) {
@@ -67,13 +62,13 @@ export function createRenderer(canvas) {
     context.fillRect(Math.round(x), Math.round(y), w, h);
   }
 
-  function polygon(points, color, context = ctx) {
-    context.fillStyle = color;
-    context.beginPath();
-    context.moveTo(Math.round(points[0][0]), Math.round(points[0][1]));
-    for (const [x, y] of points.slice(1)) context.lineTo(Math.round(x), Math.round(y));
-    context.closePath();
-    context.fill();
+  function polygon(points, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(points[0][0]), Math.round(points[0][1]));
+    for (const [x, y] of points.slice(1)) ctx.lineTo(Math.round(x), Math.round(y));
+    ctx.closePath();
+    ctx.fill();
   }
 
   function gradient(x, y, w, h, stops, from = y, to = y + h) {
@@ -249,7 +244,6 @@ export function createRenderer(canvas) {
 
   function waterClip(world, camera) {
     let path;
-    let backdrop;
     const x = Math.round(camera.x);
     const y = Math.round(camera.y);
     const left = Math.floor(x / TILE);
@@ -260,26 +254,16 @@ export function createRenderer(canvas) {
       let tx = left;
       while (tx < right) {
         if (!waterTileAt(world, tx, ty)) {
-          if (hasWaterAboveRock(world, tx, ty, tileAt(world, tx, ty))) {
-            // Draw the water behind the translucent strip without flooding the tile.
-            backdrop ??= new Path2D();
-            backdrop.rect(tx * TILE - x, ty * TILE - y, TILE, submergedFadeDepth);
-          }
           tx++;
           continue;
         }
         const start = tx++;
         while (tx < right && waterTileAt(world, tx, ty)) tx++;
-        const runX = start * TILE - x;
-        const runY = ty * TILE - y;
-        const runWidth = (tx - start) * TILE;
         path ??= new Path2D();
-        backdrop ??= new Path2D();
-        path.rect(runX, runY, runWidth, TILE);
-        backdrop.rect(runX, runY, runWidth, TILE);
+        path.rect(start * TILE - x, ty * TILE - y, (tx - start) * TILE, TILE);
       }
     }
-    return { water: path, backdrop };
+    return path;
   }
 
   function ocean(camera, surface, time, conditions, water) {
@@ -336,23 +320,9 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawRockEdge(x, y, dx, dy, color, context) {
-    const startX = x + (dx > 0 ? TILE : 0);
-    const startY = y + (dy > 0 ? TILE : 0);
-    const edge = context.createLinearGradient(startX, startY, startX - dx * TILE, startY - dy * TILE);
-    edge.addColorStop(0, color + 'bf');
-    edge.addColorStop(.42, color + '54');
-    edge.addColorStop(1, color + '00');
-    context.fillStyle = edge;
-    context.fillRect(x, y, TILE, TILE);
-  }
-
   function drawTile(world, tx, ty, material, oreOpacity) {
-    const fade = hasWaterAboveRock(world, tx, ty, material);
-    const context = fade ? tileCtx : ctx;
-    const x = fade ? 0 : tx * TILE;
-    const y = fade ? 0 : ty * TILE;
-    if (fade) tileCtx.clearRect(0, 0, TILE, TILE);
+    const x = tx * TILE;
+    const y = ty * TILE;
     const ore = ORE_MATERIALS.has(material);
     const rock = ore ? (ty >= deepstoneStartAt(tx) ? MATERIAL.deepstone : MATERIAL.stone) : material;
     const [base, light, dark, bright] = palettes[rock];
@@ -361,7 +331,7 @@ export function createRenderer(canvas) {
     const top = !tileAt(world, tx, ty - 1);
     const left = !tileAt(world, tx - 1, ty);
     const right = !tileAt(world, tx + 1, ty);
-    rect(x, y, TILE, TILE, base, context);
+    rect(x, y, TILE, TILE, base);
     if (material === MATERIAL.wood) {
       rect(x, y + 1, 16, 1, light);
       rect(x, y + 5, 16, 1, dark);
@@ -373,45 +343,31 @@ export function createRenderer(canvas) {
     for (let i = 0; i < 5; i++) {
       const sx = 1 + Math.floor(noise(seed, ty, i * 2 + 31) * 12);
       const sy = 2 + Math.floor(noise(seed, ty, i * 2 + 32) * 12);
-      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 ? light : dark, context);
+      rect(x + sx, y + sy, 1 + Math.floor(noise(seed, ty, i + 51) * 3), i % 3 ? 1 : 2, i % 2 ? light : dark);
     }
     if (variation < .29 && material !== MATERIAL.sand) {
       const h = 3 + Math.floor(variation * 25);
-      rect(x + 2, y + h, 9, 1, dark, context);
-      rect(x + 7, y + h + 1, 6, 1, dark, context);
+      rect(x + 2, y + h, 9, 1, dark);
+      rect(x + 7, y + h + 1, 6, 1, dark);
     }
-    if (rockMaterials.has(rock)) {
-      if (top && !fade) drawRockEdge(x, y, 0, -1, bright, context);
-      if (left) drawRockEdge(x, y, -1, 0, bright, context);
-      if (right) drawRockEdge(x, y, 1, 0, bright, context);
-      if (!tileAt(world, tx, ty + 1)) drawRockEdge(x, y, 0, 1, bright, context);
-    } else {
-      if (top) {
-        rect(x, y, 16, 2, light);
-        rect(x + Math.floor(variation * 6), y, 5 + Math.floor(variation * 5), 1, bright);
-      }
-      if (left) rect(x, y + 2, 1, 14, light);
-      if (right) rect(x + 14, y + 2, 2, 14, dark);
+    if (top) {
+      rect(x, y, 16, 2, light);
+      rect(x + Math.floor(variation * 6), y, 5 + Math.floor(variation * 5), 1, bright);
     }
+    if (left) rect(x, y + 2, 1, 14, light);
+    if (right) rect(x + 14, y + 2, 2, 14, dark);
     if (oreOpacity > 0) {
       const [, mineral, shadow, glint] = palettes[material];
-      context.globalAlpha = oreOpacity;
+      ctx.globalAlpha = oreOpacity;
       for (let i = 0; i < 3; i++) {
         const px = x + 2 + i * 4;
         const py = y + 3 + Math.floor(noise(seed, ty, 85 + i) * 8);
         const size = i === 1 ? 5 : 4;
-        polygon([[px, py + 2], [px + 2, py], [px + size, py + 1], [px + size - 1, py + 4], [px + 1, py + 5]], mineral, context);
-        rect(px + 2, py + 1, size - 2, 1, glint, context);
-        rect(px + 1, py + 4, size - 2, 1, shadow, context);
+        polygon([[px, py + 2], [px + 2, py], [px + size, py + 1], [px + size - 1, py + 4], [px + 1, py + 5]], mineral);
+        rect(px + 2, py + 1, size - 2, 1, glint);
+        rect(px + 1, py + 4, size - 2, 1, shadow);
       }
-      context.globalAlpha = 1;
-    }
-    if (fade) {
-      tileCtx.globalCompositeOperation = 'destination-out';
-      tileCtx.fillStyle = submergedFade;
-      tileCtx.fillRect(0, 0, TILE, submergedFadeDepth);
-      tileCtx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(tileCanvas, tx * TILE, ty * TILE);
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -454,7 +410,7 @@ export function createRenderer(canvas) {
     rect(topX - 3, topY, 6, 4, '#745747');
   }
 
-  function caveWall(world, tx, ty) {
+  function caveWall(world, tx, ty, fadeTop) {
     const x = tx * TILE;
     const y = ty * TILE;
     const detail = noise(tx, ty, 91);
@@ -462,9 +418,19 @@ export function createRenderer(canvas) {
     const abyss = ty >= 113;
     const palette = abyss ? ['#21253c', '#1d2134', '#313553'] : ['#233644', '#1f303d', '#304653'];
     const [base, shadow, grain] = wet ? palette : ['#332d2d', '#28262c', '#45383a'];
-    rect(x, y, TILE, TILE, base);
-    rect(x + Math.floor(detail * 8), y + 3, 6, 1, grain);
-    rect(x + 2, y + 10 + Math.floor(detail * 3), 9, 2, shadow);
+    const context = fadeTop ? tileCtx : ctx;
+    const tileX = fadeTop ? 0 : x;
+    const tileY = fadeTop ? 0 : y;
+    rect(tileX, tileY, TILE, TILE, base, context);
+    rect(tileX + Math.floor(detail * 8), tileY + 3, 6, 1, grain, context);
+    rect(tileX + 2, tileY + 10 + Math.floor(detail * 3), 9, 2, shadow, context);
+    if (fadeTop) {
+      tileCtx.globalCompositeOperation = 'destination-out';
+      tileCtx.fillStyle = caveWallFade;
+      tileCtx.fillRect(0, 0, TILE, caveWallFadeDepth);
+      tileCtx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(tileCanvas, x, y);
+    }
 
     if (detail > 0.69 && tileAt(world, tx, ty - 1)) {
       const length = 4 + Math.floor(detail * 13);
@@ -555,7 +521,7 @@ export function createRenderer(canvas) {
         const material = tileAt(world, x, y);
         const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y) : 0;
         if (material) drawTile(world, x, y, material, oreOpacity);
-        else if (y >= firstCaveRow) caveWall(world, x, y);
+        else if (y >= firstCaveRow) caveWall(world, x, y, y === firstCaveRow && !tileAt(world, x, y - 1));
       }
     }
 
@@ -912,13 +878,13 @@ export function createRenderer(canvas) {
 
   function draw({ world, player, tank, helmet, camera, time, aim, mining, attackSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, caveShadowsHidden, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
-    const { water, backdrop } = waterClip(world, camera);
+    const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
-    ocean(camera, surface, time, conditions, backdrop);
+    ocean(camera, surface, time, conditions, water);
     if (surface > -5 && surface < camera.height + 5) surfaceLine(world, camera, surface, time);
 
     ctx.save();
