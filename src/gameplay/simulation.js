@@ -2,7 +2,7 @@ import { AIR_TANK, BREAK_SECONDS, BREATH_SECONDS, WRECK_CACHE, WOODEN_DOOR, MATE
 import { buildCellFree, createWorld, doorAt, editTile, isEditableTile, placeDoor, setDoor, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS } from '../inventory.js';
-import { collides, movePlayer, spawn, updateOxygen } from './player.js';
+import { MAX_HEALTH, collides, movePlayer, spawn, updateOxygen } from './player.js';
 import { resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
 export function oxygenCapacity(game) {
@@ -36,6 +36,7 @@ export function createGame(snapshot) {
     const y = clamp(position.y, 0, ROWS * TILE - player.height);
     if (!collides(world, x, y)) {
       Object.assign(player, { x, y });
+      if (Number.isFinite(position.health)) player.health = clamp(position.health, 1, MAX_HEALTH);
       if (Number.isFinite(position.oxygen)) player.oxygen = clamp(position.oxygen, 1, oxygenCapacity(game));
     }
   }
@@ -66,19 +67,23 @@ export function resetRoomProgress(previous) {
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
-  const { x, y, oxygen } = player;
+  const { x, y, health, oxygen } = player;
   movePlayer(world, player, input, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
-  if (hit) player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
-  if (updateOxygen(world, player, dt, capacity)) {
+  if (hit) {
+    player.hurt = Math.max(player.hurt ?? 0, 0.85);
+    player.health = Math.max(0, player.health - (hit.healthLoss ?? 10));
+    player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
+  }
+  if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance);
     resetHostiles(world);
     game.dirty = true;
     return 'You washed back up on the island.';
   }
-  if (player.x !== x || player.y !== y || player.oxygen !== oxygen) game.dirty = true;
-  if (hit) return hit.name + ' bite. −' + hit.airLoss + ' s of air.';
+  if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
+  if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
 }
 
 export function nearestItem(game) {
