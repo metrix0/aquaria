@@ -3,8 +3,8 @@ import test from 'node:test';
 import { MATERIAL } from '../src/content.js';
 import { advanceMining, createGame, targetTile } from '../src/gameplay/simulation.js';
 import { createWorld, editTile, hasOpenFace, waterTileAt } from '../src/world.js';
-import { TILE, WATER_ROW } from '../src/world/generation.js';
-import { createCaveLight } from '../src/world/lighting.js';
+import { groundAt, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
+import { createCaveLight, createSurfaceLight } from '../src/world/lighting.js';
 
 test('cave light follows open passages and reacts to terrain edits', () => {
   const world = createWorld();
@@ -61,6 +61,32 @@ test('light fades over several rock tiles and follows the player within a tile',
   light.update(world, player);
   assert.ok(light.at(column + 7, row) > before);
   assert.ok(light.at(column + 13, row) > 0);
+});
+
+test('surface light fades into rock without lighting a sealed pocket', () => {
+  const world = createWorld();
+  const light = createSurfaceLight();
+  const column = WEST_EXTENSION + 56;
+  const ground = groundAt(column);
+  const player = { x: (column + .5) * TILE, y: (ground - 1) * TILE, height: TILE };
+  const bounds = { left: column - 3, right: column + 4, top: ground - 2, bottom: ground + 6 };
+  for (let x = column - 4; x <= column + 4; x++) {
+    for (let y = ground; y <= ground + 4; y++) editTile(world, x, y, MATERIAL.stone);
+  }
+  editTile(world, column + 1, ground + 2, MATERIAL.air);
+  light.update(world, player, bounds);
+
+  assert.equal(light.at(column, ground), 1);
+  for (let depth = 1; depth <= 3; depth++) {
+    assert.ok(light.at(column, ground + depth) > 0);
+    assert.ok(light.at(column, ground + depth) < light.at(column, ground + depth - 1));
+  }
+  assert.equal(light.at(column, ground + 4), 0);
+  assert.equal(light.at(column + 1, ground + 2), 0);
+
+  const beforePan = light.at(column, ground + 2);
+  light.update(world, player, { ...bounds, top: ground + 2 });
+  assert.equal(light.at(column, ground + 2), beforePan);
 });
 
 test('ore mining requires an open face, including naturally flooded space', () => {

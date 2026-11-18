@@ -1,9 +1,9 @@
 import { createCharacterRenderer } from './character.js';
 import { MATERIAL, ORE_MATERIALS } from './content.js';
 import { playerInWater } from './gameplay/player.js';
-import { hasOpenFace, isDoorOpen, isTreeStanding, solidAt, tileAt, waterTileAt } from './world.js';
+import { hasOpenFace, isDoorOpen, isTreeStanding, tileAt, waterTileAt } from './world.js';
 import { COLS, ISLAND_CAVE, ROWS, TILE, WATER, WATER_ROW, WEST_EXTENSION, clamp, deepstoneStartAt, groundAt, noise } from './world/generation.js';
-import { createCaveLight } from './world/lighting.js';
+import { createCaveLight, createSurfaceLight } from './world/lighting.js';
 
 const palettes = {
   [MATERIAL.sand]: ['#c6a56e', '#e0be84', '#9c7a56', '#f0c88b'],
@@ -42,6 +42,7 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
   const caveLight = createCaveLight();
+  const surfaceLight = createSurfaceLight();
   const lightCanvas = canvas.ownerDocument.createElement('canvas');
   const lightCtx = lightCanvas.getContext('2d');
   let lightPixels;
@@ -441,19 +442,12 @@ export function createRenderer(canvas) {
     };
   }
 
-  function hasDaylight(world, player, tx, ty, ground, westGround, eastGround) {
-    return ty < ground ||
-        (ty === ground && !solidAt(world, tx, ty - 1, player)) ||
-        (ty < westGround && !solidAt(world, tx - 1, ty, player)) ||
-        (ty < eastGround && !solidAt(world, tx + 1, ty, player));
-  }
-
-  function oreOpacityAt(world, player, tx, ty, ground, westGround, eastGround) {
-    if (hasDaylight(world, player, tx, ty, ground, westGround, eastGround) && hasOpenFace(world, tx, ty, player)) return 1;
+  function oreOpacityAt(world, player, tx, ty) {
+    if (surfaceLight.at(tx, ty) === 1 && hasOpenFace(world, tx, ty, player)) return 1;
     return clamp((caveLight.at(tx, ty) - .1) / .45, 0, 1);
   }
 
-  function shadeCaves(world, player, { left, right, top, bottom }) {
+  function shadeCaves({ left, right, top, bottom }) {
     const width = right - left;
     const height = bottom - top;
     if (!lightPixels || lightPixels.width !== width || lightPixels.height !== height) {
@@ -468,12 +462,9 @@ export function createRenderer(canvas) {
       }
     }
     for (let x = left; x < right; x++) {
-      const ground = groundAt(x);
-      const westGround = groundAt(x - 1);
-      const eastGround = groundAt(x + 1);
       let alpha = (x - left) * 4 + 3;
       for (let y = top; y < bottom; y++, alpha += width * 4) {
-        const light = hasDaylight(world, player, x, y, ground, westGround, eastGround) ? 1 : caveLight.at(x, y);
+        const light = Math.max(surfaceLight.at(x, y), caveLight.at(x, y));
         lightPixels.data[alpha] = (1 - light) * 245;
       }
     }
@@ -487,12 +478,10 @@ export function createRenderer(canvas) {
   function terrain(world, player, camera, time, { left, right, top, bottom }) {
     for (let x = left; x < right; x++) {
       const ground = groundAt(x);
-      const westGround = groundAt(x - 1);
-      const eastGround = groundAt(x + 1);
       const firstCaveRow = ground < WATER_ROW ? ground + 1 : ground;
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
-        const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y, ground, westGround, eastGround) : 0;
+        const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y) : 0;
         if (material) drawTile(world, x, y, material, oreOpacity);
         else if (y >= firstCaveRow) caveWall(world, x, y);
       }
@@ -774,6 +763,7 @@ export function createRenderer(canvas) {
     const water = waterClip(world, camera);
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
+    surfaceLight.update(world, player, bounds);
     rect(0, 0, camera.width, camera.height, '#101f33');
     sky(camera, surface, time, conditions);
     ocean(camera, surface, time, conditions, water);
@@ -795,7 +785,7 @@ export function createRenderer(canvas) {
         [remote.x, remote.y - 3], [remote.x - 3, remote.y - 6]], '#a6eee0');
     }
     drawCharacter(player, player.appearance, { tank, helmet, time, mining, attackSwing, reducedMotion, swimming: playerInWater(world, player) });
-    shadeCaves(world, player, bounds);
+    shadeCaves(bounds);
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
