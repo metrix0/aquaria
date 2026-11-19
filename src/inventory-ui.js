@@ -100,7 +100,6 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   let picked;
   let highlighted;
   let tooltipSlot;
-  let tooltipPointer;
 
   const address = (button) => ({ group: button.dataset.group, index: Number(button.dataset.index) });
   const stackAt = (button) => {
@@ -113,17 +112,6 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   };
   const slotAt = (element) => element?.closest('#backpack-panel .slot[data-group]');
   const slotAtPointer = ({ clientX, clientY }) => slotAt(document.elementFromPoint(clientX, clientY));
-
-  function positionTooltip(x, anchorTop, anchorBottom = anchorTop) {
-    const gap = 8;
-    const { offsetWidth: width, offsetHeight: height } = tooltip;
-    const { clientWidth, clientHeight } = document.documentElement;
-    const left = x - width / 2;
-    const above = anchorTop - height - gap;
-    const top = above >= gap ? above : anchorBottom + gap;
-    tooltip.style.left = Math.max(gap, Math.min(left, clientWidth - width - gap)) + 'px';
-    tooltip.style.top = Math.max(gap, Math.min(top, clientHeight - height - gap)) + 'px';
-  }
 
   function renderTooltip() {
     if (!tooltipSlot) return;
@@ -146,29 +134,29 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     tooltip.hidden = false;
     tooltipSlot.setAttribute('aria-describedby', tooltip.id);
 
-    if (tooltipPointer) positionTooltip(tooltipPointer.x, tooltipPointer.y);
-    else positionTooltip((anchor.left + anchor.right) / 2, anchor.top, anchor.bottom);
+    const gap = 8;
+    const { offsetWidth: width, offsetHeight: height } = tooltip;
+    const { clientWidth, clientHeight } = document.documentElement;
+    const left = (anchor.left + anchor.right - width) / 2;
+    const above = anchor.top - height - gap;
+    const top = above >= gap ? above : anchor.bottom + gap;
+    tooltip.style.left = Math.max(gap, Math.min(left, clientWidth - width - gap)) + 'px';
+    tooltip.style.top = Math.max(gap, Math.min(top, clientHeight - height - gap)) + 'px';
   }
 
-  function showTooltip(slot, pointer) {
+  function showTooltip(slot) {
     tooltipSlot?.removeAttribute('aria-describedby');
     tooltipSlot = slot;
-    tooltipPointer = pointer;
     tooltip.hidden = true;
     renderTooltip();
   }
 
   for (const slot of [...hudSlots, ...Object.values(groups).flat(), armorSlot]) {
-    slot.addEventListener('pointerenter', ({ pointerType, clientX, clientY }) => {
-      if (pointerType !== 'touch' && !gesture) showTooltip(slot, { x: clientX, y: clientY });
-    });
-    slot.addEventListener('pointermove', ({ pointerType, clientX, clientY }) => {
-      if (pointerType === 'touch' || tooltipSlot !== slot || tooltip.hidden) return;
-      tooltipPointer = { x: clientX, y: clientY };
-      positionTooltip(clientX, clientY);
+    slot.addEventListener('pointerenter', ({ pointerType }) => {
+      if (pointerType !== 'touch' && !gesture) showTooltip(slot);
     });
     slot.addEventListener('pointerleave', ({ pointerType }) => {
-      if (pointerType !== 'touch' && tooltipSlot === slot) showTooltip(slot.matches(':focus-visible') ? slot : null);
+      if (pointerType !== 'touch' && tooltipSlot === slot && !slot.matches(':focus-visible')) showTooltip(null);
     });
     slot.addEventListener('focus', () => {
       if (slot.matches(':focus-visible')) showTooltip(slot);
