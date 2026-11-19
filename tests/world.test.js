@@ -3,6 +3,7 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveFloor, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createCharacterRenderer } from '../src/character.js';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
@@ -96,6 +97,22 @@ test('landing in swimmable water and grabbing a rope both break a long fall', ()
   for (let i = 0; i < 60 && !player.grounded; i++) stepGame(game, {}, 1 / 60);
   assert.equal(player.grounded, true);
   assert.equal(player.health, 100);
+});
+
+test('a climbing character renders both hands and the equipped ring', () => {
+  const { world, player } = createGame();
+  const rope = world.caveClimbs.find(({ kind }) => kind === 'rope');
+  Object.assign(player, { x: (rope.tx + .5) * TILE, y: (rope.top + 4) * TILE });
+  movePlayer(world, player, { up: true }, 1 / 60);
+  assert.equal(player.climb, rope);
+
+  const colors = [];
+  const ctx = {
+    save() {}, restore() {}, translate() {}, scale() {},
+    fillRect() { colors.push(this.fillStyle); },
+  };
+  createCharacterRenderer(ctx)(player, player.appearance, { ring: true });
+  assert.ok(colors.includes('#a8f184'));
 });
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {

@@ -335,7 +335,7 @@ export function createCharacterRenderer(ctx) {
       const grip = rope ? gripCenter + side : clamp(side * 5, gripCenter - railReach, gripCenter + railReach);
       const hand = [grip + (rope ? -lift : side * lift), y];
       const elbow = [(side * shoulderX + hand[0]) / 2 + side * 2, 12 - (12 - y) * .35];
-      bentArm([side * shoulderX, 11], elbow, hand, armSkin, shirt, far, ring);
+      bentArm([side * shoulderX, 11], elbow, hand, skin, shirt, far, ring);
     }
 
     function climbFoot(side, rung) {
