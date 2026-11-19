@@ -15,7 +15,8 @@ import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, c
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
+import { jungleVillageStructures } from '../src/world/jungle-village.js';
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
@@ -1975,4 +1976,88 @@ test('swimming player can exit water onto blocks at or above the waterline and s
   assert.equal(pillarPlayer.grounded, true);
   assert.ok(pillarPlayer.y + pillarPlayer.height <= WATER + 0.02);
   assert.equal(playerInWater(pillarWorld, pillarPlayer), false);
+});
+
+
+test('jungle ocean biome contains a larger island with jungle trees and an indigenous village', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+
+    // Compare above-water span of spawn island vs jungle island.
+    let spawnDryCols = 0;
+    for (let x = 20; x < 90; x++) {
+      if (groundAt(x + WEST_EXTENSION) < WATER_ROW) spawnDryCols++;
+    }
+    let jungleDryCols = 0;
+    for (let x = JUNGLE_FADE_END_COLUMN; x < COLS - WEST_EXTENSION; x++) {
+      if (groundAt(x + WEST_EXTENSION) < WATER_ROW) jungleDryCols++;
+    }
+    assert.ok(jungleDryCols > spawnDryCols * 1.5, `expected jungle island (${jungleDryCols}) to be more extensive than spawn (${spawnDryCols})`);
+
+    // Village structures and chest sit on solid dry ground on the jungle island.
+    for (const [, , column, floor] of jungleVillageStructures) {
+      const tx = column + WEST_EXTENSION;
+      assert.ok(column > JUNGLE_FADE_END_COLUMN);
+      assert.equal(groundAt(tx), floor);
+      assert.ok(floor < WATER_ROW);
+      assert.ok(tileAt(world, tx, floor));
+      assert.equal(tileAt(world, tx, floor - 1), MATERIAL.air);
+    }
+    const villageChest = world.items.find((item) => item.id === 'jungle-village-cache');
+    assert.ok(villageChest && villageChest.y < WATER);
+
+    // Jungle trees exist on the island, can be chopped for wood, and stay harvested on reload.
+    const jungleTrees = world.trees.filter((tree) => tree.kind === 'jungle');
+    assert.ok(jungleTrees.length >= 6);
+    const chopped = jungleTrees[0];
+    assert.ok(chopped.x > (JUNGLE_FADE_END_COLUMN + WEST_EXTENSION) * TILE);
+    player.x = chopped.x - 16;
+    player.y = chopped.y - player.height;
+    const action = planTileAction(game, { tx: chopped.tx, ty: chopped.ty - 1, reachable: true }, false, 0);
+    assert.equal(action?.fixtureId, chopped.id);
+    commitTileAction(game, action);
+    const reloaded = createGame(decodeSave(encodeSave(game)));
+    assert.equal(reloaded.world.harvested.has(chopped.id), true);
+
+    // Renderer paints jungle trees and indigenous village structures.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const fillColors = [];
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      putImageData: noop, stroke: noop,
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      fill() { fillColors.push(this.fillStyle); },
+      fillRect() { fillColors.push(this.fillStyle); },
+      createLinearGradient: () => grad, createRadialGradient: () => grad,
+      translate: noop,
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    };
+    const renderer = createRenderer(canvas);
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: (JUNGLE_ISLAND.center + WEST_EXTENSION) * TILE - 180, y: 4 * TILE, width: 360, height: 200 },
+      time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+    assert.ok(fillColors.includes('#1e4a35') && fillColors.includes('#68b064'));
+    assert.ok(fillColors.includes('#876f3b') && fillColors.includes('#d95c48'));
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
 });

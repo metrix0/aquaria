@@ -1,5 +1,7 @@
 import { drawRootGrove } from './root-grove-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
+import { drawJungleVillageStructure } from "./jungle-village-art.js";
+import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
   ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, inRootGrove,
@@ -1036,6 +1038,45 @@ export function createRenderer(canvas) {
     rect(topX - 3, topY, 6, 4, "#745747");
   }
 
+  function jungleTree(tree) {
+    for (const [i, strip] of tree.trunk.entries()) {
+      rect(
+        strip.x,
+        strip.y,
+        strip.width,
+        2,
+        i % 5 === 0 ? "#4a3529" : "#6b4c35",
+      );
+      rect(strip.x + 1, strip.y, 2, 2, "#8a6445");
+      if (i % 7 === 0) rect(strip.x, strip.y, 1, 2, "#3c6e47");
+    }
+    const topStrip = tree.trunk[tree.trunk.length - 1];
+    const topX = topStrip ? topStrip.x + Math.floor(topStrip.width / 2) : tree.x;
+    const topY = tree.y - tree.height;
+
+    // Hanging jungle vines & wide layered tropical canopy.
+    for (const [vx, vlen] of [[-22, 16], [-11, 22], [12, 19], [23, 14]]) {
+      rect(topX + vx, topY + 4, 2, vlen, "#2d6a47");
+      rect(topX + vx, topY + 6, 1, Math.max(4, vlen - 4), "#438a55");
+    }
+    for (const [ox, oy, w, h, color] of [
+      [-28, -8, 56, 16, "#1e4a35"],
+      [-24, -18, 48, 16, "#2d6a47"],
+      [-16, -24, 32, 12, "#2d6a47"],
+      [-22, -14, 44, 10, "#438a55"],
+      [-14, -21, 28, 9, "#438a55"],
+      [-10, -23, 20, 5, "#68b064"],
+      [-20, -14, 12, 4, "#68b064"],
+      [10, -13, 11, 4, "#68b064"],
+    ]) {
+      rect(topX + ox, topY + oy, w, h, color);
+    }
+    // Tropical canopy blossoms / fruits.
+    rect(topX - 15, topY - 12, 3, 3, "#e07b53");
+    rect(topX + 9, topY - 16, 3, 3, "#f0c88b");
+    rect(topX - 2, topY - 8, 3, 3, "#e07b53");
+  }
+
   function outsideCaveWall(tx, ty) {
     return ty < firstCaveRows[tx];
   }
@@ -1401,20 +1442,25 @@ export function createRenderer(canvas) {
       } else if (y >= WATER_ROW + 1 && seed > 0.79 && Math.abs(fromChest) > 5) {
         coral(x * TILE + 4 + seed * 8, y * TILE, column);
       } else if (y < WATER_ROW - 1 && seed > 0.2) {
+        const jungle = column >= JUNGLE_FADE_START_COLUMN;
         for (let i = 0; i < 4; i++) {
           const bx = x * TILE + 2 + i * 3;
-          const h = 2 + Math.floor(noise(column, i, 8) * 5);
-          rect(bx, y * TILE - h, 1, h, i % 2 ? "#667654" : "#87915f");
+          const h = (jungle ? 4 : 2) + Math.floor(noise(column, i, 8) * (jungle ? 6 : 5));
+          rect(bx, y * TILE - h, 1, h, jungle ? (i % 2 ? "#2f6b47" : "#488f57") : (i % 2 ? "#667654" : "#87915f"));
+        }
+        if (jungle && seed > 0.72) {
+          rect(x * TILE + 6, y * TILE - 7, 2, 2, seed > 0.86 ? "#e57866" : "#f0c88b");
         }
       }
     }
     for (const tree of world.trees) {
       if (
-        tree.tx >= left - 2 &&
-        tree.tx <= right + 2 &&
+        tree.tx >= left - 4 &&
+        tree.tx <= right + 4 &&
         isTreeStanding(world, tree)
       )
-        palm(tree);
+        if (tree.kind === "jungle") jungleTree(tree);
+        else palm(tree);
     }
 
     const shelterColumn = 53 + WEST_EXTENSION;
@@ -1448,6 +1494,12 @@ export function createRenderer(canvas) {
         "#243a42",
       );
       rect(shelterX + 7, shelterY - 30, 2, 3, "#8d6c52");
+    }
+
+    for (const [, kind, column, floor] of jungleVillageStructures) {
+      const tx = column + WEST_EXTENSION;
+      if (tx < left - 4 || tx > right + 4 || !tileAt(world, tx, floor)) continue;
+      drawJungleVillageStructure(rect, polygon, kind, (tx + 0.5) * TILE, floor * TILE, time);
     }
 
     for (const vent of world.vents) {

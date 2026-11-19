@@ -1,15 +1,16 @@
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
+import { JUNGLE_ISLAND, jungleIslandSurface, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 
-export { ISLAND_CAVE };
+export { ISLAND_CAVE, JUNGLE_ISLAND };
 
 export const TILE = 16;
 export const WORLD_VERSION = 2;
 export const ORIGINAL_COLS = 224;
 export const ORIGINAL_WEST_EXTENSION = 44;
 export const WEST_EXTENSION = ORIGINAL_WEST_EXTENSION + 64;
-export const EAST_EXTENSION = 128;
+export const EAST_EXTENSION = 208;
 export const COLS = ORIGINAL_COLS + WEST_EXTENSION + EAST_EXTENSION;
 export const KRAKEN_COLUMN = ORIGINAL_COLS - 1.5;
 export const JUNGLE_FADE_START_COLUMN = ORIGINAL_COLS;
@@ -69,7 +70,8 @@ function oceanFloor(x) {
     const blend = Math.min(1, distance / 18);
     const baseDepth = 46 + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
     const jungleDepth = 52 + 7 * Math.sin(distance * 0.085 + 0.6) + 3 * Math.sin(distance * 0.23);
-    return Math.round(baseDepth + (jungleDepth - baseDepth) * blend + noise(x, 7) * 2);
+    const seabed = Math.round(baseDepth + (jungleDepth - baseDepth) * blend + noise(x, 7) * 2);
+    return Math.min(jungleIslandSurface(x), seabed);
   }
   const depth = 30 + 16 * Math.min(1, Math.abs(x - 56) / 85) + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
   return Math.min(islandSurface(x), Math.round(depth + noise(x, 7) * 2));
@@ -111,7 +113,8 @@ export function generateTile(tx, y, ground = groundAt(tx)) {
   if (y < ground) return MATERIAL.air;
   const depth = y - ground;
   if (y >= ROWS - 2) return MATERIAL.bedrock;
-  if (depth < 2) return ground < WATER_ROW || noise(x, 2) > 0.3 ? MATERIAL.sand : MATERIAL.reef;
+  const onJunglePlateau = Math.abs(x - JUNGLE_ISLAND.center) <= JUNGLE_ISLAND.halfWidth - 6 && ground < WATER_ROW - 1;
+  if (depth < 2) return onJunglePlateau ? MATERIAL.soil : (ground < WATER_ROW || noise(x, 2) > 0.3 ? MATERIAL.sand : MATERIAL.reef);
   if (ground < WATER_ROW) {
     const soilBottom = 16 + Math.round(1.9 * Math.sin(x * .51) + 1.1 * Math.sin(x * .94));
     if (y <= Math.max(ground + 2, soilBottom)) return MATERIAL.soil;
@@ -549,6 +552,7 @@ export function generateFixtures() {
     { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
     { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288, floor: groundAt(288 + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
+    jungleVillageCache,
   ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
     id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
@@ -559,7 +563,7 @@ export function generateFixtures() {
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });
   // Preserve saved kelp IDs where the seabed has shifted near cave openings.
-  const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144], [236], [248], [264], [282], [300], [320], [338]];
+  const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144], [236], [248], [264], [282], [300], [320], [406], [418]];
   for (const [id, column = id] of kelpLocations) {
     const tx = column + WEST_EXTENSION;
     const ty = groundAt(tx);
@@ -570,7 +574,7 @@ export function generateFixtures() {
 }
 
 export function generateTrees() {
-  return [[49, 61, -1], [52, 46, 1], [58, 69, 1], [62, 48, -1]].map(([column, height, direction]) => {
+  const palms = [[49, 61, -1], [52, 46, 1], [58, 69, 1], [62, 48, -1]].map(([column, height, direction]) => {
     const tx = column + WEST_EXTENSION;
     const ty = groundAt(tx);
     const x = tx * TILE + 7;
@@ -582,6 +586,19 @@ export function generateTrees() {
     }
     return { id: 'palm-' + column, tx, ty, x, y, height, direction, trunk };
   });
+  const jungle = jungleTreeSpecs.map(([column, height, direction]) => {
+    const tx = column + WEST_EXTENSION;
+    const ty = groundAt(tx);
+    const x = tx * TILE + 8;
+    const y = ty * TILE;
+    const trunk = [];
+    for (let rise = 0; rise < height; rise += 2) {
+      const lean = Math.round(Math.sin((rise / height) * Math.PI) * 3) * direction;
+      trunk.push({ x: x + lean - 4, y: y - rise - 2, width: rise > height * 0.72 ? 6 : 8 });
+    }
+    return { id: 'jungle-' + column, kind: 'jungle', tx, ty, x, y, height, direction, trunk };
+  });
+  return [...palms, ...jungle];
 }
 
 function chamberMobSpot(chamber) {
