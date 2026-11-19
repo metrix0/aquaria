@@ -56,6 +56,7 @@ export function stepJellyfish(world, player, mob, dt, time, effects, ctx) {
           count: 12,
           spread: 75,
           message: 'Shocked by a jellyfish! Stunned!',
+          shake: { intensity: 11, duration: 0.75, frequency: 46 },
         });
       }
     } else if (mob.windup > 0) {
