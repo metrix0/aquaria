@@ -207,7 +207,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       mob.rooted = Math.max(0, mob.rooted - dt);
       if (mob.rootLift > 0) {
         const spec = mobSpec(mob);
-        const lift = Math.min(mob.rootLift, dt * 48);
+        const lift = Math.min(mob.rootLift, dt * 56);
         const ceiling = Math.floor((mob.y + spec.centerY - spec.height / 2 - lift) / TILE);
         const left = Math.floor((mob.x - spec.width / 2) / TILE);
         const right = Math.floor((mob.x + spec.width / 2 - .01) / TILE);

@@ -1,4 +1,5 @@
 import { drawRootGrove } from './root-grove-art.js';
+import { drawRootBind, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
 import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleWallGlyphs, jungleStructureBounds } from "./jungle-cave-art.js";
 import { drawCannibal, drawJungleVillageStructure } from "./jungle-village-art.js";
@@ -15,6 +16,7 @@ import { createCharacterRenderer } from "./character.js";
 import { MATERIAL, ORE_MATERIALS } from "./content.js";
 import { jellyfishShockRadius } from "./gameplay/enemies/jellyfish.js";
 import { KRAKEN_DEATH_DURATION } from "./gameplay/enemies/kraken.js";
+import { mobSpec } from "./gameplay/mobs.js";
 import { playerHeadInWater, playerInWater } from "./gameplay/player.js";
 import { createHelmetWreckArt } from "./helmet-wreck-art.js";
 import { ITEMS } from "./inventory.js";
@@ -1849,7 +1851,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function mobs(world, camera, time, targetMob, player) {
+  function mobs(world, camera, time, targetMob, player, reducedMotion) {
     for (const mob of world.mobs ?? []) {
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
@@ -1860,13 +1862,10 @@ export function createRenderer(canvas) {
         continue;
       ctx.save();
       ctx.translate(Math.round(mob.x), Math.round(mob.y));
-      if (mob.rooted > 0) {
-        for (const side of [-1, 1]) {
-          polygon([[side * 13, 2], [side * 4, -6], [side * 10, -14], [side * 4, -19],
-            [side * 12, -16], [side * 10, -7], [side * 16, 2]], '#80b36a');
-        }
-      }
+      const roots = mob.rooted > 0 ? rootBindPose(mob, mobSpec(mob), reducedMotion) : null;
+      if (roots) drawRootBind(polygon, roots, false);
       ctx.save();
+      if (roots) ctx.scale(1 - roots.grip * .17, 1);
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0)
         ctx.globalAlpha = 0.6;
 
@@ -2508,6 +2507,7 @@ export function createRenderer(canvas) {
       }
       ctx.restore();
 
+      if (roots) drawRootBind(polygon, roots, true);
       if (
         !dyingKraken &&
         mob.maxHealth &&
@@ -2791,7 +2791,7 @@ export function createRenderer(canvas) {
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
     drawRootWave(rootWave);
-    mobs(world, camera, time, targetMob, player);
+    mobs(world, camera, time, targetMob, player, reducedMotion);
     projectiles(world, camera);
     arrows(playerArrows, camera);
     for (const bit of particles) {

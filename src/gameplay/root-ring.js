@@ -6,7 +6,11 @@ import { damageMob, mobSpec } from './mobs.js';
 const WINDUP = .14;
 const SPEED = 270;
 const RANGE = 10 * TILE;
-const HOLD = .24;
+const TRAIL_HOLD = .45;
+const TRAIL_FADE = .45;
+const ROOT_LIFT = 20;
+
+export const ROOT_BIND_DURATION = 4.6;
 
 export function ringCooldown(game) {
   return Math.max(0, game.rootReadyAt - game.elapsed);
@@ -47,12 +51,12 @@ function reachedEnemy(world, wave, x, y) {
 export function stepRootWave(game, dt) {
   const wave = game.rootWave;
   if (!wave) return;
+  wave.age += dt;
   if (wave.finished) {
-    wave.fade = Math.max(0, wave.fade - dt / HOLD);
+    wave.fade = Math.min(1, Math.max(0, 1 - (wave.age - wave.fadeAt) / TRAIL_FADE));
     if (wave.fade === 0) game.rootWave = null;
     return;
   }
-  wave.age += dt;
   if (wave.age < WINDUP) return;
   const end = Math.min(RANGE, (wave.age - WINDUP) * SPEED);
   while (wave.length < end && !wave.finished) {
@@ -65,8 +69,9 @@ export function stepRootWave(game, dt) {
     const hitY = mob.y + mobSpec(mob).centerY;
     damageMob(game.world, mob, 3, wave.facing > 0 ? 0 : Math.PI, 0, game.effects);
     if (mob.health > 0 && mob.kind !== 'kraken') {
-      mob.rooted = 2.8;
-      mob.rootLift = 10;
+      mob.rooted = ROOT_BIND_DURATION;
+      mob.rootLift = ROOT_LIFT;
+      mob.rootBaseY = mob.y;
       mob.grounded = false;
     }
     game.effects.push({ x, y: hitY, color: '#93c879', count: 13, spread: 45 });
@@ -74,6 +79,7 @@ export function stepRootWave(game, dt) {
   }
   if (wave.finished || wave.length < end || end === RANGE) {
     wave.finished = true;
+    wave.fadeAt = wave.age + TRAIL_HOLD;
     wave.fade = 1;
   }
 }

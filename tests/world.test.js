@@ -521,10 +521,17 @@ test('the root wave travels before it hits, stops at rock, and suspends the firs
   assert.ok(mob.rooted > 2);
   assert.ok(mob.y < y - 2);
   advance(10);
+  assert.equal(game.rootWave.fade, 1);
+  advance(10);
   const suspendedAt = mob.y;
-  advance(40);
+  assert.ok(Math.abs(suspendedAt - (mob.rootBaseY - 20)) < .01);
+  advance(210);
   assert.equal(mob.y, suspendedAt);
+  assert.ok(mob.rooted > 0);
+  assert.equal(game.rootWave, null);
   assert.equal(mob.health, health - 3);
+  advance(60);
+  assert.equal(mob.rooted, 0);
 });
 
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
