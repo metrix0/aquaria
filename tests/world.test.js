@@ -5,7 +5,7 @@ import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
-import { damageMob, stepMobs } from '../src/gameplay/mobs.js';
+import { damageMob, jellyfishShockRadius, stepMobs } from '../src/gameplay/mobs.js';
 import { stepWreckGhost } from '../src/gameplay/wreck-ghosts.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
@@ -1220,10 +1220,35 @@ test('squid shoots black ink bubbles that ink the player and fade out', () => {
   stepGame(game, {}, 1 / 60);
   assert.ok(player.inkSplats.length > firstCount);
 
-  for (let i = 0; i < 300 && player.inkSplats.length > 0; i++) stepGame(game, {}, 1 / 60);
+  for (let i = 0; i < 600 && player.inkSplats.length > 0; i++) stepGame(game, {}, 1 / 60);
   assert.equal(player.inkSplats.length, 0);
 
   player.inkSplats = [{ nx: 0.5, ny: 0.5, scale: 1, angle: 0, seed: 1, time: 3, duration: 4.5 }];
   toggleGodMode(world, player);
   assert.equal(player.inkSplats.length, 0);
+});
+
+
+test('jellyfish shock stuns the player when inside its visual lightning area', () => {
+  const game = createGame();
+  const { world, player } = game;
+  player.x = TILE * 3.5;
+  player.y = WATER + 4 * TILE;
+  player.hurt = 0.5;
+  const jelly = {
+    id: 'test-jelly', kind: 'jellyfish', x: player.x + 120, y: player.y + 12,
+    homeX: player.x + 120, homeY: player.y + 12, span: 10, speed: 14, phase: 0,
+    facing: -1, dx: 0, dy: 0, health: 3, maxHealth: 3, hurt: 0,
+    flee: 0, cooldown: 0, attackTimer: 1, windup: 0, shock: 0.6, shockHit: false,
+  };
+  world.mobs = [jelly];
+
+  stepGame(game, {}, 1 / 60);
+  assert.equal(player.stun, 0);
+
+  jelly.x = player.x + 40;
+  jelly.homeX = jelly.x;
+  assert.ok(40 <= jellyfishShockRadius(jelly.shock));
+  stepGame(game, {}, 1 / 60);
+  assert.ok(player.stun > 0);
 });

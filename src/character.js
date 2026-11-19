@@ -303,6 +303,31 @@ export function createCharacterRenderer(ctx) {
     if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
     const jitter = (player.stun ?? 0) > 0 && !reducedMotion ? Math.round(Math.sin(time * 48)) : 0;
     ctx.translate(Math.round(player.x) + jitter, Math.round(player.y));
+    const drawElectricStun = (cy) => {
+      if (!((player.stun ?? 0) > 0)) return;
+      ctx.save();
+      for (let b = 0; b < 3; b++) {
+        ctx.strokeStyle = b % 2 ? '#38bdf8' : '#ffe44d';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        const startY = cy - 8 + b * 6;
+        ctx.moveTo(-8, startY);
+        for (let s = 1; s <= 4; s++) {
+          const sx = -8 + s * 4;
+          const sy = startY + Math.sin(time * 42 + b * 2.1 + s * 2.9) * 3.5;
+          ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+      }
+      for (let i = 0; i < 6; i++) {
+        const spark = time * 16 + i * 1.05;
+        const sx = Math.round(Math.cos(spark) * 9);
+        const sy = Math.round(cy + Math.sin(spark * 1.3) * 9);
+        rect(sx, sy, 2, 1, i % 2 ? '#38bdf8' : '#ffe44d');
+        rect(sx + 1, sy - 1, 1, 2, i % 2 ? '#ffe44d' : '#38bdf8');
+      }
+      ctx.restore();
+    };
     ctx.scale(facing, 1);
     if (crawling) {
       const shuffle = Math.round(armSwing * 0.4);
@@ -316,6 +341,7 @@ export function createCharacterRenderer(ctx) {
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
       if (gear) divingSnorkel(3, 2, gear);
       drawFrontArm(2 - shuffle, 9);
+      drawElectricStun(12);
       ctx.restore();
       return;
     }
@@ -351,15 +377,7 @@ export function createCharacterRenderer(ctx) {
         rect(x - 1, 6 - rise, 1, 1, '#7ebdbb');
       }
     }
-    if ((player.stun ?? 0) > 0) {
-      for (let i = 0; i < 6; i++) {
-        const spark = time * 14 + i * 1.1;
-        const sx = Math.round(Math.cos(spark) * 8);
-        const sy = Math.round(10 + Math.sin(spark * 1.3) * 9);
-        rect(sx, sy, 2, 1, i % 2 ? '#8bdfd0' : '#f8dca5');
-        rect(sx + 1, sy - 1, 1, 2, i % 2 ? '#f8dca5' : '#8bdfd0');
-      }
-    }
+    drawElectricStun(10);
     ctx.restore();
   };
 }
