@@ -394,13 +394,37 @@ export function moveInventoryStack(game, chestId, from, to) {
     config.set(game, equipStacks[equipGroup][0]?.id ?? null);
   } else if (!moveStack(source, from.index, target, to.index)) return false;
 
-  const remaining = game.world.pendingWreckLoot.get(chestId);
-  if (remaining && from.group === 'chest') {
-    const item = game.world.items.find(({ id }) => id === chestId);
-    stockWreckLoot(game.world, item, slots, remaining);
-  }
+  if (from.group === 'chest') restockPendingWreckLoot(game, chestId, slots);
   game.dirty = true;
   return true;
+}
+
+function restockPendingWreckLoot(game, chestId, slots) {
+  const remaining = game.world.pendingWreckLoot.get(chestId);
+  if (!remaining) return false;
+  const item = game.world.items.find(({ id }) => id === chestId);
+  stockWreckLoot(game.world, item, slots, remaining);
+  return true;
+}
+
+export function collectChest(game, chestId) {
+  const slots = game.chests.get(chestId);
+  if (!slots) return false;
+
+  let collected = false;
+  let freedSlot;
+  do {
+    freedSlot = false;
+    for (const [index, stack] of slots.entries()) {
+      if (!stack || !game.inventory.add(stack.id, stack.count)) continue;
+      slots[index] = null;
+      freedSlot = true;
+      collected = true;
+    }
+  } while (freedSlot && restockPendingWreckLoot(game, chestId, slots));
+
+  if (collected) game.dirty = true;
+  return collected;
 }
 
 export function workbenchAt(game, tx, ty) {

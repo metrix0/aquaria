@@ -53,7 +53,7 @@ function drawSlots(buttons, stacks, selected) {
   }
 }
 
-export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, onMove, onSelect, canMove, moveInventoryStack }) {
+export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
@@ -67,6 +67,8 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot] };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
+  const collectAll = panel.querySelector('#chest-collect-all');
+  const chestStatus = panel.querySelector('#chest-status');
   const close = panel.querySelector('[data-close]');
   let chestId;
   const ghost = panel.querySelector('#inventory-drag');
@@ -103,7 +105,10 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     if (!canMove() || from === to) return;
     const source = address(from);
     const target = address(to);
-    if (moveInventoryStack(chestId, source, target)) onMove();
+    if (moveInventoryStack(chestId, source, target)) {
+      chestStatus.textContent = '';
+      onMove();
+    }
   }
 
   function activate(button) {
@@ -116,6 +121,13 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     ghost.hidden = true;
     highlight(null);
   }
+
+  collectAll.addEventListener('click', () => {
+    if (!canMove() || gesture) return;
+    pick(null);
+    if (collectChest(chestId)) onMove();
+    chestStatus.textContent = collectAll.disabled ? '' : 'Inventory full. Remaining items are in the chest.';
+  });
 
   panel.addEventListener('pointerdown', (event) => {
     const button = slotAt(event.target);
@@ -197,6 +209,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   return {
     showChest(chest) {
       chestId = chest?.id;
+      chestStatus.textContent = '';
       panel.querySelector('#backpack-title').textContent = chest?.name ?? 'Backpack';
       chestStorage.hidden = !chest;
       panel.querySelector('#chest-backpack-label').hidden = !chest;
@@ -215,7 +228,9 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       if (chestId) {
         const slots = getChest(chestId);
         drawSlots(chestSlots, slots);
-        chestCount.textContent = slots.filter(Boolean).length + ' / ' + CHEST_SIZE + ' slots';
+        const occupied = slots.filter(Boolean).length;
+        chestCount.textContent = occupied + ' / ' + CHEST_SIZE + ' slots';
+        collectAll.disabled = occupied === 0;
       }
       document.getElementById('selected').textContent = ITEMS[hotbar[selected]?.id]?.name ?? 'Empty slot';
     },

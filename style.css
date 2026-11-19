@@ -177,10 +177,13 @@ dialog p { font-size: 13px; color: var(--muted); }
 #backpack-help { margin: 12px 0 0; }
 #backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
 .chest-storage { padding: 12px; margin-bottom: 17px; border: 1px solid #8d6e4b; border-radius: 5px; background: #211f1c; }
-.chest-storage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.chest-storage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 9px; }
 .chest-storage h3, .chest-backpack-label { margin: 0; font-size: 14px; }
 .chest-storage h3 { color: var(--gold); }
 .chest-storage-head span { color: #d5bc9e; font: 11px var(--mono); }
+#chest-collect-all { margin-left: auto; min-height: 40px; font-size: 13px; }
+#chest-status { margin: 8px 0 0; color: var(--gold); }
+#chest-status:empty { margin: 0; }
 .chest-backpack-label { margin-bottom: 9px; }
 #chest-slots { grid-template-columns: repeat(4, minmax(0, 44px)); gap: 5px; }
 #backpack-panel #chest-slots .slot { background: #161d23; border-color: #6e6053; }
