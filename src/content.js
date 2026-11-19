@@ -41,6 +41,7 @@ export const KRAKEN_CHEST_ID = 'kraken-chest';
 
 export const DIVING_FIN = {
   id: 'diving-fin', name: 'Diving fin', swimMultiplier: 1.5,
+  description: 'Cut to a reef runner’s pattern, after a particularly smug fish.',
   colors: ['#1e468a', '#3580e0', '#82c8ff'],
 };
 
@@ -50,16 +51,19 @@ export const FEET_GEAR = Object.freeze({
 
 export const COPPER_SNORKEL = {
   id: 'copper-snorkel', name: 'Copper snorkel', station: WORKBENCH.id,
+  description: 'A wreck diver’s charm for borrowing one more breath from the sea.',
   cost: { copper: 3, kelp: 2 }, bonusSeconds: 20, colors: ['#875147', '#f1ac73'],
 };
 
 export const IRON_SNORKEL = {
   id: 'iron-snorkel', name: 'Iron snorkel', station: WORKBENCH.id,
+  description: 'Riveted tight enough to keep a drowned sailor’s sigh inside.',
   cost: { [COPPER_SNORKEL.id]: 1, iron: 4 }, bonusSeconds: 28, colors: ['#536874', '#d6e3df'],
 };
 
 export const COBALT_SNORKEL = {
   id: 'cobalt-snorkel', name: 'Cobalt snorkel', station: WORKBENCH.id,
+  description: 'A cold blue pipe for dives your guardian spirit would rather sit out.',
   cost: { [IRON_SNORKEL.id]: 1, cobalt: 2 }, bonusSeconds: 36, colors: ['#48568b', '#a6b7ff'],
 };
 
@@ -76,15 +80,18 @@ export function normalizeSnorkel(id) {
 export const ARMOR = Object.freeze({
   'copper-breastplate': {
     id: 'copper-breastplate', name: 'Copper breastplate', equipment: 'armor', station: WORKBENCH.id,
+    description: 'Harbor recruits take their oaths in copper. The dents come later.',
     cost: { copper: 5, kelp: 2 }, protection: 0.15, colors: ['#874f45', '#d88a62', '#ffd3a0'],
   },
   'iron-breastplate': {
     id: 'iron-breastplate', name: 'Iron breastplate', equipment: 'armor', station: WORKBENCH.id,
+    description: 'There’s a tally scratched inside. The last mark is unfinished.',
     cost: { iron: 6, kelp: 2 }, protection: 0.28, colors: ['#536874', '#9eafae', '#e4e5cf'],
     requires: 'copper-breastplate',
   },
   'cobalt-breastplate': {
     id: 'cobalt-breastplate', name: 'Cobalt breastplate', equipment: 'armor', station: WORKBENCH.id,
+    description: 'Hammered from deep-vein cobalt until the anvil struck sparks like stars.',
     cost: { cobalt: 6, kelp: 2 }, protection: 0.40, colors: ['#455294', '#768de5', '#c4d8ff'],
     requires: 'iron-breastplate',
   },

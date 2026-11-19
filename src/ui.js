@@ -141,8 +141,23 @@ export function createUI(actions, version) {
     updateCustomize: (game) => characterEditor.open(game.player.appearance),
     updateBackpack(game) {
       const armor = ARMOR[game.player.armor];
-      byId('backpack-armor').hidden = !armor;
-      if (armor) byId('backpack-armor').className = 'item item-' + armor.id;
+      const icon = byId('backpack-armor');
+      const slot = icon.parentElement;
+      icon.hidden = !armor;
+      if (armor) {
+        icon.className = 'item item-' + armor.id;
+        slot.dataset.item = armor.id;
+        slot.tabIndex = 0;
+        slot.setAttribute('role', 'img');
+        slot.setAttribute('aria-label', armor.name);
+        slot.removeAttribute('aria-hidden');
+      } else {
+        delete slot.dataset.item;
+        slot.removeAttribute('tabindex');
+        slot.removeAttribute('role');
+        slot.removeAttribute('aria-label');
+        slot.setAttribute('aria-hidden', 'true');
+      }
       setText('backpack-chest-label', armor?.name ?? 'Chest');
     },
     clearNotice() {
