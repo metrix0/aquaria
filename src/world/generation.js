@@ -382,6 +382,8 @@ const islandOreVeins = [
   [5, 84, 5, MATERIAL.copper], [-28, 113, 5, MATERIAL.copper], [137, 106, 4, MATERIAL.copper],
   [27, 162, 4, MATERIAL.copper], [113, 183, 5, MATERIAL.copper], [-18, 220, 3, MATERIAL.iron],
   [96, 266, 5, MATERIAL.copper], [45, 319, 5, MATERIAL.copper],
+  [53, 118, 5, MATERIAL.copper], [64, 157, 4, MATERIAL.copper], [46, 192, 5, MATERIAL.copper],
+  [40, 242, 3, MATERIAL.iron], [56, 274, 4, MATERIAL.copper], [73, 320, 4, MATERIAL.copper],
   [25, 346, 5], [43, 346, 4], [72, 358, 6], [120, 347, 4],
   [-17, 374, 7], [5, 373, 5], [138, 369, 4], [149, 369, 5],
   [26, 400, 4], [48, 400, 6], [96, 397, 5], [140, 423, 6],
