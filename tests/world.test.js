@@ -1210,12 +1210,19 @@ test('squid shoots black ink bubbles that ink the player and fade out', () => {
   world.mobs = [];
   world.projectiles = [{ kind: 'paint-bubble', x: player.x, y: player.y + 12, dx: 0, dy: 0, radius: 4, life: 1, phase: 0, color: '#0d1017' }];
   stepGame(game, {}, 1 / 60);
-  assert.ok(player.inked > 2);
+  assert.equal(player.inkSplats.length, 1);
+  assert.ok(player.inkSplats[0].time > 2);
 
-  for (let i = 0; i < 300 && player.inked > 0; i++) stepGame(game, {}, 1 / 60);
-  assert.equal(player.inked, 0);
+  for (let i = 0; i < 60; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.inkSplats.length, 1);
+  world.projectiles = [{ kind: 'paint-bubble', x: player.x, y: player.y + 12, dx: 0, dy: 0, radius: 4, life: 1, phase: 0, color: '#0d1017' }];
+  stepGame(game, {}, 1 / 60);
+  assert.equal(player.inkSplats.length, 2);
 
-  player.inked = 3;
+  for (let i = 0; i < 300 && player.inkSplats.length > 0; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.inkSplats.length, 0);
+
+  player.inkSplats = [{ nx: 0.5, ny: 0.5, scale: 1, angle: 0, seed: 1, time: 3, duration: 4.5 }];
   toggleGodMode(world, player);
-  assert.equal(player.inked, 0);
+  assert.equal(player.inkSplats.length, 0);
 });

@@ -1184,46 +1184,89 @@ export function createRenderer(canvas) {
     }
   }
 
-  const INK_SPLATS = [
-    [0.16, 0.24, 0.14, [[0.06, 0.04, 0.08], [-0.05, 0.06, 0.06], [0.11, -0.04, 0.03]]],
-    [0.78, 0.22, 0.13, [[-0.06, 0.05, 0.07], [0.04, 0.07, 0.05], [-0.1, -0.03, 0.025]]],
-    [0.34, 0.66, 0.15, [[0.07, -0.04, 0.08], [-0.06, -0.05, 0.06], [0.12, 0.05, 0.03]]],
-    [0.74, 0.72, 0.16, [[-0.07, -0.03, 0.09], [0.05, -0.06, 0.06], [-0.12, 0.04, 0.03]]],
-    [0.52, 0.36, 0.10, [[0.04, 0.04, 0.05], [-0.05, -0.03, 0.045], [0.08, -0.04, 0.02]]],
-    [0.08, 0.78, 0.11, [[0.05, -0.04, 0.06], [0.09, 0.02, 0.03]]],
-    [0.91, 0.48, 0.11, [[-0.05, 0.04, 0.06], [-0.08, -0.04, 0.03]]],
-  ];
+  function drawInkSplat(cx, cy, baseR, splat) {
+    const lobes = 10;
+    const points = [];
+    for (let i = 0; i < lobes; i++) {
+      const a0 = splat.angle + (i / lobes) * Math.PI * 2;
+      const aMid = a0 + Math.PI / lobes;
+      const armR = baseR * (0.72 + noise(i * 3, splat.seed) * 0.78);
+      const valleyR = baseR * (0.34 + noise(i * 3 + 1, splat.seed) * 0.24);
+      points.push({
+        ax: cx + Math.cos(a0) * armR,
+        ay: cy + Math.sin(a0) * armR,
+        vx: cx + Math.cos(aMid) * valleyR,
+        vy: cy + Math.sin(aMid) * valleyR,
+      });
+    }
+
+    ctx.beginPath();
+    const last = points[points.length - 1];
+    ctx.moveTo((last.vx + points[0].ax) * 0.5, (last.vy + points[0].ay) * 0.5);
+    for (let i = 0; i < points.length; i++) {
+      const curr = points[i];
+      const next = points[(i + 1) % points.length];
+      ctx.quadraticCurveTo(curr.ax, curr.ay, curr.vx, curr.vy);
+      ctx.quadraticCurveTo(curr.vx, curr.vy, (curr.vx + next.ax) * 0.5, (curr.vy + next.ay) * 0.5);
+    }
+    ctx.closePath();
+
+    for (let k = 0; k < 6; k++) {
+      const ang = splat.angle + k * 1.05 + noise(k, splat.seed + 7) * 0.6;
+      const cos = Math.cos(ang);
+      const sin = Math.sin(ang);
+      const px = -sin;
+      const py = cos;
+      const start = baseR * 0.45;
+      const len = baseR * (1.2 + noise(k + 10, splat.seed) * 0.95);
+      const w0 = baseR * 0.14;
+      const w1 = baseR * 0.035;
+      ctx.moveTo(cx + cos * start + px * w0, cy + sin * start + py * w0);
+      ctx.lineTo(cx + cos * len + px * w1, cy + sin * len + py * w1);
+      ctx.arc(cx + cos * len, cy + sin * len, w1, ang - Math.PI / 2, ang + Math.PI / 2);
+      ctx.lineTo(cx + cos * start - px * w0, cy + sin * start - py * w0);
+      ctx.closePath();
+
+      const dropDist = len + baseR * (0.22 + noise(k + 17, splat.seed) * 0.25);
+      const dropR = baseR * (0.055 + noise(k + 21, splat.seed) * 0.055);
+      const dx = cx + cos * dropDist;
+      const dy = cy + sin * dropDist;
+      ctx.moveTo(dx + dropR, dy);
+      ctx.arc(dx, dy, dropR, 0, Math.PI * 2);
+    }
+
+    const age = Math.max(0, (splat.duration ?? 4.5) - splat.time);
+    for (let d = 0; d < 3; d++) {
+      const dripX = cx + (noise(d, splat.seed + 23) - 0.5) * baseR * 1.05;
+      const dripTop = cy + baseR * (0.22 + noise(d + 5, splat.seed) * 0.25);
+      const dripLen = baseR * (0.55 + noise(d + 9, splat.seed) * 0.65) + Math.min(age, 3) * baseR * 0.16;
+      const stemW = baseR * 0.045;
+      const tipR = baseR * (0.085 + noise(d + 13, splat.seed) * 0.04);
+      const tipY = dripTop + dripLen;
+      ctx.moveTo(dripX - stemW, dripTop);
+      ctx.lineTo(dripX + stemW, dripTop);
+      ctx.lineTo(dripX + stemW * 0.7, tipY);
+      ctx.lineTo(dripX - stemW * 0.7, tipY);
+      ctx.closePath();
+      ctx.moveTo(dripX + tipR, tipY);
+      ctx.arc(dripX, tipY, tipR, 0, Math.PI * 2);
+    }
+
+    ctx.fill();
+  }
 
   function inkOverlay(camera, player) {
-    const inked = player?.inked ?? 0;
-    if (inked <= 0) return;
-    const fade = Math.min(1, inked / 2);
+    const splats = player?.inkSplats;
+    if (!splats?.length) return;
     const span = Math.min(camera.width, camera.height);
-    const flipX = (player.inkSeed ?? 0) % 2 === 1;
-    const flipY = ((player.inkSeed ?? 0) >> 1) % 2 === 1;
-    const drawSplatPass = (scale, alpha) => {
-      ctx.globalAlpha = fade * alpha;
-      ctx.beginPath();
-      for (const [nx, ny, nr, blobs] of INK_SPLATS) {
-        const cx = (flipX ? 1 - nx : nx) * camera.width;
-        const cy = (flipY ? 1 - ny : ny) * camera.height;
-        const r = nr * span * scale;
-        ctx.moveTo(cx + r, cy);
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        for (const [ox, oy, br] of blobs) {
-          const bx = cx + (flipX ? -ox : ox) * span;
-          const by = cy + (flipY ? -oy : oy) * span;
-          const rad = br * span * scale;
-          ctx.moveTo(bx + rad, by);
-          ctx.arc(bx, by, rad, 0, Math.PI * 2);
-        }
-      }
-      ctx.fill();
-    };
     ctx.save();
     ctx.fillStyle = '#040508';
-    drawSplatPass(1.16, 0.35);
-    drawSplatPass(1, 0.94);
+    for (const splat of splats) {
+      const fade = Math.min(1, splat.time / 2);
+      if (fade <= 0) continue;
+      ctx.globalAlpha = fade * 0.95;
+      drawInkSplat(splat.nx * camera.width, splat.ny * camera.height, span * 0.18 * (splat.scale ?? 1), splat);
+    }
     ctx.restore();
   }
 

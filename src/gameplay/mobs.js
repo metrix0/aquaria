@@ -50,8 +50,20 @@ function stepProjectiles(world, player, dt, time, effects) {
 
     if (!player.flightOrigin && playerInWater && Math.hypot(bubble.x - px, bubble.y - py) <= bubble.radius + 7) {
       const effect = { x: bubble.x, y: bubble.y, color: bubble.color, count: 9, spread: 54 };
-      player.inked = Math.max(player.inked ?? 0, INK_EFFECT_DURATION);
-      player.inkSeed = ((player.inkSeed ?? 0) + 1) % 4;
+      if ((player.inkCooldown ?? 0) <= 0) {
+        player.inkCooldown = 0.35;
+        if (!player.inkSplats) player.inkSplats = [];
+        player.inkSplats.push({
+          nx: 0.14 + Math.random() * 0.72,
+          ny: 0.15 + Math.random() * 0.7,
+          scale: 0.9 + Math.random() * 0.35,
+          angle: Math.random() * Math.PI * 2,
+          seed: Math.floor(Math.random() * 10000),
+          time: INK_EFFECT_DURATION,
+          duration: INK_EFFECT_DURATION,
+        });
+        if (player.inkSplats.length > 10) player.inkSplats.shift();
+      }
       if ((player.hurt ?? 0) <= 0) {
         player.hurt = 0.9;
         player.dx = clamp(bubble.dx * 0.65, -95, 95);
