@@ -1,5 +1,5 @@
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW, isDryIslandCave, isDungeonMasonry } from '../src/world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, isDryIslandCave, isDungeonMasonry, isGrovePool } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ACCESSORIES, ACCESSORY_SLOTS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
@@ -176,7 +176,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
   }
 });
 
-test('both cave tiers stay dry up to the two marked waterways', () => {
+test('the cave tiers stay dry outside the grove pools and two marked waterways', () => {
   const world = createWorld();
   const center = WEST_EXTENSION + ISLAND_CAVE.center;
   const surface = groundAt(center);
@@ -197,7 +197,7 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
         const tx = x + dx;
         const ty = y + dy;
         assert.ok(ty >= groundAt(tx), `cave too close to the surface at ${tx},${ty}`);
-        if (waterTileAt(world, tx, ty)) {
+        if (waterTileAt(world, tx, ty) && !isGrovePool(tx - WEST_EXTENSION, ty)) {
           assert.ok(ty >= 612 && waterwayAt(tx, ty), `unintended flooded opening at ${tx},${ty}`);
           if (Math.abs(dx) + Math.abs(dy) === 1) outlets.add(tx - WEST_EXTENSION);
         }
@@ -329,6 +329,26 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.x >= chamberX(105) && player.grounded, { right: true, climb: true });
   assert.ok(Math.abs(player.y + player.height - 346 * TILE) < 1);
 
+});
+
+test('the grove has a continuous 60-tile approach across shallow water', () => {
+  const { world, player } = createGame();
+  const { approach, column, floor } = ROOT_GROVE;
+  assert.equal(approach - column, 60);
+  for (let x = column; x <= approach; x++) {
+    assert.ok(tileAt(world, x + WEST_EXTENSION, floor));
+    assert.equal(tileAt(world, x + WEST_EXTENSION, floor - 1), MATERIAL.air);
+    assert.equal(waterTileAt(world, x + WEST_EXTENSION, floor - 1), isGrovePool(x, floor - 1));
+  }
+  const xAt = (x) => (x + WEST_EXTENSION + .5) * TILE;
+  Object.assign(player, { x: xAt(approach), y: floor * TILE - player.height });
+  for (let i = 0; i < 600 && player.x > xAt(column); i++) {
+    movePlayer(world, player, { left: true }, 1 / 60);
+    assert.ok(Math.abs(player.y + player.height - floor * TILE) < .01);
+    assert.equal(playerInWater(world, player), false);
+  }
+  assert.ok(player.x <= xAt(column));
+  assert.ok(waterTileAt(world, WEST_EXTENSION - 20, floor - 1), 'pool beyond the tree');
 });
 
 test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {

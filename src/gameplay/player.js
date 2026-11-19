@@ -1,7 +1,7 @@
 import { ARMOR, FEET_GEAR, accessoryFor, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { mineDecks } from '../world/island-cave.js';
+import { isGrovePool, mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
-import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
+import { COLS, ROWS, SPAWN, TILE, WEST_EXTENSION, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
 const jumpSpeed = 217;
@@ -91,7 +91,12 @@ function waterSensorOffset(player) {
 }
 
 export function playerInWater(world, player) {
-  return inWater(world, player.x, player.y + waterSensorOffset(player));
+  const sensorY = player.y + waterSensorOffset(player);
+  if (!inWater(world, player.x, sensorY)) return false;
+  const tx = Math.floor(player.x / TILE);
+  const ty = Math.floor(sensorY / TILE);
+  // The grove pools are ankle-deep as long as their stone beds are intact.
+  return !isGrovePool(tx - WEST_EXTENSION, ty) || !solidAt(world, tx, ty + 1);
 }
 
 export function playerWaterborne(world, player) {

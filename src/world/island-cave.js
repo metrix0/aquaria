@@ -1,7 +1,7 @@
 export const ISLAND_CAVE = { center: 56, camp: 55, campFloor: 33 };
 export const ISLAND_DEEPSTONE_ROW = 330;
 export const ISLAND_BOTTOM = 676;
-export const ROOT_GROVE = Object.freeze({ column: 65, floor: 181, radius: 32, mossReach: 155 });
+export const ROOT_GROVE = Object.freeze({ column: -12, floor: 190, approach: 48, radius: 32, mossReach: 155 });
 
 export function groveDistance(column, row) {
   return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 9) * 1.12);
@@ -57,6 +57,15 @@ const eastCaves = [
   [[106, 316, 9], [113, 316, 13], [122, 315, 18], [132, 315, 20], [142, 316, 11]],
 ];
 
+const groveGallery = [
+  [-31, 190, 9], [-26, 190, 20], [-20, 190, 28], [-10, 190, 29], [-1, 190, 25],
+  [8, 190, 17], [18, 190, 11], [27, 190, 13], [36, 190, 15], [48, 190, 17],
+];
+
+export function isGrovePool(column, row) {
+  return row === ROOT_GROVE.floor - 1 && ((column >= -27 && column <= -17) || (column >= -7 && column <= 0));
+}
+
 const centralCaves = [
   // Tall survey gallery with a second shelf below the timber deck.
   [[36, 59, 12], [44, 60, 16], [51, 64, 19], [61, 65, 22], [72, 62, 18], [83, 56, 16]],
@@ -71,7 +80,6 @@ const centralCaves = [
   [[82, 162, 13], [79, 174, 15], [70, 183, 18], [60, 187, 20], [50, 190, 19], [40, 190, 16], [31, 190, 13]],
   [[25, 191, 12], [38, 191, 17], [48, 190, 21], [59, 188, 22], [72, 189, 16], [84, 187, 17],
     [99, 185, 14], [108, 182, 12]],
-  [[52, 181, 15], [57, 181, 22], [64, 181, 25], [72, 181, 24], [79, 181, 17]],
   [[52, 190, 15], [61, 204, 16], [73, 219, 21], [86, 228, 24], [99, 233, 19], [112, 241, 16], [124, 242, 13]],
   [[6, 240, 12], [19, 241, 17], [31, 242, 23], [44, 240, 19], [55, 241, 16], [69, 237, 16], [84, 229, 16]],
   [[97, 233, 13], [88, 246, 15], [76, 254, 18], [64, 262, 20], [51, 267, 19], [37, 272, 14]],
@@ -193,9 +201,15 @@ function makeBands(profiles) {
 }
 
 const dryBands = makeBands([surveyRoom, ...westCaves, ...eastCaves, ...centralCaves, ...dungeonApproaches,
-  ...westUnderground, ...eastUnderground, ...crossGalleries]);
+  ...westUnderground, ...eastUnderground, ...crossGalleries, groveGallery]);
 for (const [x, ledges] of makeBands(rockLedges)) {
   for (const row of ledges) dryBands.get(x)?.delete(row);
+}
+
+// Keep a continuous stone floor across the gallery, including under the two shallow pools.
+for (let column = groveGallery[0][0]; column <= ROOT_GROVE.approach; column++) {
+  for (let row = ROOT_GROVE.floor; row < ROOT_GROVE.floor + 3; row++) dryBands.get(column).delete(row);
+  if (isGrovePool(column, ROOT_GROVE.floor - 1)) dryBands.get(column).delete(ROOT_GROVE.floor - 1);
 }
 
 const wetBands = makeBands(wetProfiles);
@@ -231,6 +245,8 @@ export function carveIslandCave(set, { left, right, top, bottom }, westExtension
     for (const y of wetBands.get(x) ?? []) {
       if (y >= top && y <= bottom && isIslandWaterway(x, y)) set(tx, y, true);
     }
+    const poolRow = ROOT_GROVE.floor - 1;
+    if (poolRow >= top && poolRow <= bottom && isGrovePool(x, poolRow)) set(tx, poolRow, true);
     for (const y of dryBands.get(x) ?? []) {
       if (y >= top && y <= bottom) set(tx, y, false);
     }
@@ -244,7 +260,7 @@ export const islandCaches = [
   ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
   ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
   ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
-  ['island-grove-relics', 'Explorer’s satchel', 69, 181, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
+  ['island-grove-relics', 'Explorer’s satchel', -10, ROOT_GROVE.floor, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
   ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
@@ -341,9 +357,9 @@ export function isDungeonMasonry(x, y) {
 
 // Column and the first/last open rows of each climb.
 export const caveClimbs = [
-  [-18, 88, 111, 'rope'], [38, 102, 127, 'rope'], [92, 89, 113, 'rope'],
-  [55, 131, 153, 'ladder'], [76, 200, 232, 'rope'], [83, 255, 299, 'rope'],
-  [25, 247, 271, 'ladder'],
+  [-19, 88, 111, 'rope'], [40, 100, 131, 'rope'], [96, 92, 112, 'rope'],
+  [50, 129, 155, 'ladder'], [84, 203, 228, 'rope'], [82, 254, 300, 'rope'],
+  [27, 249, 271, 'ladder'],
 ];
 
 
