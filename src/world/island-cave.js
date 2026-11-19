@@ -225,6 +225,11 @@ export const islandCaches = [
   ['island-cave-cache', 'Survey cache', 54, 33, 'copper', 2],
   ['island-west-cache', 'West chamber cache', -31, 112, 'copper', 3],
   ['island-east-cache', 'East chamber cache', 140, 104, 'wood', 5],
+  ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
+  ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
+  ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
+  ['island-grove-relics', 'Explorer’s satchel', 59, 183, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
+  ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
   ['underground-vault', 'Underground vault', 122, 560, 'iron', 4],
@@ -233,6 +238,8 @@ export const islandCaches = [
 export const islandMushrooms = [[-15, 142], [95, 451]];
 
 export const caveStructures = [
+  ['headframe', 36, 59], ['headframe', 94, 56], ['headframe', 126, 105],
+  ['headframe', 49, 190], ['headframe', 29, 273],
   ['skeleton', 58, 33], ['lamp', 55, 33],
   ['headframe', 29, 59], ['lamp', 33, 59], ['worksite', 5, 83], ['lamp', 8, 83],
   ['trestle', -27, 104], ['headframe', -32, 112], ['lamp', -25, 112], ['cart', -30, 112], ['lamp', -17, 142],
@@ -270,6 +277,14 @@ export const islandTraps = [
 ];
 
 export const islandMobs = [
+  ['upper-west-scout', 'spider', 33, 59, 49],
+  ['upper-east-scout', 'spider', 85, 56, 48],
+  ['upper-mine-scout', 'archer', 8, 83, 42],
+  ['deep-miner-overlook', 'spider', 83, 249, 23],
+  ['deep-supply-guard', 'miner', 68, 318, 22],
+  ['deep-west-hunter', 'miner', 39, 241, 26],
+  ['deep-east-hunter', 'spider', 99, 265, 25],
+  ['deep-crossing-hunter', 'archer', 76, 318, 21],
   ['west-spider', 'spider', -24, 112, 42],
   ['west-archer', 'archer', -30, 112, 50],
   ['west-miner', 'miner', 28, 161, 52],
@@ -303,4 +318,25 @@ const masonryRooms = [
 
 export function isDungeonMasonry(x, y) {
   return masonryRooms.some(([left, right, top, bottom]) => x >= left && x <= right && y >= top && y < bottom);
+}
+
+// Column and the first/last open rows of each climb.
+export const caveClimbs = [
+  [-18, 88, 111, 'rope'], [38, 102, 127, 'rope'], [92, 89, 113, 'rope'],
+  [55, 131, 153, 'ladder'], [76, 200, 232, 'rope'], [83, 255, 299, 'rope'],
+  [25, 247, 271, 'ladder'],
+];
+
+export const ROOT_GROVE = Object.freeze({ column: 60, floor: 183 });
+export function groveDistance(column, row) {
+  return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 7) * 1.12);
+}
+
+export function inRootGrove(column, row) {
+  return groveDistance(column, row) <= 22;
+}
+
+export function isCaveRefuge(column, row) {
+  return (inRootGrove(column, row) || (column >= 48 && column <= 65 && row <= ISLAND_CAVE.campFloor)) &&
+    isDryIslandCave(column, row);
 }

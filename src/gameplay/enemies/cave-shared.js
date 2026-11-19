@@ -1,7 +1,8 @@
+import { isCaveRefuge } from '../../world/island-cave.js';
 import { MATERIAL } from '../../content.js';
 import { takeDamage } from '../player.js';
 import { solidAt, waterTileAt } from '../../world.js';
-import { MOB_HEALTH, TILE, clamp } from '../../world/generation.js';
+import { MOB_HEALTH, TILE, WEST_EXTENSION, clamp } from '../../world/generation.js';
 
 export function makeCaveEnemySpec(kind, name, width, height, speed, damage, reach) {
   return {
@@ -43,7 +44,7 @@ export function canStand(world, x, feet, spec) {
       if (waterTileAt(world, tx, ty) || solidAt(world, tx, ty)) return false;
     }
   }
-  return true;
+  return !isCaveRefuge(Math.floor(x / TILE) - WEST_EXTENSION, bottom);
 }
 
 export function onFloor(world, x, y) {
@@ -65,6 +66,7 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
   const deltaY = playerY - (mob.y + spec.centerY);
   const distance = Math.hypot(deltaX, deltaY);
   const active = !player.flightOrigin && distance < 170 &&
+    !isCaveRefuge(Math.floor(player.x / TILE) - WEST_EXTENSION, Math.floor(playerY / TILE)) &&
     clearPath(world, mob.x, mob.y + spec.centerY, player.x, playerY);
 
   mob.attackTimer = Math.max(0, mob.attackTimer - dt);

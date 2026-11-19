@@ -158,6 +158,22 @@ export function movePlayer(world, player, input, dt) {
     down = false;
     jump = false;
   }
+  const climb = !left && !right && player.stun <= 0 && (up || down || player.climbing) &&
+    world.caveClimbs?.find(({ tx, top, bottom }) => {
+      const hand = player.y + 8;
+      return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
+        hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
+        !solidAt(world, tx, Math.floor(hand / TILE));
+    });
+  player.climbing = Boolean(climb);
+  if (climb) {
+    player.dx = 0;
+    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81;
+    player.canShortenJump = false;
+    player.waterJump = false;
+    player.grounded = moveAxis(world, player, 'y', player.dy * dt) && player.dy > 0;
+    return;
+  }
   const bodyInWater = playerInWater(world, player);
   const wantsCrawl = down && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
   const height = wantsCrawl ? CRAWL_HEIGHT : PLAYER_SIZE.height;

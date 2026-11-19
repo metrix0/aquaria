@@ -1,5 +1,7 @@
 import { inWater } from '../world.js';
-import { TILE } from '../world/generation.js';
+import { TILE, WEST_EXTENSION } from '../world/generation.js';
+import { isCaveRefuge } from '../world/island-cave.js';
+
 import { playerWaterborne } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
@@ -16,6 +18,12 @@ import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
 
 export { jellyfishShockRadius };
+
+function atPeace(x, y) {
+  const column = Math.floor(x / TILE) - WEST_EXTENSION;
+  const row = Math.floor(y / TILE);
+  return isCaveRefuge(column, row);
+}
 
 const seaEnemySteps = {
   jellyfish: { spec: jellyfishSpec, step: stepJellyfish },
@@ -86,6 +94,10 @@ function stepProjectiles(world, player, dt, time, effects) {
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const projectile = world.projectiles[i];
     if (projectile.kind === 'cave-arrow' || projectile.kind === 'venom') {
+      if (atPeace(player.x, player.y + 11) && Math.abs(projectile.x - player.x) < 350) {
+        world.projectiles.splice(i, 1);
+        continue;
+      }
       if (!stepCaveHazard(world, player, projectile, dt, effects)) {
         world.projectiles.splice(i, 1);
       }
@@ -164,6 +176,12 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         });
         if (mob.kind === 'kraken') clearKrakenState(mob);
       }
+      continue;
+    }
+    if (mob.rooted > 0) {
+      mob.rooted = Math.max(0, mob.rooted - dt);
+      mob.dx = 0;
+      mob.dy = 0;
       continue;
     }
     if (mob.kind === 'ghost') {

@@ -1,5 +1,5 @@
 import { shipwreckSkeletons } from './world/shipwreck.js';
-import { caveStructures, islandTraps } from './world/island-cave.js';
+import { caveClimbs, caveStructures, islandTraps } from './world/island-cave.js';
 import { MATERIAL, MATERIAL_IDS } from './content.js';
 import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
@@ -33,6 +33,7 @@ export function createWorld() {
     caveTraps: islandTraps.map(([kind, column, ty], index) => ({
       kind, tx: column + WEST_EXTENSION, ty, phase: index * .76, timer: 0, state: 'armed',
     })),
+    caveClimbs: caveClimbs.map(([column, top, bottom, kind]) => ({ tx: column + WEST_EXTENSION, top, bottom, kind })),
     caveStructures: [...caveStructures, ...shipwreckSkeletons].map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor })),
     projectiles: [],
     get vents() { return baseVents(); },

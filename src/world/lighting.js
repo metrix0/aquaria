@@ -1,5 +1,6 @@
+import { ROOT_GROVE } from './island-cave.js';
 import { hasOpenFace, hasExposedCaveFloor, solidAt, TILE_NEIGHBORS } from '../world.js';
-import { COLS, ROWS, TILE, groundAt } from './generation.js';
+import { COLS, ROWS, TILE, WEST_EXTENSION, groundAt } from './generation.js';
 
 const source = 72;
 const mushroomLight = 46;
@@ -75,6 +76,13 @@ export function createCaveLight() {
       const y = lamp.floor - 2 - top;
       if (x < 0 || y < 0 || x >= size || y >= size || !hasExposedCaveFloor(world, lamp)) continue;
       if (!isSolid(world, player, y * size + x)) lightCell(y * size + x, 53);
+    }
+
+    for (const [dx, rise] of [[-5, 5], [0, 3], [5, 9], [1, 13]]) {
+      const x = ROOT_GROVE.column + WEST_EXTENSION + dx - left;
+      const y = ROOT_GROVE.floor - rise - top;
+      if (x < 0 || y < 0 || x >= size || y >= size || isSolid(world, player, y * size + x)) continue;
+      lightCell(y * size + x, 67);
     }
 
     for (let start = 0; start < queue.length; start++) {

@@ -164,6 +164,42 @@ export function useDressing(game, slot) {
   return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
 }
 
+export function useRootRing(game, slot) {
+  if (game.inventory.hotbar[slot]?.id !== 'root-ring') return;
+  const { player, world, effects, elapsed } = game;
+  if (elapsed < (player.rootReadyAt ?? 0)) return 'The ring is gathering strength.';
+  const ox = player.x;
+  const oy = player.y + player.height / 2;
+  let target;
+  let best = 10 * TILE;
+  for (const mob of world.mobs) {
+    const spec = mobSpec(mob);
+    if (!spec || mob.health <= 0 || mob.respawn > 0 || mob.kind === 'crab' ||
+      (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) continue;
+    const dx = mob.x - ox;
+    const dy = mob.y + spec.centerY - oy;
+    const distance = Math.hypot(dx, dy);
+    if (dx * player.facing <= 0 || distance >= best || Math.abs(dy) > Math.abs(dx) + TILE) continue;
+    let clear = true;
+    for (let t = 5; t < distance; t += 5) {
+      if (solidAt(world, Math.floor((ox + dx * t / distance) / TILE), Math.floor((oy + dy * t / distance) / TILE))) {
+        clear = false;
+        break;
+      }
+    }
+    if (clear) {
+      target = mob;
+      best = distance;
+    }
+  }
+  if (!target) return 'Face a nearby enemy to call the roots.';
+  player.rootReadyAt = elapsed + 5;
+  damageMob(world, target, 3, player.facing > 0 ? 0 : Math.PI, 0, effects);
+  if (target.health > 0 && target.kind !== 'kraken') target.rooted = 2.2;
+  effects.push({ x: target.x, y: target.y + mobSpec(target).centerY, color: '#79bd69', count: 12, spread: 42 });
+  return 'Roots lash out.';
+}
+
 export function useWeapon(game, slot, wx, wy) {
   const itemId = game.inventory.hotbar[slot]?.id;
   const item = ITEMS[itemId];

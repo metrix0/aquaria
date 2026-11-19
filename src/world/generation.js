@@ -545,7 +545,7 @@ export function generateFixtures() {
   const items = [
     ...shipwreckCaches,
     { id: 'wreck-cache', name: 'Reef cache', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
-    ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
+    ...islandCaches.map(([id, name, column, floor, resource, amount, bonusLoot]) => ({ id, name, column, floor, resource, amount, bonusLoot })),
     { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
     { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288, floor: groundAt(288 + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
@@ -614,7 +614,7 @@ export function generateMobs() {
     { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
     { id: 'shark-deep', kind: 'shark', x: 146 * TILE, y: 33 * TILE, span: 104, speed: 66, phase: 2.9 },
     ...islandMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
-      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .7,
+      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor < 330 ? Math.round(52 - floor * .095) : respawnDelay, phase: index * .7,
     })),
     ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,

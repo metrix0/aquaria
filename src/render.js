@@ -1,7 +1,8 @@
+import { drawRootGrove } from './root-grove-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
-  ISLAND_DEEPSTONE_ROW,
+  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, inRootGrove,
   isDryIslandCave,
   isDungeonMasonry,
 } from "./world/island-cave.js";
@@ -1145,23 +1146,30 @@ export function createRenderer(canvas) {
     }
 
     if (!masonry && detail > 0.69 && tileAt(world, tx, ty - 1)) {
-      const length = 4 + Math.floor(detail * 13);
+      const width = 3 + Math.floor(noise(tx, ty, 93) * 10);
+      const variation = noise(tx, ty, 94);
+      const length = 4 + Math.floor(variation ** 2 * (tileAt(world, tx, ty + 1) ? 11 : 36));
       polygon(
         [
           [x + 2, y],
-          [x + 12, y],
-          [x + 8, y + length],
+          [x + 2 + width, y],
+          [x + 2 + width * .62, y + length],
         ],
         shadow,
       );
       polygon(
         [
           [x + 2, y],
-          [x + 6, y],
-          [x + 8, y + length],
+          [x + 2 + width * .34, y],
+          [x + 2 + width * .62, y + length],
         ],
         grain,
       );
+    }
+    if (!wet && !underground && detail < .085 && !inRootGrove(tx - WEST_EXTENSION, ty) &&
+        tileAt(world, tx, ty - 1) && tileAt(world, tx + 1, ty)) {
+      polygon([[x+1,y+1],[x+15,y+1],[x+15,y+14],[x+12,y+8],[x+7,y+7]], '#a4aeb36c');
+      polygon([[x+2,y+1],[x+12,y+5],[x+15,y+12],[x+14,y+5]], '#d4ddd7ad');
     }
     if (detail < 0.72 || !tileAt(world, tx, ty + 1)) return;
     const floor = y + TILE;
@@ -1308,7 +1316,63 @@ export function createRenderer(canvas) {
         if (material) {
           if (overview || !shipwreckArt.timber(world, x, y, material))
             drawTile(world, x, y, material, oreOpacity, overview);
+          const column = x - WEST_EXTENSION;
+          if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < 155 &&
+              TILE_NEIGHBORS.some(([dx, dy]) => isDryIslandCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
+            const moss = Math.max(0, 1 - groveDistance(column, y) / 155);
+            if (moss > .06 && noise(column, y, 173) < moss) {
+              rect(x * TILE, y * TILE, TILE, TILE, moss > .65 ? '#648e573f' : '#5f7d402e');
+            }
+          }
         } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview);
+      }
+    }
+
+    for (const { tx, top: start, bottom: end, kind } of world.caveClimbs ?? []) {
+      if (tx < left || tx >= right || start >= bottom || end < top) continue;
+      const x = (tx + .5) * TILE;
+      for (let row = Math.max(top, start); row <= Math.min(end, bottom - 1); row++) {
+        if (tileAt(world, tx, row)) continue;
+        const y = row * TILE;
+        if (kind === 'ladder') {
+          rect(x - 5, y, 2, TILE, '#987457');
+          rect(x + 4, y, 2, TILE, '#987457');
+          rect(x - 5, y + 4, 11, 2, '#bc9467');
+          rect(x - 5, y + 12, 11, 2, '#bc9467');
+        } else {
+          rect(x - 1, y, 3, TILE, '#8c6c53');
+          rect(x - 1, y + 2, 2, 2, '#d0ad7b');
+          rect(x, y + 10, 2, 2, '#b59368');
+        }
+        if (row === start) rect(x - 8, y, 16, 3, '#a17b58');
+      }
+    }
+    const treeX = (WEST_EXTENSION + ROOT_GROVE.column + .5) * TILE;
+    const treeY = ROOT_GROVE.floor * TILE;
+    if (treeX + 130 > camera.x && treeX - 130 < camera.x + camera.width &&
+        treeY >= camera.y && treeY - 216 < camera.y + camera.height) {
+      drawRootGrove(rect, polygon, noise, treeX, treeY, time);
+    }
+
+    for (let tx = Math.max(left, ROOT_GROVE.column + WEST_EXTENSION - 155);
+      tx < Math.min(right, ROOT_GROVE.column + WEST_EXTENSION + 155); tx++) {
+      const column = tx - WEST_EXTENSION;
+      for (let row = Math.max(top, 36); row < Math.min(bottom, ISLAND_DEEPSTONE_ROW); row++) {
+        if (!isDryIslandCave(column, row - 1) || tileAt(world, tx, row - 1) || !tileAt(world, tx, row)) continue;
+        const density = Math.max(0, 1 - groveDistance(column, row) / 155);
+        if (density <= 0 || noise(column, row, 141) > density ** 1.8) continue;
+        const x = tx * TILE;
+        const y = row * TILE;
+        rect(x, y, TILE, density > .6 ? 3 : 1, density > .45 ? '#547845' : '#455641');
+        for (let i = 0; i < (overview ? 2 : 5); i++) {
+          const bx = x + 1 + i * 3;
+          const reach = 1 + Math.round((3 + noise(tx, row, i + 91) * 17) * density);
+          const near = Math.hypot(player.x - bx, player.y + player.height - y);
+          const motion = Math.sin(time * 1.6 + bx * .13) * 2 * density +
+            Math.max(0, 1 - near / 28) * Math.max(-8, Math.min(8, player.dx * .09));
+          polygon([[bx - 1, y], [bx + 1, y], [bx + motion, y - reach]],
+            ['#638b4c', '#82a25b', '#456a42'][i % 3]);
+        }
       }
     }
 
@@ -1625,6 +1689,12 @@ export function createRenderer(canvas) {
         continue;
       ctx.save();
       ctx.translate(Math.round(mob.x), Math.round(mob.y));
+      if (mob.rooted > 0) {
+        for (const side of [-1, 1]) {
+          polygon([[side * 13, 2], [side * 4, -6], [side * 10, -14], [side * 4, -19],
+            [side * 12, -16], [side * 10, -7], [side * 16, 2]], '#80b36a');
+        }
+      }
       ctx.save();
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0)
         ctx.globalAlpha = 0.6;

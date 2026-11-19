@@ -7,6 +7,8 @@ export const ITEMS = {
   [BROKEN_PICKAXE.id]: { name: 'Broken Pickaxe', hotbar: 0, pickaxe: 1 },
   [COPPER_PICKAXE.id]: { name: 'Copper pickaxe', pickaxe: 2 },
   [IRON_PICKAXE.id]: { name: 'Iron pickaxe', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime },
+  'root-ring': { name: 'Root ring' },
+  'explorers-map': { name: 'Weathered explorer’s map' },
   [KELP_DRESSING.id]: { name: 'Kelp dressing' },
   [CAPTAINS_CUTLASS.id]: { name: CAPTAINS_CUTLASS.name, weapon: CAPTAINS_CUTLASS },
   [IRON_SWORD.id]: { name: 'Iron sword', weapon: IRON_SWORD },

@@ -5,7 +5,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equippedFeet, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equippedFeet, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useRootRing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -346,6 +346,15 @@ const input = bindInput(canvas, camera, {
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
+    if (game.inventory.hotbar[selected]?.id === 'explorers-map') {
+      ui.open('explorers-map-panel');
+      return true;
+    }
+    const roots = useRootRing(game, selected);
+    if (roots) {
+      ui.notify(roots);
+      return true;
+    }
     const dressing = useDressing(game, selected);
     if (dressing) {
       if (dressing.inventoryChanged) inventoryChanged();
