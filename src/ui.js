@@ -90,6 +90,10 @@ export function createUI(actions, version) {
       deploy.disabled = false;
     }
   });
+  const zoomOut = byId('zoom-out');
+  const zoomIn = byId('zoom-in');
+  zoomOut.addEventListener('click', () => actions.zoomBy(-1));
+  zoomIn.addEventListener('click', () => actions.zoomBy(1));
   const godMode = byId('god-mode');
   godMode.addEventListener('click', actions.toggleGodMode);
   const shadows = byId('hide-cave-shadows');
@@ -108,6 +112,11 @@ export function createUI(actions, version) {
   for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
   return {
     open,
+    setZoom(percent, atMinimum, atMaximum) {
+      byId('camera-zoom').value = percent + '%';
+      zoomOut.disabled = atMinimum;
+      zoomIn.disabled = atMaximum;
+    },
     godMode: (enabled) => godMode.setAttribute('aria-pressed', String(enabled)),
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,

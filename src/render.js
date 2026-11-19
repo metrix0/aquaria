@@ -310,7 +310,7 @@ export function createRenderer(canvas) {
     rainSplashes(impacts, camera, time, intensity);
   }
 
-  function waterClips(world, camera) {
+  function waterClips(world, camera, overview) {
     let water, shore;
     const x = Math.round(camera.x);
     const y = Math.round(camera.y);
@@ -323,7 +323,7 @@ export function createRenderer(canvas) {
       while (tx < right) {
         if (!waterTileAt(world, tx, ty)) {
           // Give exposed background walls the ocean behind their transparent edges.
-          if (ty >= firstCaveRows[tx] && TILE_NEIGHBORS.some(([dx, dy]) =>
+          if (!overview && ty >= firstCaveRows[tx] && TILE_NEIGHBORS.some(([dx, dy]) =>
             outsideCaveWall(tx + dx, ty + dy) && waterTileAt(world, tx + dx, ty + dy)
           ) && !tileAt(world, tx, ty)) {
             shore ??= new Path2D();
@@ -406,7 +406,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawTile(world, tx, ty, material, oreOpacity) {
+  function drawTile(world, tx, ty, material, oreOpacity, overview) {
     const x = tx * TILE;
     const y = ty * TILE;
     if (material === MATERIAL.workbench) {
@@ -425,6 +425,10 @@ export function createRenderer(canvas) {
     const ore = ORE_MATERIALS.has(material);
     const rock = ore ? (ty >= deepstoneStartAt(tx, ty) ? MATERIAL.deepstone : MATERIAL.stone) : material;
     const [base, light, dark, bright] = palettes[rock];
+    if (overview) {
+      rect(x, y, TILE, TILE, oreOpacity > .5 ? palettes[material][1] : base);
+      return;
+    }
     const seed = tx - WEST_EXTENSION;
     const variation = noise(seed, ty, 9);
     const top = !tileAt(world, tx, ty - 1);
@@ -571,7 +575,7 @@ export function createRenderer(canvas) {
     return ty < firstCaveRows[tx];
   }
 
-  function caveWall(world, tx, ty) {
+  function caveWall(world, tx, ty, overview) {
     const x = tx * TILE;
     const y = ty * TILE;
     const detail = noise(tx, ty, 91);
@@ -583,6 +587,10 @@ export function createRenderer(canvas) {
     const [base, shadow, grain] = wet ? palette : masonry
       ? ['#342941', '#261e34', '#4b3c59'] : underground
         ? ['#27253a', '#211e32', '#3a334d'] : ['#2b343a', '#232d35', '#3a474b'];
+    if (overview) {
+      rect(x, y, TILE, TILE, base);
+      return;
+    }
     let exposedEdges = 0;
     for (const { dx, dy, bit } of caveWallEdges) {
       const neighborX = tx + dx;
@@ -686,7 +694,7 @@ export function createRenderer(canvas) {
     return clamp((caveLight.at(tx, ty) - .1) / .45, 0, 1);
   }
 
-  function shadeCaves(world, player, { left, right, top, bottom }) {
+  function shadeCaves(world, player, { left, right, top, bottom }, overview) {
     const width = right - left;
     const height = bottom - top;
     if (!lightPixels || lightPixels.width !== width || lightPixels.height !== height) {
@@ -704,7 +712,8 @@ export function createRenderer(canvas) {
       let alpha = (x - left) * 4 + 3;
       for (let y = top; y < bottom; y++, alpha += width * 4) {
         const light = Math.max(surfaceLight.at(x, y), caveLight.at(x, y));
-        const ambient = light < 1 ? caveAmbientAt(world, player, x, y) : 0;
+        let ambient = 0;
+        if (light < 1) ambient = overview ? (tileAt(world, x, y) ? 0 : .34) : caveAmbientAt(world, player, x, y);
         lightPixels.data[alpha] = (1 - light) * (1 - ambient) * 210;
       }
     }
@@ -715,17 +724,25 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function terrain(world, player, camera, time, bounds, openChestId) {
+  function terrain(world, player, camera, time, bounds, openChestId, overview) {
     const { left, right, top, bottom } = bounds;
     shipwreckArt.backdrop(world, bounds);
     helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
-        const oreOpacity = ORE_MATERIALS.has(material) ? oreOpacityAt(world, player, x, y) : 0;
+        const ore = ORE_MATERIALS.has(material);
+        if (overview && material && !ore && material !== MATERIAL.workbench) {
+          // At this scale each tile is only a few pixels wide. Paint continuous rock in one pass.
+          const start = y;
+          while (y + 1 < bottom && tileAt(world, x, y + 1) === material) y++;
+          rect(x * TILE, start * TILE, TILE, (y - start + 1) * TILE, palettes[material][0]);
+          continue;
+        }
+        const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
-          if (!shipwreckArt.timber(world, x, y, material)) drawTile(world, x, y, material, oreOpacity);
-        } else if (y >= firstCaveRows[x]) caveWall(world, x, y);
+          if (overview || !shipwreckArt.timber(world, x, y, material)) drawTile(world, x, y, material, oreOpacity, overview);
+        } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview);
       }
     }
 
@@ -1168,8 +1185,11 @@ export function createRenderer(canvas) {
   }
 
   function draw({ world, player, snorkel, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
+    const scale = canvas.width / camera.width;
+    const overview = scale <= .25;
+    ctx.setTransform(scale, 0, 0, canvas.height / camera.height, 0, 0);
     const surface = WATER - Math.round(camera.y);
-    const { water, shore, backdrop } = waterClips(world, camera);
+    const { water, shore, backdrop } = waterClips(world, camera, overview);
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
@@ -1184,7 +1204,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    terrain(world, player, camera, time, bounds, openChestId);
+    terrain(world, player, camera, time, bounds, openChestId, overview);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
     mobs(world, camera, time, targetMob);
@@ -1207,7 +1227,7 @@ export function createRenderer(canvas) {
       snorkel: playerHeadInWater(world, player) ? snorkel : null,
       time, miningSwing, held, attack, hasArrow, reducedMotion, swimming: playerInWater(world, player),
     });
-    if (!caveShadowsHidden) shadeCaves(world, player, bounds);
+    if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
     ctx.restore();
 
     const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
@@ -1223,7 +1243,7 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
     if (aim?.reachable && (mining || !ITEMS[held]?.weapon)) {
       ctx.strokeStyle = '#f4d4a5ad';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = Math.max(1, .75 / scale);
       ctx.strokeRect(aim.tx * TILE + .5, aim.ty * TILE + .5, TILE - 1, TILE - 1);
     }
     if (mining) {

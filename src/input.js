@@ -5,7 +5,7 @@ const movement = {
   down: ['KeyS', 'ArrowDown'],
 };
 
-export function bindInput(canvas, actions) {
+export function bindInput(canvas, camera, actions) {
   const keys = new Set();
   const moveKeys = new Set(Object.values(movement).flat());
   const pointer = { x: 0, y: 0, active: false };
@@ -26,9 +26,9 @@ export function bindInput(canvas, actions) {
 
   function locate(event) {
     const rect = canvas.getBoundingClientRect();
-    pointer.x = (event.clientX - rect.left) / rect.width * canvas.width;
-    pointer.y = (event.clientY - rect.top) / rect.height * canvas.height;
-    pointer.active = pointer.x >= 0 && pointer.x < canvas.width && pointer.y >= 0 && pointer.y < canvas.height;
+    pointer.x = (event.clientX - rect.left) / rect.width * camera.width;
+    pointer.y = (event.clientY - rect.top) / rect.height * camera.height;
+    pointer.active = pointer.x >= 0 && pointer.x < camera.width && pointer.y >= 0 && pointer.y < camera.height;
   }
 
   window.addEventListener('keydown', (event) => {

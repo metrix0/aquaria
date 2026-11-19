@@ -100,7 +100,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-cobalt-breastplate { --metal: #768de5; --shine: #c4d8ff; --shade: #455294; }
 .item-kelp-dressing { width: 19px; height: 12px; border-radius: 3px; transform: rotate(-24deg); background: #79b28b; box-shadow: inset 6px 0 #b6c899, inset -6px 0 #b6c899, inset 0 -2px #316e64; }
 footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px solid #4864646b; display: flex; justify-content: space-between; align-items: center; padding: 8px 25px max(8px, env(safe-area-inset-bottom)); }
-.footer-actions { display: flex; gap: 8px; }
+.footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.zoom-controls { display: flex; align-items: center; color: #cbdad0; background: #152730; border: 1px solid var(--line); border-radius: 4px; }
+.zoom-controls button { align-self: stretch; min-width: 28px; min-height: 28px; border: 0; border-radius: 3px; background: transparent; font-size: 16px; }
+.zoom-controls button:hover:not(:disabled) { color: var(--gold); background: #263942; }
+.zoom-controls button:disabled { opacity: .45; cursor: default; }
+.zoom-controls output { min-width: 5ch; text-align: center; font: 11px var(--mono); }
 .pause { display: flex; align-items: center; justify-content: center; gap: 4px; width: 37px; background: #152730; border: 1px solid var(--line); border-radius: 4px; }
 .pause span { display: block; width: 3px; height: 11px; background: #cbdad0; }
 .controls { display: flex; gap: 15px; flex-wrap: wrap; color: #b8cbc1; font-size: 11px; }

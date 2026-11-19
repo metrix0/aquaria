@@ -20,6 +20,8 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const available = Boolean(config.url && config.publishableKey);
 const camera = { x: 0, y: 0, width: 1, height: 1 };
 const particles = [];
+const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
+let zoomIndex = zoomLevels.indexOf(100);
 
 let save = soloSave;
 let game = restore(save);
@@ -270,6 +272,11 @@ const ui = createUI({
     storeProgress();
   },
   select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
+  zoomBy(delta) {
+    zoomIndex = clamp(zoomIndex + delta, 0, zoomLevels.length - 1);
+    updateViewport();
+    ui.setZoom(zoomLevels[zoomIndex], zoomIndex === 0, zoomIndex === zoomLevels.length - 1);
+  },
   hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
   toggleGodMode() {
     const flying = toggleGodMode(game.world, game.player);
@@ -311,7 +318,7 @@ const ui = createUI({
   },
 }, version);
 
-const input = bindInput(canvas, {
+const input = bindInput(canvas, camera, {
   blocked: ui.activePanel,
   chestOpen: ui.openChestId,
   interact() {
@@ -381,10 +388,15 @@ function updateCamera(dt) {
 
 function resize() {
   const ratio = canvas.clientWidth / Math.max(1, canvas.clientHeight);
-  camera.height = ratio < 0.8 ? 420 : ratio > 2.1 ? 330 : 380;
-  camera.width = Math.max(1, Math.round(camera.height * ratio));
-  canvas.width = camera.width;
-  canvas.height = camera.height;
+  canvas.height = ratio < 0.8 ? 420 : ratio > 2.1 ? 330 : 380;
+  canvas.width = Math.max(1, Math.round(canvas.height * ratio));
+  updateViewport();
+}
+
+function updateViewport() {
+  const zoom = zoomLevels[zoomIndex] / 100;
+  camera.width = canvas.width / zoom;
+  camera.height = canvas.height / zoom;
   input.pointer.active = false;
   input.stopMining();
   updateCamera(1);
