@@ -2729,6 +2729,31 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function breathBubble({ x, y, bubbleRadius: r, life }) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, life * 4);
+    rect(x - r + 1, y - r, r * 2 - 1, 1, "#a5dae5");
+    rect(x - r, y - r + 1, 1, r * 2 - 1, "#a5dae5");
+    rect(x - r + 1, y + r, r * 2 - 1, 1, "#5191a6");
+    rect(x + r, y - r + 1, 1, r * 2 - 1, "#5191a6");
+    rect(x - r + 1, y - r + 1, 1, 1, "#e4ffff");
+    ctx.restore();
+  }
+
+  function drowningVignette({ width, height }, strength) {
+    if (strength <= 0) return;
+    ctx.save();
+    ctx.scale(width, height);
+    const shade = ctx.createRadialGradient(0.5, 0.5, 0.25, 0.5, 0.5, 0.71);
+    shade.addColorStop(0, "#0208140c");
+    shade.addColorStop(0.6, "#02081440");
+    shade.addColorStop(1, "#02081480");
+    ctx.globalAlpha = strength;
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.restore();
+  }
+
   function draw({
     world,
     player,
@@ -2753,6 +2778,7 @@ export function createRenderer(canvas) {
     weatherSeed,
     caveShadowsHidden,
     openChestId,
+    drowning = 0,
     shake = { x: 0, y: 0 },
     peers = [],
   }) {
@@ -2795,7 +2821,7 @@ export function createRenderer(canvas) {
     projectiles(world, camera);
     arrows(playerArrows, camera);
     for (const bit of particles) {
-      rect(bit.x, bit.y, 2, 2, bit.color ?? palettes[bit.material][1]);
+      if (!bit.bubbleRadius) rect(bit.x, bit.y, 2, 2, bit.color ?? palettes[bit.material][1]);
     }
     for (const remote of peers) {
       if (
@@ -2832,6 +2858,9 @@ export function createRenderer(canvas) {
       reducedMotion,
       swimming: playerInWater(world, player),
     });
+    for (const bit of particles) {
+      if (bit.bubbleRadius) breathBubble(bit);
+    }
     if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
     ctx.restore();
 
@@ -2868,6 +2897,7 @@ export function createRenderer(canvas) {
     tintWater(camera, surface, water);
     inkOverlay(camera, player);
     ctx.restore();
+    drowningVignette(camera, drowning);
   }
 
   return { draw };

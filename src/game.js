@@ -3,7 +3,7 @@ import { ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, playerInWater, toggleGodMode } from './gameplay/player.js';
+import { PLAYER_SIZE, playerHeadInWater, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
@@ -13,6 +13,7 @@ import { createRenderer } from './render.js';
 import { createBrowserSave } from './save.js';
 import { createUI } from './ui.js';
 import { version } from './build-info.js';
+import { inWater } from './world.js';
 import { COLS, ROWS, TILE, clamp } from './world/generation.js';
 
 const canvas = document.getElementById('scene');
@@ -22,6 +23,7 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const available = Boolean(config.url && config.publishableKey);
 const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0 };
 const particles = [];
+const drowningWarningSeconds = 5;
 const screenShake = createScreenShake();
 const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
 const flightSpeedLevels = [0.5, 1, 2, 4, 8];
@@ -39,6 +41,8 @@ let selected = 0;
 let flightSpeedIndex = flightSpeedLevels.indexOf(1);
 let count = 1;
 let time = 0;
+let drowning = 0;
+let nextBreathBubble = 0;
 let caveShadowsHidden = false;
 let message = available ? 'Create a room or join with an invite link.' : 'Multiplayer is unavailable in this build.';
 
@@ -447,8 +451,34 @@ function updateParticles(dt) {
     else {
       particle.x += particle.dx * dt;
       particle.y += particle.dy * dt;
-      particle.dy += 42 * dt;
+      if (particle.bubbleRadius) {
+        if (!inWater(game.world, particle.x, particle.y)) particles.splice(i, 1);
+      } else particle.dy += 42 * dt;
     }
+  }
+}
+
+function updateDrowningWarning(dt) {
+  const { player, world } = game;
+  const urgency = !player.flightOrigin && playerHeadInWater(world, player)
+    ? clamp(1 - player.oxygen / drowningWarningSeconds, 0, 1)
+    : 0;
+  drowning += (urgency - drowning) * Math.min(1, dt * 8);
+  if (!urgency) {
+    if (drowning < 0.005) drowning = 0;
+    nextBreathBubble = 0;
+    return;
+  }
+  if (time < nextBreathBubble) return;
+  nextBreathBubble = time + 0.85 - urgency * 0.4;
+
+  const count = reducedMotion ? 1 : 3;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: player.x + player.facing * (4 + i), y: player.y + 7 + i,
+      dx: player.facing * (5 + i * 5), dy: -20 - i * 7,
+      life: 0.55 + i * 0.15, bubbleRadius: i === 1 ? 3 : 2,
+    });
   }
 }
 
@@ -509,6 +539,7 @@ function frame(now) {
       accumulator -= timestep;
     }
     updateParticles(dt);
+    updateDrowningWarning(dt);
     updateCamera(dt);
     shake = screenShake.step(dt, time, reducedMotion);
     if (miningSwing) {
@@ -550,7 +581,7 @@ function frame(now) {
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
-    caveShadowsHidden, openChestId: ui.openChestId(), shake,
+    caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
   });
   requestAnimationFrame(frame);
 }
