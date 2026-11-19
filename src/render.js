@@ -1741,28 +1741,35 @@ export function createRenderer(canvas) {
         const shocking = (mob.shock ?? 0) > 0;
         if (shocking) {
           const radius = jellyfishShockRadius(mob.shock);
-          ctx.save();
-          ctx.fillStyle = "rgba(56, 189, 248, 0.16)";
-          ctx.beginPath();
-          ctx.arc(0, 0, radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "rgba(255, 228, 77, 0.14)";
-          ctx.beginPath();
-          ctx.arc(0, 0, radius * 0.65, 0, Math.PI * 2);
-          ctx.fill();
+          const pixelBolt = (x0, y0, x1, y1, color, coreColor) => {
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const steps = Math.max(2, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 2));
+            for (let s = 0; s <= steps; s++) {
+              const bx = Math.round(x0 + (dx * s) / steps);
+              const by = Math.round(y0 + (dy * s) / steps);
+              rect(bx - 1, by - 1, 2, 2, color);
+              if (coreColor && s % 2 === 0) rect(bx, by, 1, 1, coreColor);
+            }
+          };
 
-          const ringSteps = 24;
+          ctx.save();
+          ctx.globalAlpha *= 0.24;
+          for (let i = 0; i < 16; i++) {
+            const a = (i / 16) * Math.PI * 2 + time * 6;
+            const d = radius * (0.28 + ((i * 37) % 10) * 0.06);
+            rect(Math.round(Math.cos(a) * d) - 2, Math.round(Math.sin(a) * d) - 2, 4, 4, i % 2 ? "#38bdf8" : "#ffe44d");
+          }
+          ctx.restore();
+
+          const ringSteps = 32;
           for (let i = 0; i < ringSteps; i++) {
-            const a0 = (i / ringSteps) * Math.PI * 2 + time * 4;
-            const a1 = ((i + 1) / ringSteps) * Math.PI * 2 + time * 4;
-            const r0 = radius + Math.sin(i * 4.7 + time * 36) * 2.5;
-            const r1 = radius + Math.sin((i + 1) * 4.7 + time * 36) * 2.5;
-            ctx.strokeStyle = i % 2 ? "#38bdf8" : "#ffe44d";
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
-            ctx.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
-            ctx.stroke();
+            const angle = (i / ringSteps) * Math.PI * 2 + time * 4;
+            const jitter = Math.round(Math.sin(i * 4.7 + time * 36) * 2);
+            const px = Math.round(Math.cos(angle) * (radius + jitter));
+            const py = Math.round(Math.sin(angle) * (radius + jitter));
+            rect(px - 1, py - 1, 2, 2, i % 2 ? "#38bdf8" : "#ffe44d");
+            if (i % 4 === 0) rect(px, py, 1, 1, i % 8 === 0 ? "#fff4a3" : "#7dd3fc");
           }
 
           const bolts = 8;
@@ -1770,26 +1777,24 @@ export function createRenderer(canvas) {
             const baseAngle = (b / bolts) * Math.PI * 2 + Math.floor(time * 22) * 0.45 + mob.phase;
             const cos = Math.cos(baseAngle);
             const sin = Math.sin(baseAngle);
-            const px = -sin;
-            const py = cos;
-            ctx.strokeStyle = b % 2 ? "#38bdf8" : "#ffe44d";
-            ctx.lineWidth = b % 2 ? 1.5 : 1.8;
-            ctx.beginPath();
-            ctx.moveTo(cos * 5, sin * 5);
+            const perpX = -sin;
+            const perpY = cos;
+            const isBlue = b % 2 === 1;
+            const color = isBlue ? "#38bdf8" : "#ffe44d";
+            const core = isBlue ? "#7dd3fc" : "#fff4a3";
+            let prevX = Math.round(cos * 5);
+            let prevY = Math.round(sin * 5);
             const segments = 4;
             for (let s = 1; s <= segments; s++) {
               const dist = 5 + ((radius - 5) * s) / segments;
-              const zig = s === segments ? 0 : Math.sin(time * 48 + b * 2.3 + s * 3.1) * 5;
-              ctx.lineTo(cos * dist + px * zig, sin * dist + py * zig);
-            }
-            ctx.stroke();
-            if (b % 2 === 0) {
-              ctx.strokeStyle = "#fff4a3";
-              ctx.lineWidth = 0.8;
-              ctx.stroke();
+              const zig = s === segments ? 0 : Math.round(Math.sin(time * 48 + b * 2.3 + s * 3.1) * 5);
+              const nextX = Math.round(cos * dist + perpX * zig);
+              const nextY = Math.round(sin * dist + perpY * zig);
+              pixelBolt(prevX, prevY, nextX, nextY, color, core);
+              prevX = nextX;
+              prevY = nextY;
             }
           }
-          ctx.restore();
         } else if (charging) {
           for (let s = 0; s < 6; s++) {
             const a = (s / 6) * Math.PI * 2 + time * 12;
