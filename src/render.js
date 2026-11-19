@@ -1461,7 +1461,6 @@ export function createRenderer(canvas) {
       const marginX = mob.kind === "kraken" ? 280 : 32;
       const marginY = mob.kind === "kraken" ? 2000 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
-        continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)
         continue;
       ctx.save();

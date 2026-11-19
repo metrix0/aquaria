@@ -12,6 +12,7 @@ import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGod
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
+import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
@@ -1309,4 +1310,67 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   kraken.attackIndex = 2;
   for (let i = 0; i < 75; i++) stepGame(game, {}, 1 / 60);
   assert.ok(player.y > beforeGrabY);
+});
+
+
+test('renderer draws visible friendly and hostile mobs including the kraken', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const translates = [];
+    const makeCtx = (track) => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, fillRect: noop, strokeRect: noop,
+      fill: noop, stroke: noop, clip: noop, drawImage: noop,
+      createLinearGradient: () => grad, createRadialGradient: () => grad,
+      translate(x, y) { if (track) translates.push([x, y]); },
+    });
+    const canvas = {
+      width: 640,
+      height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx(false) }) },
+      getContext: () => makeCtx(true),
+    };
+    const renderer = createRenderer(canvas);
+    const game = createGame();
+
+    for (const kind of ['fish', 'crab', 'jellyfish', 'squid', 'shark', 'kraken']) {
+      const mob = game.world.mobs.find((entry) => entry.kind === kind);
+      assert.ok(mob, kind);
+      translates.length = 0;
+      renderer.draw({
+        world: game.world,
+        player: game.player,
+        snorkel: null,
+        camera: { x: mob.x - 160, y: mob.y - 90, width: 320, height: 180 },
+        time: 1,
+        elapsed: 1,
+        aim: null,
+        mining: null,
+        miningSwing: null,
+        held: null,
+        attack: null,
+        hasArrow: false,
+        playerArrows: [],
+        targetMob: null,
+        particles: [],
+        reducedMotion: false,
+        conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0,
+        weatherSeed: 0,
+        caveShadowsHidden: true,
+        openChestId: null,
+      });
+      assert.ok(
+        translates.some(([x, y]) => x === Math.round(mob.x) && y === Math.round(mob.y)),
+        `${kind} was not rendered`,
+      );
+    }
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
 });
