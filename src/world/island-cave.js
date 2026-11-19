@@ -12,6 +12,14 @@ export function inRootGrove(column, row) {
   return groveDistance(column, row) <= ROOT_GROVE.radius;
 }
 
+export function groveGroundGrowth(column, row) {
+  const distance = groveDistance(column, row);
+  const { radius, mossReach } = ROOT_GROVE;
+  const remaining = Math.max(0, 1 - distance / mossReach);
+  const beyondGrove = Math.max(0, (distance - radius) / (mossReach - radius));
+  return remaining * Math.max(0, 1 - beyondGrove) ** 1.5;
+}
+
 export const mineDecks = {
   headframe: [{ rise: 23, halfWidth: 26 }, { rise: 47, halfWidth: 66 }, { rise: 83, halfWidth: 66 }, { rise: 116, halfWidth: 66 }],
   shaft: [{ rise: 49, halfWidth: 34 }],

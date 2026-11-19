@@ -7,7 +7,7 @@ import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, isDryJungleCave, jungleMossProgress,
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
-  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, inRootGrove, isGrovePool,
+  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, groveGroundGrowth, inRootGrove, isGrovePool,
   isDryIslandCave,
   isDungeonMasonry,
 } from "./world/island-cave.js";
@@ -1391,7 +1391,7 @@ export function createRenderer(canvas) {
           const column = x - WEST_EXTENSION;
           if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < ROOT_GROVE.mossReach &&
               TILE_NEIGHBORS.some(([dx, dy]) => isDryIslandCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
-            const moss = Math.max(0, 1 - groveDistance(column, y) / ROOT_GROVE.mossReach);
+            const moss = groveGroundGrowth(column, y);
             if (moss > .06 && noise(column, y, 173) < moss) {
               rect(x * TILE, y * TILE, TILE, TILE, moss > .77 ? '#5ea55483' : moss > .55 ? '#5d954b51' : '#5f7d402e');
             }
@@ -1463,7 +1463,7 @@ export function createRenderer(canvas) {
       const column = tx - WEST_EXTENSION;
       for (let row = Math.max(top, 36); row < Math.min(bottom, ISLAND_DEEPSTONE_ROW); row++) {
         if (!isDryIslandCave(column, row - 1) || tileAt(world, tx, row - 1) || !tileAt(world, tx, row)) continue;
-        const density = Math.max(0, 1 - groveDistance(column, row) / ROOT_GROVE.mossReach);
+        const density = groveGroundGrowth(column, row);
         const lush = inRootGrove(column, row);
         if (density <= 0 || (!lush && noise(column, row, 141) > density ** 1.6)) continue;
         const x = tx * TILE;
@@ -1526,6 +1526,7 @@ export function createRenderer(canvas) {
         continue;
       const column = x - WEST_EXTENSION;
       const seed = noise(column, 44);
+      const jungle = column >= JUNGLE_FADE_START_COLUMN;
       const fromChest = column - HELMET_WRECK_COLUMN;
       if (fromChest === -2 || fromChest === 3) {
         drawGlowCoral((x + 0.5) * TILE, y * TILE, fromChest < 0);
@@ -1537,11 +1538,10 @@ export function createRenderer(canvas) {
         drawGlowCoral((x + 0.5) * TILE, y * TILE, seed > 0.5);
       } else if (y >= WATER_ROW + 1 && seed > 0.79 && Math.abs(fromChest) > 5) {
         coral(x * TILE + 4 + seed * 8, y * TILE, column);
-      } else if (y < WATER_ROW - 1 && seed > 0.2) {
-        const jungle = column >= JUNGLE_FADE_START_COLUMN;
+      } else if (y < WATER_ROW - 1 && seed > (jungle ? 0.2 : 0.6)) {
         for (let i = 0; i < 4; i++) {
           const bx = x * TILE + 2 + i * 3;
-          const h = (jungle ? 4 : 2) + Math.floor(noise(column, i, 8) * (jungle ? 6 : 5));
+          const h = (jungle ? 4 : 2) + Math.floor(noise(column, i, 8) * (jungle ? 6 : 3));
           rect(bx, y * TILE - h, 1, h, jungle ? (i % 2 ? "#2f6b47" : "#488f57") : (i % 2 ? "#667654" : "#87915f"));
         }
         if (jungle && seed > 0.72) {
