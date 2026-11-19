@@ -1261,6 +1261,10 @@ export function createRenderer(canvas) {
     const span = Math.min(camera.width, camera.height);
     ctx.save();
     ctx.fillStyle = '#040508';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = Math.max(10, Math.round(canvas.height * 0.025));
+    ctx.shadowOffsetX = Math.max(2, Math.round(canvas.height * 0.004));
+    ctx.shadowOffsetY = Math.max(3, Math.round(canvas.height * 0.007));
     for (const splat of splats) {
       const fade = Math.min(1, splat.time / 2);
       if (fade <= 0) continue;
