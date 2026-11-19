@@ -1137,11 +1137,11 @@ export function createRenderer(canvas) {
       const r = bubble.radius;
       const x = Math.round(bubble.x);
       const y = Math.round(bubble.y);
-      rect(x - r - 1, y - r, r * 2 + 2, r * 2, '#252b3b');
-      rect(x - r, y - r - 1, r * 2, r * 2 + 2, '#252b3b');
+      rect(x - r - 1, y - r, r * 2 + 2, r * 2, '#040508');
+      rect(x - r, y - r - 1, r * 2, r * 2 + 2, '#040508');
       rect(x - r, y - r, r * 2, r * 2, bubble.color);
-      rect(x - r + 1, y - r + 1, Math.max(2, r), Math.max(2, r), '#da9292');
-      rect(x - r + 1, y - r + 1, 1, 1, '#f1f3e5');
+      rect(x - r + 1, y - r + 1, Math.max(2, r), Math.max(2, r), '#1e232e');
+      rect(x - r + 1, y - r + 1, 1, 1, '#4b5263');
     }
   }
 
@@ -1182,6 +1182,49 @@ export function createRenderer(canvas) {
       }
       x += width;
     }
+  }
+
+  const INK_SPLATS = [
+    [0.16, 0.24, 0.14, [[0.06, 0.04, 0.08], [-0.05, 0.06, 0.06], [0.11, -0.04, 0.03]]],
+    [0.78, 0.22, 0.13, [[-0.06, 0.05, 0.07], [0.04, 0.07, 0.05], [-0.1, -0.03, 0.025]]],
+    [0.34, 0.66, 0.15, [[0.07, -0.04, 0.08], [-0.06, -0.05, 0.06], [0.12, 0.05, 0.03]]],
+    [0.74, 0.72, 0.16, [[-0.07, -0.03, 0.09], [0.05, -0.06, 0.06], [-0.12, 0.04, 0.03]]],
+    [0.52, 0.36, 0.10, [[0.04, 0.04, 0.05], [-0.05, -0.03, 0.045], [0.08, -0.04, 0.02]]],
+    [0.08, 0.78, 0.11, [[0.05, -0.04, 0.06], [0.09, 0.02, 0.03]]],
+    [0.91, 0.48, 0.11, [[-0.05, 0.04, 0.06], [-0.08, -0.04, 0.03]]],
+  ];
+
+  function inkOverlay(camera, player) {
+    const inked = player?.inked ?? 0;
+    if (inked <= 0) return;
+    const fade = Math.min(1, inked / 2);
+    const span = Math.min(camera.width, camera.height);
+    const flipX = (player.inkSeed ?? 0) % 2 === 1;
+    const flipY = ((player.inkSeed ?? 0) >> 1) % 2 === 1;
+    const drawSplatPass = (scale, alpha) => {
+      ctx.globalAlpha = fade * alpha;
+      ctx.beginPath();
+      for (const [nx, ny, nr, blobs] of INK_SPLATS) {
+        const cx = (flipX ? 1 - nx : nx) * camera.width;
+        const cy = (flipY ? 1 - ny : ny) * camera.height;
+        const r = nr * span * scale;
+        ctx.moveTo(cx + r, cy);
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        for (const [ox, oy, br] of blobs) {
+          const bx = cx + (flipX ? -ox : ox) * span;
+          const by = cy + (flipY ? -oy : oy) * span;
+          const rad = br * span * scale;
+          ctx.moveTo(bx + rad, by);
+          ctx.arc(bx, by, rad, 0, Math.PI * 2);
+        }
+      }
+      ctx.fill();
+    };
+    ctx.save();
+    ctx.fillStyle = '#040508';
+    drawSplatPass(1.16, 0.35);
+    drawSplatPass(1, 0.94);
+    ctx.restore();
   }
 
   function draw({ world, player, snorkel, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
@@ -1256,6 +1299,7 @@ export function createRenderer(canvas) {
     ctx.restore();
 
     tintWater(camera, surface, water);
+    inkOverlay(camera, player);
   }
 
   return { draw };

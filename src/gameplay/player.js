@@ -92,6 +92,7 @@ export function toggleGodMode(world, player) {
     player.height = PLAYER_SIZE.height;
     player.hurt = 0;
     player.stun = 0;
+    player.inked = 0;
     return true;
   }
   if (collides(world, x, y, height)) {
@@ -123,6 +124,7 @@ export function movePlayer(world, player, input, dt) {
   let { left, right, up, down, jump } = input;
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   player.stun = Math.max(0, (player.stun ?? 0) - dt);
+  player.inked = Math.max(0, (player.inked ?? 0) - dt);
   if (player.stun > 0) {
     left = false;
     right = false;

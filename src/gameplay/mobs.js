@@ -18,7 +18,8 @@ const mobSpecs = {
   ...caveEnemySpecs,
   ghost: wreckGhostSpec,
 };
-const paintColors = ['#7e4268', '#b0667d', '#da9292'];
+const paintColors = ['#07080d', '#0d1017', '#141821'];
+const INK_EFFECT_DURATION = 4.5;
 
 function stepProjectiles(world, player, dt, time, effects) {
   if (!world.projectiles) world.projectiles = [];
@@ -49,13 +50,15 @@ function stepProjectiles(world, player, dt, time, effects) {
 
     if (!player.flightOrigin && playerInWater && Math.hypot(bubble.x - px, bubble.y - py) <= bubble.radius + 7) {
       const effect = { x: bubble.x, y: bubble.y, color: bubble.color, count: 9, spread: 54 };
+      player.inked = Math.max(player.inked ?? 0, INK_EFFECT_DURATION);
+      player.inkSeed = ((player.inkSeed ?? 0) + 1) % 4;
       if ((player.hurt ?? 0) <= 0) {
         player.hurt = 0.9;
         player.dx = clamp(bubble.dx * 0.65, -95, 95);
         player.dy = clamp(bubble.dy * 0.55 - 10, -80, 80);
         const loss = takeDamage(player, 15);
         player.oxygen = Math.max(0, player.oxygen - 2);
-        effect.message = 'Hit by squid paint bubble! −' + loss + ' health';
+        effect.message = 'Hit by squid ink bubble! −' + loss + ' health';
       }
       effects.push(effect);
       world.projectiles.splice(i, 1);
@@ -317,7 +320,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
               });
             }
             mob.attackTimer = 2.8 + (mob.phase % 1.1);
-            effects.push({ x: mob.x + mob.facing * 9, y: mob.y, color: '#b0667d', count: 6, spread: 40 });
+            effects.push({ x: mob.x + mob.facing * 9, y: mob.y, color: '#0d1017', count: 6, spread: 40 });
           }
         } else if (playerInWater && dist < 175 && mob.cooldown === 0) {
           if (Math.abs(toPlayerX) > 2) mob.facing = toPlayerX < 0 ? -1 : 1;

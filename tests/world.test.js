@@ -1184,3 +1184,38 @@ test('blades hit through their swing arcs and cobalt spear reaches farther than 
     assert.equal(target.health, 10 - damage, weapon.id);
   }
 });
+
+
+test('squid shoots black ink bubbles that ink the player and fade out', () => {
+  const game = createGame();
+  const { world, player } = game;
+  player.x = TILE * 3.5;
+  player.y = WATER + 4 * TILE;
+  world.projectiles.length = 0;
+  const squid = {
+    id: 'test-squid', kind: 'squid', x: player.x + 70, y: player.y + 12,
+    homeX: player.x + 70, homeY: player.y + 12, span: 48, speed: 48, phase: 0,
+    facing: -1, dx: 0, dy: 0, health: 4, maxHealth: 4, hurt: 0,
+    flee: 0, cooldown: 0, attackTimer: 0.01, windup: 0, shock: 0, shockHit: false,
+  };
+  world.mobs = [squid];
+
+  for (let i = 0; i < 60 && world.projectiles.length === 0; i++) stepGame(game, {}, 1 / 60);
+  const bubbles = world.projectiles.filter((p) => p.kind === 'paint-bubble');
+  assert.equal(bubbles.length, 3);
+  for (const bubble of bubbles) {
+    assert.ok(['#07080d', '#0d1017', '#141821'].includes(bubble.color));
+  }
+
+  world.mobs = [];
+  world.projectiles = [{ kind: 'paint-bubble', x: player.x, y: player.y + 12, dx: 0, dy: 0, radius: 4, life: 1, phase: 0, color: '#0d1017' }];
+  stepGame(game, {}, 1 / 60);
+  assert.ok(player.inked > 2);
+
+  for (let i = 0; i < 300 && player.inked > 0; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.inked, 0);
+
+  player.inked = 3;
+  toggleGodMode(world, player);
+  assert.equal(player.inked, 0);
+});
