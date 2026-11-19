@@ -1,5 +1,5 @@
 import { drawRootGrove } from './root-grove-art.js';
-import { drawRootBind, rootBindPose } from './root-ring-art.js';
+import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
 import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleWallGlyphs, jungleStructureBounds } from "./jungle-cave-art.js";
 import { drawCannibal, drawJungleVillageStructure } from "./jungle-village-art.js";
@@ -1828,26 +1828,11 @@ export function createRenderer(canvas) {
     }
   }
 
-  function drawRootWave(wave) {
+  function drawRootWave(wave, player) {
     if (!wave?.length) return;
-    const { x, y, facing, length, finished, fade } = wave;
     ctx.save();
-    ctx.globalAlpha *= finished ? fade : 1;
-    for (const side of [-1, 1]) {
-      let previous = [x, y];
-      for (let start = 0; start < length; start += 6) {
-        const end = Math.min(length, start + 6);
-        const tipX = x + end * facing;
-        const tipY = y + side * (3 + 3 * Math.sin(end * .09)) * Math.min(1, end / 10);
-        polygon([[previous[0], previous[1] - 2], [tipX, tipY - 1], [tipX, tipY + 2],
-          [previous[0], previous[1] + 2]], side < 0 ? '#94c373' : '#577c44');
-        if (start % 18 === 0 && end - start > 3) {
-          polygon([[tipX, tipY], [tipX - facing * 8, tipY + side * 8],
-            [tipX - facing * 5, tipY + side * 2]], side < 0 ? '#b1d48b' : '#769c58');
-        }
-        previous = [tipX, tipY];
-      }
-    }
+    ctx.globalAlpha *= wave.finished ? wave.fade : 1;
+    drawRootTrail(polygon, wave, player);
     ctx.restore();
   }
 
@@ -2816,7 +2801,7 @@ export function createRenderer(canvas) {
     terrain(world, player, camera, time, bounds, openChestId, overview);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
-    drawRootWave(rootWave);
+    drawRootWave(rootWave, player);
     mobs(world, camera, time, targetMob, player, reducedMotion);
     projectiles(world, camera);
     arrows(playerArrows, camera);
