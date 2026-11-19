@@ -486,8 +486,9 @@ const movedMineVeinSizes = { '-34,112': 6, '29,242': 5, '70,272': 4 };
 // Follow the exposed floor out from the frame, then bring part of the seam above ground.
 const mineVeins = caveStructures.flatMap(([kind, column, floor], index) => {
   if (!Object.hasOwn(mineDecks, kind) || floor >= ISLAND_DEEPSTONE_ROW || inRootGrove(column, floor)) return [];
-  const originalSize = movedMineVeinSizes[`${column},${floor}`];
-  const firstOffset = kind === 'trestle' ? 2 : originalSize === 6 ? 3 : 5;
+  let originalSize = movedMineVeinSizes[`${column},${floor}`];
+  const firstOffset = kind === 'trestle' || originalSize === 6 ? 2 : 5;
+  let originalFloor;
   const direction = index % 2 ? -1 : 1;
   for (const side of [direction, -direction]) {
     for (let offset = firstOffset; offset <= 10; offset++) {
@@ -501,7 +502,15 @@ const mineVeins = caveStructures.flatMap(([kind, column, floor], index) => {
           const height = 1 + index % 2;
           const raised = Array.from({ length: height }, (_, i) => [x, y - 1 - i]);
           if (!raised.every(([tx, ty]) => isDryIslandCave(tx, ty))) continue;
-          return [{ cells: [...cells.slice(0, count - height), ...raised],
+          originalSize ??= count;
+          originalFloor ??= y;
+          if (y !== originalFloor) continue;
+          const crest = y - height - 1;
+          // Leave room to jump across the taller deposits, even under a ledge.
+          if ([-1, 0, 1].some((dx) => !isDryIslandCave(x + dx, crest - 1) || !isDryIslandCave(x + dx, crest - 2))) continue;
+          const steps = height === 2 ? [-1, 1].flatMap((dx) => [[x + dx, y - 1], [x + dx, y]]
+            .filter(([tx, ty]) => isDryIslandCave(tx, ty))) : [];
+          return [{ cells: [...cells.slice(0, count - height), ...raised].map(([tx, ty]) => [tx, ty - 1]), steps,
             material: floor >= 83 && index % 3 === 0 ? MATERIAL.iron : MATERIAL.copper }];
         }
       }
@@ -528,6 +537,14 @@ function applyOres(get, set, bounds) {
   }
   for (const [x, y, count, material = MATERIAL.iron] of islandOreVeins) {
     if (!inRootGrove(x, y) && y + 1 >= bounds.top && y - 1 <= bounds.bottom) writeVein(get, set, bounds, x + WEST_EXTENSION, y, count, material);
+  }
+  for (const { steps } of mineVeins) {
+    for (const [column, y] of steps) {
+      const x = column + WEST_EXTENSION;
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom && get(x, y) === MATERIAL.air) {
+        set(x, y, MATERIAL.stone);
+      }
+    }
   }
   for (const { cells, material } of mineVeins) {
     for (const [column, y] of cells) {

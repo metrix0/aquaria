@@ -1106,7 +1106,7 @@ export function createRenderer(canvas) {
     const jungleDeep = jungleCave && ty >= JUNGLE_DEEPSTONE_ROW;
     const pool = wet && isGrovePool(column, ty);
     const moss = !underground && !jungleCave && (!wet || pool) && ty > 36
-      ? Math.max(0, 1 - groveDistance(column, ty) / 83) : 0;
+      ? Math.max(0, 1 - groveDistance(column, ty) / ROOT_GROVE.wallMossReach) : 0;
     // Broad patches follow the stone grain. Their coverage falls away before the foreground moss does.
     const patch = noise(Math.floor(column / 4), Math.floor(ty / 3), 119) * .7 + detail * .3;
     const tint = moss * (moss > .66 || patch < moss ** 1.5 ? 1 : .18);
@@ -1430,24 +1430,7 @@ export function createRenderer(canvas) {
         treeY + 115 >= camera.y && treeY - 375 < camera.y + camera.height) {
       ctx.save();
       ctx.beginPath();
-      const poolRow = ROOT_GROVE.waterline;
-    for (let row = Math.max(poolRow, top); row < Math.min(bottom, ROOT_GROVE.floor); row++) {
-      const y = row * TILE;
-      for (let tx = Math.max(left, treeTile - 16); tx < Math.min(right, treeTile + 17); tx++) {
-        if (!isGrovePool(tx - WEST_EXTENSION, row) || !waterTileAt(world, tx, row)) continue;
-        const x = tx * TILE;
-        rect(x, y, TILE, TILE, row === poolRow ? '#58887b58' : '#326b6747');
-        if (row === poolRow) {
-          rect(x, y, TILE, 1, '#a4cba4');
-          if (!overview) {
-            const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
-            rect(x + drift + 3, y + 4 + tx % 5, 4 + tx % 5, 1, '#b9d7ac68');
-          }
-        }
-      }
-    }
-
-    for (let tx = Math.max(left, treeTile - 15); tx < Math.min(right, treeTile + 16); tx++) {
+      for (let tx = Math.max(left, treeTile - 15); tx < Math.min(right, treeTile + 16); tx++) {
         for (let row = Math.max(top, ROOT_GROVE.floor - 24); row < Math.min(bottom, ROOT_GROVE.floor + 8); row++) {
           if (!tileAt(world, tx, row)) ctx.rect(tx * TILE, row * TILE, TILE, TILE);
         }
@@ -1455,6 +1438,22 @@ export function createRenderer(canvas) {
       ctx.clip();
       drawRootGrove(rect, polygon, noise, treeX, treeY, time);
       ctx.restore();
+    }
+
+    const river = ROOT_GROVE.floor - 1;
+    if (river >= top && river < bottom) {
+      const y = river * TILE;
+      for (let tx = Math.max(left, WEST_EXTENSION + ROOT_GROVE.riverWest);
+        tx < Math.min(right, WEST_EXTENSION + ROOT_GROVE.riverEast + 1); tx++) {
+        if (!waterTileAt(world, tx, river)) continue;
+        const x = tx * TILE;
+        rect(x, y, TILE, TILE, '#58887b58');
+        rect(x, y, TILE, 1, '#a4cba4');
+        if (!overview) {
+          const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
+          rect(x + drift + 3, y + 4 + tx % 5, 4 + tx % 5, 1, '#b9d7ac68');
+        }
+      }
     }
 
     for (let tx = Math.max(left, treeTile - ROOT_GROVE.mossReach);

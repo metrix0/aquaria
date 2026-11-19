@@ -1,7 +1,8 @@
 export const ISLAND_CAVE = { center: 56, camp: 55, campFloor: 33 };
 export const ISLAND_DEEPSTONE_ROW = 330;
 export const ISLAND_BOTTOM = 676;
-export const ROOT_GROVE = Object.freeze({ column: -36, floor: 196, waterline: 190, approach: 40, radius: 32, mossReach: 155 });
+export const ROOT_GROVE = Object.freeze({ column: -36, floor: 196, bank: 190, approach: 40, riverWest: -41, riverEast: -39,
+  radius: 32, mossReach: 202, wallMossReach: 108 });
 
 export function groveDistance(column, row) {
   return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 9) * 1.12);
@@ -63,13 +64,15 @@ const groveGallery = [
 ];
 
 export function groveFloor(column) {
-  const { column: tree, floor, waterline } = ROOT_GROVE;
-  const depth = Math.min(floor - waterline, Math.max(0, Math.ceil((16 - Math.abs(column - tree)) / 2)));
-  return waterline + depth;
+  const { column: tree, floor, bank, riverEast } = ROOT_GROVE;
+  if (column === riverEast + 1) return floor - 1;
+  const depth = Math.min(floor - bank, Math.max(0, Math.ceil((16 - Math.abs(column - tree)) / 2)));
+  return bank + depth;
 }
 
 export function isGrovePool(column, row) {
-  return row >= ROOT_GROVE.waterline && row < groveFloor(column);
+  const { floor, riverWest, riverEast } = ROOT_GROVE;
+  return row === floor - 1 && column >= riverWest && column <= riverEast;
 }
 
 const centralCaves = [
@@ -212,9 +215,15 @@ for (const [x, ledges] of makeBands(rockLedges)) {
   for (const row of ledges) dryBands.get(x)?.delete(row);
 }
 
-// Keep a stone bed under both banks and the flooded steps down to the tree.
+// Open the stepped banks and keep a stone bed under the river.
 for (let column = groveGallery[0][0]; column <= groveGallery.at(-1)[0]; column++) {
-  for (let row = ROOT_GROVE.waterline; row < groveFloor(column) + 3; row++) dryBands.get(column).delete(row);
+  const rows = dryBands.get(column);
+  const floor = groveFloor(column);
+  for (let row = ROOT_GROVE.bank; row < floor; row++) {
+    if (isGrovePool(column, row)) rows.delete(row);
+    else rows.add(row);
+  }
+  for (let row = floor; row < floor + 3; row++) rows.delete(row);
 }
 
 const wetBands = makeBands(wetProfiles);
@@ -250,7 +259,8 @@ export function carveIslandCave(set, { left, right, top, bottom }, westExtension
     for (const y of wetBands.get(x) ?? []) {
       if (y >= top && y <= bottom && isIslandWaterway(x, y)) set(tx, y, true);
     }
-    for (let row = Math.max(top, ROOT_GROVE.waterline); row <= bottom && isGrovePool(x, row); row++) set(tx, row, true);
+    const river = ROOT_GROVE.floor - 1;
+    if (river >= top && river <= bottom && isGrovePool(x, river)) set(tx, river, true);
     for (const y of dryBands.get(x) ?? []) {
       if (y >= top && y <= bottom) set(tx, y, false);
     }
@@ -264,7 +274,7 @@ export const islandCaches = [
   ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
   ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
   ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
-  ['island-grove-relics', 'Explorer’s satchel', ROOT_GROVE.column + 3, ROOT_GROVE.floor, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
+  ['island-grove-relics', 'Explorer’s satchel', ROOT_GROVE.riverWest - 1, groveFloor(ROOT_GROVE.riverWest - 1), 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
   ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
