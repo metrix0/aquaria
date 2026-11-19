@@ -469,19 +469,29 @@ function writeVein(get, set, bounds, x, y, count, material, flip = 1) {
   }
 }
 
-// Follow the exposed floor out from the frame, rising as the side of the gallery rises.
+// The frame relocations leave these three original deposit sizes intact.
+const movedMineVeinSizes = { '-34,112': 6, '29,242': 5, '70,272': 4 };
+
+// Follow the exposed floor out from the frame, then bring part of the seam above ground.
 const mineVeins = caveStructures.flatMap(([kind, column, floor], index) => {
   if (!Object.hasOwn(mineDecks, kind) || floor >= ISLAND_DEEPSTONE_ROW || inRootGrove(column, floor)) return [];
+  const originalSize = movedMineVeinSizes[`${column},${floor}`];
+  const firstOffset = kind === 'trestle' ? 2 : originalSize === 6 ? 3 : 5;
   const direction = index % 2 ? -1 : 1;
   for (const side of [direction, -direction]) {
-    for (let offset = kind === 'trestle' ? 2 : 5; offset <= 10; offset++) {
+    for (let offset = firstOffset; offset <= 10; offset++) {
       const x = column + offset * side;
       for (const rise of [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6]) {
         const y = floor + rise;
         const cells = [[x, y], [x, y + 1], [x + side, y + 1], [x + side, y], [x + 2 * side, y], [x + 2 * side, y - 1]]
           .filter(([tx, ty]) => !isDryIslandCave(tx, ty) && !inRootGrove(tx, ty));
-        if (isDryIslandCave(x, y - 1) && cells[0]?.[0] === x && cells[0][1] === y && cells.length >= 4) {
-          return [{ cells, material: floor >= 83 && index % 3 === 0 ? MATERIAL.iron : MATERIAL.copper }];
+        const count = originalSize ?? cells.length;
+        if (isDryIslandCave(x, y - 1) && cells[0]?.[0] === x && cells[0][1] === y && count >= 4 && cells.length >= count) {
+          const height = 1 + index % 2;
+          const raised = Array.from({ length: height }, (_, i) => [x, y - 1 - i]);
+          if (!raised.every(([tx, ty]) => isDryIslandCave(tx, ty))) continue;
+          return [{ cells: [...cells.slice(0, count - height), ...raised],
+            material: floor >= 83 && index % 3 === 0 ? MATERIAL.iron : MATERIAL.copper }];
         }
       }
     }
@@ -511,7 +521,7 @@ function applyOres(get, set, bounds) {
   for (const { cells, material } of mineVeins) {
     for (const [column, y] of cells) {
       const x = column + WEST_EXTENSION;
-      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom && get(x, y) === MATERIAL.stone) {
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom && (get(x, y) === MATERIAL.stone || get(x, y) === MATERIAL.air)) {
         set(x, y, material);
       }
     }

@@ -1,6 +1,6 @@
 import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, isDryIslandCave, isDungeonMasonry, isGrovePool } from '../src/world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveFloor, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
@@ -271,7 +271,7 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   assert.ok(ISLAND_DEEPSTONE_ROW - ceiling >= 300);
   assert.equal(deepest, 611);
   assert.ok(deepest - ISLAND_DEEPSTONE_ROW >= 280);
-  for (const [x, y] of [[-25, 110], [139, 102], [43, 316], [123, 344], [-12, 427], [118, 557], [60, 611], [100, 611]]) {
+  for (const [x, y] of [[-24, 110], [139, 102], [43, 316], [123, 344], [-12, 427], [118, 557], [60, 611], [100, 611]]) {
     assert.ok(visited.has(y * COLS + x + WEST_EXTENSION), `${x},${y} is reachable`);
   }
 
@@ -287,7 +287,7 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   }
   for (let x = left; x <= right; x++) {
     for (let y = ceiling; y <= deepest; y++) {
-      if (isDryIslandCave(x - WEST_EXTENSION, y)) {
+      if (isDryIslandCave(x - WEST_EXTENSION, y) && !tileAt(world, x, y)) {
         assert.ok(visited.has(y * COLS + x), `isolated cave space at ${x},${y}`);
       }
     }
@@ -304,7 +304,11 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   for (const item of world.items.filter(({ id }) => /^(island|underground|central-mine)-/.test(id))) {
     const x = Math.floor(item.x / TILE);
     const y = Math.floor(item.y / TILE);
-    assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
+    if (item.id === 'island-grove-relics') {
+      assert.ok(waterTileAt(world, x, y) && visited.has((ROOT_GROVE.waterline - 1) * COLS + x));
+    } else {
+      assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
+    }
   }
 
   const submerged = [[60 + WEST_EXTENSION, 612]];
@@ -390,24 +394,41 @@ test('after digging in, the expanded island cave is walkable and the survey cach
 
 });
 
-test('the grove has a continuous 60-tile approach across shallow water', () => {
+test('the grove approach has a level bank and a continuous submerged descent', () => {
   const { world, player } = createGame();
-  const { approach, column, floor } = ROOT_GROVE;
-  assert.equal(approach - column, 60);
-  for (let x = column; x <= approach; x++) {
-    assert.ok(tileAt(world, x + WEST_EXTENSION, floor));
-    assert.equal(tileAt(world, x + WEST_EXTENSION, floor - 1), MATERIAL.air);
-    assert.equal(waterTileAt(world, x + WEST_EXTENSION, floor - 1), isGrovePool(x, floor - 1));
-  }
+  const { approach, column, floor, waterline } = ROOT_GROVE;
   const xAt = (x) => (x + WEST_EXTENSION + .5) * TILE;
-  Object.assign(player, { x: xAt(approach), y: floor * TILE - player.height });
-  for (let i = 0; i < 600 && player.x > xAt(column); i++) {
-    movePlayer(world, player, { left: true }, 1 / 60);
-    assert.ok(Math.abs(player.y + player.height - floor * TILE) < .01);
-    assert.equal(playerInWater(world, player), false);
+  assert.equal(approach - (column + 16), 60);
+  assert.equal(floor - waterline, 6);
+  for (let x = column - 17; x <= approach; x++) {
+    const bed = groveFloor(x);
+    assert.ok(tileAt(world, x + WEST_EXTENSION, bed));
+    assert.equal(waterTileAt(world, x + WEST_EXTENSION, waterline - 1), false);
+    assert.ok(Math.abs(bed - groveFloor(x + 1)) <= 1);
+    for (let row = waterline; row < bed; row++) {
+      assert.equal(tileAt(world, x + WEST_EXTENSION, row), MATERIAL.air);
+      assert.ok(waterTileAt(world, x + WEST_EXTENSION, row));
+    }
+  }
+  Object.assign(player, { x: xAt(approach), y: waterline * TILE - player.height });
+  for (let i = 0; i < 760 && player.x > xAt(column); i++) {
+    movePlayer(world, player, { left: true, down: playerInWater(world, player) }, 1 / 60);
   }
   assert.ok(player.x <= xAt(column));
-  assert.ok(waterTileAt(world, WEST_EXTENSION - 20, floor - 1), 'pool beyond the tree');
+  assert.ok(playerInWater(world, player));
+  assert.ok(Math.abs(player.y + player.height - floor * TILE) < 1);
+});
+
+test('all headframe platforms take the player’s weight', () => {
+  const { world, player } = createGame();
+  const frame = world.mineDecks.find(({ tx, kind }) => tx === WEST_EXTENSION + 36 && kind === 'headframe');
+  for (const { rise } of mineDecks.headframe) {
+    const feet = frame.floor * TILE - rise;
+    Object.assign(player, { x: (frame.tx + .5) * TILE + 17, y: feet - player.height - 4, dy: 0, dx: 0, climb: null });
+    for (let tick = 0; tick < 12; tick++) movePlayer(world, player, {}, 1 / 60);
+    assert.ok(player.grounded, 'deck at rise ' + rise);
+    assert.ok(Math.abs(player.y + player.height - feet) < .01);
+  }
 });
 
 test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {

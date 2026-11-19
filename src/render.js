@@ -1040,6 +1040,12 @@ export function createRenderer(canvas) {
     return ty < firstCaveRows[tx];
   }
 
+  const groveWallColors = [
+    colorPair("#2b343a", "#304b3a"),
+    colorPair("#232d35", "#263d31"),
+    colorPair("#3a474b", "#526b48"),
+  ];
+
   function caveWall(world, tx, ty, overview) {
     const x = tx * TILE;
     const y = ty * TILE;
@@ -1051,15 +1057,19 @@ export function createRenderer(canvas) {
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
     const column = tx - WEST_EXTENSION;
-    const groveMoss = !underground && Math.abs(column - ROOT_GROVE.column) < 17 &&
-      detail < .48 * Math.max(0, 1 - groveDistance(column, ty) / 20);
-    const [base, shadow, grain] = wet
+    const pool = wet && isGrovePool(column, ty);
+    const moss = !underground && (!wet || pool) && ty > 36
+      ? Math.max(0, 1 - groveDistance(column, ty) / 83) : 0;
+    // Broad patches follow the stone grain. Their coverage falls away before the foreground moss does.
+    const patch = noise(Math.floor(column / 4), Math.floor(ty / 3), 119) * .7 + detail * .3;
+    const tint = moss * (moss > .66 || patch < moss ** 1.5 ? 1 : .18);
+    const [base, shadow, grain] = wet && !pool
       ? palette
       : masonry
         ? ["#342941", "#261e34", "#4b3c59"]
         : underground
           ? ["#27253a", "#211e32", "#3a334d"]
-          : ["#2b343a", "#232d35", groveMoss ? "#4c5644" : "#3a474b"];
+          : groveWallColors.map((colors) => mixPair(colors, tint));
     if (overview) {
       rect(x, y, TILE, TILE, base);
       return;
@@ -1331,21 +1341,6 @@ export function createRenderer(canvas) {
       }
     }
 
-    const poolRow = ROOT_GROVE.floor - 1;
-    if (poolRow >= top && poolRow < bottom) {
-      const y = poolRow * TILE;
-      for (let tx = left; tx < right; tx++) {
-        if (!isGrovePool(tx - WEST_EXTENSION, poolRow) || !waterTileAt(world, tx, poolRow)) continue;
-        const x = tx * TILE;
-        rect(x, y, TILE, TILE, '#658b8270');
-        rect(x, y, TILE, 1, '#9fc5a3');
-        if (!overview) {
-          const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
-          rect(x + drift + 3, y + 4 + tx % 7, 4 + tx % 5, 1, '#b9d7ac7c');
-        }
-      }
-    }
-
     for (const { tx, top: start, bottom: end, kind } of world.caveClimbs ?? []) {
       if (tx < left || tx >= right || start >= bottom || end < top) continue;
       const x = (tx + .5) * TILE;
@@ -1372,7 +1367,24 @@ export function createRenderer(canvas) {
         treeY + 115 >= camera.y && treeY - 375 < camera.y + camera.height) {
       ctx.save();
       ctx.beginPath();
-      for (let tx = Math.max(left, treeTile - 15); tx < Math.min(right, treeTile + 16); tx++) {
+      const poolRow = ROOT_GROVE.waterline;
+    for (let row = Math.max(poolRow, top); row < Math.min(bottom, ROOT_GROVE.floor); row++) {
+      const y = row * TILE;
+      for (let tx = Math.max(left, treeTile - 16); tx < Math.min(right, treeTile + 17); tx++) {
+        if (!isGrovePool(tx - WEST_EXTENSION, row) || !waterTileAt(world, tx, row)) continue;
+        const x = tx * TILE;
+        rect(x, y, TILE, TILE, row === poolRow ? '#58887b58' : '#326b6747');
+        if (row === poolRow) {
+          rect(x, y, TILE, 1, '#a4cba4');
+          if (!overview) {
+            const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
+            rect(x + drift + 3, y + 4 + tx % 5, 4 + tx % 5, 1, '#b9d7ac68');
+          }
+        }
+      }
+    }
+
+    for (let tx = Math.max(left, treeTile - 15); tx < Math.min(right, treeTile + 16); tx++) {
         for (let row = Math.max(top, ROOT_GROVE.floor - 24); row < Math.min(bottom, ROOT_GROVE.floor + 8); row++) {
           if (!tileAt(world, tx, row)) ctx.rect(tx * TILE, row * TILE, TILE, TILE);
         }

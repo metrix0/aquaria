@@ -131,7 +131,7 @@ export function syncMobs(world, player) {
 
 export function stepMobs(world, player, dt, time, mining, night, enemies, effects) {
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) =>
-    fishCollides(world, player, x, y),
+    atPeace(x, y) || fishCollides(world, player, x, y),
   );
   for (let i = world.mobs.length - 1; i >= 0; i--) {
     const mob = world.mobs[i];
