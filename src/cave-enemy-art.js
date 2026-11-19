@@ -1,7 +1,108 @@
 import { pickaxePose } from './gameplay/melee.js';
 import { drawPickaxe } from './pickaxe-art.js';
 
+function drawFrogCultist(rect, polygon, mob, time) {
+  const praying = Boolean(mob.praying && !mob.cultAggro);
+  const biting = mob.dash > 0 || (mob.windup > 0 && mob.attackMode === 'bite');
+  const slashing = mob.clawSlash != null;
+  const moving = !praying && Math.abs(mob.dx) > 2;
+  const stride = moving ? Math.round(Math.sin(time * (mob.dash > 0 ? 22 : 12) + mob.phase) * 2.5) : 0;
+  const chant = praying ? Math.sin(time * 3.4 + mob.phase) : 0;
+
+  const dark = '#243a24';
+  const skin = '#4a703e';
+  const ridge = '#6f9751';
+  const belly = '#9fb673';
+  const robe = '#512e58';
+  const robeTrim = '#7b4982';
+  const claw = '#e2dcc4';
+  const eye = praying ? '#a3bf67' : '#ffcf54';
+
+  const bodyDrop = praying ? 5 + Math.round(Math.max(0, chant)) : biting ? 3 : 0;
+  const lean = praying ? 3 : biting ? 5 : 0;
+
+  // Webbed clawed feet / kneeling calves
+  if (praying) {
+    rect(-8, -5, 11, 5, dark);
+    rect(-6, -6, 9, 4, skin);
+    rect(1, -3, 7, 3, dark);
+    rect(2, -2, 6, 2, ridge);
+  } else {
+    rect(-6 - stride, -7, 4, 6, dark);
+    rect(2 + stride, -7, 4, 6, skin);
+    rect(-8 - stride, -2, 7, 2, ridge);
+    rect(1 + stride, -2, 7, 2, claw);
+  }
+
+  // Hunched amphibious torso & tattered purple cultist vestment
+  rect(-7 + lean * 0.4, -20 + bodyDrop, 13, 14, dark);
+  rect(-6 + lean * 0.4, -19 + bodyDrop, 11, 12, skin);
+  rect(-1 + lean * 0.4, -17 + bodyDrop, 5, 9, belly);
+  // Dorsal spines
+  rect(-8 + lean * 0.4, -18 + bodyDrop, 2, 3, ridge);
+  rect(-8 + lean * 0.4, -13 + bodyDrop, 2, 3, ridge);
+  // Cultist loincloth & stole
+  rect(-5 + lean * 0.4, -10 + bodyDrop, 10, 5, robe);
+  rect(-2 + lean * 0.4, -10 + bodyDrop, 4, 6, robeTrim);
+
+  // Broad monstrous frog head & puffing throat sac
+  const headX = -3 + lean;
+  const headY = -28 + bodyDrop;
+  rect(headX - 2, headY + 2, 12, 9, dark);
+  rect(headX - 1, headY + 1, 11, 8, skin);
+  // Swelling vocal sac while chanting or snarling
+  const sacExpand = praying ? Math.round((chant + 1) * 1.2) : biting ? 2 : 0;
+  rect(headX + 2, headY + 7, 6 + sacExpand, 3 + Math.min(2, sacExpand), belly);
+
+  // Bulging frog eye bumps & amber eyes
+  rect(headX + 1, headY - 2, 4, 4, ridge);
+  rect(headX + 6, headY - 2, 4, 4, ridge);
+  rect(headX + 2, headY - 1, 2, 2, eye);
+  rect(headX + 7, headY - 1, 2, 2, eye);
+  rect(headX + 3, headY - 1, 1, 2, '#141f14');
+
+  // Wide fanged gape (snarling or biting wide open)
+  if (biting) {
+    rect(headX + 4, headY + 3, 9, 6, '#5c1824');
+    rect(headX + 5, headY + 3, 2, 2, claw);
+    rect(headX + 9, headY + 3, 2, 2, claw);
+    rect(headX + 6, headY + 7, 2, 2, claw);
+    rect(headX + 10, headY + 7, 2, 2, claw);
+  } else {
+    rect(headX + 4, headY + 5, 7, 2, '#2a181d');
+    rect(headX + 6, headY + 5, 1, 1, claw);
+    rect(headX + 9, headY + 5, 1, 1, claw);
+  }
+
+  // Clawed arms
+  if (praying) {
+    rect(headX + 4, headY + 11, 6, 3, skin);
+    rect(headX + 9, headY + 8, 3, 5, ridge);
+    rect(headX + 10, headY + 6, 2, 2, claw);
+  } else if (slashing) {
+    const phase = Math.min(1, mob.clawSlash / 0.34);
+    const sweep = -16 + Math.round(phase * 14);
+    polygon([[2, -16], [10, sweep - 2], [13, sweep + 2], [4, -12]], skin);
+    rect(12, sweep - 2, 5, 2, claw);
+    rect(12, sweep + 1, 4, 2, claw);
+    if (phase >= 0.22 && phase <= 0.78) {
+      polygon([[10, -24], [22, -14], [18, -3], [14, -7], [17, -14], [8, -21]], '#d8f5aa');
+    }
+  } else {
+    const armY = -16 + bodyDrop;
+    rect(2 + lean, armY, 7, 3, skin);
+    rect(8 + lean, armY + 1, 4, 2, ridge);
+    rect(11 + lean, armY, 3, 1, claw);
+    rect(11 + lean, armY + 2, 3, 1, claw);
+  }
+}
+
 export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
+  if (mob.kind === 'frog') {
+    ctx.scale(mob.facing, 1);
+    drawFrogCultist(rect, polygon, mob, time);
+    return;
+  }
   const moving = Math.abs(mob.dx) > 2;
   const stride = moving ? Math.round(Math.sin(time * (mob.dash > 0 ? 24 : 13) + mob.phase) * 2) : 0;
   const windingUp = mob.windup > 0;

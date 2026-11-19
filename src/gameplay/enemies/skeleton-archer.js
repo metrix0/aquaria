@@ -34,7 +34,14 @@ export function stepCaveArrow(world, player, hazard, dt, effects) {
     hazard.y >= player.y &&
     hazard.y < player.y + player.height
   ) {
-    hurtPlayer(player, 12, Math.sign(hazard.dx), 'Hit by a skeleton arrow!', '#e6ceaa', effects);
+    hurtPlayer(
+      player,
+      hazard.damage ?? 12,
+      Math.sign(hazard.dx),
+      hazard.message ?? 'Hit by a skeleton arrow!',
+      hazard.color ?? '#e6ceaa',
+      effects,
+    );
     return false;
   }
   return true;

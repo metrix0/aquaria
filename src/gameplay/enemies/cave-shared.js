@@ -47,8 +47,25 @@ export function canStand(world, x, feet, spec) {
   return !isCaveRefuge(Math.floor(x / TILE) - WEST_EXTENSION, bottom);
 }
 
-export function onFloor(world, x, y) {
-  return solidAt(world, Math.floor(x / TILE), Math.floor((y + 1) / TILE));
+export function onFloor(world, x, y, spec = null) {
+  const ty = Math.floor((y + 1) / TILE);
+  if (!spec) return solidAt(world, Math.floor(x / TILE), ty);
+  const left = Math.floor((x - spec.width / 2) / TILE);
+  const right = Math.floor((x + spec.width / 2 - .01) / TILE);
+  for (let tx = left; tx <= right; tx++) {
+    if (solidAt(world, tx, ty)) return true;
+  }
+  return false;
+}
+
+function hasWaterBelow(world, x, y) {
+  const tx = Math.floor(x / TILE);
+  const startTy = Math.floor(y / TILE);
+  for (let ty = startTy; ty <= startTy + 6; ty++) {
+    if (solidAt(world, tx, ty)) return false;
+    if (waterTileAt(world, tx, ty)) return true;
+  }
+  return false;
 }
 
 export function hurtPlayer(player, damage, direction, message, color, effects) {
@@ -65,18 +82,24 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
   const deltaX = player.x - mob.x;
   const deltaY = playerY - (mob.y + spec.centerY);
   const distance = Math.hypot(deltaX, deltaY);
-  const active = !player.flightOrigin && distance < 170 &&
+  const sightRange = hooks.sightRange ?? 170;
+  const leashRange = hooks.leashRange ?? 170;
+  const active = !player.flightOrigin && distance < sightRange &&
     !isCaveRefuge(Math.floor(player.x / TILE) - WEST_EXTENSION, Math.floor(playerY / TILE)) &&
     clearPath(world, mob.x, mob.y + spec.centerY, player.x, playerY);
 
   mob.attackTimer = Math.max(0, mob.attackTimer - dt);
+  mob.jumpCooldown = Math.max(0, (mob.jumpCooldown ?? 0) - dt);
   let speed = 0;
   const ctx = { world, player, mob, spec, dt, effects, deltaX, deltaY, distance, active };
 
   if (mob.flee > 0) {
     mob.windup = 0;
     mob.minerSwing = null;
+    mob.spearThrust = null;
+    mob.spearHit = false;
     mob.dash = 0;
+    mob.airDx = 0;
     speed = mob.dx * .8;
   } else {
     const activeSpeed = hooks.stepActive?.(ctx);
@@ -100,7 +123,7 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
         } else {
           mob.windup = hooks.windupDuration ?? .38;
         }
-      } else if (distance > (hooks.chaseDistance ?? 14) && Math.abs(mob.x - mob.homeX) < 170) {
+      } else if (distance > (mob.grounded ? (hooks.chaseDistance ?? 14) : 4) && Math.abs(mob.x - mob.homeX) < leashRange) {
         speed = mob.facing * spec.speed;
       }
     } else if (Math.abs(mob.x - mob.homeX) > 3) {
@@ -109,10 +132,40 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
     }
   }
 
-  mob.dx = speed;
-  const nextX = mob.x + speed * dt;
+  const moveSpeed = !mob.grounded && !active && speed === 0 && mob.flee <= 0 ? (mob.airDx ?? 0) : speed;
+  if (mob.grounded) mob.airDx = speed;
+  else if (speed !== 0) mob.airDx = speed;
+
+  mob.dx = moveSpeed;
+  const nextX = mob.x + moveSpeed * dt;
+  if (mob.grounded && hooks.jumpSpeed && mob.flee <= 0 && moveSpeed !== 0 && mob.jumpCooldown === 0) {
+    const blockedAhead = !canStand(world, nextX, mob.y, spec);
+    const hasStep = blockedAhead && canStand(world, nextX, mob.y - TILE, spec) && onFloor(world, nextX, mob.y - TILE);
+    const canJumpObstacle = blockedAhead && !hasStep
+      && canStand(world, mob.x, mob.y - 2 * TILE, spec)
+      && canStand(world, nextX, mob.y - 2 * TILE, spec);
+    const gapAhead = !blockedAhead
+      && !onFloor(world, nextX, mob.y)
+      && !(canStand(world, nextX, mob.y + TILE, spec) && onFloor(world, nextX, mob.y + TILE))
+      && [1, 2, 3].some((step) => {
+        const landX = mob.x + mob.facing * step * TILE;
+        return !hasWaterBelow(world, landX, mob.y) && (onFloor(world, landX, mob.y) || onFloor(world, landX, mob.y + TILE));
+      });
+    const playerAbove = active && player.y + player.height <= mob.y - 6 && Math.abs(deltaX) < 6 * TILE
+      && canStand(world, mob.x, mob.y - TILE, spec) && !hasWaterBelow(world, nextX, mob.y);
+    const battleHop = active && hooks.battleHop && Math.abs(deltaX) > 36 && Math.abs(deltaX) < 120
+      && Math.abs(deltaY) < 28 && !hasWaterBelow(world, mob.x + mob.facing * TILE, mob.y)
+      && (onFloor(world, mob.x + mob.facing * TILE, mob.y) || onFloor(world, mob.x + mob.facing * TILE, mob.y + TILE));
+
+    if (canJumpObstacle || gapAhead || playerAbove || battleHop) {
+      mob.dy = -(canJumpObstacle || gapAhead || playerAbove ? hooks.jumpSpeed : hooks.hopSpeed ?? hooks.jumpSpeed);
+      mob.grounded = false;
+      mob.jumpCooldown = canJumpObstacle || gapAhead ? 0.55 : 1.35 + (mob.phase % 0.8);
+    }
+  }
+
   if (canStand(world, nextX, mob.y, spec)) {
-    if (onFloor(world, nextX, mob.y) || !mob.grounded ||
+    if (onFloor(world, nextX, mob.y) || (!mob.grounded && !hasWaterBelow(world, nextX, mob.y)) ||
         (canStand(world, nextX, mob.y + TILE, spec) && onFloor(world, nextX, mob.y + TILE))) {
       mob.x = nextX;
     }
@@ -120,15 +173,16 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
     mob.x = nextX;
     mob.y -= TILE;
   }
-  mob.dy = clamp(mob.dy + 510 * dt, -160, 200);
+  mob.dy = clamp(mob.dy + 510 * dt, -220, 200);
   const nextY = mob.y + mob.dy * dt;
   if (canStand(world, mob.x, nextY, spec)) {
     mob.y = nextY;
     mob.grounded = false;
   } else {
-    if (mob.dy > 0 && onFloor(world, mob.x, nextY)) {
+    if (mob.dy > 0 && onFloor(world, mob.x, nextY, spec)) {
       mob.y = Math.floor((nextY + 1) / TILE) * TILE;
       mob.grounded = true;
+      mob.airDx = 0;
     }
     mob.dy = 0;
   }

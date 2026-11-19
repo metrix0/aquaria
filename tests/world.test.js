@@ -17,6 +17,8 @@ import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 import { jungleVillageStructures } from '../src/world/jungle-village.js';
+import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
+import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
 
 test('dry falls keep accelerating after five tiles and stop safely at the floor', () => {
   const { world, player } = createGame();
@@ -2144,4 +2146,364 @@ test('jungle ocean biome contains a larger island with jungle trees and an indig
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;
   }
+});
+
+test('jungle island hosts bow and spear cannibals that chase, attack, and render cleanly', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    const spearCannibals = world.mobs.filter((mob) => mob.kind === 'cannibal-spear');
+    const bowCannibals = world.mobs.filter((mob) => mob.kind === 'cannibal-bow');
+    assert.ok(spearCannibals.length >= 2);
+    assert.ok(bowCannibals.length >= 2);
+
+    for (const mob of [...spearCannibals, ...bowCannibals]) {
+      const tx = Math.floor(mob.x / TILE);
+      const floorRow = mob.y / TILE;
+      assert.ok(mob.x > (JUNGLE_FADE_END_COLUMN + WEST_EXTENSION) * TILE);
+      assert.ok(floorRow < WATER_ROW);
+      assert.ok(tileAt(world, tx, floorRow), mob.id);
+      assert.equal(tileAt(world, tx, floorRow - 1), MATERIAL.air, mob.id);
+      assert.equal(tileAt(world, tx, floorRow - 2), MATERIAL.air, mob.id);
+      assert.equal(waterTileAt(world, tx, floorRow - 1), false, mob.id);
+    }
+
+    // Spear cannibal sees the player on the island, runs toward them, and strikes.
+    const spearMob = spearCannibals[0];
+    world.mobs = [spearMob];
+    spearMob.attackTimer = 0;
+    const startMobX = spearMob.x;
+    Object.assign(player, {
+      x: startMobX + 6 * TILE,
+      y: spearMob.y - player.height,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+      hurt: 0,
+      health: 100,
+    });
+    let maxRunSpeed = 0;
+    for (let i = 0; i < 140 && player.health === 100; i++) {
+      stepGame(game, { left: false, right: false, up: false, down: false, jump: false }, 1 / 60);
+      maxRunSpeed = Math.max(maxRunSpeed, Math.abs(spearMob.dx));
+    }
+    assert.ok(maxRunSpeed >= 70, `expected spear cannibal to run, got max speed ${maxRunSpeed}`);
+    assert.ok(spearMob.x > startMobX + 2 * TILE);
+    assert.ok(player.health < 100, 'expected spear cannibal attack to damage player');
+
+    // Bow cannibal aims and fires arrows at the player.
+    const bowGame = createGame();
+    const bowMob = bowGame.world.mobs.find((mob) => mob.kind === 'cannibal-bow' && mob.y === JUNGLE_ISLAND.floor * TILE);
+    assert.ok(bowMob);
+    bowGame.world.mobs = [bowMob];
+    bowMob.attackTimer = 0;
+    Object.assign(bowGame.player, {
+      x: bowMob.x - 5 * TILE,
+      y: bowMob.y - bowGame.player.height,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+      hurt: 0,
+      health: 100,
+    });
+    let sawArrow = false;
+    for (let i = 0; i < 120 && bowGame.player.health === 100; i++) {
+      stepGame(bowGame, { left: false, right: false, up: false, down: false, jump: false }, 1 / 60);
+      if (bowGame.world.projectiles.some((p) => p.kind === 'cave-arrow')) sawArrow = true;
+    }
+    assert.equal(sawArrow, true);
+    assert.ok(bowGame.player.health < 100, 'expected bow cannibal arrow to hit player');
+
+    // Player can damage and defeat cannibals, and renderer draws both variants.
+    const fullGame = createGame();
+    const targetSpear = fullGame.world.mobs.find((mob) => mob.kind === 'cannibal-spear');
+    const targetBow = fullGame.world.mobs.find((mob) => mob.kind === 'cannibal-bow');
+    assert.ok(targetSpear && targetBow);
+    damageMob(fullGame.world, targetSpear, 10, 0, 80, fullGame.effects);
+    assert.equal(targetSpear.health, 0);
+    assert.ok(targetSpear.respawn > 0);
+
+    targetSpear.health = targetSpear.maxHealth;
+    targetSpear.respawn = 0;
+    targetSpear.spearThrust = 0.16;
+    targetSpear.grounded = false;
+    targetSpear.dy = -120;
+    targetBow.windup = 0.25;
+    const fillColors = [];
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      putImageData: noop, stroke: noop,
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      fill() { fillColors.push(this.fillStyle); },
+      fillRect() { fillColors.push(this.fillStyle); },
+      createLinearGradient: () => grad, createRadialGradient: () => grad,
+      translate: noop,
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    };
+    const renderer = createRenderer(canvas);
+    renderer.draw({
+      world: fullGame.world, player: fullGame.player, snorkel: null,
+      camera: { x: (JUNGLE_ISLAND.center + WEST_EXTENSION) * TILE - 320, y: 2 * TILE, width: 640, height: 360 },
+      time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+    assert.ok(fillColors.includes('#936044') && fillColors.includes('#3b7a4b'));
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('cannibals can jump over obstacles, pits, and toward elevated players without jumping into the ocean', () => {
+  // 1. Spear cannibal jumps up a 2-tile-high barricade to reach an elevated player.
+  const wallGame = createGame();
+  const wallMob = wallGame.world.mobs.find((mob) => mob.kind === 'cannibal-spear' && mob.y === JUNGLE_ISLAND.floor * TILE);
+  assert.ok(wallMob);
+  wallGame.world.mobs = [wallMob];
+  const mobTx = Math.floor(wallMob.x / TILE);
+  const wallTx = mobTx + 2;
+  editTile(wallGame.world, wallTx, JUNGLE_ISLAND.floor - 1, MATERIAL.wood);
+  editTile(wallGame.world, wallTx, JUNGLE_ISLAND.floor - 2, MATERIAL.wood);
+  Object.assign(wallGame.player, {
+    x: (wallTx + 0.5) * TILE,
+    y: (JUNGLE_ISLAND.floor - 2) * TILE - wallGame.player.height,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+    hurt: 0,
+    health: 100,
+  });
+  let jumped = false;
+  for (let i = 0; i < 120; i++) {
+    stepGame(wallGame, { left: false, right: false, up: false, down: false, jump: false }, 1 / 60);
+    if (!wallMob.grounded && wallMob.dy < -50) jumped = true;
+    if (wallMob.grounded && wallMob.y <= (JUNGLE_ISLAND.floor - 2) * TILE && Math.floor(wallMob.x / TILE) >= wallTx) break;
+  }
+  assert.equal(jumped, true);
+  assert.ok(wallMob.y <= (JUNGLE_ISLAND.floor - 2) * TILE);
+  assert.ok(Math.floor(wallMob.x / TILE) >= wallTx);
+
+  // 2. Bow cannibal jumps across a dug pit in the village plateau.
+  const gapGame = createGame();
+  const gapMob = gapGame.world.mobs.find((mob) => mob.kind === 'cannibal-bow' && mob.y === JUNGLE_ISLAND.floor * TILE);
+  assert.ok(gapMob);
+  gapGame.world.mobs = [gapMob];
+  const gapTx = Math.floor(gapMob.x / TILE) - 2;
+  editTile(gapGame.world, gapTx, JUNGLE_ISLAND.floor, MATERIAL.air);
+  editTile(gapGame.world, gapTx, JUNGLE_ISLAND.floor + 1, MATERIAL.air);
+  Object.assign(gapGame.player, {
+    x: (gapTx - 6) * TILE,
+    y: JUNGLE_ISLAND.floor * TILE - gapGame.player.height,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+  });
+  let clearedGap = false;
+  for (let i = 0; i < 140; i++) {
+    stepGame(gapGame, { left: false, right: false, up: false, down: false, jump: false }, 1 / 60);
+    if (Math.floor(gapMob.x / TILE) < gapTx && gapMob.y <= JUNGLE_ISLAND.floor * TILE) {
+      clearedGap = true;
+      break;
+    }
+  }
+  assert.equal(clearedGap, true);
+
+  // 3. Spear cannibal chasing toward the ocean shoreline stops dry and does not jump into the sea.
+  const edgeGame = createGame();
+  const edgeMob = edgeGame.world.mobs.find((mob) => mob.kind === 'cannibal-spear');
+  assert.ok(edgeMob);
+  edgeGame.world.mobs = [edgeMob];
+  edgeMob.x = (340 + WEST_EXTENSION) * TILE + 8;
+  edgeMob.homeX = edgeMob.x;
+  edgeMob.y = groundAt(340 + WEST_EXTENSION) * TILE;
+  edgeMob.homeY = edgeMob.y;
+  Object.assign(edgeGame.player, {
+    x: (333 + WEST_EXTENSION) * TILE,
+    y: WATER - 13,
+    dx: 0,
+    dy: 0,
+    grounded: false,
+  });
+  for (let i = 0; i < 150; i++) {
+    stepGame(edgeGame, { left: false, right: false, up: true, down: false, jump: false }, 1 / 60);
+    assert.equal(waterTileAt(edgeGame.world, Math.floor(edgeMob.x / TILE), Math.floor((edgeMob.y - 1) / TILE)), false);
+  }
+});
+
+test('jungle island has a deep progressive cave ending in a Lovecraftian cult chamber', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const { world, player } = createGame();
+    const startTx = JUNGLE_CAVE.entry + WEST_EXTENSION;
+    const startTy = JUNGLE_CAVE.entryFloor - 1;
+    const endTx = JUNGLE_CAVE.idolColumn + WEST_EXTENSION;
+    const endTy = JUNGLE_CAVE.sanctuaryFloor - 1;
+    assert.equal(tileAt(world, startTx, startTy), MATERIAL.air);
+    assert.equal(waterTileAt(world, startTx, startTy), false);
+
+    // Traverse dry jungle cave air tiles from upper entry down to bottom cult sanctuary.
+    const startKey = startTx + ',' + startTy;
+    const targetKey = endTx + ',' + endTy;
+    const visited = new Set([startKey]);
+    const queue = [[startTx, startTy]];
+    let reachedSanctuary = false;
+    let deepest = 0;
+    while (queue.length) {
+      const [cx, cy] = queue.shift();
+      deepest = Math.max(deepest, cy);
+      if (cx + ',' + cy === targetKey) {
+        reachedSanctuary = true;
+        break;
+      }
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        const column = nx - WEST_EXTENSION;
+        const key = nx + ',' + ny;
+        if (visited.has(key) || !isDryJungleCave(column, ny)) continue;
+        assert.equal(tileAt(world, nx, ny), MATERIAL.air);
+        assert.equal(waterTileAt(world, nx, ny), false);
+        visited.add(key);
+        queue.push([nx, ny]);
+      }
+    }
+    assert.equal(reachedSanctuary, true);
+    assert.ok(deepest >= JUNGLE_CAVE.sanctuaryFloor - 1);
+
+    // Progressive features: normal cave top -> moss/scriptures -> statues/columns -> deepstone cult idol.
+    assert.equal(tileAt(world, startTx, JUNGLE_CAVE.entryFloor), MATERIAL.stone);
+    assert.equal(tileAt(world, endTx, JUNGLE_CAVE.sanctuaryFloor), MATERIAL.deepstone);
+    assert.ok(jungleMossProgress(180) > jungleMossProgress(80));
+    assert.ok(jungleScriptureProgress(260) > jungleScriptureProgress(120));
+
+    const kindsByFloor = (kind) => world.caveStructures.filter((s) => s.kind === kind).map((s) => s.floor);
+    const torchFloors = kindsByFloor('native-torch');
+    const boneFloors = kindsByFloor('bones');
+    const scriptureFloors = kindsByFloor('scripture');
+    const columnFloors = kindsByFloor('temple-column');
+    const statueFloors = kindsByFloor('tentacle-statue');
+    const idol = world.caveStructures.find((s) => s.kind === 'cult-idol');
+
+    assert.ok(Math.min(...torchFloors) < 40);
+    assert.ok(Math.min(...boneFloors) < 40);
+    assert.ok(Math.min(...scriptureFloors) > 85);
+    const firstStatueFloor = Math.min(...statueFloors);
+    assert.ok(firstStatueFloor > 190 && firstStatueFloor < 240);
+    assert.ok(Math.min(...columnFloors) > 190);
+    assert.ok(idol && idol.floor === JUNGLE_CAVE.sanctuaryFloor);
+    assert.ok(idol.floor - firstStatueFloor < 80);
+
+    // Render upper cave and sunken cult chamber without errors.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    };
+    const renderer = createRenderer(canvas);
+    for (const focus of [
+      { x: startTx * TILE, y: (JUNGLE_CAVE.entryFloor - 2) * TILE },
+      { x: endTx * TILE - 80, y: (JUNGLE_CAVE.sanctuaryFloor - 3) * TILE },
+    ]) {
+      player.x = focus.x;
+      player.y = focus.y;
+      renderer.draw({
+        world, player, snorkel: null,
+        camera: { x: focus.x - 160, y: focus.y - 90, width: 320, height: 180 },
+        time: 1.5, elapsed: 1.5, aim: null, mining: null, miningSwing: null,
+        held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+        particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+      });
+    }
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('frog cultists pray aligned toward the idol and all aggro to bite and slash on proximity or attack', () => {
+  // 1. Aligned prayer at distance & group aggro when one is attacked.
+  const game = createGame();
+  const frogs = game.world.mobs.filter((mob) => mob.kind === 'frog');
+  assert.ok(frogs.length >= 5);
+  const idolX = (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE;
+  for (const frog of frogs) {
+    assert.equal(frog.praying, true);
+    assert.equal(frog.facing, frog.x <= idolX ? 1 : -1);
+  }
+
+  // Player standing beyond proximity stays safe and frogs keep praying.
+  const westernmost = frogs.reduce((best, mob) => (mob.x < best.x ? mob : best));
+  Object.assign(game.player, {
+    x: westernmost.x - (FROG_PROXIMITY_RANGE + 48),
+    y: JUNGLE_CAVE.sanctuaryFloor * TILE - game.player.height,
+    dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+  });
+  for (let i = 0; i < 30; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(game.world.jungleCultAggro, false);
+  for (const frog of frogs) assert.equal(frog.praying, true);
+
+  // Attacking a single frog alerts every frog in the chamber.
+  damageMob(game.world, westernmost, 1, 0, 20, []);
+  assert.equal(game.world.jungleCultAggro, true);
+  stepGame(game, {}, 1 / 60);
+  for (const frog of frogs) {
+    assert.equal(frog.cultAggro, true);
+    assert.equal(frog.praying, false);
+  }
+
+  // 2. Approaching too close without attacking aggros all frogs and triggers biting & claw-slashing attacks.
+  const proxGame = createGame();
+  const proxFrogs = proxGame.world.mobs.filter((mob) => mob.kind === 'frog');
+  const firstFrog = proxFrogs.reduce((best, mob) => (mob.x < best.x ? mob : best));
+  Object.assign(proxGame.player, {
+    x: firstFrog.x - (FROG_PROXIMITY_RANGE - 24),
+    y: JUNGLE_CAVE.sanctuaryFloor * TILE - proxGame.player.height,
+    dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+  });
+  let sawClawSlash = false;
+  let sawBiteDash = false;
+  let playerHurt = false;
+  for (let i = 0; i < 240; i++) {
+    stepGame(proxGame, {}, 1 / 60);
+    for (const frog of proxFrogs) {
+      if (frog.clawSlash != null) sawClawSlash = true;
+      if (frog.dash > 0) sawBiteDash = true;
+    }
+    if (proxGame.player.health < 100) playerHurt = true;
+    proxGame.player.oxygen = 100;
+    if (proxGame.player.health < 60) proxGame.player.health = 90;
+  }
+  assert.equal(proxGame.world.jungleCultAggro, true);
+  for (const frog of proxFrogs) assert.equal(frog.cultAggro, true);
+  assert.equal(playerHurt, true);
+  assert.ok(sawClawSlash || sawBiteDash);
 });

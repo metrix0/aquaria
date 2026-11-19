@@ -1,5 +1,6 @@
 import { ARMOR } from './content.js';
 import { ISLAND_DEEPSTONE_ROW, isDryIslandCave } from './world/island-cave.js';
+import { JUNGLE_CAVE, isDryJungleCave } from './world/jungle-cave.js';
 import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
@@ -194,7 +195,11 @@ export function createUI(actions, version) {
       setText('depth', areaDepth(game) + ' m');
       const row = Math.floor((game.player.y + game.player.height / 2) / TILE);
       const column = Math.floor(game.player.x / TILE) - WEST_EXTENSION;
-      const zone = isDryIslandCave(column, row) ? (row >= ISLAND_DEEPSTONE_ROW ? 'UNDERGROUND' : 'CAVES') : 'DEPTH';
+      const zone = isDryIslandCave(column, row)
+        ? (row >= ISLAND_DEEPSTONE_ROW ? 'UNDERGROUND' : 'CAVES')
+        : isDryJungleCave(column, row)
+          ? (row >= 245 ? 'SANCTUM' : row >= JUNGLE_CAVE.deepstoneRow ? 'TEMPLE' : 'JUNGLE CAVE')
+          : 'DEPTH';
       setText('depth-label', zone);
       setText('health-label', healthValue);
       const healthFill = fields['health-fill'];

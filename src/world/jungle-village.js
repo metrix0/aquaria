@@ -45,3 +45,13 @@ export const jungleVillageCache = {
   resource: 'cobalt',
   amount: 4,
 };
+
+// [id, kind, column, floor, respawnDelay]
+export const jungleMobs = [
+  ['jungle-west-lookout', 'cannibal-bow', 345, 10, 48],
+  ['jungle-west-warrior', 'cannibal-spear', 350, JUNGLE_ISLAND.floor, 45],
+  ['jungle-chief-guard', 'cannibal-spear', 360, JUNGLE_ISLAND.floor, 45],
+  ['jungle-camp-hunter', 'cannibal-bow', 366, JUNGLE_ISLAND.floor, 48],
+  ['jungle-east-warrior', 'cannibal-spear', 373, JUNGLE_ISLAND.floor, 45],
+  ['jungle-east-lookout', 'cannibal-bow', 382, 10, 48],
+];

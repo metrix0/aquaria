@@ -1,6 +1,12 @@
+import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleCaveStructure } from './jungle-cave-art.js';
 import { mineDecks } from './world/island-cave.js';
 
-export function drawCaveStructure(rect, polygon, { kind, postFeet = [0, 0] }, x, y) {
+export function drawCaveStructure(rect, polygon, structure, x, y, time = 0) {
+  const { kind, postFeet = [0, 0] } = structure;
+  if (JUNGLE_CAVE_STRUCTURE_KINDS.has(kind)) {
+    drawJungleCaveStructure(rect, polygon, structure, x, y, time);
+    return;
+  }
   if (kind === 'skeleton') {
     polygon([[x - 19, y - 4], [x - 14, y - 7], [x - 9, y - 6], [x - 2, y - 1], [x - 15, y - 1]], '#72645b');
     rect(x + 7, y - 9, 9, 7, '#c7b393');

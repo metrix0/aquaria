@@ -1,3 +1,5 @@
+import { spearCannibalThrust } from './gameplay/enemies/cannibal.js';
+
 function drawHut(rect, polygon, x, y, chief) {
   const halfW = chief ? 26 : 19;
   const wallH = chief ? 24 : 19;
@@ -113,4 +115,122 @@ export function drawJungleVillageStructure(rect, polygon, kind, x, y, time) {
   else if (kind === 'totem') drawTotem(rect, x, y);
   else if (kind === 'spear-rack') drawSpearRack(rect, x, y);
   else if (kind === 'campfire') drawCampfire(rect, x, y, time);
+}
+
+export function drawCannibal(ctx, rect, polygon, mob, time) {
+  const airborne = mob.grounded === false;
+  const moving = !airborne && Math.abs(mob.dx) > 2;
+  const spear = mob.kind === 'cannibal-spear';
+  const running = spear && Math.abs(mob.dx) > 45;
+  const stride = moving ? Math.round(Math.sin(time * (running ? 20 : 12) + mob.phase) * (running ? 3 : 2)) : 0;
+  const bob = airborne ? (mob.dy < -30 ? 2 : 1)
+    : moving ? Math.abs(Math.round(Math.cos(time * (running ? 20 : 12) + mob.phase))) : 0;
+  const windingUp = mob.windup > 0;
+  const skinShade = '#6b4430';
+  const skin = '#936044';
+  const skinLight = '#b57b5a';
+  const hair = '#261c1a';
+  const wrapDark = '#5e4e2a';
+  const wrap = '#876f3b';
+  const wrapLight = '#a98d4b';
+  const paint = '#d95c48';
+  const paintDark = '#9e382b';
+  const bone = '#f1f3e5';
+
+  ctx.scale(mob.facing, 1);
+
+  // Back arm.
+  rect(-5 - Math.round(stride * 0.6), -15 - bob, 3, 5, skinShade);
+
+  // Legs & bare feet.
+  if (airborne) {
+    const tuck = mob.dy < -30 ? 2 : 1;
+    rect(-4, -6 - tuck, 3, 4, skinShade);
+    rect(-5, -3 - tuck, 4, 2, skinShade);
+    rect(2, -7 - tuck, 3, 4, skin);
+    rect(2, -4 - tuck, 4, 2, skinLight);
+  } else {
+    rect(-4 - stride, -6, 3, 5, skinShade);
+    rect(-5 - stride, -2, 4, 2, skinShade);
+    rect(1 + stride, -6, 3, 5, skin);
+    rect(1 + stride, -2, 4, 2, skinLight);
+  }
+
+  // Woven leaf waist wrap & crimson sash.
+  rect(-5, -10 - bob, 10, 4, wrap);
+  rect(-5, -10 - bob, 10, 1, paintDark);
+  rect(-4, -7 - bob, 2, 2, wrapDark);
+  rect(0, -7 - bob, 2, 2, wrapLight);
+  rect(3, -7 - bob, 2, 2, wrapDark);
+
+  // Bare torso with bone necklace & tribal war paint.
+  rect(-4, -16 - bob, 8, 6, skin);
+  rect(-4, -16 - bob, 2, 6, skinShade);
+  rect(1, -15 - bob, 2, 4, skinLight);
+  rect(-2, -16 - bob, 1, 1, bone);
+  rect(0, -15 - bob, 1, 1, bone);
+  rect(2, -16 - bob, 1, 1, bone);
+  rect(-3, -13 - bob, 6, 1, paint);
+  rect(-1, -12 - bob, 4, 1, bone);
+
+  // Head, wild hair, fierce eyes & variant headdress.
+  rect(-6, -23 - bob, 3, 7, hair);
+  rect(-4, -23 - bob, 8, 7, skin);
+  rect(-4, -23 - bob, 2, 7, skinShade);
+  rect(-4, -24 - bob, 8, 2, hair);
+  rect(-1, -21 - bob, 5, 1, hair);
+  rect(0, -20 - bob, 2, 2, '#161b20');
+  rect(3, -20 - bob, 2, 2, '#161b20');
+  rect(1, -20 - bob, 1, 1, bone);
+  rect(4, -20 - bob, 1, 1, bone);
+
+  if (spear) {
+    rect(-1, -18 - bob, 5, 1, paint);
+    rect(1, -19 - bob, 1, 2, bone);
+    rect(-2, -27 - bob, 2, 3, paint);
+    rect(1, -26 - bob, 2, 2, '#e6b86a');
+
+    const phase = mob.spearThrust == null ? null : Math.min(1, mob.spearThrust / 0.4);
+    const thrust = phase == null ? (running ? 2 : 0) : spearCannibalThrust(phase);
+    rect(0, -14 - bob, 5 + Math.max(0, Math.round(thrust * 0.4)), 3, skinLight);
+
+    const sx = -7 + thrust;
+    const sy = -13 - bob;
+    rect(sx, sy, 21, 2, '#855b42');
+    rect(sx + 2, sy, 17, 1, '#d29c65');
+    rect(sx + 15, sy - 1, 2, 3, paint);
+    rect(sx + 17, sy - 1, 4, 4, '#6e888a');
+    rect(sx + 18, sy, 5, 2, '#b8c4c7');
+    rect(sx + 21, sy, 3, 1, '#e2e9eb');
+    if (phase != null && phase >= 0.28 && phase <= 0.65) {
+      rect(sx + 12, sy - 1, 7, 1, '#f4d4a5a8');
+    }
+  } else {
+    rect(-4, -23 - bob, 9, 2, '#3b7a4b');
+    rect(-2, -23 - bob, 5, 1, '#68b064');
+    rect(0, -18 - bob, 4, 1, '#e6b86a');
+    rect(-4, -26 - bob, 3, 2, paint);
+    rect(-5, -27 - bob, 2, 1, '#e6b86a');
+
+    rect(1, -14 - bob, 5, 2, skinLight);
+    const bowX = windingUp ? 10 : 8;
+    polygon(
+      [
+        [bowX - 2, -20 - bob],
+        [bowX + 2, -17 - bob],
+        [bowX + 2, -10 - bob],
+        [bowX - 2, -7 - bob],
+        [bowX + 1, -11 - bob],
+        [bowX + 1, -16 - bob],
+      ],
+      '#855b42',
+    );
+    rect(bowX + 1, -17 - bob, 1, 8, '#d29c65');
+    rect(bowX - 2 - (windingUp ? 2 : 0), -19 - bob, 1, 11, '#ccc0b1');
+    if (windingUp) {
+      rect(bowX - 4, -14 - bob, 11, 1, '#d29c65');
+      rect(bowX + 6, -15 - bob, 3, 3, '#b8c4c7');
+      rect(bowX - 5, -15 - bob, 2, 3, paint);
+    }
+  }
 }

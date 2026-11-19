@@ -74,11 +74,12 @@ export function createCaveLight() {
     }
 
     for (const lamp of world.caveStructures ?? []) {
-      if (lamp.kind !== 'lamp') continue;
+      const level = lamp.kind === 'cult-idol' ? 68 : lamp.kind === 'native-torch' ? 55 : lamp.kind === 'lamp' ? 53 : 0;
+      if (!level) continue;
       const x = lamp.tx - left;
       const y = lamp.floor - 2 - top;
       if (x < 0 || y < 0 || x >= size || y >= size || !hasExposedCaveFloor(world, lamp)) continue;
-      if (!isSolid(world, player, y * size + x)) lightCell(y * size + x, 53);
+      if (!isSolid(world, player, y * size + x)) lightCell(y * size + x, level);
     }
 
     for (const [dx, rise] of [[-11, 6], [-7, 13], [-3, 4], [0, 19], [4, 10], [9, 15], [12, 4]]) {

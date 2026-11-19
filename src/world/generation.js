@@ -1,9 +1,10 @@
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, inRootGrove, isDryIslandCave, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
-import { JUNGLE_ISLAND, jungleIslandSurface, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
+import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
+import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
 
-export { ISLAND_CAVE, JUNGLE_ISLAND };
+export { ISLAND_CAVE, JUNGLE_CAVE, JUNGLE_ISLAND };
 
 export const TILE = 16;
 export const WORLD_VERSION = 2;
@@ -33,6 +34,8 @@ export const MOB_HEALTH = Object.freeze({
   kraken: 80,
   ghost: 5,
   spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9,
+  'cannibal-spear': 5, 'cannibal-bow': 4,
+  frog: 7,
 });
 
 export function noise(x, y = 0, seed = 0) {
@@ -84,6 +87,7 @@ export function groundAt(tx) {
 export function deepstoneStartAt(tx, row) {
   const x = tx - WEST_EXTENSION;
   if ((x >= -51 && x <= 177) && (row >= OCEAN_ROWS || protectsIslandCave(x, row))) return ISLAND_DEEPSTONE_ROW;
+  if (protectsJungleCave(x, row)) return JUNGLE_DEEPSTONE_ROW;
   return 84 + Math.round(4 * Math.sin((x + ORIGINAL_WEST_EXTENSION) * 0.12));
 }
 
@@ -370,8 +374,12 @@ function isEntranceZone(tx, ty) {
   return CAVE_SYSTEM.entrances.some((e) => Math.abs(tx - e.tx) <= e.radius + 2 && Math.abs(ty - e.ty) <= e.radius + 5);
 }
 
+function isProtectedCave(x, y) {
+  return protectsIslandCave(x, y) || protectsJungleCave(x, y);
+}
+
 function isCarvedAt(tx, ty) {
-  if (ty < WATER_ROW + 4 || ty >= OCEAN_ROWS - 2 || protectsIslandCave(tx - WEST_EXTENSION, ty)) return false;
+  if (ty < WATER_ROW + 4 || ty >= OCEAN_ROWS - 2 || isProtectedCave(tx - WEST_EXTENSION, ty)) return false;
   if (ty <= groundAt(tx) + 3 && !isEntranceZone(tx, ty)) return false;
   for (const chamber of CAVE_SYSTEM.chambers) {
     if (tx >= chamber.minX && tx <= chamber.maxX && ty >= chamber.minY && ty <= chamber.maxY) {
@@ -385,7 +393,7 @@ function isCarvedAt(tx, ty) {
 
 function applyCaves(get, set, bounds) {
   const carve = (x, y) => {
-    if (y < WATER_ROW + 4 || protectsIslandCave(x - WEST_EXTENSION, y)) return;
+    if (y < WATER_ROW + 4 || isProtectedCave(x - WEST_EXTENSION, y)) return;
     if (y <= groundAt(x) + 3 && !isEntranceZone(x, y)) return;
     set(x, y, MATERIAL.air);
   };
@@ -398,7 +406,7 @@ function applyCaves(get, set, bounds) {
 
   for (let y = Math.max(bounds.top, WATER_ROW + 14); y <= Math.min(bounds.bottom, OCEAN_ROWS - 7); y++) {
     for (let x = bounds.left; x <= bounds.right; x++) {
-      if (y <= groundAt(x) + 8 || protectsIslandCave(x - WEST_EXTENSION, y)) continue;
+      if (y <= groundAt(x) + 8 || isProtectedCave(x - WEST_EXTENSION, y)) continue;
       if (caveField(x, y, CAVE_SYSTEM.seed) > 0.76) set(x, y, MATERIAL.air);
     }
   }
@@ -407,7 +415,7 @@ function applyCaves(get, set, bounds) {
   for (const pillar of CAVE_SYSTEM.pillars) {
     if (!overlaps(pillar, bounds)) continue;
     stamp(pillar.tx, pillar.y, pillar.rx, pillar.ry, 63, (tx, ty) => {
-      if (ty > groundAt(tx) + 5 && !protectsIslandCave(tx - WEST_EXTENSION, ty)) set(tx, ty, MATERIAL.stone);
+      if (ty > groundAt(tx) + 5 && !isProtectedCave(tx - WEST_EXTENSION, ty)) set(tx, ty, MATERIAL.stone);
     }, bounds);
   }
 
@@ -502,7 +510,7 @@ function applyOres(get, set, bounds) {
         if (tx + step < bounds.left || tx > bounds.right || noise(column, row, seed + 4) < .33) continue;
         const x = tx + 3 + Math.floor(noise(column, row, seed) * (step - 6));
         const y = row + 1 + Math.floor(noise(column, row, seed + 1) * Math.max(1, Math.min(step - 3, bottom - row - 2)));
-        if (protectsIslandCave(x - WEST_EXTENSION, y)) continue;
+        if (isProtectedCave(x - WEST_EXTENSION, y)) continue;
         const count = 3 + Math.floor(noise(column, row, seed + 2) * 5);
         writeVein(get, set, bounds, x, y, count, material, column % 2 ? 1 : -1);
       }
@@ -549,6 +557,10 @@ export function generateChunk(left, top, size) {
     set(x, y, MATERIAL.air);
     flooded[index(x, y)] = Number(wet);
   }, geology, WEST_EXTENSION);
+  carveJungleCave((x, y, wet) => {
+    set(x, y, MATERIAL.air);
+    flooded[index(x, y)] = Number(wet);
+  }, geology, WEST_EXTENSION);
   placeShipwreck(set, geology, WEST_EXTENSION);
   applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
@@ -581,6 +593,7 @@ export function generateFixtures() {
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
     { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288, floor: groundAt(288 + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
     jungleVillageCache,
+    ...jungleCaveCaches,
   ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
     id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
@@ -661,6 +674,13 @@ export function generateMobs() {
     ...islandMobs.filter(([, , column, floor]) => !inRootGrove(column, floor - 1)).map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor <= ISLAND_DEEPSTONE_ROW ? Math.round(15 + 28 * clamp((WATER_ROW + 40 - floor) / (WATER_ROW + 40 - ISLAND_CAVE.campFloor), 0, 1)) : respawnDelay, phase: index * .7,
     })),
+    ...jungleMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
+      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .9,
+    })),
+    ...jungleCaveMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
+      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .7,
+      praying: true,
+    })),
     ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
@@ -678,7 +698,7 @@ export function generateMobs() {
       homeY: y,
       dx: 0,
       dy: 0,
-      facing: mob.kind === 'kraken' ? -1 : index % 2 ? -1 : 1,
+      facing: mob.kind === 'kraken' ? -1 : mob.kind === 'frog' ? (x <= (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE ? 1 : -1) : index % 2 ? -1 : 1,
       grounded: mob.kind === 'crab',
       flee: 0,
       cooldown: 0,

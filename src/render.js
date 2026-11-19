@@ -1,6 +1,8 @@
 import { drawRootGrove } from './root-grove-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
-import { drawJungleVillageStructure } from "./jungle-village-art.js";
+import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleWallGlyphs, jungleStructureBounds } from "./jungle-cave-art.js";
+import { drawCannibal, drawJungleVillageStructure } from "./jungle-village-art.js";
+import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from "./world/jungle-cave.js";
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
@@ -1081,7 +1083,7 @@ export function createRenderer(canvas) {
     return ty < firstCaveRows[tx];
   }
 
-  function caveWall(world, tx, ty, overview) {
+  function caveWall(world, tx, ty, overview, time = 0) {
     const x = tx * TILE;
     const y = ty * TILE;
     const detail = noise(tx, ty, 91);
@@ -1089,10 +1091,14 @@ export function createRenderer(canvas) {
     const abyss = ty >= 113;
     const jungleMix = wet ? jungleMixAt(x + TILE * 0.5) : 0;
     const palette = (abyss ? ABYSS_CAVE_PAIRS : WET_CAVE_PAIRS).map((pair) => mixPair(pair, jungleMix));
-    const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
-    const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
     const column = tx - WEST_EXTENSION;
-    const groveMoss = !underground && Math.abs(column - ROOT_GROVE.column) < 17 &&
+    const jungleCave = !wet && isDryJungleCave(column, ty);
+    const underground = !wet && !jungleCave && ty >= ISLAND_DEEPSTONE_ROW;
+    const masonry = underground && isDungeonMasonry(column, ty);
+    const jungleMoss = jungleCave ? jungleMossProgress(ty) : 0;
+    const jungleScripture = jungleCave ? jungleScriptureProgress(ty) : 0;
+    const jungleDeep = jungleCave && ty >= JUNGLE_DEEPSTONE_ROW;
+    const groveMoss = !underground && !jungleCave && Math.abs(column - ROOT_GROVE.column) < 17 &&
       detail < .48 * Math.max(0, 1 - groveDistance(column, ty) / 20);
     const [base, shadow, grain] = wet
       ? palette
@@ -1100,7 +1106,13 @@ export function createRenderer(canvas) {
         ? ["#342941", "#261e34", "#4b3c59"]
         : underground
           ? ["#27253a", "#211e32", "#3a334d"]
-          : ["#2b343a", "#232d35", groveMoss ? "#4c5644" : "#3a474b"];
+          : jungleCave
+            ? (jungleMoss > 0.36 && detail < 0.25 + jungleMoss * 0.55
+              ? (jungleDeep ? ["#213831", "#182924", "#375a47"] : ["#283f33", "#1f322a", "#3f5f45"])
+              : jungleDeep
+                ? ["#243033", "#192225", "#344748"]
+                : ["#2d3337", "#23292e", "#3d4649"])
+            : ["#2b343a", "#232d35", groveMoss ? "#4c5644" : "#3a474b"];
     if (overview) {
       rect(x, y, TILE, TILE, base);
       return;
@@ -1187,6 +1199,10 @@ export function createRenderer(canvas) {
       }
       tileCtx.globalCompositeOperation = "source-over";
       ctx.drawImage(tileCanvas, x, y);
+    }
+
+    if (jungleScripture > 0 && !masonry && !exposedEdges && noise(tx, ty, 313) < 0.08 + jungleScripture * 0.54) {
+      drawJungleWallGlyphs(rect, x, y, tx, ty, jungleScripture, overview ? 0 : time);
     }
 
     if (!masonry && detail > 0.69 && tileAt(world, tx, ty - 1)) {
@@ -1367,8 +1383,14 @@ export function createRenderer(canvas) {
             if (moss > .06 && noise(column, y, 173) < moss) {
               rect(x * TILE, y * TILE, TILE, TILE, moss > .77 ? '#5ea55483' : moss > .55 ? '#5d954b51' : '#5f7d402e');
             }
+          } else if (y >= JUNGLE_CAVE.mossStartRow &&
+              TILE_NEIGHBORS.some(([dx, dy]) => isDryJungleCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
+            const moss = jungleMossProgress(y);
+            if (moss > .08 && noise(column, y, 277) < 0.14 + moss * 0.72) {
+              rect(x * TILE, y * TILE, TILE, TILE, moss > .62 ? '#4d8a4966' : '#5382463d');
+            }
           }
-        } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview);
+        } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview, time);
       }
     }
 
@@ -1443,6 +1465,37 @@ export function createRenderer(canvas) {
             Math.max(0, 1 - near / 28) * Math.max(-8, Math.min(8, player.dx * .09));
           polygon([[bx - 1, y], [bx + 1, y], [bx + motion, y - reach]],
             (lush ? ['#83ac48', '#a4bf58', '#47794a', '#658e43'] : ['#638b4c', '#82a25b', '#456a42'])[i % (lush ? 4 : 3)]);
+        }
+      }
+    }
+
+    for (let tx = Math.max(left, WEST_EXTENSION + JUNGLE_CAVE.center - 38);
+      tx < Math.min(right, WEST_EXTENSION + JUNGLE_CAVE.center + 42); tx++) {
+      const column = tx - WEST_EXTENSION;
+      for (let row = Math.max(top, JUNGLE_CAVE.mossStartRow); row < Math.min(bottom, JUNGLE_CAVE.sanctuaryFloor + 4); row++) {
+        const density = jungleMossProgress(row);
+        if (density <= 0 || !tileAt(world, tx, row)) continue;
+        if (isDryJungleCave(column, row - 1) && !tileAt(world, tx, row - 1) && noise(column, row, 241) < 0.22 + density * 0.65) {
+          const x = tx * TILE;
+          const y = row * TILE;
+          rect(x, y, TILE, density > .55 ? 3 : 2, density > .55 ? '#548847' : '#3d693e');
+          const tufts = overview ? 2 : density > .5 ? 6 : 3;
+          for (let i = 0; i < tufts; i++) {
+            const bx = x + (i + .5) * TILE / tufts;
+            const reach = 2 + Math.round((3 + noise(tx, row, i + 211) * 11) * density);
+            polygon([[bx - 1, y], [bx + 1, y], [bx, y - reach]],
+              ['#4f8347', '#6da154', '#39633c'][i % 3]);
+          }
+        }
+        if (isDryJungleCave(column, row + 1) && !tileAt(world, tx, row + 1) && noise(column, row, 257) < 0.14 + density * 0.55) {
+          const x = tx * TILE;
+          const y = (row + 1) * TILE;
+          const tendrils = overview ? 1 : 3;
+          for (let i = 0; i < tendrils; i++) {
+            const bx = x + 3 + i * 5;
+            const drop = 3 + Math.round((4 + noise(tx, row, i + 269) * 14) * density);
+            rect(bx, y, 2, drop, i % 2 ? '#3e7242' : '#588c4b');
+          }
         }
       }
     }
@@ -1544,9 +1597,10 @@ export function createRenderer(canvas) {
 
     for (const structure of world.caveStructures) {
       const { tx, floor, kind } = structure;
-      const side = kind === "headframe" ? 5 : 2;
-      const height = kind === "headframe" ? 8 : 4;
-      const under = kind === "headframe" ? 12 : 1;
+      const jungleBounds = JUNGLE_CAVE_STRUCTURE_KINDS.has(kind) ? jungleStructureBounds(kind) : null;
+      const side = jungleBounds ? jungleBounds.side : kind === "headframe" ? 5 : 2;
+      const height = jungleBounds ? jungleBounds.height : kind === "headframe" ? 8 : 4;
+      const under = jungleBounds ? jungleBounds.under : kind === "headframe" ? 12 : 1;
       if (
         tx < left - side - 1 ||
         tx >= right + side + 1 ||
@@ -1575,6 +1629,7 @@ export function createRenderer(canvas) {
         postFeet ? { ...structure, postFeet } : structure,
         (tx + 0.5) * TILE,
         floor * TILE,
+        overview ? 0 : time,
       );
       ctx.restore();
     }
@@ -1844,6 +1899,8 @@ export function createRenderer(canvas) {
           );
           rect(-6, -10, 12, 1, "#b3ede0");
         }
+      } else if (mob.kind === "cannibal-spear" || mob.kind === "cannibal-bow") {
+        drawCannibal(ctx, rect, polygon, mob, time);
       } else if (mob.kind !== "kraken" && mob.respawnDelay) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
