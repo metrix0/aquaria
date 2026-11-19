@@ -1532,7 +1532,7 @@ export function createRenderer(canvas) {
           );
           rect(-6, -10, 12, 1, "#b3ede0");
         }
-      } else if (mob.respawnDelay) {
+      } else if (mob.kind !== "kraken" && mob.respawnDelay) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
         const [dark, mid, light, stripe] =

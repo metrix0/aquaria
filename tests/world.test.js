@@ -1320,11 +1320,15 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
     const noop = () => {};
     const grad = { addColorStop: noop };
     const translates = [];
+    const fillStyles = [];
+    const strokeStyles = [];
     const makeCtx = (track) => ({
       save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
       beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
-      quadraticCurveTo: noop, rect: noop, fillRect: noop, strokeRect: noop,
-      fill: noop, stroke: noop, clip: noop, drawImage: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fillRect() { if (track) fillStyles.push(this.fillStyle); },
+      fill() { if (track) fillStyles.push(this.fillStyle); },
+      stroke() { if (track) strokeStyles.push(this.strokeStyle); },
       createLinearGradient: () => grad, createRadialGradient: () => grad,
       translate(x, y) { if (track) translates.push([x, y]); },
     });
@@ -1341,6 +1345,8 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
       const mob = game.world.mobs.find((entry) => entry.kind === kind);
       assert.ok(mob, kind);
       translates.length = 0;
+      fillStyles.length = 0;
+      strokeStyles.length = 0;
       renderer.draw({
         world: game.world,
         player: game.player,
@@ -1368,6 +1374,10 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
         translates.some(([x, y]) => x === Math.round(mob.x) && y === Math.round(mob.y)),
         `${kind} was not rendered`,
       );
+      if (kind === 'kraken') {
+        assert.ok(fillStyles.includes('#491f3d'));
+        assert.ok(strokeStyles.includes('#3d1b36'));
+      }
     }
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
