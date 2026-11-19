@@ -109,6 +109,7 @@ export function toggleGodMode(world, player) {
   player.grounded = false;
   player.canShortenJump = false;
   player.waterJump = false;
+  player.climb = null;
   if (!flightOrigin) {
     player.flightOrigin = { x, y, height };
     player.y = Math.max(0, y + height - PLAYER_SIZE.height);
@@ -176,22 +177,27 @@ export function movePlayer(world, player, input, dt) {
     down = false;
     jump = false;
   }
-  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climbing);
-  const rope = canClimb && world.caveClimbs?.some(({ tx, top, bottom }) => {
-      const hand = player.y + 8;
-      return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
-        hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
-        !solidAt(world, tx, Math.floor(hand / TILE));
-    });
-  const shaft = canClimb && !rope && world.mineDecks?.find((structure) => {
+  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climb);
+  const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
+    const hand = player.y + 8;
+    return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
+      hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
+      !solidAt(world, tx, Math.floor(hand / TILE));
+  });
+  const shaft = canClimb && !caveRoute && world.mineDecks?.find((structure) => {
     const { tx, floor, kind } = structure;
     if (kind === 'trestle' || Math.abs(player.x - (tx + .5) * TILE) >= 9) return false;
     const feet = player.y + player.height;
     return feet >= floor * TILE - mineDecks[kind].rises.at(-1) - 1 &&
       feet <= floor * TILE + 1 && hasExposedCaveFloor(world, structure);
   });
-  player.climbing = Boolean(rope || shaft);
-  if (player.climbing) {
+  player.climb = caveRoute || shaft || null;
+  if (player.climb) {
+    const standingY = player.y + player.height - PLAYER_SIZE.height;
+    if (player.height === CRAWL_HEIGHT && standingY >= 0 && !collides(world, player.x, standingY)) {
+      player.y = standingY;
+      player.height = PLAYER_SIZE.height;
+    }
     player.dx = 0;
     const climbSpeed = accessoryFor(player.accessories, 'legs')?.climbSpeed ?? 1;
     player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81 * climbSpeed;
@@ -204,7 +210,7 @@ export function movePlayer(world, player, input, dt) {
       if (climbDistance <= toDeck) {
         player.grounded = !moveAxis(world, player, 'y', toDeck);
         player.dy = 0;
-        player.climbing = !player.grounded;
+        if (player.grounded) player.climb = null;
         return;
       }
     }

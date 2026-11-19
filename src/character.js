@@ -36,6 +36,16 @@ function swimFoot(phase, effort, far) {
   ];
 }
 
+function climbStep(y, restY, rung, cycle) {
+  // Hold a rung for half the cycle, then reach for the next one. Using the
+  // player's position keeps the same contacts when pausing or reversing.
+  const phase = (y + restY - rung) / cycle;
+  const step = Math.floor(phase);
+  const reach = clamp((phase - step - .5) * 2, 0, 1);
+  return [rung + (step + reach * reach * (3 - 2 * reach)) * cycle - y,
+    Math.sin(reach * Math.PI)];
+}
+
 export function createCharacterRenderer(ctx) {
   function rect(x, y, width, height, color) {
     ctx.fillStyle = color;
@@ -95,10 +105,7 @@ export function createCharacterRenderer(ctx) {
     if (!far) rect(x + (swimming ? -2 : 1), y - 1, 1, 1, bootLight);
   }
 
-  function arm(x, y, swing, skin, shirt, far, ring = false) {
-    const shoulder = [x, y];
-    const elbow = [x + Math.round(swing * 0.4), y + 3];
-    const hand = [x + swing, y + 5 - Math.floor(Math.abs(swing) / 2)];
+  function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false) {
     pixelLine(shoulder, elbow, 3, shirt.wet);
     pixelLine(elbow, hand, 3, skin.shade);
     pixelLine(shoulder, elbow, 2, far ? shirt.wet : shirt.base);
@@ -108,6 +115,11 @@ export function createCharacterRenderer(ctx) {
       rect(hand[0], hand[1] - 1, 1, 1, skin.arm);
       rect(hand[0], hand[1], 1, 1, ring ? '#a8f184' : skin.hand);
     }
+  }
+
+  function arm(x, y, swing, skin, shirt, far, ring = false) {
+    bentArm([x, y], [x + Math.round(swing * 0.4), y + 3],
+      [x + swing, y + 5 - Math.floor(Math.abs(swing) / 2)], skin, shirt, far, ring);
   }
 
   function head(style, hair, skin, x, y, sway) {
@@ -282,13 +294,24 @@ export function createCharacterRenderer(ctx) {
   return function drawCharacter(player, appearance, { snorkel = null, ring = false, time = 0, miningSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
     const gear = SNORKELS[snorkel];
     const crawling = player.height === CRAWL_HEIGHT;
+    const climb = !crawling && player.climb;
+    const rope = climb?.kind === 'rope';
+    const climbCenter = climb ? (climb.tx + .5) * TILE - Math.round(player.x) : 0;
     const speed = Math.abs(player.dx);
-    const strideWeight = !reducedMotion && player.grounded && !swimming
+    const strideWeight = !climb && !reducedMotion && player.grounded && !swimming
       ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
     const angle = phase * turn;
     const targetX = miningSwing ? (miningSwing.tx + 0.5) * TILE - player.x : 0;
-    const facing = attack?.facing ?? (Math.sign(attack ? Math.cos(attack.angle) : targetX) || player.facing);
+    const climbFacing = rope && Math.abs(climbCenter) > 2 ? Math.sign(climbCenter) : player.facing;
+    const facing = attack?.facing ?? (Math.sign(attack ? Math.cos(attack.angle) : targetX) || climbFacing);
+    const pixelY = Math.round(player.y);
+    const gripCenter = climbCenter * facing;
+    const shaft = climb?.kind === 'shaft';
+    const rungGap = shaft ? 7 : 8;
+    const firstRung = shaft ? climb.floor * TILE - 3 : 4;
+    const secondRung = firstRung + rungGap;
+    const railReach = climb?.kind === 'headframe' ? 9 : shaft ? 6 : 4;
     const tilt = characterTilt(player, swimming, facing);
     const armSwing = Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
     const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 10) * (1 + 2 * clamp(speed / 70, 0, 1))) : 0;
@@ -319,6 +342,21 @@ export function createCharacterRenderer(ctx) {
     const heldItem = ITEMS[held];
     const weapon = attack?.kind ?? heldItem?.weapon?.id;
 
+    function drawClimbArm(side, rung) {
+      const far = side < 0;
+      const [y, lift] = reducedMotion ? [far ? 6 : 10, 0] : climbStep(pixelY, 12, rung, rungGap * 2);
+      const grip = rope ? gripCenter + side : clamp(side * 5, gripCenter - railReach, gripCenter + railReach);
+      const hand = [grip + (rope ? -lift : side * lift), y];
+      const elbow = [(side * shoulderX + hand[0]) / 2 + side * 2, 12 - (12 - y) * .35];
+      bentArm([side * shoulderX, 11], elbow, hand, armSkin, shirt, far, ring);
+    }
+
+    function climbFoot(side, rung) {
+      const [y, lift] = reducedMotion ? [side < 0 ? 22 : 20, 0] : climbStep(pixelY, 23, rung - 1, rungGap * 2);
+      const boot = rope ? gripCenter + side * 2 : clamp(side * 4, gripCenter - railReach, gripCenter + railReach);
+      return [boot + side * lift, Math.min(y, player.grounded ? 22 : 23)];
+    }
+
     function drawFrontArm(restSwing, restY) {
       if (attack || (weapon && !miningSwing)) {
         weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, armSkin, shirt, hasArrow, reducedMotion, ring);
@@ -334,7 +372,7 @@ export function createCharacterRenderer(ctx) {
     ctx.save();
     if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
     const jitter = (player.stun ?? 0) > 0 && !reducedMotion ? Math.round(Math.sin(time * 48)) : 0;
-    ctx.translate(Math.round(player.x) + jitter, Math.round(player.y));
+    ctx.translate(Math.round(player.x) + jitter, pixelY);
     const drawElectricStun = (cy) => {
       if (!((player.stun ?? 0) > 0)) return;
       const tick = Math.floor(time * 24);
@@ -393,10 +431,11 @@ export function createCharacterRenderer(ctx) {
       ctx.restore();
       return;
     }
-    if (swimming) ctx.rotate(tilt);
-    leg([-2, 17], farFoot, pants, true, swimming, feetGear, accessories);
+    if (swimming && (!climb || attack || miningSwing)) ctx.rotate(tilt);
+    leg([-2, 17], climb ? climbFoot(-1, firstRung) : farFoot, pants, true, swimming && !climb, feetGear, accessories);
     if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear, accessories);
-    arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
+    if (climb) drawClimbArm(-1, secondRung);
+    else arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     rect(-(shoulder - 1) / 2, 9, shoulder, 5, shirt.wet);
     rect(-(waist - 1) / 2, 13, waist, 5, pants.back);
@@ -408,7 +447,7 @@ export function createCharacterRenderer(ctx) {
     rect(0, 13, 2, 1, shirt.light);
     rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
     rect(-1, 16, 2, 1, '#d9ac75');
-    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear, accessories);
+    if (!strideWeight) leg([1, 17], climb ? climbFoot(1, secondRung) : nearFoot, pants, false, swimming && !climb, feetGear, accessories);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
     if (gear) divingSnorkel(0, 0, gear);
     rect(-2, 9, 5, 1, '#efc48d');
@@ -417,7 +456,8 @@ export function createCharacterRenderer(ctx) {
     if (armor) chestArmor(-(shoulder - 1) / 2, 10, shoulder, armor);
     accessoryBand(-3, 1, 7, circlet);
     accessoryBand(-1, 11, 3, brooch);
-    drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
+    if (climb && !attack && !miningSwing) drawClimbArm(1, firstRung);
+    else drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
 
     if (swimming) {
       for (let i = 0; i < 3; i++) {

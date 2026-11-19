@@ -2,12 +2,18 @@ import { ARMOR, FEET_GEAR, MATERIAL, MATERIAL_IDS, normalizeAccessories, normali
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
+import { caveClimbs, caveStructures } from '../world/island-cave.js';
 
 const roomCodePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const poseOffset = (WEST_EXTENSION - ORIGINAL_WEST_EXTENSION) * TILE;
 const peerExpiry = 5000;
 const maxPeers = 64;
 const maxPeerVelocity = 300;
+const climbsByColumn = new Map([
+  ...caveClimbs.map(([column, , , kind]) => [column, { tx: column + WEST_EXTENSION, kind }]),
+  ...caveStructures.filter(([kind]) => kind === 'shaft' || kind === 'headframe')
+    .map(([kind, column, floor]) => [column, { tx: column + WEST_EXTENSION, kind, floor }]),
+]);
 let clientPromise;
 
 export function roomCode(value) {
@@ -127,6 +133,7 @@ export async function connectRoom(config, invite, handlers) {
     peers.set(payload.id, {
       ...PLAYER_SIZE, height, walkPhase: old?.walkPhase ?? 0,
       grounded: typeof payload.grounded === 'boolean' ? payload.grounded : payload.dy === 0,
+      climb: climbsByColumn.get(payload.climbColumn) ?? null,
       id: payload.id, dx: payload.dx, dy: payload.dy, facing: payload.facing,
       x: old?.x ?? x, y: old ? old.y + old.height - height : payload.y,
       targetX: x, targetY: payload.y, seenAt: performance.now(),
@@ -192,6 +199,7 @@ export async function connectRoom(config, invite, handlers) {
         feet: player.feet,
         accessories: player.accessories,
         crawling: player.height === CRAWL_HEIGHT,
+        climbColumn: player.climb ? player.climb.tx - WEST_EXTENSION : null,
       };
       if (connected && now - lastBroadcast >= 125) {
         const fingerprint = JSON.stringify(pose);
