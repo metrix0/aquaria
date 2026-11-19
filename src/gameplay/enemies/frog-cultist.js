@@ -4,12 +4,16 @@ import { TILE, WEST_EXTENSION } from '../../world/generation.js';
 import { clearPath, hurtPlayer, makeCaveEnemySpec, stepCaveEnemyBase } from './cave-shared.js';
 
 export const FROG_PROXIMITY_RANGE = 112;
-const CLAW_SLASH_DURATION = 0.34;
+export const CLAW_SLASH_DURATION = 0.22;
+const BITE_WINDUP_DURATION = 0.18;
+const BITE_DASH_DURATION = 0.18;
+const BITE_DASH_SPEED = 225;
+const FROG_ATTACK_COOLDOWN = 0.58;
 const BITE_DAMAGE = 20;
 const CLAW_DAMAGE = 16;
 
 export const frogCultistSpec = {
-  ...makeCaveEnemySpec('frog', 'frog cultist', 16, 26, 58, CLAW_DAMAGE, 78),
+  ...makeCaveEnemySpec('frog', 'frog cultist', 16, 26, 74, CLAW_DAMAGE, 82),
   color: '#6e9a54',
 };
 
@@ -25,6 +29,7 @@ export function aggroJungleCult(world) {
     if (mob.kind !== 'frog' || mob.health <= 0 || mob.respawn > 0) continue;
     mob.cultAggro = true;
     mob.praying = false;
+    mob.attackTimer = Math.min(mob.attackTimer ?? 0, 0.18);
   }
 }
 
@@ -78,13 +83,13 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
     sightRange: 720,
     leashRange: 640,
     chaseDistance: 16,
-    windupDuration: 0.3,
-    attackCooldown: 1.05,
+    windupDuration: 0.16,
+    attackCooldown: FROG_ATTACK_COOLDOWN,
     stepActive({ active, distance, deltaX, deltaY }) {
       if (mob.clawSlash != null) {
         mob.clawSlash += dt;
         const phase = Math.min(1, mob.clawSlash / CLAW_SLASH_DURATION);
-        if (active && !mob.clawHit && phase >= 0.25 && phase <= 0.72) {
+        if (active && !mob.clawHit && phase >= 0.22 && phase <= 0.78) {
           const reach = Math.round(-2 + phase * 18);
           const hitbox = toolHitbox(Math.round(mob.x) + mob.facing * 2, Math.round(mob.y) - 13, mob.facing, 0, [reach, -8, 22, 16]);
           if (overlapsMob(hitbox, player, { width: player.width, height: player.height, centerY: player.height / 2 })) {
@@ -96,7 +101,7 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
           mob.clawSlash = null;
           mob.clawHit = false;
         }
-        return phase >= 0.22 && phase <= 0.52 ? mob.facing * 42 : 0;
+        return phase >= 0.18 && phase <= 0.56 ? mob.facing * 56 : 0;
       }
 
       if (mob.dash > 0) {
@@ -106,7 +111,7 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
           hurtPlayer(player, BITE_DAMAGE, mob.facing, 'Bitten by a frog cultist!', '#93c85e', effects);
         }
         if (mob.dash === 0) mob.biteHit = false;
-        return mob.facing * 158;
+        return mob.facing * BITE_DASH_SPEED;
       }
 
       if (mob.windup > 0 && active && distance > 38 && mob.attackMode === 'claw') {
@@ -117,21 +122,21 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
     startAttack({ distance }) {
       if (distance > 34 || mob.attackMode === 'bite') {
         mob.attackMode = 'bite';
-        mob.windup = 0.34;
+        mob.windup = BITE_WINDUP_DURATION;
         mob.biteHit = false;
       } else {
         mob.attackMode = 'claw';
         mob.clawSlash = 0;
         mob.clawHit = false;
-        mob.attackTimer = 1.05;
+        mob.attackTimer = FROG_ATTACK_COOLDOWN;
       }
     },
     onWindupComplete({ active }) {
       if (mob.attackMode === 'bite') {
-        mob.dash = 0.24;
+        mob.dash = BITE_DASH_DURATION;
         mob.biteHit = false;
         mob.attackMode = 'claw';
-        mob.attackTimer = 1.15;
+        mob.attackTimer = FROG_ATTACK_COOLDOWN + 0.04;
       } else if (active) {
         mob.clawSlash = 0;
         mob.clawHit = false;

@@ -1,3 +1,4 @@
+import { CLAW_SLASH_DURATION } from './gameplay/enemies/frog-cultist.js';
 import { pickaxePose } from './gameplay/melee.js';
 import { drawPickaxe } from './pickaxe-art.js';
 
@@ -80,7 +81,7 @@ function drawFrogCultist(rect, polygon, mob, time) {
     rect(headX + 9, headY + 8, 3, 5, ridge);
     rect(headX + 10, headY + 6, 2, 2, claw);
   } else if (slashing) {
-    const phase = Math.min(1, mob.clawSlash / 0.34);
+    const phase = Math.min(1, mob.clawSlash / CLAW_SLASH_DURATION);
     const sweep = -16 + Math.round(phase * 14);
     polygon([[2, -16], [10, sweep - 2], [13, sweep + 2], [4, -12]], skin);
     rect(12, sweep - 2, 5, 2, claw);
