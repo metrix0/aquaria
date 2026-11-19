@@ -1,4 +1,4 @@
-import { ACCESSORIES, ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, craftMaterialCount, equipmentCraftStatus } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
@@ -16,9 +16,6 @@ const recipes = [
   { recipe: ARROW, name: 'Arrows', description: 'A bundle of four arrows for the bow.' },
   ...Object.values(ARMOR).map((recipe) => ({
     recipe, description: 'Reduces incoming health damage by ' + Math.round(recipe.protection * 100) + '%.',
-  })),
-  ...Object.values(ACCESSORIES).map((recipe) => ({
-    recipe, description: recipe.description + ' ' + recipe.effect + ' when equipped.',
   })),
   { recipe: KELP_DRESSING, description: 'Restores up to ' + KELP_DRESSING.heal + ' health. Put it in the hotbar, select it, and click or tap the world to use it.' },
   { recipe: WOODEN_DOOR, description: 'Place it above a solid floor with two blocks of clearance. Opens as you approach.' },

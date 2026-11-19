@@ -1,4 +1,4 @@
-import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeAccessories, normalizeSnorkel } from './content.js';
+import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
 import { ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
@@ -55,7 +55,6 @@ export function decodeSave(data) {
     appearance: data.appearance,
     armor: Object.hasOwn(ARMOR, player?.armor) ? player.armor : null,
     feet: Object.hasOwn(FEET_GEAR, player?.feet) ? player.feet : null,
-    accessories: normalizeAccessories(player?.accessories),
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
     player: {
@@ -75,7 +74,6 @@ export function encodeSave(game, saveTerrain = true) {
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
   if (player.armor) position.armor = player.armor;
   if (player.feet) position.feet = player.feet;
-  if (player.accessories && Object.keys(player.accessories).length) position.accessories = { ...player.accessories };
   if (height === CRAWL_HEIGHT) position.crawling = true;
   const droppedKrakenChest = world.items.find((item) => item.id === KRAKEN_CHEST_ID);
   return {

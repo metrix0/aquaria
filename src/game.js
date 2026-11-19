@@ -1,5 +1,5 @@
 import { Inventory, ITEMS } from './inventory.js';
-import { ARROW, WORKBENCH, accessoryFor } from './content.js';
+import { ARROW, WORKBENCH } from './content.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
@@ -309,7 +309,6 @@ const ui = createUI({
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
-  getAccessory: (slot) => accessoryFor(game.player.accessories, slot),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;

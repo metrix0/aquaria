@@ -1,4 +1,4 @@
-import { ARMOR, FEET_GEAR, accessoryFor, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { isGrovePool, mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, WEST_EXTENSION, clamp } from '../world/generation.js';
@@ -15,16 +15,15 @@ export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
-export function spawn(world, oxygen, appearance, armor = null, feet = null, accessories = {}) {
+export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, accessories, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
   const protection = ARMOR[player.armor]?.protection ?? 0;
-  const ward = accessoryFor(player.accessories, 'chest')?.protection ?? 0;
-  const loss = Math.max(1, Math.round(damage * (1 - protection) * (1 - ward)));
+  const loss = Math.max(1, Math.round(damage * (1 - protection)));
   player.health = Math.max(0, player.health - loss);
   return loss;
 }
@@ -204,8 +203,7 @@ export function movePlayer(world, player, input, dt) {
       player.height = PLAYER_SIZE.height;
     }
     player.dx = 0;
-    const climbSpeed = accessoryFor(player.accessories, 'legs')?.climbSpeed ?? 1;
-    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81 * climbSpeed;
+    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81;
     player.canShortenJump = false;
     player.waterJump = false;
     const climbDistance = player.dy * dt;
@@ -238,8 +236,7 @@ export function movePlayer(world, player, input, dt) {
   if (horizontal) player.facing = horizontal;
   const swimMultiplier = FEET_GEAR[player.feet]?.swimMultiplier ?? 1;
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
-  const walkSpeed = accessoryFor(player.accessories, 'feet')?.walkSpeed ?? 1;
-  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112 * walkSpeed;
+  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);

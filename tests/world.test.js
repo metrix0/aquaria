@@ -2,7 +2,7 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, isDryIslandCave, isDungeonMasonry, isGrovePool } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ACCESSORIES, ACCESSORY_SLOTS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
@@ -1149,44 +1149,6 @@ test('spear and pickaxe recipes require a workbench without consuming materials 
     assert.equal(game.inventory.count(recipe.id), 1, recipe.id);
   }
   assert.equal(canCraftItem(createGame(), WOODEN_DOOR), true);
-});
-
-test('accessories craft at a bench and survive inventory transfers, reloads, and respawns', () => {
-  const game = createGame();
-  const chestId = 'island-cave-cache';
-  const chest = { group: 'chest', index: 1 };
-  const expected = {};
-  for (const [index, slot] of ACCESSORY_SLOTS.entries()) {
-    const recipe = Object.values(ACCESSORIES).find((item) => item.slot === slot);
-    for (const [id, count] of Object.entries(recipe.cost)) game.inventory.add(id, count);
-    assert.equal(craftItem(game, recipe), false);
-    assert.equal(craftItem(game, recipe, WORKBENCH.id), true);
-    const group = ['hotbar', 'backpack'].find((group) => game.inventory[group].some((stack) => stack?.id === recipe.id));
-    const inventory = { group, index: game.inventory[group].findIndex((stack) => stack?.id === recipe.id) };
-    const accessory = { group: 'accessory', index };
-    const wrongSlot = { group: 'accessory', index: (index + 1) % ACCESSORY_SLOTS.length };
-    assert.equal(moveInventoryStack(game, chestId, inventory, wrongSlot), false);
-    assert.equal(moveInventoryStack(game, chestId, inventory, chest), true);
-    assert.equal(moveInventoryStack(game, chestId, chest, accessory), true);
-    assert.equal(game.inventory.count(recipe.id), 0);
-    expected[slot] = recipe.id;
-  }
-
-  grantItem(game, 'copper-breastplate', 1);
-  const restored = createGame(decodeSave(encodeSave(game)));
-  assert.deepEqual(restored.player.accessories, expected);
-  assert.equal(restored.player.armor, 'copper-breastplate');
-  assert.equal(takeDamage(restored.player, 100), 78);
-  restored.player.health = 0;
-  restored.player.hurt = 1;
-  stepGame(restored, {}, 1 / 60);
-  assert.deepEqual(restored.player.accessories, expected);
-
-  const head = { group: 'accessory', index: 0 };
-  const backpack = { group: 'backpack', index: 0 };
-  assert.equal(moveInventoryStack(restored, chestId, head, backpack), true);
-  assert.equal(restored.inventory.count(expected.head), 1);
-  assert.equal(restored.player.accessories.head, undefined);
 });
 
 test('snorkels require a workbench and upgrade copper into iron, then iron into cobalt', () => {
