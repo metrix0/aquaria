@@ -1298,6 +1298,7 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   for (let i = 0; i < 45; i++) stepGame(game, {}, 1 / 60);
   const minions = world.mobs.filter((mob) => mob.krakenMinion && mob.kind === 'squid');
   assert.equal(minions.length, 3);
+  assert.ok(kraken.sonarTime > 0);
 
   // Tertiary attack: grabs the player and pulls them deeper underwater.
   world.mobs = [kraken];
@@ -1450,6 +1451,19 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
           worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
         });
         assert.ok(fillRects.some(([, , w, h, color]) => w === 4 && h === 4 && color === '#f0c88b'));
+
+        strokeStyles.length = 0;
+        mob.attackMode = 'idle';
+        mob.sonarTime = 0.7;
+        renderer.draw({
+          world: game.world, player: game.player, snorkel: null,
+          camera: { x: mob.x - 180, y: mob.y - 120, width: 320, height: 180 },
+          time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+          held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+          particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+          worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+        });
+        assert.ok(strokeStyles.includes('#8bdfd0') && strokeStyles.includes('#da9292'));
       }
     }
   } finally {

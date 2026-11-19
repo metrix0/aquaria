@@ -91,6 +91,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   mob.actionTime = mob.actionTime ?? 0;
   mob.attackIndex = mob.attackIndex ?? 0;
   mob.tentacleReach = mob.tentacleReach ?? 0;
+  mob.sonarTime = Math.max(0, (mob.sonarTime ?? 0) - dt);
 
   const barrierX = krakenBarrierX(mob);
   if (!player.flightOrigin && player.x + player.width / 2 > barrierX) {
@@ -296,5 +297,6 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     }
     mob.attackMode = mode;
     mob.windup = mode === 'summon' ? 0.6 : 0.52;
+    if (mode === 'summon') mob.sonarTime = 1.2;
   }
 }

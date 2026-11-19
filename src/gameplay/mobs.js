@@ -56,6 +56,7 @@ function clearKrakenState(mob) {
     grabbing: false,
     tentacleReach: 0,
     tentacleTarget: null,
+    sonarTime: 0,
   });
 }
 

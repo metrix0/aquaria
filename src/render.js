@@ -1955,10 +1955,31 @@ export function createRenderer(canvas) {
         rect(-44, 6, 14, 14, "#2d1429");
         rect(-42, 8, 10, 10, "#491f3d");
         rect(-40, 10, 6, 6, "#7e4268");
-        if (mob.attackMode === "summon" && (mob.windup ?? 0) > 0) {
-          rect(-50, 4, 10, 18, "#0d1017");
-          rect(-48, 7, 6, 12, "#b0667d");
-          rect(-47, 10, 4, 6, "#f8dca5");
+        if ((mob.sonarTime ?? 0) > 0) {
+          const elapsed = 1.2 - mob.sonarTime;
+          const headY = -58 + breathe;
+          ctx.save();
+          for (let r = 0; r < 3; r++) {
+            const ringPhase = (elapsed - r * 0.22) / 0.72;
+            if (ringPhase <= 0 || ringPhase >= 1) continue;
+            const radius = Math.round(18 + ringPhase * 150);
+            ctx.globalAlpha = Math.sin(ringPhase * Math.PI) * 0.9;
+            ctx.strokeStyle = r % 2 === 0 ? "#8bdfd0" : "#f8dca5";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(0, headY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.strokeStyle = "#da9292";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, headY, Math.max(4, radius - 3), 0, Math.PI * 2);
+            ctx.stroke();
+            for (let p = 0; p < 8; p++) {
+              const a = (p / 8) * Math.PI * 2 + ringPhase * 1.2;
+              rect(Math.cos(a) * radius - 1, headY + Math.sin(a) * radius - 1, 2, 2, "#f1f3e5");
+            }
+          }
+          ctx.restore();
         }
       }
       ctx.restore();
