@@ -1449,11 +1449,11 @@ export function createRenderer(canvas) {
         tx < Math.min(right, WEST_EXTENSION + ROOT_GROVE.riverEast + 1); tx++) {
         if (!waterTileAt(world, tx, river)) continue;
         const x = tx * TILE;
-        rect(x, y, TILE, TILE, '#58887b58');
-        rect(x, y, TILE, 1, '#a4cba4');
+        rect(x, y, TILE, TILE, '#3c656b68');
+        rect(x, y, TILE, 1, '#7eaa98');
         if (!overview) {
           const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
-          rect(x + drift + 3, y + 4 + tx % 5, 4 + tx % 5, 1, '#b9d7ac68');
+          rect(x + drift + 3, y + 4 + tx % 5, 4 + tx % 5, 1, '#9bb7af59');
         }
       }
     }
