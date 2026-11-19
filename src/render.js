@@ -2226,87 +2226,76 @@ export function createRenderer(canvas) {
   }
 
   function drawInkSplat(cx, cy, baseR, splat) {
-    const lobes = 10;
-    const points = [];
-    for (let i = 0; i < lobes; i++) {
-      const a0 = splat.angle + (i / lobes) * Math.PI * 2;
-      const aMid = a0 + Math.PI / lobes;
-      const armR = baseR * (0.72 + noise(i * 3, splat.seed) * 0.78);
-      const valleyR = baseR * (0.34 + noise(i * 3 + 1, splat.seed) * 0.24);
-      points.push({
-        ax: cx + Math.cos(a0) * armR,
-        ay: cy + Math.sin(a0) * armR,
-        vx: cx + Math.cos(aMid) * valleyR,
-        vy: cy + Math.sin(aMid) * valleyR,
-      });
-    }
+    const step = Math.max(2, Math.round(baseR / 13));
+    const snap = (v) => Math.round(v / step) * step;
+    const ox = snap(cx);
+    const oy = snap(cy);
+    const maxCells = Math.ceil((baseR * 1.35) / step);
 
     ctx.beginPath();
-    const last = points[points.length - 1];
-    ctx.moveTo((last.vx + points[0].ax) * 0.5, (last.vy + points[0].ay) * 0.5);
-    for (let i = 0; i < points.length; i++) {
-      const curr = points[i];
-      const next = points[(i + 1) % points.length];
-      ctx.quadraticCurveTo(curr.ax, curr.ay, curr.vx, curr.vy);
-      ctx.quadraticCurveTo(
-        curr.vx,
-        curr.vy,
-        (curr.vx + next.ax) * 0.5,
-        (curr.vy + next.ay) * 0.5,
-      );
+    // Pixel-stepped organic star-splatter body.
+    for (let gy = -maxCells; gy <= maxCells; gy++) {
+      for (let gx = -maxCells; gx <= maxCells; gx++) {
+        const px = gx * step;
+        const py = gy * step;
+        const dist = Math.hypot(px, py);
+        const ang = Math.atan2(py, px) - splat.angle;
+        const lobe =
+          0.62 +
+          0.26 * Math.sin(ang * 5 + noise(1, splat.seed) * 6) +
+          0.18 * Math.cos(ang * 3 - noise(2, splat.seed) * 6) +
+          0.12 * (noise(gx + 20, gy + 20, splat.seed) - 0.5);
+        if (dist <= baseR * lobe) {
+          ctx.rect(ox + px, oy + py, step, step);
+        }
+      }
     }
-    ctx.closePath();
 
+    // Pixel-stepped radiating splatter streaks and flung droplets.
     for (let k = 0; k < 6; k++) {
       const ang = splat.angle + k * 1.05 + noise(k, splat.seed + 7) * 0.6;
       const cos = Math.cos(ang);
       const sin = Math.sin(ang);
-      const px = -sin;
-      const py = cos;
-      const start = baseR * 0.45;
-      const len = baseR * (1.2 + noise(k + 10, splat.seed) * 0.95);
-      const w0 = baseR * 0.14;
-      const w1 = baseR * 0.035;
-      ctx.moveTo(cx + cos * start + px * w0, cy + sin * start + py * w0);
-      ctx.lineTo(cx + cos * len + px * w1, cy + sin * len + py * w1);
-      ctx.arc(
-        cx + cos * len,
-        cy + sin * len,
-        w1,
-        ang - Math.PI / 2,
-        ang + Math.PI / 2,
-      );
-      ctx.lineTo(cx + cos * start - px * w0, cy + sin * start - py * w0);
-      ctx.closePath();
-
-      const dropDist = len + baseR * (0.22 + noise(k + 17, splat.seed) * 0.25);
-      const dropR = baseR * (0.055 + noise(k + 21, splat.seed) * 0.055);
-      const dx = cx + cos * dropDist;
-      const dy = cy + sin * dropDist;
-      ctx.moveTo(dx + dropR, dy);
-      ctx.arc(dx, dy, dropR, 0, Math.PI * 2);
+      const start = baseR * 0.5;
+      const len = baseR * (1.25 + noise(k + 10, splat.seed) * 0.9);
+      for (let d = start; d <= len; d += step) {
+        const sx = ox + snap(cos * d);
+        const sy = oy + snap(sin * d);
+        const w = d < start + (len - start) * 0.45 ? step * 2 : step;
+        ctx.rect(sx, sy, w, w);
+      }
+      const dropDist = len + baseR * (0.24 + noise(k + 17, splat.seed) * 0.28);
+      const dropS = noise(k + 21, splat.seed) > 0.5 ? step * 2 : step;
+      ctx.rect(ox + snap(cos * dropDist), oy + snap(sin * dropDist), dropS, dropS);
     }
 
-    const age = Math.max(0, (splat.duration ?? 4.5) - splat.time);
+    // Pixel-stepped vertical ink drips.
+    const age = Math.max(0, (splat.duration ?? 7) - splat.time);
     for (let d = 0; d < 3; d++) {
-      const dripX = cx + (noise(d, splat.seed + 23) - 0.5) * baseR * 1.05;
-      const dripTop = cy + baseR * (0.22 + noise(d + 5, splat.seed) * 0.25);
-      const dripLen =
-        baseR * (0.55 + noise(d + 9, splat.seed) * 0.65) +
-        Math.min(age, 3) * baseR * 0.16;
-      const stemW = baseR * 0.045;
-      const tipR = baseR * (0.085 + noise(d + 13, splat.seed) * 0.04);
-      const tipY = dripTop + dripLen;
-      ctx.moveTo(dripX - stemW, dripTop);
-      ctx.lineTo(dripX + stemW, dripTop);
-      ctx.lineTo(dripX + stemW * 0.7, tipY);
-      ctx.lineTo(dripX - stemW * 0.7, tipY);
-      ctx.closePath();
-      ctx.moveTo(dripX + tipR, tipY);
-      ctx.arc(dripX, tipY, tipR, 0, Math.PI * 2);
+      const dripX = ox + snap((noise(d, splat.seed + 23) - 0.5) * baseR * 1.0);
+      const dripTop = oy + snap(baseR * (0.28 + noise(d + 5, splat.seed) * 0.2));
+      const dripLen = snap(
+        baseR * (0.55 + noise(d + 9, splat.seed) * 0.6) + Math.min(age, 3) * baseR * 0.16,
+      );
+      for (let y = 0; y < dripLen; y += step) {
+        ctx.rect(dripX, dripTop + y, step, step);
+      }
+      ctx.rect(dripX - Math.floor(step / 2), dripTop + dripLen, step * 2, step * 2);
     }
 
     ctx.fill();
+
+    // Wet-ink pixel sheen highlights matching the squid ink bubbles (drawn without outer shadow).
+    ctx.save();
+    ctx.shadowColor = "transparent";
+    const sheenX = ox - snap(baseR * 0.3);
+    const sheenY = oy - snap(baseR * 0.3);
+    ctx.fillStyle = "#1e232e";
+    ctx.fillRect(sheenX, sheenY, step * 3, step);
+    ctx.fillRect(sheenX, sheenY + step, step, step * 2);
+    ctx.fillStyle = "#4b5263";
+    ctx.fillRect(sheenX, sheenY, step, step);
+    ctx.restore();
   }
 
   function inkOverlay(camera, player) {
@@ -2314,7 +2303,6 @@ export function createRenderer(canvas) {
     if (!splats?.length) return;
     const span = Math.min(camera.width, camera.height);
     ctx.save();
-    ctx.fillStyle = "#040508";
     ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
     ctx.shadowBlur = Math.max(25, Math.round(canvas.height * 0.065));
 
@@ -2325,6 +2313,7 @@ export function createRenderer(canvas) {
       const fade = Math.min(1, splat.time / 2);
       if (fade <= 0) continue;
       ctx.globalAlpha = fade * 0.95;
+      ctx.fillStyle = splat.color ?? "#040508";
       drawInkSplat(
         splat.nx * camera.width,
         splat.ny * camera.height,

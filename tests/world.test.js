@@ -1556,6 +1556,19 @@ test('kraken death plays head implosion with screen shake and tentacle disintegr
 
     drawAt(KRAKEN_DEATH_DURATION * 0.3);
     assert.ok(strokes.includes('#8bdfd0'));
+
+    fillRects.length = 0;
+    game.player.inkSplats = [{ nx: 0.4, ny: 0.5, scale: 1, angle: 0.5, seed: 42, color: '#0d1017', time: 5, duration: 7 }];
+    renderer.draw({
+      world, player: game.player, snorkel: null,
+      camera: { x: game.player.x - 160, y: game.player.y - 90, width: 320, height: 180 },
+      time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+    assert.ok(fillRects.some(([, , , , color]) => color === '#1e232e'));
+    assert.ok(fillRects.some(([, , , , color]) => color === '#4b5263'));
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;
