@@ -163,9 +163,10 @@ dialog p { font-size: 13px; color: var(--muted); }
 .character-swatch input:checked { border: 2px solid #f4e1b0; box-shadow: inset 0 0 0 1px var(--ink); }
 .character-swatch input:focus-visible, .character-fields select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 #customize-panel .primary { width: 100%; }
-#backpack-panel { width: min(460px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: clamp(12px, 4vw, 20px); }
-.backpack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 18px; }
-.backpack-layout h3, .backpack-accessories h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+#backpack-panel { width: min(580px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: clamp(12px, 4vw, 20px); }
+.backpack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 18px; }
+.backpack-layout h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.backpack-equipment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .backpack-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
 #backpack-slots { margin-top: 12px; }
 #backpack-panel .slot { width: 100%; height: auto; aspect-ratio: 1; padding: 0; background: #0b1d27; border-color: #43616a; }
@@ -176,10 +177,6 @@ dialog p { font-size: 13px; color: var(--muted); }
 #backpack-panel button.slot[data-picked] .item { opacity: .6; }
 .gear-slots { display: grid; gap: 5px; list-style: none; margin: 0; padding: 0; }
 .gear-slots li { display: grid; grid-template-columns: 35px minmax(0, 1fr); gap: 7px; overflow-wrap: anywhere; align-items: center; color: var(--muted); font-size: 12px; }
-.backpack-accessories { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-.accessory-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 40px)); gap: 8px; list-style: none; margin: 0; padding: 0; }
-.accessory-slots li { display: grid; gap: 3px; text-align: center; color: var(--muted); font-size: 11px; }
-#backpack-help { margin: 12px 0 0; }
 #backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
 #inventory-tooltip { position: fixed; z-index: 2; pointer-events: none; display: grid; gap: 4px; width: max-content; max-width: min(230px, calc(100vw - 16px)); padding: 9px 11px; border: 1px solid #796846; border-radius: 4px; background: #0b1922; box-shadow: 0 5px 18px #02080bb3; }
 #inventory-tooltip strong { color: var(--gold); font-size: 13px; }
@@ -267,11 +264,12 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .inventory { padding-bottom: 8px; }
   .interact { bottom: 184px; }
 }
-@media (max-width: 420px) {
+@media (max-width: 490px) {
   .backpack-layout { grid-template-columns: 1fr; gap: 12px; }
+  .gear-slots li { grid-template-columns: 30px minmax(0, 1fr); }
+}
+@media (max-width: 420px) {
   .chest-storage:not([hidden]) ~ .backpack-layout .backpack-slots { grid-template-columns: repeat(6, minmax(0, 42px)); }
-  .gear-slots { display: flex; flex-wrap: wrap; gap: 8px 12px; }
-  .gear-slots li { grid-template-columns: 25px auto; gap: 5px; }
 }
 @media (max-height: 480px) {
   .meters { top: max(8px, env(safe-area-inset-top)); }

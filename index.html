@@ -98,7 +98,7 @@
       </form>
     </dialog>
 
-    <dialog id="backpack-panel" aria-labelledby="backpack-title" aria-describedby="backpack-help">
+    <dialog id="backpack-panel" aria-labelledby="backpack-title">
       <div class="dialog-head"><h2 id="backpack-title">Backpack</h2><button data-close aria-label="Close inventory" autofocus>×</button></div>
       <section class="chest-storage" id="chest-storage" aria-labelledby="chest-storage-title" hidden>
         <div class="chest-storage-head">
@@ -114,28 +114,29 @@
           <section aria-labelledby="backpack-hotbar-label"><h3 id="backpack-hotbar-label">Hotbar</h3><div id="backpack-hotbar" class="backpack-slots"></div></section>
           <section aria-label="Backpack storage"><div id="backpack-slots" class="backpack-slots"></div></section>
         </div>
-        <section class="backpack-gear" aria-labelledby="backpack-gear-label">
-          <h3 id="backpack-gear-label">Equipment</h3>
-          <ul class="gear-slots">
-            <li><button type="button" class="slot" id="backpack-head-slot" data-group="head" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-head-label">Head</span></li>
-            <li><span class="slot" aria-hidden="true"><span id="backpack-armor" aria-hidden="true" hidden></span></span><span id="backpack-chest-label">Chest</span></li>
-            <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
-            <li><button type="button" class="slot" id="backpack-feet-slot" data-group="feet" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-feet-label">Feet</span></li>
-            <li><button type="button" class="slot" id="backpack-ring-slot" data-group="ring" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-ring-label">Ring</span></li>
-          </ul>
-        </section>
+        <div class="backpack-equipment">
+          <section aria-labelledby="backpack-gear-label">
+            <h3 id="backpack-gear-label">Equipment</h3>
+            <ul class="gear-slots">
+              <li><button type="button" class="slot" id="backpack-head-slot" data-group="head" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-head-label">Head</span></li>
+              <li><span class="slot" aria-hidden="true"><span id="backpack-armor" aria-hidden="true" hidden></span></span><span id="backpack-chest-label">Chest</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
+              <li><button type="button" class="slot" id="backpack-feet-slot" data-group="feet" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-feet-label">Feet</span></li>
+              <li><button type="button" class="slot" id="backpack-ring-slot" data-group="ring" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-ring-label">Ring</span></li>
+            </ul>
+          </section>
+          <section aria-labelledby="backpack-accessories-label">
+            <h3 id="backpack-accessories-label">Accessories</h3>
+            <ul class="gear-slots">
+              <li><span class="slot" aria-hidden="true"></span><span>Head</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Chest</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Hands</span></li>
+            </ul>
+          </section>
+        </div>
       </div>
-      <section class="backpack-accessories" aria-labelledby="backpack-accessories-label">
-        <h3 id="backpack-accessories-label">Accessories</h3>
-        <ul class="accessory-slots">
-          <li><span class="slot" aria-hidden="true"></span><span>Head</span></li>
-          <li><span class="slot" aria-hidden="true"></span><span>Chest</span></li>
-          <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
-          <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
-          <li><span class="slot" aria-hidden="true"></span><span>Hands</span></li>
-        </ul>
-      </section>
-      <p id="backpack-help">Drag items between slots, or select an item and its destination.</p>
       <div id="inventory-drag" class="slot" hidden aria-hidden="true"><span></span><b></b></div>
       <div id="inventory-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><small></small><em></em></div>
     </dialog>
