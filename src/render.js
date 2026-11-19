@@ -9,6 +9,7 @@ import { drawCaveEnemy } from "./cave-enemy-art.js";
 import { createCharacterRenderer } from "./character.js";
 import { MATERIAL, ORE_MATERIALS } from "./content.js";
 import { jellyfishShockRadius } from "./gameplay/enemies/jellyfish.js";
+import { KRAKEN_DEATH_DURATION } from "./gameplay/enemies/kraken.js";
 import { playerHeadInWater, playerInWater } from "./gameplay/player.js";
 import { createHelmetWreckArt } from "./helmet-wreck-art.js";
 import { ITEMS } from "./inventory.js";
@@ -1457,7 +1458,8 @@ export function createRenderer(canvas) {
 
   function mobs(world, camera, time, targetMob, player) {
     for (const mob of world.mobs ?? []) {
-      if (mob.health <= 0 || mob.respawn > 0) continue;
+      const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
+      if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
       const marginX = mob.kind === "kraken" ? 480 : 32;
       const marginY = mob.kind === "kraken" ? 2000 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
@@ -1807,6 +1809,92 @@ export function createRenderer(canvas) {
           ],
           "#263b51",
         );
+      } else if (mob.kind === "kraken" && dyingKraken) {
+        const progress = clamp(1 - mob.deathTime / KRAKEN_DEATH_DURATION, 0, 1);
+        const headY = -44;
+        // Disintegrate vertical and upper tentacles into shrinking drifting pixel ash.
+        ctx.save();
+        ctx.globalAlpha *= Math.max(0, 1 - progress * 1.05);
+        for (let t = 0; t < 4; t++) {
+          const baseX = -36 + t * 11;
+          const width = 9 - t;
+          for (let y = 26; y <= 2200; y += 8) {
+            const roll = noise(t * 31, y, 71);
+            if (roll < progress * 1.15) continue;
+            const sway = Math.round(Math.sin(time * 2.1 + t * 1.4 + y * 0.025) * 4);
+            const driftX = Math.round((roll - 0.5) * progress * 48);
+            const driftY = Math.round((noise(y, t, 73) - 0.35) * progress * 32);
+            const shrink = Math.max(2, Math.round(width * (1 - progress * 0.75)));
+            const tx = baseX + sway + driftX;
+            const ty = y + driftY;
+            rect(tx, ty, shrink, Math.max(2, Math.round(8 * (1 - progress * 0.6))), t % 2 ? "#491f3d" : "#7e4268");
+            if (y % 24 === 2 && progress < 0.7) rect(tx + 1, ty + 2, 2, 2, "#da9292");
+          }
+        }
+        ctx.restore();
+
+        if (progress < 0.42) {
+          // Stage 1: violent trembling, inward gravitational suction, and glowing fissures as head collapses.
+          const collapse = progress / 0.42;
+          const scale = Math.max(0.14, 1 - collapse * 0.82);
+          const jx = Math.round(Math.sin(time * 70) * (2 + collapse * 5));
+          const jy = Math.round(Math.cos(time * 58) * (1 + collapse * 4));
+          for (let s = 0; s < 14; s++) {
+            const a = (s / 14) * Math.PI * 2 + collapse * 3.2;
+            const r = (1 - collapse) * (68 + (s % 3) * 18);
+            rect(Math.round(Math.cos(a) * r) - 2, Math.round(headY + Math.sin(a) * r) - 2, 4, 4, s % 2 ? "#da9292" : "#8bdfd0");
+          }
+          ctx.save();
+          ctx.translate(jx, headY + jy);
+          ctx.scale(scale, scale);
+          ctx.translate(0, -headY);
+          polygon([[-32, -38], [-22, -96], [2, -118], [34, -114], [48, -74], [44, 24], [-40, 28]], "#192b3e");
+          rect(-28, -90, 68, 56, "#491f3d");
+          rect(-18, -110, 52, 24, "#491f3d");
+          rect(-22, -88, 56, 52, "#7e4268");
+          rect(-42, -40, 82, 64, "#2d1429");
+          rect(-38, -36, 74, 56, "#491f3d");
+          rect(-34, -32, 64, 48, "#7e4268");
+          rect(-32, -18, 16, 14, "#111d2f");
+          rect(-30, -16, 12, 10, "#ff9b80");
+          rect(-28, -14, 8, 6, "#f8dca5");
+          // Glowing fracture cracks slicing inward across the imploding skull.
+          for (let c = 0; c < 5; c++) {
+            const cy = -88 + c * 22;
+            rect(-28 + (c % 2) * 10, cy, Math.round(24 + collapse * 36), 3, c % 2 ? "#f8dca5" : "#8bdfd0");
+          }
+          ctx.restore();
+        } else {
+          // Stage 2: singularity flash, shockwave rings, and scattering pixel debris.
+          const burst = (progress - 0.42) / 0.58;
+          if (burst < 0.25) {
+            const core = Math.round((1 - burst / 0.25) * 18);
+            rect(-core, headY - core, core * 2, core * 2, "#f1f3e5");
+            rect(-Math.floor(core / 2), headY - Math.floor(core / 2), core, core, "#8bdfd0");
+          }
+          ctx.save();
+          ctx.globalAlpha *= Math.max(0, 1 - burst);
+          const ringR = Math.round(8 + burst * 145);
+          ctx.strokeStyle = "#8bdfd0";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, headY, ringR, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = "#f8dca5";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(0, headY, Math.max(2, Math.round(ringR * 0.68)), 0, Math.PI * 2);
+          ctx.stroke();
+          for (let d = 0; d < 18; d++) {
+            const a = (d / 18) * Math.PI * 2 + 0.3;
+            const dist = Math.round(burst * (45 + (d % 4) * 28));
+            const px = Math.round(Math.cos(a) * dist);
+            const py = Math.round(headY + Math.sin(a) * dist);
+            const sz = Math.max(2, Math.round((1 - burst) * 6));
+            rect(px - 2, py - 2, sz, sz, d % 3 === 0 ? "#da9292" : d % 3 === 1 ? "#7e4268" : "#f8dca5");
+          }
+          ctx.restore();
+        }
       } else if (mob.kind === "kraken") {
         const rage = (mob.windup ?? 0) > 0 || (mob.actionTime ?? 0) > 0;
         const breathe = Math.round(Math.sin(time * 2.1) * 2);
@@ -1985,6 +2073,7 @@ export function createRenderer(canvas) {
       ctx.restore();
 
       if (
+        !dyingKraken &&
         mob.maxHealth &&
         (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)
       ) {
@@ -2238,6 +2327,7 @@ export function createRenderer(canvas) {
     weatherSeed,
     caveShadowsHidden,
     openChestId,
+    shake = { x: 0, y: 0 },
     peers = [],
   }) {
     const scale = canvas.width / camera.width;
@@ -2248,7 +2338,9 @@ export function createRenderer(canvas) {
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
-    rect(0, 0, camera.width, camera.height, "#101f33");
+    rect(-32, -32, camera.width + 64, camera.height + 64, "#101f33");
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
     sky(camera, surface, time, conditions);
     if (
       !reducedMotion &&
@@ -2347,6 +2439,7 @@ export function createRenderer(canvas) {
 
     tintWater(camera, surface, water);
     inkOverlay(camera, player);
+    ctx.restore();
   }
 
   return { draw };

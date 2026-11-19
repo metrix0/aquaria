@@ -5,7 +5,8 @@ import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
-import { krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
+import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
+import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
@@ -1466,6 +1467,91 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
         assert.ok(strokeStyles.includes('#8bdfd0') && strokeStyles.includes('#da9292'));
       }
     }
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+
+test('screen shake module decays impulses cleanly and respects reduced motion', () => {
+  const shake = createScreenShake();
+  shake.trigger({ intensity: 10, duration: 0.5, frequency: 40 });
+  assert.equal(shake.activeCount(), 1);
+
+  const offset = shake.step(1 / 60, 0.25, false);
+  assert.ok(Math.hypot(offset.x, offset.y) > 0);
+
+  const reduced = shake.step(1 / 60, 0.3, true);
+  assert.deepEqual(reduced, { x: 0, y: 0 });
+
+  for (let i = 0; i < 40; i++) shake.step(1 / 60, 0.3 + i / 60, false);
+  assert.equal(shake.activeCount(), 0);
+  assert.deepEqual(shake.step(1 / 60, 1, false), { x: 0, y: 0 });
+});
+
+test('kraken death plays head implosion with screen shake and tentacle disintegration', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const game = createGame();
+    const { world } = game;
+    const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
+    damageMob(world, kraken, kraken.maxHealth, 0, 0, game.effects);
+    assert.equal(kraken.health, 0);
+    assert.equal(kraken.deathTime, KRAKEN_DEATH_DURATION);
+
+    let shakeEffect = null;
+    for (let i = 0; i < 90; i++) {
+      game.effects.length = 0;
+      stepGame(game, {}, 1 / 60);
+      const found = game.effects.find((effect) => effect.shake);
+      if (found) shakeEffect = found;
+      if (i === 20) assert.ok(kraken.deathTime > 0);
+    }
+    assert.ok(shakeEffect?.shake?.intensity > 0);
+    assert.equal(kraken.deathImploded, true);
+
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const fillRects = [];
+    const strokes = [];
+    const makeCtx = (track) => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {},
+      fillRect(x, y, w, h) { if (track) fillRects.push([x, y, w, h, this.fillStyle]); },
+      stroke() { if (track) strokes.push(this.strokeStyle); },
+      createLinearGradient: () => grad, createRadialGradient: () => grad,
+      translate: noop,
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx(false) }) },
+      getContext: () => makeCtx(true),
+    };
+    const renderer = createRenderer(canvas);
+    const drawAt = (deathTime) => {
+      fillRects.length = 0;
+      strokes.length = 0;
+      kraken.deathTime = deathTime;
+      renderer.draw({
+        world, player: game.player, snorkel: null,
+        camera: { x: kraken.x - 180, y: kraken.y - 120, width: 320, height: 180 },
+        time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+        held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+        particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+        shake: { x: 4, y: -3 },
+      });
+    };
+
+    drawAt(KRAKEN_DEATH_DURATION * 0.75);
+    assert.ok(fillRects.some(([, , , , color]) => color === '#ff9b80'));
+
+    drawAt(KRAKEN_DEATH_DURATION * 0.3);
+    assert.ok(strokes.includes('#8bdfd0'));
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;

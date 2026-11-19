@@ -4,7 +4,7 @@ import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
-import { krakenSpec, stepKraken } from './enemies/kraken.js';
+import { KRAKEN_DEATH_DURATION, krakenSpec, stepKraken, stepKrakenDeath } from './enemies/kraken.js';
 import { sharkSpec, stepShark } from './enemies/shark.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
 import { stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
@@ -57,6 +57,8 @@ function clearKrakenState(mob) {
     tentacleReach: 0,
     tentacleTarget: null,
     sonarTime: 0,
+    deathTime: 0,
+    deathImploded: false,
   });
 }
 
@@ -135,6 +137,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
   for (const mob of [...world.mobs]) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
+    if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
+      stepKrakenDeath(mob, dt, effects);
+    }
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
@@ -249,6 +254,8 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     if (mob.kind === 'kraken') {
       clearKrakenState(mob);
       mob.windup = 0;
+      mob.deathTime = KRAKEN_DEATH_DURATION;
+      mob.deathImploded = false;
       removeKrakenMinions(world);
     }
     effect = {

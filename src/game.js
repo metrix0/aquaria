@@ -1,6 +1,7 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { ARROW, WORKBENCH } from './content.js';
 import { targetMobAt } from './gameplay/mobs.js';
+import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
@@ -20,6 +21,7 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const available = Boolean(config.url && config.publishableKey);
 const camera = { x: 0, y: 0, width: 1, height: 1 };
 const particles = [];
+const screenShake = createScreenShake();
 const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
 const flightSpeedLevels = [0.5, 1, 2, 4, 8];
 let zoomIndex = zoomLevels.indexOf(100);
@@ -106,13 +108,14 @@ function inventoryChanged() {
   storeProgress();
 }
 
-function emitEffect({ x, y, material, color, count, spread, message }) {
+function emitEffect({ x, y, material, color, count, spread, message, shake }) {
   for (let i = 0; i < count; i++) {
     particles.push({
       x, y, dx: (Math.random() - 0.5) * spread, dy: (Math.random() - 0.65) * spread,
       life: 0.25 + Math.random() * 0.4, material, color,
     });
   }
+  if (shake) screenShake.trigger(shake);
   if (message) ui.notify(message);
 }
 
@@ -228,6 +231,7 @@ function switchView() {
   miningSwing = null;
   ui.godMode(false);
   particles.length = 0;
+  screenShake.clear();
   select(0);
   updateCamera(1);
 }
@@ -451,6 +455,7 @@ function frame(now) {
   }
   const worldTime = room?.worldAge(now) ?? game.worldTime;
   const conditions = worldConditions(worldTime, game.weatherSeed);
+  let shake = { x: 0, y: 0 };
   if (playing) {
     time += dt;
     accumulator += dt;
@@ -473,6 +478,7 @@ function frame(now) {
     }
     updateParticles(dt);
     updateCamera(dt);
+    shake = screenShake.step(dt, time, reducedMotion);
     if (miningSwing) {
       miningSwing.phase += dt / miningSwing.duration;
       if (miningSwing.phase >= 1) miningSwing = null;
@@ -512,7 +518,7 @@ function frame(now) {
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
-    caveShadowsHidden, openChestId: ui.openChestId(),
+    caveShadowsHidden, openChestId: ui.openChestId(), shake,
   });
   requestAnimationFrame(frame);
 }

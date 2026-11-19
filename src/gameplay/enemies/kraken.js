@@ -4,6 +4,7 @@ import { MOB_HEALTH, TILE, WATER, clamp, groundAt } from '../../world/generation
 import { takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
+export const KRAKEN_DEATH_DURATION = 1.9;
 const KRAKEN_TACKLE_RANGE = 190;
 const KRAKEN_GRAB_RANGE = 410;
 const KRAKEN_ENGAGE_RANGE = 420;
@@ -24,6 +25,23 @@ export const krakenSpec = {
 
 export function krakenBarrierX(mob) {
   return mob.x - KRAKEN_BARRIER_OFFSET;
+}
+
+export function stepKrakenDeath(mob, dt, effects) {
+  if (!((mob.deathTime ?? 0) > 0)) return;
+  mob.deathTime = Math.max(0, mob.deathTime - dt);
+  const progress = 1 - mob.deathTime / KRAKEN_DEATH_DURATION;
+  if (progress >= 0.42 && !mob.deathImploded) {
+    mob.deathImploded = true;
+    effects?.push({
+      x: mob.x,
+      y: mob.y - 45,
+      color: '#da9292',
+      count: 34,
+      spread: 140,
+      shake: { intensity: 11, duration: 0.75, frequency: 46 },
+    });
+  }
 }
 
 function spawnKrakenSquids(world, mob, py, effects) {
