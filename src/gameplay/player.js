@@ -1,7 +1,7 @@
-import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { mineDecks } from '../world/island-cave.js';
+import { ARMOR, FEET_GEAR, accessoryFor, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { isGrovePool, mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
-import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
+import { COLS, ROWS, SPAWN, TILE, WEST_EXTENSION, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
 const jumpSpeed = 217;
@@ -15,15 +15,16 @@ export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
-export function spawn(world, oxygen, appearance, armor = null, feet = null) {
+export function spawn(world, oxygen, appearance, armor = null, feet = null, accessories = {}) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, accessories, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
   const protection = ARMOR[player.armor]?.protection ?? 0;
-  const loss = Math.max(1, Math.round(damage * (1 - protection)));
+  const ward = accessoryFor(player.accessories, 'chest')?.protection ?? 0;
+  const loss = Math.max(1, Math.round(damage * (1 - protection) * (1 - ward)));
   player.health = Math.max(0, player.health - loss);
   return loss;
 }
@@ -90,7 +91,12 @@ function waterSensorOffset(player) {
 }
 
 export function playerInWater(world, player) {
-  return inWater(world, player.x, player.y + waterSensorOffset(player));
+  const sensorY = player.y + waterSensorOffset(player);
+  if (!inWater(world, player.x, sensorY)) return false;
+  const tx = Math.floor(player.x / TILE);
+  const ty = Math.floor(sensorY / TILE);
+  // The grove pools are ankle-deep as long as their stone beds are intact.
+  return !isGrovePool(tx - WEST_EXTENSION, ty) || !solidAt(world, tx, ty + 1);
 }
 
 export function playerWaterborne(world, player) {
@@ -108,6 +114,7 @@ export function toggleGodMode(world, player) {
   player.grounded = false;
   player.canShortenJump = false;
   player.waterJump = false;
+  player.climb = null;
   if (!flightOrigin) {
     player.flightOrigin = { x, y, height };
     player.y = Math.max(0, y + height - PLAYER_SIZE.height);
@@ -175,24 +182,30 @@ export function movePlayer(world, player, input, dt) {
     down = false;
     jump = false;
   }
-  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climbing);
-  const rope = canClimb && world.caveClimbs?.some(({ tx, top, bottom }) => {
-      const hand = player.y + 8;
-      return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
-        hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
-        !solidAt(world, tx, Math.floor(hand / TILE));
-    });
-  const shaft = canClimb && !rope && world.mineDecks?.find((structure) => {
+  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climb);
+  const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
+    const hand = player.y + 8;
+    return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
+      hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
+      !solidAt(world, tx, Math.floor(hand / TILE));
+  });
+  const shaft = canClimb && !caveRoute && world.mineDecks?.find((structure) => {
     const { tx, floor, kind } = structure;
     if (kind === 'trestle' || Math.abs(player.x - (tx + .5) * TILE) >= 9) return false;
     const feet = player.y + player.height;
     return feet >= floor * TILE - mineDecks[kind].rises.at(-1) - 1 &&
       feet <= floor * TILE + 1 && hasExposedCaveFloor(world, structure);
   });
-  player.climbing = Boolean(rope || shaft);
-  if (player.climbing) {
+  player.climb = caveRoute || shaft || null;
+  if (player.climb) {
+    const standingY = player.y + player.height - PLAYER_SIZE.height;
+    if (player.height === CRAWL_HEIGHT && standingY >= 0 && !collides(world, player.x, standingY)) {
+      player.y = standingY;
+      player.height = PLAYER_SIZE.height;
+    }
     player.dx = 0;
-    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81;
+    const climbSpeed = accessoryFor(player.accessories, 'legs')?.climbSpeed ?? 1;
+    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81 * climbSpeed;
     player.canShortenJump = false;
     player.waterJump = false;
     const climbDistance = player.dy * dt;
@@ -202,7 +215,7 @@ export function movePlayer(world, player, input, dt) {
       if (climbDistance <= toDeck) {
         player.grounded = !moveAxis(world, player, 'y', toDeck);
         player.dy = 0;
-        player.climbing = !player.grounded;
+        if (player.grounded) player.climb = null;
         return;
       }
     }
@@ -225,7 +238,8 @@ export function movePlayer(world, player, input, dt) {
   if (horizontal) player.facing = horizontal;
   const swimMultiplier = FEET_GEAR[player.feet]?.swimMultiplier ?? 1;
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
-  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
+  const walkSpeed = accessoryFor(player.accessories, 'feet')?.walkSpeed ?? 1;
+  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112 * walkSpeed;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);

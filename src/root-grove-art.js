@@ -1,7 +1,7 @@
 export function drawRootGrove(rect, polygon, noise, x, ground, time) {
   const scale = 1.55;
   const form = (points, color) => polygon(points.map(([dx, dy]) => [x + dx * scale, ground + dy * scale]), color);
-  for (const [width, height, color] of [[218, 292, '#8ccb7311'], [178, 258, '#a9de7c14'], [135, 217, '#d5e89a10']]) {
+  for (const [width, height, color] of [[205, 278, '#dada9b0a'], [140, 228, '#dfdfab0c']]) {
     polygon([[x - width, ground], [x + width, ground], [x + 48, ground - height],
       [x - 31, ground - height - 37]], color);
   }

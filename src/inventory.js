@@ -1,4 +1,4 @@
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ACCESSORIES, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -34,6 +34,7 @@ export const ITEMS = {
   [WORKBENCH.id]: { name: 'Workbench', description: 'Its legs are uneven. Its claim to have built a kingdom is unproven.', block: MATERIAL.workbench },
   ...SNORKELS,
   ...FEET_GEAR,
+  ...ACCESSORIES,
   kelp: { name: 'Kelp', description: 'Sailors call it mermaid’s ribbon. Mermaids have lodged complaints.' },
   copper: { name: 'Copper ore', description: 'Little flecks of sunset trapped in stone.' },
   iron: { name: 'Iron ore', description: 'An old forge song calls it the bones of the earth.' },

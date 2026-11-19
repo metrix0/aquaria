@@ -97,6 +97,50 @@ export const ARMOR = Object.freeze({
   },
 });
 
+export const ACCESSORY_SLOTS = Object.freeze(['head', 'chest', 'legs', 'feet', 'hands']);
+
+export const ACCESSORIES = Object.freeze({
+  'glowcap-circlet': {
+    id: 'glowcap-circlet', name: 'Glowcap circlet', slot: 'head', station: WORKBENCH.id,
+    cost: { copper: 2, kelp: 1 }, caveLight: 12, colors: ['#547b50', '#c8f291'],
+    description: 'Spore glass that remembers the sun.', effect: 'Extends your cave light',
+  },
+  'shellward-brooch': {
+    id: 'shellward-brooch', name: 'Shellward brooch', slot: 'chest', station: WORKBENCH.id,
+    cost: { stone: 3, copper: 2 }, protection: .08, colors: ['#885c7a', '#ffd7ba'],
+    description: 'A pocket-sized ward against sharp teeth.', effect: '8% damage reduction',
+  },
+  'vine-knee-wraps': {
+    id: 'vine-knee-wraps', name: 'Vine knee wraps', slot: 'legs', station: WORKBENCH.id,
+    cost: { kelp: 3, wood: 1 }, climbSpeed: 1.2, colors: ['#3f7357', '#a6c86d'],
+    description: 'The knots grip back.', effect: '20% faster climbing',
+  },
+  'tideglass-anklets': {
+    id: 'tideglass-anklets', name: 'Tideglass anklets', slot: 'feet', station: WORKBENCH.id,
+    cost: { sand: 3, copper: 1 }, walkSpeed: 1.1, colors: ['#407b8d', '#a3eee6'],
+    description: 'Bottled tide in every bead.', effect: '10% faster running on land',
+  },
+  'quartz-grips': {
+    id: 'quartz-grips', name: 'Quartz grips', slot: 'hands', station: WORKBENCH.id,
+    cost: { stone: 3, kelp: 2 }, miningTime: .85, colors: ['#746286', '#edc2f0'],
+    description: 'They hum when stone is about to give.', effect: '15% less mining time',
+  },
+});
+
+export function accessoryFor(wearing, slot) {
+  const id = wearing?.[slot];
+  return typeof id === 'string' && ACCESSORIES[id]?.slot === slot ? ACCESSORIES[id] : null;
+}
+
+export function normalizeAccessories(wearing) {
+  const equipped = {};
+  for (const slot of ACCESSORY_SLOTS) {
+    const item = accessoryFor(wearing, slot);
+    if (item) equipped[slot] = item.id;
+  }
+  return equipped;
+}
+
 export const WOODEN_DOOR = { id: 'door', cost: { wood: 3 } };
 export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', station: WORKBENCH.id, cost: { copper: 3, wood: 2 } };

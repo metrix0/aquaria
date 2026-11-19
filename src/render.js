@@ -4,7 +4,7 @@ import { drawJungleVillageStructure } from "./jungle-village-art.js";
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
-  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, inRootGrove,
+  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, inRootGrove, isGrovePool,
   isDryIslandCave,
   isDungeonMasonry,
 } from "./world/island-cave.js";
@@ -1092,19 +1092,15 @@ export function createRenderer(canvas) {
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
     const column = tx - WEST_EXTENSION;
-    const grove = !wet && !underground && ty > 36 && isDryIslandCave(column, ty)
-      ? Math.max(0, 1 - groveDistance(column, ty) / ROOT_GROVE.mossReach) : 0;
+    const groveMoss = !underground && Math.abs(column - ROOT_GROVE.column) < 17 &&
+      detail < .48 * Math.max(0, 1 - groveDistance(column, ty) / 20);
     const [base, shadow, grain] = wet
       ? palette
       : masonry
         ? ["#342941", "#261e34", "#4b3c59"]
         : underground
           ? ["#27253a", "#211e32", "#3a334d"]
-          : grove > .78
-            ? ["#254637", "#21382e", "#3e5d43"]
-            : grove > .42 && detail < grove
-              ? ["#2b3d36", "#24342f", "#3c5145"]
-              : ["#2b343a", "#232d35", "#3a474b"];
+          : ["#2b343a", "#232d35", groveMoss ? "#4c5644" : "#3a474b"];
     if (overview) {
       rect(x, y, TILE, TILE, base);
       return;
@@ -1373,6 +1369,21 @@ export function createRenderer(canvas) {
             }
           }
         } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview);
+      }
+    }
+
+    const poolRow = ROOT_GROVE.floor - 1;
+    if (poolRow >= top && poolRow < bottom) {
+      const y = poolRow * TILE;
+      for (let tx = left; tx < right; tx++) {
+        if (!isGrovePool(tx - WEST_EXTENSION, poolRow) || !waterTileAt(world, tx, poolRow)) continue;
+        const x = tx * TILE;
+        rect(x, y, TILE, TILE, '#658b8270');
+        rect(x, y, TILE, 1, '#9fc5a3');
+        if (!overview) {
+          const drift = Math.round(Math.sin(time * 1.2 + tx * .8) * 2);
+          rect(x + drift + 3, y + 4 + tx % 7, 4 + tx % 5, 1, '#b9d7ac7c');
+        }
       }
     }
 

@@ -27,6 +27,7 @@ export function createUI(actions, version) {
     getSnorkel: actions.getSnorkel,
     getFeet: actions.getFeet,
     getRing: actions.getRing,
+    getAccessory: actions.getAccessory,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,
@@ -53,6 +54,7 @@ export function createUI(actions, version) {
       return;
     }
     for (const other of panels) if (other.open) other.close();
+    inventoryUI.clearTooltip();
     if (id === 'backpack-panel') inventoryUI.showChest(source);
     actions.beforePanel(id, source);
     panel.showModal();
