@@ -6,6 +6,7 @@ import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kra
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
+const ledgeJumpGrace = 0.1;
 const maxFallSpeed = 480;
 const maxWaterEntrySpeed = 245;
 const safeFallTiles = 8;
@@ -20,7 +21,7 @@ export const MAX_HEALTH = 100;
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
@@ -109,6 +110,7 @@ export function toggleGodMode(world, player) {
   player.dy = 0;
   player.fallDistance = 0;
   player.grounded = false;
+  player.jumpGrace = 0;
   player.canShortenJump = false;
   player.waterJump = false;
   player.climb = null;
@@ -199,6 +201,7 @@ export function movePlayer(world, player, input, dt) {
   player.climb = caveRoute || shaft || null;
   if (player.climb) {
     player.fallDistance = 0;
+    player.jumpGrace = 0;
     const standingY = player.y + player.height - PLAYER_SIZE.height;
     if (player.height === CRAWL_HEIGHT && standingY >= 0 && !collides(world, player.x, standingY)) {
       player.y = standingY;
@@ -223,6 +226,9 @@ export function movePlayer(world, player, input, dt) {
     return;
   }
   const bodyInWater = playerInWater(world, player);
+  if (bodyInWater) player.jumpGrace = 0;
+  else if (player.grounded) player.jumpGrace = ledgeJumpGrace;
+  else player.jumpGrace = Math.max(0, player.jumpGrace - dt);
   const wantsCrawl = down && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
   const height = wantsCrawl ? CRAWL_HEIGHT : PLAYER_SIZE.height;
   if (height !== player.height) {
@@ -264,7 +270,8 @@ export function movePlayer(world, player, input, dt) {
       player.dy = Math.min(0, (surfaceRestY - player.y) / dt);
     }
   } else {
-    if (shoreJump || surfaceJump || (jump && player.grounded && !crawling)) {
+    if (shoreJump || surfaceJump || (jump && !crawling && (player.grounded || player.jumpGrace > 0))) {
+      player.jumpGrace = 0;
       player.dy = -jumpSpeed;
       player.canShortenJump = !shoreJump;
       player.waterJump = bodyInWater;

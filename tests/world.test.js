@@ -22,6 +22,34 @@ import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
 import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
 
+test('a late ledge jump works briefly and uses up the grace period', () => {
+  const dt = 1 / 60;
+  const column = Math.floor(SPAWN.x / TILE);
+  const platformRow = 7;
+  const jump = { right: true, up: true, jump: true };
+
+  for (const delay of [3, 7]) {
+    const { world, player } = createGame();
+    assert.ok(editTile(world, column, platformRow, MATERIAL.stone));
+    Object.assign(player, { x: (column + 1) * TILE - 2, y: platformRow * TILE - player.height });
+    movePlayer(world, player, {}, dt);
+    assert.equal(player.grounded, true);
+    for (let frame = 0; frame < 20 && player.grounded; frame++) movePlayer(world, player, { right: true }, dt);
+    assert.equal(player.grounded, false);
+    for (let frame = 0; frame < delay; frame++) movePlayer(world, player, { right: true }, dt);
+
+    movePlayer(world, player, jump, dt);
+    if (delay === 3) {
+      assert.ok(player.dy < -200);
+      const launchSpeed = player.dy;
+      movePlayer(world, player, jump, dt);
+      assert.ok(player.dy > launchSpeed);
+    } else {
+      assert.ok(player.dy > 0);
+    }
+  }
+});
+
 test('dry falls keep accelerating after five tiles and stop safely at the floor', () => {
   const { world, player } = createGame();
   const startY = player.y - 10 * TILE;
