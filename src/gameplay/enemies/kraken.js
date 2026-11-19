@@ -125,7 +125,9 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   }
 
   const inRange = !player.flightOrigin && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
-  const originY = clamp(py, WATER + 16, Math.max(mob.y + 80, py));
+  const headOrigin = py <= mob.y + 180;
+  const originX = headOrigin ? mob.x - 4 : mob.x - 24;
+  const originY = headOrigin ? mob.y + 4 : py;
 
   if (mob.windup > 0) {
     mob.windup = Math.max(0, mob.windup - dt);
@@ -140,26 +142,28 @@ export function stepKraken(world, player, mob, dt, time, effects) {
       } else if (mob.attackMode === 'tackle') {
         mob.actionTime = 0.6;
         mob.attackHit = false;
-        const dx = px - (mob.x - 24);
+        const dx = px - originX;
         const dy = py - originY;
         const len = Math.hypot(dx, dy) || 1;
-        const reachLen = Math.min(KRAKEN_TACKLE_RANGE, Math.max(125, len + 26));
+        const reachLen = Math.min(280, Math.max(135, len + 26));
         mob.tentacleTarget = {
-          x: mob.x - 24 + (dx / len) * reachLen,
+          x: originX + (dx / len) * reachLen,
           y: originY + (dy / len) * reachLen,
+          ox: originX,
           oy: originY,
         };
       } else if (mob.attackMode === 'grab') {
         mob.actionTime = 1.65;
         mob.attackHit = false;
         mob.grabbing = false;
-        const dx = px - (mob.x - 24);
+        const dx = px - originX;
         const dy = py - originY;
         const len = Math.hypot(dx, dy) || 1;
-        const reachLen = Math.min(KRAKEN_GRAB_RANGE, Math.max(120, len + 28));
+        const reachLen = Math.min(480, Math.max(130, len + 28));
         mob.tentacleTarget = {
-          x: mob.x - 24 + (dx / len) * reachLen,
+          x: originX + (dx / len) * reachLen,
           y: originY + (dy / len) * reachLen,
+          ox: originX,
           oy: originY,
         };
       }
@@ -174,14 +178,16 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     if (mob.attackMode === 'tackle') {
       const progress = 1 - mob.actionTime / 0.6;
       mob.tentacleReach = progress < 0.45 ? progress / 0.45 : Math.max(0, (1 - progress) / 0.55);
-      const tipX = mob.x - 24 + (target.x - (mob.x - 24)) * mob.tentacleReach;
-      const tipY = (target.oy ?? mob.y) + (target.y - (target.oy ?? mob.y)) * mob.tentacleReach;
+      const ox = target.ox ?? mob.x - 4;
+      const oy = target.oy ?? mob.y + 4;
+      const tipX = ox + (target.x - ox) * mob.tentacleReach;
+      const tipY = oy + (target.y - oy) * mob.tentacleReach;
 
       if (
         !mob.attackHit &&
         !player.flightOrigin &&
         mob.tentacleReach > 0.35 &&
-        pointToSegmentDist(px, py, mob.x - 24, target.oy ?? mob.y, tipX, tipY) <= 28
+        pointToSegmentDist(px, py, ox, oy, tipX, tipY) <= 28
       ) {
         mob.attackHit = true;
         player.hurt = 1.1;
@@ -202,14 +208,16 @@ export function stepKraken(world, player, mob, dt, time, effects) {
       if (!mob.grabbing) {
         const extend = Math.min(1, (1.65 - mob.actionTime) / 0.35);
         mob.tentacleReach = extend;
-        const tipX = mob.x - 24 + (target.x - (mob.x - 24)) * extend;
-        const tipY = (target.oy ?? mob.y) + (target.y - (target.oy ?? mob.y)) * extend;
+        const ox = target.ox ?? mob.x - 4;
+        const oy = target.oy ?? mob.y + 4;
+        const tipX = ox + (target.x - ox) * extend;
+        const tipY = oy + (target.y - oy) * extend;
 
         if (
           !player.flightOrigin &&
           playerInWater &&
           (Math.hypot(px - tipX, py - tipY) <= 32 ||
-            pointToSegmentDist(px, py, mob.x - 24, target.oy ?? mob.y, tipX, tipY) <= 24)
+            pointToSegmentDist(px, py, ox, oy, tipX, tipY) <= 24)
         ) {
           mob.grabbing = true;
           mob.actionTime = Math.min(mob.actionTime, 1.25);
@@ -245,7 +253,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
           }
           player.oxygen = Math.max(0, player.oxygen - 2.5 * dt);
           mob.tentacleReach = 1;
-          mob.tentacleTarget = { x: px, y: py, oy: mob.y + 20 };
+          mob.tentacleTarget = { x: px, y: py, ox: originX, oy: originY };
         }
       }
     }
@@ -266,9 +274,9 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   mob.attackTimer = Math.max(0, mob.attackTimer - dt);
   if (mob.attackTimer <= 0) {
     const activeSquids = world.mobs.filter((m) => m.krakenMinion && m.health > 0).length;
-    const playerDist = Math.hypot(px - (mob.x - 24), py - originY);
+    const horizDist = Math.abs(mob.x - 24 - px);
     let mode;
-    if (playerDist > KRAKEN_TACKLE_RANGE && playerInWater) {
+    if (horizDist > KRAKEN_TACKLE_RANGE && playerInWater) {
       mode = 'grab';
     } else {
       const depth = Math.max(0, Math.floor((player.y + 5 - WATER) / TILE));

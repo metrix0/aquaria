@@ -1455,7 +1455,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function mobs(world, camera, time, targetMob) {
+  function mobs(world, camera, time, targetMob, player) {
     for (const mob of world.mobs ?? []) {
       if (mob.health <= 0 || mob.respawn > 0) continue;
       const marginX = mob.kind === "kraken" ? 480 : 32;
@@ -1852,21 +1852,23 @@ export function createRenderer(canvas) {
         // Pixel-stepped tackle / grab attack tentacles.
         const reach = mob.tentacleReach ?? 0;
         if (reach > 0 && mob.tentacleTarget) {
-          const oy = Math.round((mob.tentacleTarget.oy ?? mob.y) - mob.y);
-          const tx = Math.round(-30 + (mob.tentacleTarget.x - mob.x + 30) * reach);
+          const headVisible = mob.y + 28 >= camera.y && mob.y - 118 <= camera.y + camera.height;
+          const ox = headVisible ? -4 : Math.round((mob.tentacleTarget.ox ?? mob.x - 4) - mob.x);
+          const oy = headVisible ? 4 : Math.round((mob.tentacleTarget.oy ?? mob.y + 4) - mob.y);
+          const tx = Math.round(ox + (mob.tentacleTarget.x - mob.x - ox) * reach);
           const ty = Math.round(oy + (mob.tentacleTarget.y - mob.y - oy) * reach);
           if (mob.attackMode === "tackle") {
             for (const offset of [-11, 11]) {
-              const midX = Math.round((-30 + tx) * 0.5);
+              const midX = Math.round((ox + tx) * 0.5);
               const midY = Math.round(oy + (ty - oy) * 0.5 + Math.sin(time * 18 + offset) * 8);
-              pixelTentacle(-30, oy + offset, midX, midY, tx, ty + Math.round(offset * 0.35), 10, 5, "#491f3d", "#7e4268", "#da9292");
+              pixelTentacle(ox, oy + offset, midX, midY, tx, ty + Math.round(offset * 0.35), 10, 5, "#491f3d", "#7e4268", "#da9292");
               rect(tx - 4, ty + Math.round(offset * 0.35) - 4, 8, 8, "#b0667d");
               rect(tx - 2, ty + Math.round(offset * 0.35) - 2, 4, 4, "#f0c88b");
             }
           } else if (mob.attackMode === "grab") {
-            const midX = Math.round((-30 + tx) * 0.5);
+            const midX = Math.round((ox + tx) * 0.5);
             const midY = Math.round(oy + (ty - oy) * 0.5 - 14);
-            pixelTentacle(-30, oy, midX, midY, tx, ty, 9, 5, "#491f3d", "#7e4268", "#da9292");
+            pixelTentacle(ox, oy, midX, midY, tx, ty, 9, 5, "#491f3d", "#7e4268", "#da9292");
             if (mob.grabbing) {
               rect(tx - 11, ty - 11, 22, 4, "#2d1429");
               rect(tx - 10, ty - 10, 20, 3, "#b0667d");
@@ -1903,13 +1905,18 @@ export function createRenderer(canvas) {
         rect(-34, -32, 64, 48, "#7e4268");
         rect(-28, -26, 46, 34, "#b0667d");
         rect(-32, -32, 48, 3, "#da9292");
+        const eyeDx = (player?.x ?? mob.x - 100) - (mob.x - 24);
+        const eyeDy = (player ? player.y + 11 : mob.y - 11) - (mob.y - 11);
+        const eyeDist = Math.hypot(eyeDx, eyeDy) || 1;
+        const lookX = Math.round(clamp((eyeDx / eyeDist) * 2.4, -2, 2));
+        const lookY = Math.round(clamp((eyeDy / eyeDist) * 2.2, -2, 2));
         rect(-36, -24, 24, 6, "#2d1429");
         rect(-34, -22, 20, 3, "#491f3d");
         rect(-32, -18, 16, 14, "#111d2f");
         rect(-30, -16, 12, 10, rage ? "#ff9b80" : "#f1f3e5");
-        rect(-28, -14, 8, 6, rage ? "#f8dca5" : "#efc27e");
-        rect(-29, -13, 5, 4, "#192b3e");
-        rect(-24, -15, 2, 2, "#f1f3e5");
+        rect(-28 + lookX, -14 + lookY, 8, 6, rage ? "#f8dca5" : "#efc27e");
+        rect(-27 + lookX, -13 + lookY, 5, 4, "#192b3e");
+        rect(-25 + lookX, -14 + lookY, 2, 2, "#f1f3e5");
         rect(-6, 4, 6, 4, "#f0c88b");
         rect(6, -6, 6, 4, "#f0c88b");
         rect(-44, 6, 14, 14, "#2d1429");
@@ -2211,7 +2218,7 @@ export function createRenderer(canvas) {
     terrain(world, player, camera, time, bounds, openChestId, overview);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
-    mobs(world, camera, time, targetMob);
+    mobs(world, camera, time, targetMob, player);
     projectiles(world, camera);
     arrows(playerArrows, camera);
     for (const bit of particles) {

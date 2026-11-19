@@ -1310,6 +1310,8 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   kraken.attackIndex = 2;
   for (let i = 0; i < 75; i++) stepGame(game, {}, 1 / 60);
   assert.ok(player.y > beforeGrabY);
+  assert.equal(kraken.tentacleTarget.ox, kraken.x - 4);
+  assert.equal(kraken.tentacleTarget.oy, kraken.y + 4);
 
   // Distant player automatically triggers the extended-reach tertiary grab attack.
   Object.assign(player, { x: barrierX - 280, y: WATER + 6 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
@@ -1352,11 +1354,17 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
     const translates = [];
     const fillStyles = [];
     const strokeStyles = [];
+    const fillRects = [];
     const makeCtx = (track) => ({
       save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
       beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
       quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
-      fillRect() { if (track) fillStyles.push(this.fillStyle); },
+      fillRect(x, y, w, h) {
+        if (track) {
+          fillStyles.push(this.fillStyle);
+          fillRects.push([x, y, w, h, this.fillStyle]);
+        }
+      },
       fill() { if (track) fillStyles.push(this.fillStyle); },
       stroke() { if (track) strokeStyles.push(this.strokeStyle); },
       createLinearGradient: () => grad, createRadialGradient: () => grad,
@@ -1377,6 +1385,7 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
       translates.length = 0;
       fillStyles.length = 0;
       strokeStyles.length = 0;
+      fillRects.length = 0;
       renderer.draw({
         world: game.world,
         player: game.player,
@@ -1408,6 +1417,24 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
         assert.ok(fillStyles.includes('#491f3d'));
         assert.ok(fillStyles.includes('#7e4268'));
         assert.ok(fillStyles.includes('#da9292'));
+
+        const renderAtPlayerY = (py) => {
+          fillRects.length = 0;
+          game.player.x = mob.x - 100;
+          game.player.y = py;
+          renderer.draw({
+            world: game.world, player: game.player, snorkel: null,
+            camera: { x: mob.x - 160, y: mob.y - 90, width: 320, height: 180 },
+            time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+            held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+            particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+            worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+          });
+          return fillRects.find(([, , w, h, color]) => w === 5 && h === 4 && color === '#192b3e');
+        };
+        const upPupil = renderAtPlayerY(mob.y - 120);
+        const downPupil = renderAtPlayerY(mob.y + 120);
+        assert.ok(upPupil && downPupil && downPupil[1] > upPupil[1]);
       }
     }
   } finally {
