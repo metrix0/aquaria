@@ -15,7 +15,7 @@ import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, c
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
@@ -1261,7 +1261,8 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   const { world, player } = game;
   const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
   assert.ok(kraken);
-  assert.ok(kraken.x > (COLS - 4) * TILE);
+  assert.equal(kraken.x, (KRAKEN_COLUMN + WEST_EXTENSION) * TILE);
+  assert.ok(COLS > KRAKEN_COLUMN + WEST_EXTENSION + 64);
   const barrierX = krakenBarrierX(kraken);
   const startX = kraken.x;
   const startY = kraken.y;
@@ -1569,6 +1570,102 @@ test('kraken death plays head implosion with screen shake and tentacle disintegr
     });
     assert.ok(fillRects.some(([, , , , color]) => color === '#1e232e'));
     assert.ok(fillRects.some(([, , , , color]) => color === '#4b5263'));
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('map expands beyond the kraken and ocean fades from blue to jungle green water', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    assert.equal(COLS, ORIGINAL_COLS + WEST_EXTENSION + EAST_EXTENSION);
+
+    const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
+    assert.ok(kraken);
+    const eastWaterTx = ORIGINAL_COLS + WEST_EXTENSION + 64;
+    assert.equal(waterTileAt(world, eastWaterTx, WATER_ROW + 2), true);
+    const cache = world.items.find((item) => item.id === 'jungle-trench-cache');
+    assert.ok(cache && cache.x > kraken.x);
+    assert.ok(world.items.some((item) => item.kind === 'kelp' && item.x > kraken.x));
+
+    // Defeating the kraken clears the passage into the expanded eastern ocean.
+    damageMob(world, kraken, kraken.maxHealth, 0, 0, game.effects);
+    player.x = kraken.x - 20;
+    player.y = WATER + 6 * TILE;
+    for (let i = 0; i < 60; i++) movePlayer(world, player, { right: true }, 1 / 60);
+    assert.ok(player.x > kraken.x + 60);
+
+    // Even if the kraken respawns later while the player is deep in the green ocean, movement stays free.
+    kraken.respawn = 0;
+    kraken.health = kraken.maxHealth;
+    const farEastX = (JUNGLE_FADE_END_COLUMN + WEST_EXTENSION + 20) * TILE;
+    player.x = farEastX;
+    player.y = WATER + 6 * TILE;
+    stepGame(game, { right: true }, 1 / 60);
+    assert.ok(player.x >= farEastX);
+
+    // Edits and player position in the expanded east survive save/reload.
+    const editTx = eastWaterTx;
+    const editTy = groundAt(editTx) - 1;
+    assert.equal(editTile(world, editTx, editTy, MATERIAL.wood), true);
+    const reloaded = createGame(decodeSave(encodeSave(game)));
+    assert.equal(tileAt(reloaded.world, editTx, editTy), MATERIAL.wood);
+    assert.ok(reloaded.player.x >= farEastX);
+
+    // Renderer paints blue stops west of the fade, blended transition stops across it, and jungle green stops east of it.
+    const noop = () => {};
+    const collectStops = (camX) => {
+      const stops = [];
+      const makeGrad = () => {
+        const g = { stops: [], addColorStop(pos, color) { this.stops.push([pos, color]); } };
+        stops.push(g.stops);
+        return g;
+      };
+      const makeCtx = (track) => ({
+        save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+        beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+        quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+        fill() {}, stroke() {}, fillRect: noop,
+        createLinearGradient: () => (track ? makeGrad() : { addColorStop: noop }),
+        createRadialGradient: () => ({ addColorStop: noop }),
+      });
+      const canvas = {
+        width: 640, height: 360,
+        ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx(false) }) },
+        getContext: () => makeCtx(true),
+      };
+      const renderer = createRenderer(canvas);
+      renderer.draw({
+        world, player, snorkel: null,
+        camera: { x: camX, y: WATER - 20, width: 320, height: 180 },
+        time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+        held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+        particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+      });
+      return stops.flat().map(([, color]) => color);
+    };
+
+    const blueColors = collectStops((JUNGLE_FADE_START_COLUMN + WEST_EXTENSION - 30) * TILE);
+    assert.ok(blueColors.includes('#307e83'));
+    assert.ok(!blueColors.includes('#2f8a57'));
+
+    const transitionColors = collectStops((JUNGLE_FADE_START_COLUMN + WEST_EXTENSION + 10) * TILE);
+    assert.ok(transitionColors.includes('#307e83'));
+    assert.ok(transitionColors.includes('#2f8a57'));
+
+    const jungleColors = collectStops((JUNGLE_FADE_END_COLUMN + WEST_EXTENSION + 10) * TILE);
+    assert.ok(jungleColors.includes('#2f8a57'));
+    assert.ok(jungleColors.includes('#1b5938'));
+    assert.ok(jungleColors.includes('#081e15'));
+    assert.ok(!jungleColors.includes('#307e83'));
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;

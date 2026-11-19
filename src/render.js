@@ -24,6 +24,8 @@ import {
 } from "./world.js";
 import {
   COLS,
+  JUNGLE_FADE_END_COLUMN,
+  JUNGLE_FADE_START_COLUMN,
   ROWS,
   TILE,
   WATER,
@@ -126,6 +128,97 @@ const crabColors = [
   ["#7e4268", "#bc775a", "#df9b6b"],
   ["#85604c", "#c09662", "#e3ae72"],
   ["#513a3b", "#b0667d", "#da9292"],
+];
+
+const JUNGLE_FADE_START_X = (JUNGLE_FADE_START_COLUMN + WEST_EXTENSION) * TILE;
+const JUNGLE_FADE_END_X = (JUNGLE_FADE_END_COLUMN + WEST_EXTENSION) * TILE;
+const OCEAN_BLUE_STOPS = [
+  [0, "#307e83"],
+  [0.1, "#236a77"],
+  [0.24, "#1a4b65"],
+  [0.49, "#12364e"],
+  [1, "#081927"],
+];
+const OCEAN_JUNGLE_STOPS = [
+  [0, "#2f8a57"],
+  [0.1, "#257348"],
+  [0.24, "#1b5938"],
+  [0.49, "#123e28"],
+  [1, "#081e15"],
+];
+const TINT_BLUE_STOPS = [
+  [0, "#183d4e07"],
+  [0.36, "#0a30422b"],
+  [1, "#06152666"],
+];
+const TINT_JUNGLE_STOPS = [
+  [0, "#184f2c08"],
+  [0.36, "#0d3c222e"],
+  [1, "#061f1266"],
+];
+
+function parseHexColor(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const a = hex.length >= 9 ? parseInt(hex.slice(7, 9), 16) : 255;
+  return [r, g, b, a];
+}
+
+function toHexByte(value) {
+  return clamp(Math.round(value), 0, 255).toString(16).padStart(2, "0");
+}
+
+function colorPair(blueHex, jungleHex) {
+  return {
+    blueHex,
+    jungleHex,
+    blue: parseHexColor(blueHex),
+    jungle: parseHexColor(jungleHex),
+  };
+}
+
+function mixPair({ blueHex, jungleHex, blue, jungle }, t) {
+  if (t <= 0) return blueHex;
+  if (t >= 1) return jungleHex;
+  const r = toHexByte(blue[0] + (jungle[0] - blue[0]) * t);
+  const g = toHexByte(blue[1] + (jungle[1] - blue[1]) * t);
+  const b = toHexByte(blue[2] + (jungle[2] - blue[2]) * t);
+  if (blue[3] === 255 && jungle[3] === 255) return `#${r}${g}${b}`;
+  const a = toHexByte(blue[3] + (jungle[3] - blue[3]) * t);
+  return `#${r}${g}${b}${a}`;
+}
+
+function jungleMixAt(worldX) {
+  const raw = clamp((worldX - JUNGLE_FADE_START_X) / (JUNGLE_FADE_END_X - JUNGLE_FADE_START_X), 0, 1);
+  return raw * raw * (3 - 2 * raw);
+}
+
+const BAND_COLOR_PAIRS = [
+  colorPair("#2c7180a8", "#297a4ca8"),
+  colorPair("#245e72aa", "#20643faa"),
+  colorPair("#1b4b62ae", "#174e32ae"),
+];
+const SUNBEAM_WIDE_PAIR = colorPair("#b0d8ad12", "#b8e39a14");
+const SUNBEAM_THIN_PAIR = colorPair("#b2dad015", "#a6db9e16");
+const SURFACE_GLOW_BLUE = [[0, "#8ed6c15e"], [1, "#56a5a100"]];
+const SURFACE_GLOW_JUNGLE = [[0, "#8fe09b5e"], [1, "#489c6300"]];
+const SURFACE_TRIM_PAIR = colorPair("#7cc4b1", "#76c786");
+const SURFACE_LINE_MAIN_PAIR = colorPair("#c3e3c7b9", "#c4e8b7b9");
+const SURFACE_LINE_FOAM_PAIR = colorPair("#a0d5bc93", "#8fd19693");
+const MOTE_DIM_PAIR = colorPair("#a3cfb558", "#9fd49958");
+const MOTE_BRIGHT_PAIR = colorPair("#d5e8c7ac", "#d3edc0ac");
+const FISH_SILHOUETTE_BRIGHT_PAIR = colorPair("#92bba793", "#85bf8e93");
+const FISH_SILHOUETTE_DIM_PAIR = colorPair("#6da3a385", "#5b996f85");
+const WET_CAVE_PAIRS = [
+  colorPair("#233644", "#203830"),
+  colorPair("#1f303d", "#1b3029"),
+  colorPair("#304653", "#2c493e"),
+];
+const ABYSS_CAVE_PAIRS = [
+  colorPair("#21253c", "#1b2b27"),
+  colorPair("#1d2134", "#162420"),
+  colorPair("#313553", "#293e37"),
 ];
 
 export function createRenderer(canvas) {
@@ -526,24 +619,48 @@ export function createRenderer(canvas) {
     return { water, shore, backdrop };
   }
 
+  function makeVerticalGradient(stops, from, to) {
+    const color = ctx.createLinearGradient(0, from, 0, Math.max(from + 1, to));
+    for (const [position, value] of stops) color.addColorStop(position, value);
+    return color;
+  }
+
+  function horizontalOceanFadeBounds(camera) {
+    return {
+      fadeLeft: clamp(JUNGLE_FADE_START_X - camera.x, 0, camera.width),
+      fadeRight: clamp(JUNGLE_FADE_END_X - camera.x, 0, camera.width),
+    };
+  }
+
   function tintWater(camera, surface, clip) {
     if (!clip) return;
     ctx.save();
     ctx.clip(clip);
     const start = Math.max(0, surface);
-    gradient(
-      0,
-      start,
-      camera.width,
-      camera.height - start,
-      [
-        [0, "#183d4e07"],
-        [0.36, "#0a30422b"],
-        [1, "#06152666"],
-      ],
-      surface,
-      surface + 980,
-    );
+    const spanY = camera.height - start;
+    const { fadeLeft, fadeRight } = horizontalOceanFadeBounds(camera);
+    if (fadeLeft > 0) {
+      gradient(0, start, fadeLeft, spanY, TINT_BLUE_STOPS, surface, surface + 980);
+    }
+    if (fadeRight < camera.width) {
+      gradient(fadeRight, start, camera.width - fadeRight, spanY, TINT_JUNGLE_STOPS, surface, surface + 980);
+    }
+    if (fadeRight > fadeLeft && spanY > 0) {
+      const blueGrad = makeVerticalGradient(TINT_BLUE_STOPS, surface, surface + 980);
+      const jungleGrad = makeVerticalGradient(TINT_JUNGLE_STOPS, surface, surface + 980);
+      const step = 4;
+      for (let x = fadeLeft; x < fadeRight; x += step) {
+        const w = Math.min(step, fadeRight - x);
+        const t = jungleMixAt(camera.x + x + w * 0.5);
+        ctx.globalAlpha = 1 - t;
+        ctx.fillStyle = blueGrad;
+        ctx.fillRect(x, start, w, spanY);
+        ctx.globalAlpha = t;
+        ctx.fillStyle = jungleGrad;
+        ctx.fillRect(x, start, w, spanY);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
   }
 
@@ -552,27 +669,32 @@ export function createRenderer(canvas) {
     if (!water) return;
     ctx.save();
     ctx.clip(water);
-    gradient(
-      0,
-      Math.max(0, surface),
-      width,
-      height - Math.max(0, surface),
-      [
-        [0, "#307e83"],
-        [0.1, "#236a77"],
-        [0.24, "#1a4b65"],
-        [0.49, "#12364e"],
-        [1, "#081927"],
-      ],
-      surface,
-      surface + 850,
-    );
+    const start = Math.max(0, surface);
+    const spanY = height - start;
+    const { fadeLeft, fadeRight } = horizontalOceanFadeBounds(camera);
+    if (fadeLeft > 0) {
+      gradient(0, start, fadeLeft, spanY, OCEAN_BLUE_STOPS, surface, surface + 850);
+    }
+    if (fadeRight < width) {
+      gradient(fadeRight, start, width - fadeRight, spanY, OCEAN_JUNGLE_STOPS, surface, surface + 850);
+    }
+    if (fadeRight > fadeLeft && spanY > 0) {
+      gradient(fadeLeft, start, fadeRight - fadeLeft, spanY, OCEAN_BLUE_STOPS, surface, surface + 850);
+      ctx.fillStyle = makeVerticalGradient(OCEAN_JUNGLE_STOPS, surface, surface + 850);
+      const step = 4;
+      for (let x = fadeLeft; x < fadeRight; x += step) {
+        const w = Math.min(step, fadeRight - x);
+        ctx.globalAlpha = jungleMixAt(camera.x + x + w * 0.5);
+        ctx.fillRect(x, start, w, spanY);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
     for (let band = 0; band < 3; band++) {
       const shift = horizontalOffset * (0.17 + band * 0.17);
       const yShift = surface + 65 + band * 59;
-      const color = ["#2c7180a8", "#245e72aa", "#1b4b62ae"][band];
+      const pair = BAND_COLOR_PAIRS[band];
       for (let x = 0; x < width; x += 5) {
         const p = x + shift;
         const y = Math.max(
@@ -581,20 +703,25 @@ export function createRenderer(canvas) {
             Math.sin(p * 0.015 + band * 1.5) * (18 + band * 9) +
             Math.sin(p * 0.047) * 10,
         );
-        if (y < height) rect(x, y, 5, height - y, color);
+        if (y < height) {
+          const color = mixPair(pair, jungleMixAt(camera.x + x + 2.5));
+          rect(x, y, 5, height - y, color);
+        }
       }
     }
     if (surface > -200) {
-      ctx.globalAlpha =
+      const daylightAlpha =
         1 -
         conditions.darkness * 0.8 -
         conditions.rain * (1 - conditions.darkness) * 0.65;
+      ctx.globalAlpha = daylightAlpha;
       for (let i = -2; i < 10; i++) {
         const span = Math.max(width + 190, 900);
         const shift =
           (i * 124 - horizontalOffset * 0.37 + Math.sin(time * 0.5 + i) * 15) %
           span;
         const x = shift + (shift < -170 ? span : 0) - 45;
+        const mix = jungleMixAt(camera.x + x);
         polygon(
           [
             [x, surface],
@@ -602,7 +729,7 @@ export function createRenderer(canvas) {
             [x - 57, surface + 224],
             [x - 112, surface + 210],
           ],
-          "#b0d8ad12",
+          mixPair(SUNBEAM_WIDE_PAIR, mix),
         );
         polygon(
           [
@@ -611,22 +738,42 @@ export function createRenderer(canvas) {
             [x - 49, surface + 182],
             [x - 73, surface + 189],
           ],
-          "#b2dad015",
+          mixPair(SUNBEAM_THIN_PAIR, mix),
         );
       }
-      gradient(
-        0,
-        Math.max(0, surface),
-        width,
-        33,
-        [
-          [0, "#8ed6c15e"],
-          [1, "#56a5a100"],
-        ],
-        surface,
-        surface + 33,
-      );
-      rect(0, surface + 2, width, 2, "#7cc4b1");
+      if (fadeLeft > 0) {
+        ctx.globalAlpha = daylightAlpha;
+        gradient(0, start, fadeLeft, 33, SURFACE_GLOW_BLUE, surface, surface + 33);
+      }
+      if (fadeRight < width) {
+        ctx.globalAlpha = daylightAlpha;
+        gradient(fadeRight, start, width - fadeRight, 33, SURFACE_GLOW_JUNGLE, surface, surface + 33);
+      }
+      if (fadeRight > fadeLeft) {
+        const blueGlow = makeVerticalGradient(SURFACE_GLOW_BLUE, surface, surface + 33);
+        const jungleGlow = makeVerticalGradient(SURFACE_GLOW_JUNGLE, surface, surface + 33);
+        const step = 4;
+        for (let x = fadeLeft; x < fadeRight; x += step) {
+          const w = Math.min(step, fadeRight - x);
+          const t = jungleMixAt(camera.x + x + w * 0.5);
+          ctx.globalAlpha = daylightAlpha * (1 - t);
+          ctx.fillStyle = blueGlow;
+          ctx.fillRect(x, start, w, 33);
+          ctx.globalAlpha = daylightAlpha * t;
+          ctx.fillStyle = jungleGlow;
+          ctx.fillRect(x, start, w, 33);
+        }
+      }
+      ctx.globalAlpha = daylightAlpha;
+      if (fadeRight > fadeLeft) {
+        const trim = ctx.createLinearGradient(fadeLeft, 0, fadeRight, 0);
+        trim.addColorStop(0, SURFACE_TRIM_PAIR.blueHex);
+        trim.addColorStop(1, SURFACE_TRIM_PAIR.jungleHex);
+        ctx.fillStyle = trim;
+        ctx.fillRect(0, surface + 2, width, 2);
+      } else {
+        rect(0, surface + 2, width, 2, fadeLeft > 0 ? SURFACE_TRIM_PAIR.blueHex : SURFACE_TRIM_PAIR.jungleHex);
+      }
       ctx.globalAlpha = 1;
     }
     for (let i = 0; i < 85; i++) {
@@ -645,7 +792,8 @@ export function createRenderer(canvas) {
           height +
           40) %
         (height + 40);
-      rect(x, y, 1 + (i % 9 === 0), 1, i % 5 ? "#a3cfb558" : "#d5e8c7ac");
+      const color = mixPair(i % 5 ? MOTE_DIM_PAIR : MOTE_BRIGHT_PAIR, jungleMixAt(camera.x + x));
+      rect(x, y, 1 + (i % 9 === 0), 1, color);
     }
     for (let i = 0; i < 27; i++) {
       const span = width + 180;
@@ -660,7 +808,10 @@ export function createRenderer(canvas) {
       if (y < 0 || y > height) continue;
       const size = i % 5 === 0 ? 1.4 : 0.8;
       const direction = i % 2 ? 1 : -1;
-      const color = i % 5 === 0 ? "#92bba793" : "#6da3a385";
+      const color = mixPair(
+        i % 5 === 0 ? FISH_SILHOUETTE_BRIGHT_PAIR : FISH_SILHOUETTE_DIM_PAIR,
+        jungleMixAt(camera.x + x),
+      );
       rect(x, y, 5 * size, 2, color);
       rect(x + 1, y - 1, 3 * size, 4, color);
       rect(x - direction * 2, y - 1, 2 * size, 4, color);
@@ -894,9 +1045,8 @@ export function createRenderer(canvas) {
     const detail = noise(tx, ty, 91);
     const wet = waterTileAt(world, tx, ty);
     const abyss = ty >= 113;
-    const palette = abyss
-      ? ["#21253c", "#1d2134", "#313553"]
-      : ["#233644", "#1f303d", "#304653"];
+    const jungleMix = wet ? jungleMixAt(x + TILE * 0.5) : 0;
+    const palette = (abyss ? ABYSS_CAVE_PAIRS : WET_CAVE_PAIRS).map((pair) => mixPair(pair, jungleMix));
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
     const [base, shadow, grain] = wet
@@ -2217,9 +2367,10 @@ export function createRenderer(canvas) {
       if (waterTileAt(world, tx, WATER_ROW)) {
         const phase = x + xOffset - WEST_EXTENSION * TILE;
         const dy = surfaceWave(phase, time);
-        rect(x, y + dy, width, 1, "#c3e3c7b9");
+        const mix = jungleMixAt(x + xOffset + width * 0.5);
+        rect(x, y + dy, width, 1, mixPair(SURFACE_LINE_MAIN_PAIR, mix));
         if (noise(Math.floor(phase / 5), 9) > 0.68)
-          rect(x, y + dy + 4, width, 1, "#a0d5bc93");
+          rect(x, y + dy + 4, width, 1, mixPair(SURFACE_LINE_FOAM_PAIR, mix));
       }
       x += width;
     }

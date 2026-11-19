@@ -4,6 +4,7 @@ import { MOB_HEALTH, TILE, WATER, clamp, groundAt } from '../../world/generation
 import { takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
+export const KRAKEN_BARRIER_EAST_OFFSET = 46;
 export const KRAKEN_DEATH_DURATION = 1.9;
 const KRAKEN_TACKLE_RANGE = 190;
 const KRAKEN_GRAB_RANGE = 410;
@@ -112,9 +113,15 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   mob.sonarTime = Math.max(0, (mob.sonarTime ?? 0) - dt);
 
   const barrierX = krakenBarrierX(mob);
-  if (!player.flightOrigin && player.x + player.width / 2 > barrierX) {
-    player.x = barrierX - player.width / 2;
-    if (player.dx > 0) player.dx = 0;
+  const eastBarrierX = mob.x + KRAKEN_BARRIER_EAST_OFFSET;
+  if (!player.flightOrigin) {
+    if (player.x < mob.x && player.x + player.width / 2 > barrierX) {
+      player.x = barrierX - player.width / 2;
+      if (player.dx > 0) player.dx = 0;
+    } else if (player.x >= mob.x && player.x - player.width / 2 < eastBarrierX) {
+      player.x = eastBarrierX + player.width / 2;
+      if (player.dx < 0) player.dx = 0;
+    }
   }
 
   const px = player.x;
@@ -126,15 +133,17 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     !player.flightOrigin &&
     !mob.grabbing &&
     player.x + player.width / 2 >= barrierX - 6 &&
+    player.x - player.width / 2 <= eastBarrierX + 6 &&
     (player.hurt ?? 0) <= 0
   ) {
+    const pushDir = player.x < mob.x ? -1 : 1;
     player.hurt = 1.05;
-    player.dx = -150;
+    player.dx = pushDir * 150;
     player.dy = -55;
     const loss = takeDamage(player, 16);
     if (playerInWater) player.oxygen = Math.max(0, player.oxygen - 3);
     effects.push({
-      x: barrierX,
+      x: pushDir < 0 ? barrierX : eastBarrierX,
       y: py,
       color: '#a9557a',
       count: 10,
@@ -143,7 +152,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     });
   }
 
-  const inRange = !player.flightOrigin && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
+  const inRange = !player.flightOrigin && px < mob.x && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
   const headOrigin = py <= mob.y + 180;
   const originX = headOrigin ? mob.x - 4 : mob.x - 24;
   const originY = headOrigin ? mob.y + 4 : py;

@@ -1,6 +1,7 @@
 import { ARMOR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
+import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
@@ -26,7 +27,7 @@ export function takeDamage(player, damage) {
 
 export function collides(world, x, y, height = PLAYER_SIZE.height) {
   const kraken = world.mobs?.find((mob) => mob.kind === 'kraken' && mob.health > 0 && mob.respawn <= 0);
-  if (kraken && x + PLAYER_SIZE.width / 2 > kraken.x - 38) return true;
+  if (kraken && x + PLAYER_SIZE.width / 2 > kraken.x - KRAKEN_BARRIER_OFFSET && x - PLAYER_SIZE.width / 2 < kraken.x + KRAKEN_BARRIER_EAST_OFFSET) return true;
   const left = Math.floor((x - PLAYER_SIZE.width / 2) / TILE);
   const right = Math.floor((x + PLAYER_SIZE.width / 2 - 0.01) / TILE);
   const top = Math.floor(y / TILE);

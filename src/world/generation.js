@@ -6,9 +6,14 @@ export { ISLAND_CAVE };
 
 export const TILE = 16;
 export const WORLD_VERSION = 2;
+export const ORIGINAL_COLS = 224;
 export const ORIGINAL_WEST_EXTENSION = 44;
 export const WEST_EXTENSION = ORIGINAL_WEST_EXTENSION + 64;
-export const COLS = 224 + WEST_EXTENSION;
+export const EAST_EXTENSION = 128;
+export const COLS = ORIGINAL_COLS + WEST_EXTENSION + EAST_EXTENSION;
+export const KRAKEN_COLUMN = ORIGINAL_COLS - 1.5;
+export const JUNGLE_FADE_START_COLUMN = ORIGINAL_COLS;
+export const JUNGLE_FADE_END_COLUMN = ORIGINAL_COLS + 48;
 const OCEAN_ROWS = 176;
 export const ROWS = ISLAND_BOTTOM;
 export const WATER_ROW = 16;
@@ -58,6 +63,13 @@ function oceanFloor(x) {
   if (x < 0) {
     const shelf = 46 + 19 * Math.sin(-x / ORIGINAL_WEST_EXTENSION * Math.PI * 0.83);
     return Math.round(shelf + 2 * Math.sin(x * 0.35) + noise(x, 7) * 2);
+  }
+  if (x > ORIGINAL_COLS) {
+    const distance = x - ORIGINAL_COLS;
+    const blend = Math.min(1, distance / 18);
+    const baseDepth = 46 + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
+    const jungleDepth = 52 + 7 * Math.sin(distance * 0.085 + 0.6) + 3 * Math.sin(distance * 0.23);
+    return Math.round(baseDepth + (jungleDepth - baseDepth) * blend + noise(x, 7) * 2);
   }
   const depth = 30 + 16 * Math.min(1, Math.abs(x - 56) / 85) + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
   return Math.min(islandSurface(x), Math.round(depth + noise(x, 7) * 2));
@@ -156,9 +168,11 @@ function makeChamber(tier, x, y, rx, ry) {
 }
 
 export function generateCaveSystem(seed = 61) {
+  const coreMaxX = ORIGINAL_COLS - 24;
+  const coreMaxAbyssX = ORIGINAL_COLS - 22;
   const upperAnchors = [-78, -54, 172, 190, 203];
   const upper = upperAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 1, seed) - 0.5) * 8), -WEST_EXTENSION + 20, COLS - WEST_EXTENSION - 24);
+    const x = clamp(anchorX + Math.round((noise(i, 1, seed) - 0.5) * 8), -WEST_EXTENSION + 20, coreMaxX);
     const rx = 17 + Math.round(noise(i, 3, seed) * 8);
     const ry = 8 + Math.round(noise(i, 4, seed) * 4);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
@@ -168,7 +182,7 @@ export function generateCaveSystem(seed = 61) {
 
   const midAnchors = [-78, -58, 175, 193, 206];
   const mid = midAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 11, seed) - 0.5) * 10), -WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 24);
+    const x = clamp(anchorX + Math.round((noise(i, 11, seed) - 0.5) * 10), -WEST_EXTENSION + 22, coreMaxX);
     const rx = 20 + Math.round(noise(i, 13, seed) * 8);
     const ry = 11 + Math.round(noise(i, 14, seed) * 5);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
@@ -178,7 +192,7 @@ export function generateCaveSystem(seed = 61) {
 
   const abyssAnchors = [-80, -61, 170, 193, 204];
   const abyss = abyssAnchors.map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i, 21, seed) - 0.5) * 10), -WEST_EXTENSION + 22, COLS - WEST_EXTENSION - 22);
+    const x = clamp(anchorX + Math.round((noise(i, 21, seed) - 0.5) * 10), -WEST_EXTENSION + 22, coreMaxAbyssX);
     const rx = 18 + Math.round(noise(i, 23, seed) * 10);
     const ry = 11 + Math.round(noise(i, 24, seed) * 5);
     const y = clamp(Math.round(138 + noise(i, 22, seed) * 16), 134, OCEAN_ROWS - ry - 6);
@@ -222,9 +236,55 @@ export function generateCaveSystem(seed = 61) {
   for (let i = 0; i < 4; i++) {
     const host = chambers[Math.floor(noise(i, 35, seed) * chambers.length)];
     const dir = noise(i, 36, seed) < 0.5 ? -1 : 1;
-    const endX = clamp(host.x + dir * Math.round(host.rx + 8 + noise(i, 37, seed) * 10), -WEST_EXTENSION + 10, COLS - WEST_EXTENSION - 10);
+    const endX = clamp(host.x + dir * Math.round(host.rx + 8 + noise(i, 37, seed) * 10), -WEST_EXTENSION + 10, coreMaxX);
     const endY = clamp(host.y + Math.round((noise(i, 38, seed) - 0.45) * 14), Math.max(WATER_ROW + 8, groundAt(endX + WEST_EXTENSION) + 6), OCEAN_ROWS - 8);
     rawPassages.push(wormTunnel([host.x, host.y, 3.2], [endX, endY, 3.6], seed + 430 + i * 11));
+  }
+
+  // Eastern jungle ocean grotto chambers beyond the Kraken.
+  const eastMaxX = COLS - WEST_EXTENSION - 24;
+  const eastUpper = [258, 308].map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 1, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+    const rx = 18 + Math.round(noise(i + 10, 3, seed) * 7);
+    const ry = 9 + Math.round(noise(i + 10, 4, seed) * 4);
+    const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
+    const y = clamp(Math.round(62 + noise(i + 10, 2, seed) * 16), Math.max(WATER_ROW + ry + 6, floorClearance), 84);
+    return makeChamber(0, x, y, rx, ry);
+  });
+  const eastMid = [260, 310].map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 11, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+    const rx = 20 + Math.round(noise(i + 10, 13, seed) * 7);
+    const ry = 11 + Math.round(noise(i + 10, 14, seed) * 4);
+    const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
+    const y = clamp(Math.round(98 + noise(i + 10, 12, seed) * 20), floorClearance, 124);
+    return makeChamber(1, x, y, rx, ry);
+  });
+  const eastAbyss = [257, 309].map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 21, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+    const rx = 19 + Math.round(noise(i + 10, 23, seed) * 8);
+    const ry = 11 + Math.round(noise(i + 10, 24, seed) * 4);
+    const y = clamp(Math.round(140 + noise(i + 10, 22, seed) * 14), 134, OCEAN_ROWS - ry - 6);
+    return makeChamber(2, x, y, rx, ry);
+  });
+  chambers.push(...eastUpper, ...eastMid, ...eastAbyss);
+
+  const eastEntranceZones = [
+    { min: 252, max: 262, target: eastUpper[0] },
+    { min: 304, max: 314, target: eastUpper[1] },
+  ];
+  for (const [i, zone] of eastEntranceZones.entries()) {
+    const ex = Math.round(zone.min + noise(i + 10, 31, seed) * (zone.max - zone.min));
+    const ey = groundAt(ex + WEST_EXTENSION) - 1;
+    const radius = 3.5 + noise(i + 10, 32, seed) * 0.4;
+    entrances.push({ x: ex, y: ey, tx: ex + WEST_EXTENSION, ty: ey, radius });
+    rawPassages.push(wormTunnel([ex, ey, radius], [zone.target.x, zone.target.y, 4.1], seed + 500 + i * 7, ey));
+  }
+  rawPassages.push(wormTunnel([eastUpper[0].x, eastUpper[0].y, 3.7], [eastUpper[1].x, eastUpper[1].y, 3.7], seed + 540));
+  rawPassages.push(wormTunnel([eastMid[0].x, eastMid[0].y, 4.1], [eastMid[1].x, eastMid[1].y, 4.1], seed + 560));
+  rawPassages.push(wormTunnel([eastAbyss[0].x, eastAbyss[0].y, 4.3], [eastAbyss[1].x, eastAbyss[1].y, 4.3], seed + 580));
+  for (let i = 0; i < 2; i++) {
+    rawPassages.push(wormTunnel([eastUpper[i].x, eastUpper[i].y, 3.8], [eastMid[i].x, eastMid[i].y, 4.3], seed + 600 + i * 9));
+    rawPassages.push(wormTunnel([eastMid[i].x, eastMid[i].y, 4.2], [eastAbyss[i].x, eastAbyss[i].y, 4.6], seed + 640 + i * 9));
   }
 
   const pillars = [];
@@ -245,7 +305,7 @@ export function generateCaveSystem(seed = 61) {
   }
 
   // Select hydrothermal air vent candidates across all three depth tiers.
-  const ventIndices = [1, 3, 5, 6, 8, 10, 12, 14];
+  const ventIndices = [1, 3, 5, 6, 8, 10, 12, 14, 16, 19];
   const ventCandidates = ventIndices.map((idx, i) => {
     const chamber = chambers[idx];
     return [
@@ -486,6 +546,7 @@ export function generateFixtures() {
     ...islandCaches.map(([id, name, column, floor, resource, amount]) => ({ id, name, column, floor, resource, amount })),
     { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
+    { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288, floor: groundAt(288 + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
   ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
     id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
@@ -496,7 +557,7 @@ export function generateFixtures() {
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });
   // Preserve saved kelp IDs where the seabed has shifted near cave openings.
-  const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144]];
+  const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144], [236], [248], [264], [282], [300], [320], [338]];
   for (const [id, column = id] of kelpLocations) {
     const tx = column + WEST_EXTENSION;
     const ty = groundAt(tx);
@@ -557,7 +618,7 @@ export function generateMobs() {
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
-    { id: 'kraken-east', kind: 'kraken', x: (COLS - 1.5 - WEST_EXTENSION) * TILE, y: 32 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
+    { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 32 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? groundAt(Math.floor(x / TILE)) * TILE : mob.y;
