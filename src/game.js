@@ -3,7 +3,7 @@ import { ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, playerInWater, toggleGodMode } from './gameplay/player.js';
+import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
@@ -39,7 +39,6 @@ let selected = 0;
 let flightSpeedIndex = flightSpeedLevels.indexOf(1);
 let count = 1;
 let time = 0;
-let cameraDescentTime = 0;
 let caveShadowsHidden = false;
 let message = available ? 'Create a room or join with an invite link.' : 'Multiplayer is unavailable in this build.';
 
@@ -236,8 +235,7 @@ function switchView() {
   particles.length = 0;
   screenShake.clear();
   select(0);
-  cameraDescentTime = 0;
-  updateCamera(0, true);
+  updateCamera(1);
 }
 
 async function copyRoom() {
@@ -394,23 +392,15 @@ const input = bindInput(canvas, camera, {
   pause: () => ui.open('pause-panel'),
 });
 
-function updateCamera(dt, snap = false) {
-  const { player, world } = game;
+function updateCamera(dt) {
+  const { player } = game;
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
   const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
-  const descending = !player.flightOrigin && !player.climb &&
-    (player.fallDistance >= 3 * TILE || (player.dy > 40 && playerInWater(world, player)));
-  const descentDelay = 0.12;
-  const descentRamp = 0.28;
-  cameraDescentTime = clamp(cameraDescentTime + (descending ? dt : -2 * dt), 0, descentDelay + descentRamp);
-  const lookAhead = clamp((cameraDescentTime - descentDelay) / descentRamp, 0, 1);
-  const verticalAnchor = 0.5 - 0.14 * lookAhead;
   const standingCenterY = player.y + player.height - PLAYER_SIZE.height / 2;
-  const y = clamp(standingCenterY - camera.height * verticalAnchor, 0, Math.max(0, ROWS * TILE - camera.height));
-  const instant = snap || reducedMotion;
-  camera.x += (x - camera.x) * (instant ? 1 : Math.min(1, dt * 5));
-  // Follow fast descents closely enough for the additional space below to stay visible.
-  camera.y += (y - camera.y) * (instant ? 1 : Math.min(1, dt * (5 + 13 * lookAhead)));
+  const y = clamp(standingCenterY - camera.height / 2, 0, Math.max(0, ROWS * TILE - camera.height));
+  const factor = reducedMotion ? 1 : Math.min(1, dt * 5);
+  camera.x += (x - camera.x) * factor;
+  camera.y += (y - camera.y) * factor;
 }
 
 function resize() {
@@ -426,7 +416,7 @@ function updateViewport() {
   camera.height = canvas.height / zoom;
   input.pointer.active = false;
   input.stopMining();
-  updateCamera(0, true);
+  updateCamera(1);
 }
 
 function updateParticles(dt) {
@@ -493,7 +483,6 @@ function frame(now) {
       if (game.player !== previousPlayer) {
         input.stopMining();
         miningSwing = null;
-        cameraDescentTime = 0;
       }
       if (note) showAndSave(note);
       accumulator -= timestep;
