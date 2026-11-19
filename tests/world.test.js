@@ -1435,6 +1435,21 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
         const upPupil = renderAtPlayerY(mob.y - 120);
         const downPupil = renderAtPlayerY(mob.y + 120);
         assert.ok(upPupil && downPupil && downPupil[1] > upPupil[1]);
+
+        fillRects.length = 0;
+        mob.attackMode = 'tackle';
+        mob.tacklePhase = 0.4;
+        mob.tentacleReach = 0.9;
+        mob.tentacleTarget = { x: mob.x - 140, y: mob.y, ox: mob.x - 4, oy: mob.y + 4 };
+        renderer.draw({
+          world: game.world, player: game.player, snorkel: null,
+          camera: { x: mob.x - 180, y: mob.y - 90, width: 320, height: 180 },
+          time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+          held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+          particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+          worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+        });
+        assert.ok(fillRects.some(([, , w, h, color]) => w === 4 && h === 4 && color === '#f0c88b'));
       }
     }
   } finally {

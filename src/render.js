@@ -1826,6 +1826,36 @@ export function createRenderer(canvas) {
             if (cup && i % 3 === 1) rect(px - half + 1, py + half - 2, 2, 2, cup);
           }
         };
+        const whipTentacle = (x0, y0, x1, y1, whipPhase, swingDir, s0, s1) => {
+          const dx = x1 - x0;
+          const dy = y1 - y0;
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
+          const swingAmp = Math.cos(whipPhase * Math.PI) * 44 * swingDir;
+          const waveAmp = Math.sin(whipPhase * Math.PI) * 22 * swingDir;
+          const steps = Math.max(6, Math.ceil(len / 5));
+          let tipX = x1;
+          let tipY = y1;
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const swing = swingAmp * Math.sin(t * Math.PI * 0.72);
+            const wave = Math.sin(t * Math.PI * 2.4 - whipPhase * Math.PI * 4) * waveAmp * (1 - t * 0.2);
+            const offset = swing + wave;
+            const px = Math.round(x0 + dx * t + nx * offset);
+            const py = Math.round(y0 + dy * t + ny * offset);
+            const s = Math.max(3, Math.round(s0 + (s1 - s0) * t));
+            const half = Math.floor(s / 2);
+            rect(px - half - 1, py - half - 1, s + 2, s + 2, "#2d1429");
+            rect(px - half, py - half, s, s, i % 3 === 0 ? "#491f3d" : "#7e4268");
+            if (s >= 5) rect(px - half, py - half, Math.max(2, s - 3), 2, "#b0667d");
+            if (i % 3 === 1) rect(px - half + 1, py + half - 2, 2, 2, "#da9292");
+            tipX = px;
+            tipY = py;
+          }
+          rect(tipX - 4, tipY - 4, 8, 8, "#b0667d");
+          rect(tipX - 2, tipY - 2, 4, 4, "#f0c88b");
+        };
 
         // Pixel-stepped vertical barrier tentacles from surface down through seabed/caves.
         for (let t = 0; t < 4; t++) {
@@ -1851,20 +1881,23 @@ export function createRenderer(canvas) {
 
         // Pixel-stepped tackle / grab attack tentacles.
         const reach = mob.tentacleReach ?? 0;
-        if (reach > 0 && mob.tentacleTarget) {
-          const headVisible = mob.y + 28 >= camera.y && mob.y - 118 <= camera.y + camera.height;
+        const headVisible = mob.y + 28 >= camera.y && mob.y - 118 <= camera.y + camera.height;
+        if (mob.attackMode === "tackle" && (mob.windup ?? 0) > 0) {
+          const coil = Math.min(1, 1 - mob.windup / 0.52);
+          const ox = headVisible ? -4 : -24;
+          const oy = headVisible ? 4 : Math.round((mob.tentacleTarget?.y ?? mob.y) - mob.y);
+          for (const dir of [-1, 1]) {
+            pixelTentacle(ox, oy + dir * 8, ox - 28, oy + dir * (28 + Math.round(coil * 14)), ox - 44, oy + dir * (12 + Math.round(coil * 10)), 10, 5, "#491f3d", "#7e4268", "#da9292");
+          }
+        } else if (reach > 0 && mob.tentacleTarget) {
           const ox = headVisible ? -4 : Math.round((mob.tentacleTarget.ox ?? mob.x - 4) - mob.x);
           const oy = headVisible ? 4 : Math.round((mob.tentacleTarget.oy ?? mob.y + 4) - mob.y);
           const tx = Math.round(ox + (mob.tentacleTarget.x - mob.x - ox) * reach);
           const ty = Math.round(oy + (mob.tentacleTarget.y - mob.y - oy) * reach);
           if (mob.attackMode === "tackle") {
-            for (const offset of [-11, 11]) {
-              const midX = Math.round((ox + tx) * 0.5);
-              const midY = Math.round(oy + (ty - oy) * 0.5 + Math.sin(time * 18 + offset) * 8);
-              pixelTentacle(ox, oy + offset, midX, midY, tx, ty + Math.round(offset * 0.35), 10, 5, "#491f3d", "#7e4268", "#da9292");
-              rect(tx - 4, ty + Math.round(offset * 0.35) - 4, 8, 8, "#b0667d");
-              rect(tx - 2, ty + Math.round(offset * 0.35) - 2, 4, 4, "#f0c88b");
-            }
+            const whipPhase = mob.tacklePhase ?? (1 - (mob.actionTime ?? 0) / 0.6);
+            whipTentacle(ox, oy - 10, tx, ty - 4, whipPhase, -1, 10, 4);
+            whipTentacle(ox, oy + 10, tx, ty + 4, whipPhase, 1, 10, 4);
           } else if (mob.attackMode === "grab") {
             const midX = Math.round((ox + tx) * 0.5);
             const midY = Math.round(oy + (ty - oy) * 0.5 - 14);

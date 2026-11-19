@@ -177,6 +177,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
 
     if (mob.attackMode === 'tackle') {
       const progress = 1 - mob.actionTime / 0.6;
+      mob.tacklePhase = progress;
       mob.tentacleReach = progress < 0.45 ? progress / 0.45 : Math.max(0, (1 - progress) / 0.55);
       const ox = target.ox ?? mob.x - 4;
       const oy = target.oy ?? mob.y + 4;
@@ -262,6 +263,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
       mob.attackMode = 'idle';
       mob.grabbing = false;
       mob.tentacleReach = 0;
+      mob.tacklePhase = 0;
       mob.attackTimer = 2.2;
     }
     return;
