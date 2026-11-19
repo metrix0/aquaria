@@ -115,7 +115,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px solid #4864646b; display: flex; justify-content: space-between; align-items: center; padding: 8px 25px max(8px, env(safe-area-inset-bottom)); }
 .footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .footer-deploy { display: flex; align-items: center; gap: 8px; }
-#deploy-age { color: var(--muted); font: 10px var(--mono); white-space: nowrap; }
+.deploy-details { color: var(--muted); font: 10px/1.3 var(--mono); white-space: nowrap; text-align: right; }
+#deploy-status { display: block; color: var(--gold); }
+#deploy-status[data-done] { color: var(--mint); }
 .footer-stepper { display: flex; align-items: center; color: #cbdad0; background: #152730; border: 1px solid var(--line); border-radius: 4px; }
 .footer-stepper button { align-self: stretch; min-width: 28px; min-height: 28px; border: 0; border-radius: 3px; background: transparent; font-size: 16px; }
 .footer-stepper button:hover:not(:disabled) { color: var(--gold); background: #263942; }

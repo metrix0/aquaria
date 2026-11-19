@@ -4,6 +4,7 @@ import { JUNGLE_CAVE, isDryJungleCave } from './world/jungle-cave.js';
 import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
+import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
@@ -92,65 +93,7 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
-  const deployAge = byId('deploy-age');
-  let lastBuildTime = 0;
-
-  function updateDeployAge() {
-    if (!lastBuildTime) return;
-    const seconds = Math.max(0, Math.floor((Date.now() - lastBuildTime) / 1000));
-    const age = seconds >= 3600 ? Math.floor(seconds / 3600) + 'h'
-      : seconds >= 60 ? Math.floor(seconds / 60) + 'min' : seconds + 's';
-    const label = 'Last deploy ' + age + ' ago';
-    if (deployAge.textContent !== label) deployAge.textContent = label;
-  }
-
-  async function refreshDeployTime() {
-    try {
-      const response = await fetch('/deploy-info.json', { cache: 'no-cache', signal: AbortSignal.timeout(5000) });
-      if (!response.ok) return;
-      const { builtAt } = await response.json();
-      if (!Number.isSafeInteger(builtAt) || builtAt <= 0) return;
-      deployAge.dateTime = new Date(builtAt).toISOString();
-      lastBuildTime = builtAt;
-      updateDeployAge();
-      deployAge.hidden = false;
-    } catch {
-      // Keep the last known build time if a deployment check fails.
-    }
-  }
-
-  void refreshDeployTime();
-  window.setInterval(updateDeployAge, 1000);
-  window.setInterval(() => {
-    if (!document.hidden) void refreshDeployTime();
-  }, 30000);
-
-  const deploy = byId('deploy');
-  deploy.addEventListener('click', async () => {
-    if (deploy.disabled) return;
-    deploy.disabled = true;
-    deploy.textContent = 'Queuing…';
-    try {
-      const response = await fetch('/api/deploy', {
-        method: 'POST',
-        signal: AbortSignal.timeout(12000),
-      });
-      if (response.status === 202) {
-        notify('Deployment queued on Vercel.');
-      } else if (response.status === 503) {
-        notify('Vercel Deploy Hook is missing.');
-      } else if ([404, 405].includes(response.status)) {
-        notify('Deploy is unavailable here.');
-      } else {
-        notify('Vercel could not queue the deployment.');
-      }
-    } catch {
-      notify('Could not confirm the request. Check Vercel before retrying.');
-    } finally {
-      deploy.textContent = 'Deploy';
-      deploy.disabled = false;
-    }
-  });
+  createDeployUi(byId('deploy'), byId('deploy-age'), byId('deploy-status'), notify);
   const zoomOut = byId('zoom-out');
   const zoomIn = byId('zoom-in');
   zoomOut.addEventListener('click', () => actions.zoomBy(-1));
