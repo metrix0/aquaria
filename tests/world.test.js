@@ -517,7 +517,7 @@ test('the ring casts without a target and recharges across reloads', () => {
   assert.equal(useRootRing(restored), undefined);
 });
 
-test('the root wave travels before it hits, stops at rock, and suspends the first enemy it reaches', () => {
+test('the root wave stops at rock and damages the first enemy only after lifting it', () => {
   const game = createGame();
   const { player, world } = game;
   game.progress.ring = 'root-ring';
@@ -545,14 +545,16 @@ test('the root wave travels before it hits, stops at rock, and suspends the firs
   advance(10);
   assert.equal(mob.health, health);
   advance(20);
-  assert.equal(mob.health, health - 3);
+  assert.equal(mob.health, health);
   assert.ok(mob.rooted > 2);
   assert.ok(mob.y < y - 2);
   advance(10);
   assert.equal(game.rootWave.fade, 1);
+  assert.equal(mob.health, health);
   advance(10);
   const suspendedAt = mob.y;
   assert.ok(Math.abs(suspendedAt - (mob.rootBaseY - 20)) < .01);
+  assert.equal(mob.health, health - 3);
   advance(210);
   assert.equal(mob.y, suspendedAt);
   assert.ok(mob.rooted > 0);

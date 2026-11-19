@@ -1,5 +1,7 @@
-import { ROOT_BIND_DURATION } from './gameplay/root-ring.js';
+import { ROOT_BIND_DURATION, ROOT_SQUEEZE_TIME } from './gameplay/root-ring.js';
 import { clamp } from './world/generation.js';
+
+const GRIP_START = .14;
 
 function smoothstep(progress) {
   const t = clamp(progress, 0, 1);
@@ -9,8 +11,8 @@ function smoothstep(progress) {
 export function rootBindPose(mob, spec, reducedMotion) {
   const age = ROOT_BIND_DURATION - mob.rooted;
   const release = smoothstep(mob.rooted / .48);
-  const grip = smoothstep((age - .14) / .34) * release;
-  const pulse = reducedMotion ? 1 : .88 + .12 * Math.cos((age - .48) * 8);
+  const grip = smoothstep((age - GRIP_START) / (ROOT_SQUEEZE_TIME - GRIP_START)) * release;
+  const pulse = reducedMotion ? 1 : .88 + .12 * Math.cos((age - ROOT_SQUEEZE_TIME) * 8);
   const feet = spec.centerY + spec.height / 2;
   return {
     base: feet + mob.rootBaseY - mob.y,

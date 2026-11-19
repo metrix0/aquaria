@@ -11,6 +11,7 @@ const TRAIL_FADE = .45;
 const ROOT_LIFT = 20;
 
 export const ROOT_BIND_DURATION = 4.6;
+export const ROOT_SQUEEZE_TIME = .48;
 
 export function ringCooldown(game) {
   return Math.max(0, game.rootReadyAt - game.elapsed);
@@ -53,6 +54,14 @@ export function stepRootWave(game, dt) {
   if (!wave) return;
   wave.age += dt;
   if (wave.finished) {
+    const mob = wave.target;
+    if (mob && wave.age >= wave.squeezeAt && (mob.rootLift ?? 0) === 0) {
+      wave.target = null;
+      const angle = wave.facing > 0 ? 0 : Math.PI;
+      if (game.world.mobs.includes(mob) && damageMob(game.world, mob, 3, angle, 0, game.effects)) {
+        game.effects.push({ x: mob.x, y: mob.y + mobSpec(mob).centerY, color: '#93c879', count: 13, spread: 45 });
+      }
+    }
     wave.fade = Math.min(1, Math.max(0, 1 - (wave.age - wave.fadeAt) / TRAIL_FADE));
     if (wave.fade === 0) game.rootWave = null;
     return;
@@ -66,15 +75,14 @@ export function stepRootWave(game, dt) {
     wave.length = distance;
     const mob = reachedEnemy(game.world, wave, x, wave.y);
     if (!mob) continue;
-    const hitY = mob.y + mobSpec(mob).centerY;
-    damageMob(game.world, mob, 3, wave.facing > 0 ? 0 : Math.PI, 0, game.effects);
-    if (mob.health > 0 && mob.kind !== 'kraken') {
+    if (mob.kind !== 'kraken') {
       mob.rooted = ROOT_BIND_DURATION;
       mob.rootLift = ROOT_LIFT;
       mob.rootBaseY = mob.y;
       mob.grounded = false;
     }
-    game.effects.push({ x, y: hitY, color: '#93c879', count: 13, spread: 45 });
+    wave.target = mob;
+    wave.squeezeAt = wave.age + ROOT_SQUEEZE_TIME;
     wave.finished = true;
   }
   if (wave.finished || wave.length < end || end === RANGE) {
