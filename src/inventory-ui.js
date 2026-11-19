@@ -49,7 +49,7 @@ function drawStack(button, stack) {
   button.toggleAttribute('data-filled', Boolean(stack));
 }
 
-function drawSlots(buttons, stacks, selected, nativeHint = false) {
+function drawSlots(buttons, stacks, selected) {
   for (const [index, button] of buttons.entries()) {
     const stack = stacks[index];
     const { group } = button.dataset;
@@ -58,7 +58,6 @@ function drawSlots(buttons, stacks, selected, nativeHint = false) {
       ? ITEMS[stack.id].name + (stack.count > 1 ? ' × ' + stack.count : '')
       : 'Empty';
     drawStack(button, stack);
-    if (nativeHint) button.title = details;
     const slotName = group === 'accessory' ? accessoryLabels[index] + ' accessory'
       : ['head', 'feet', 'ring'].includes(group) ? label : label + ' ' + (index + 1);
     button.setAttribute('aria-label', slotName + ', ' + details);
@@ -105,6 +104,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   const chestStatus = panel.querySelector('#chest-status');
   const close = panel.querySelector('[data-close]');
   const armorSlot = panel.querySelector('#backpack-armor').parentElement;
+  const game = panel.parentElement;
   const tooltip = panel.querySelector('#inventory-tooltip');
   const tooltipName = tooltip.querySelector('strong');
   const tooltipStats = tooltip.querySelector('small');
@@ -132,13 +132,15 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     const stack = tooltipSlot === armorSlot ? { id: armorSlot.dataset.item, count: 1 } : stackAt(tooltipSlot);
     const item = ITEMS[stack?.id] ?? EQUIPMENT_ITEMS[stack?.id];
     const anchor = tooltipSlot.getBoundingClientRect();
-    const bounds = panel.getBoundingClientRect();
-    if (!item || !panel.open || anchor.bottom <= bounds.top || anchor.top >= bounds.bottom) {
+    const bounds = panel.contains(tooltipSlot) ? panel.getBoundingClientRect() : null;
+    if (!item || !anchor.height || (bounds && (!panel.open || anchor.bottom <= bounds.top || anchor.top >= bounds.bottom))) {
       tooltipSlot.removeAttribute('aria-describedby');
       tooltip.hidden = true;
       return;
     }
 
+    const host = bounds ? panel : game;
+    if (tooltip.parentElement !== host) host.append(tooltip);
     tooltipName.textContent = item.name + (stack.count > 1 ? ' × ' + stack.count : '');
     tooltipStats.textContent = itemStats(stack.id, item);
     tooltipStats.hidden = !tooltipStats.textContent;
@@ -150,16 +152,18 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     const { offsetWidth: width, offsetHeight: height } = tooltip;
     const { clientWidth, clientHeight } = document.documentElement;
     const centerX = (anchor.left + anchor.right) / 2;
-    const leftSide = bounds.left - width - gap;
-    const rightSide = bounds.right + gap;
-    const fitsLeft = leftSide >= gap;
-    const fitsRight = rightSide + width <= clientWidth - gap;
     let left = centerX - width / 2;
     const above = anchor.top - height - gap;
     let top = above >= gap ? above : anchor.bottom + gap;
-    if (fitsLeft || fitsRight) {
-      left = fitsLeft && (!fitsRight || centerX - bounds.left < bounds.right - centerX) ? leftSide : rightSide;
-      top = (anchor.top + anchor.bottom - height) / 2;
+    if (bounds) {
+      const leftSide = bounds.left - width - gap;
+      const rightSide = bounds.right + gap;
+      const fitsLeft = leftSide >= gap;
+      const fitsRight = rightSide + width <= clientWidth - gap;
+      if (fitsLeft || fitsRight) {
+        left = fitsLeft && (!fitsRight || centerX - bounds.left < bounds.right - centerX) ? leftSide : rightSide;
+        top = (anchor.top + anchor.bottom - height) / 2;
+      }
     }
     tooltip.style.left = Math.max(gap, Math.min(left, clientWidth - width - gap)) + 'px';
     tooltip.style.top = Math.max(gap, Math.min(top, clientHeight - height - gap)) + 'px';
@@ -172,7 +176,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     renderTooltip();
   }
 
-  for (const slot of [...Object.values(groups).flat(), armorSlot]) {
+  for (const slot of [...hudSlots, ...Object.values(groups).flat(), armorSlot]) {
     slot.addEventListener('pointerenter', ({ pointerType }) => {
       if (pointerType !== 'touch' && !gesture) showTooltip(slot);
     });
@@ -186,6 +190,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       if (tooltipSlot === slot && !slot.matches(':hover')) showTooltip(null);
     });
   }
+  game.addEventListener('pointerdown', () => showTooltip(null), { capture: true });
   panel.addEventListener('scroll', renderTooltip);
   window.addEventListener('resize', renderTooltip);
 
@@ -233,7 +238,6 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
 
   panel.addEventListener('pointerdown', (event) => {
     const button = slotAt(event.target);
-    if (event.pointerType === 'touch') showTooltip(null);
     if (!button || gesture || event.button !== 0) return;
     gesture = { button, id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false };
     button.setPointerCapture(event.pointerId);
@@ -262,7 +266,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       if (target) move(button, target);
       else pick(null);
     } else if (target === button) activate(button);
-    if (event.pointerType !== 'touch' || (!dragging && picked === target)) showTooltip(target);
+    if (event.pointerType === 'touch' && !dragging && picked === target) showTooltip(target);
   });
   armorSlot.addEventListener('pointerup', ({ pointerType }) => {
     if (pointerType === 'touch') showTooltip(armorSlot);
@@ -318,10 +322,12 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     slot.addEventListener('click', (event) => {
       onSelect(index);
       if (event.detail) slot.blur();
+      if (event.pointerType === 'touch') showTooltip(slot);
     });
   }
 
   return {
+    clearTooltip: () => showTooltip(null),
     showChest(chest) {
       chestId = chest?.id;
       chestStatus.textContent = '';
@@ -332,7 +338,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     openChestId: () => panel.open ? chestId : undefined,
     render(selected) {
       const { hotbar, backpack } = getInventory();
-      drawSlots(hudSlots, hotbar, selected, true);
+      drawSlots(hudSlots, hotbar, selected);
       drawSlots(panelHotbar, hotbar, selected);
       drawSlots(backpackSlots, backpack);
       for (const { slot, label, fallback, get } of Object.values(equipSlots)) {
