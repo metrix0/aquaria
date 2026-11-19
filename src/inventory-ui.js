@@ -41,13 +41,13 @@ function drawStack(button, stack) {
 function drawSlots(buttons, stacks, selected, nativeHint = false) {
   for (const [index, button] of buttons.entries()) {
     const stack = stacks[index];
-    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest', head: 'Head equipment', feet: 'Feet equipment' }[button.dataset.group];
+    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest', head: 'Head equipment', feet: 'Feet equipment', ring: 'Ring equipment' }[button.dataset.group];
     const details = stack
       ? ITEMS[stack.id].name + (stack.count > 1 ? ' × ' + stack.count : '')
       : 'Empty';
     drawStack(button, stack);
     if (nativeHint) button.title = details;
-    const isEquip = button.dataset.group === 'head' || button.dataset.group === 'feet';
+    const isEquip = ['head', 'feet', 'ring'].includes(button.dataset.group);
     button.setAttribute('aria-label', (isEquip ? label : label + ' ' + (index + 1)) + ', ' + details);
     if (selected !== undefined) button.setAttribute('aria-pressed', String(index === selected));
   }
@@ -65,23 +65,25 @@ function itemStats(id, item) {
     const tier = 'Mining tier ' + item.pickaxe;
     return item.miningTime ? tier + ' · ' + Math.round((1 - item.miningTime) * 100) + '% less mining time' : tier;
   }
-  if (id === 'root-ring') return 'Roots a nearby enemy';
+  if (id === 'root-ring') return 'F · Bind a nearby enemy and deal 3 damage';
   if (id === 'explorers-map') return 'Use to open the map';
   return '';
 }
 
-export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
+export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, getRing, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
   const chestSlots = createSlots(panel.querySelector('#chest-slots'), 'chest', CHEST_SIZE);
   const headSlot = panel.querySelector('#backpack-head-slot');
   const feetSlot = panel.querySelector('#backpack-feet-slot');
+  const ringSlot = panel.querySelector('#backpack-ring-slot');
   const equipSlots = {
     head: { slot: headSlot, label: panel.querySelector('#backpack-head-label'), fallback: 'Head', get: getSnorkel },
     feet: { slot: feetSlot, label: panel.querySelector('#backpack-feet-label'), fallback: 'Feet', get: getFeet },
+    ring: { slot: ringSlot, label: panel.querySelector('#backpack-ring-label'), fallback: 'Ring', get: getRing },
   };
-  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot] };
+  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot], ring: [ringSlot] };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
   const collectAll = panel.querySelector('#chest-collect-all');
@@ -276,9 +278,11 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     if (direction === undefined) return;
     event.preventDefault();
 
-    if ((group === 'head' || group === 'feet') && event.code === 'ArrowLeft') panelHotbar[HOTBAR_SIZE - 1].focus();
+    if (Object.hasOwn(equipSlots, group) && event.code === 'ArrowLeft') panelHotbar[HOTBAR_SIZE - 1].focus();
     else if (group === 'head' && event.code === 'ArrowDown') feetSlot.focus();
     else if (group === 'feet' && event.code === 'ArrowUp') headSlot.focus();
+    else if (group === 'feet' && event.code === 'ArrowDown') ringSlot.focus();
+    else if (group === 'ring' && event.code === 'ArrowUp') feetSlot.focus();
     else if (group === 'hotbar' && index === HOTBAR_SIZE - 1 && event.code === 'ArrowRight') headSlot.focus();
     else if (group === 'backpack' && index % columns === columns - 1 && event.code === 'ArrowRight') (index >= 12 ? feetSlot : headSlot).focus();
     else if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
@@ -316,7 +320,10 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       for (const { slot, label, fallback, get } of Object.values(equipSlots)) {
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
-        label.textContent = equipped?.name ?? fallback;
+        label.textContent = fallback === 'Ring' && equipped ? 'Root ring [F]' : (equipped?.name ?? fallback);
+        if (fallback === 'Ring') {
+          document.getElementById('cast-ring').hidden = !equipped;
+        }
       }
       if (chestId) {
         const slots = getChest(chestId);

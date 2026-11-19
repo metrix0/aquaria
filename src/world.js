@@ -1,5 +1,5 @@
 import { shipwreckSkeletons } from './world/shipwreck.js';
-import { caveClimbs, caveStructures, islandTraps } from './world/island-cave.js';
+import { caveClimbs, caveStructures, islandTraps, mineDecks } from './world/island-cave.js';
 import { MATERIAL, MATERIAL_IDS } from './content.js';
 import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
 
@@ -27,6 +27,7 @@ function offset(tx, ty) {
 export function createWorld() {
   const items = generateFixtures();
   const trees = generateTrees();
+  const structures = [...caveStructures, ...shipwreckSkeletons].map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor }));
   return {
     items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(),
     mobs: generateMobs(),
@@ -34,7 +35,8 @@ export function createWorld() {
       kind, tx: column + WEST_EXTENSION, ty, phase: index * .76, timer: 0, state: 'armed',
     })),
     caveClimbs: caveClimbs.map(([column, top, bottom, kind]) => ({ tx: column + WEST_EXTENSION, top, bottom, kind })),
-    caveStructures: [...caveStructures, ...shipwreckSkeletons].map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor })),
+    caveStructures: structures,
+    mineDecks: structures.filter(({ kind }) => Object.hasOwn(mineDecks, kind)),
     projectiles: [],
     get vents() { return baseVents(); },
     fixtureIds: new Set([...items, ...trees].map(({ id }) => id)),

@@ -5,7 +5,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useRootRing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useRootRing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -308,6 +308,7 @@ const ui = createUI({
   collectChest: (id) => collectChest(game, id),
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
+  getRing: () => equippedRing(game),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
@@ -342,6 +343,11 @@ const input = bindInput(canvas, camera, {
     if (!editPending) ui.open('backpack-panel', chest);
     return true;
   },
+  castRing() {
+    if (editPending) return;
+    const message = useRootRing(game);
+    if (message) ui.notify(message);
+  },
   fend() {
     if (editPending || game.player.stun > 0) return false;
     const { pointer } = input;
@@ -349,11 +355,6 @@ const input = bindInput(canvas, camera, {
     const wy = pointer.y + camera.y;
     if (game.inventory.hotbar[selected]?.id === 'explorers-map') {
       ui.open('explorers-map-panel');
-      return true;
-    }
-    const roots = useRootRing(game, selected);
-    if (roots) {
-      ui.notify(roots);
       return true;
     }
     const dressing = useDressing(game, selected);
@@ -525,7 +526,7 @@ function frame(now) {
   const peers = room?.tick(now, dt, game.player, snorkel);
   const targetMob = aimedMob();
   renderer.draw({
-    world: game.world, player: game.player, snorkel, camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
+    world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,

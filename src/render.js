@@ -1050,13 +1050,20 @@ export function createRenderer(canvas) {
     const palette = (abyss ? ABYSS_CAVE_PAIRS : WET_CAVE_PAIRS).map((pair) => mixPair(pair, jungleMix));
     const underground = !wet && ty >= ISLAND_DEEPSTONE_ROW;
     const masonry = underground && isDungeonMasonry(tx - WEST_EXTENSION, ty);
+    const column = tx - WEST_EXTENSION;
+    const grove = !wet && !underground && ty > 36 && isDryIslandCave(column, ty)
+      ? Math.max(0, 1 - groveDistance(column, ty) / ROOT_GROVE.mossReach) : 0;
     const [base, shadow, grain] = wet
       ? palette
       : masonry
         ? ["#342941", "#261e34", "#4b3c59"]
         : underground
           ? ["#27253a", "#211e32", "#3a334d"]
-          : ["#2b343a", "#232d35", "#3a474b"];
+          : grove > .78
+            ? ["#254637", "#21382e", "#3e5d43"]
+            : grove > .42 && detail < grove
+              ? ["#2b3d36", "#24342f", "#3c5145"]
+              : ["#2b343a", "#232d35", "#3a474b"];
     if (overview) {
       rect(x, y, TILE, TILE, base);
       return;
@@ -1317,11 +1324,11 @@ export function createRenderer(canvas) {
           if (overview || !shipwreckArt.timber(world, x, y, material))
             drawTile(world, x, y, material, oreOpacity, overview);
           const column = x - WEST_EXTENSION;
-          if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < 155 &&
+          if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < ROOT_GROVE.mossReach &&
               TILE_NEIGHBORS.some(([dx, dy]) => isDryIslandCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
-            const moss = Math.max(0, 1 - groveDistance(column, y) / 155);
+            const moss = Math.max(0, 1 - groveDistance(column, y) / ROOT_GROVE.mossReach);
             if (moss > .06 && noise(column, y, 173) < moss) {
-              rect(x * TILE, y * TILE, TILE, TILE, moss > .65 ? '#648e573f' : '#5f7d402e');
+              rect(x * TILE, y * TILE, TILE, TILE, moss > .77 ? '#5ea55483' : moss > .55 ? '#5d954b51' : '#5f7d402e');
             }
           }
         } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview);
@@ -1349,29 +1356,41 @@ export function createRenderer(canvas) {
     }
     const treeX = (WEST_EXTENSION + ROOT_GROVE.column + .5) * TILE;
     const treeY = ROOT_GROVE.floor * TILE;
-    if (treeX + 130 > camera.x && treeX - 130 < camera.x + camera.width &&
-        treeY >= camera.y && treeY - 216 < camera.y + camera.height) {
+    const treeTile = WEST_EXTENSION + ROOT_GROVE.column;
+    if (treeX + 235 > camera.x && treeX - 235 < camera.x + camera.width &&
+        treeY + 115 >= camera.y && treeY - 375 < camera.y + camera.height) {
+      ctx.save();
+      ctx.beginPath();
+      for (let tx = Math.max(left, treeTile - 15); tx < Math.min(right, treeTile + 16); tx++) {
+        for (let row = Math.max(top, ROOT_GROVE.floor - 24); row < Math.min(bottom, ROOT_GROVE.floor + 8); row++) {
+          if (!tileAt(world, tx, row)) ctx.rect(tx * TILE, row * TILE, TILE, TILE);
+        }
+      }
+      ctx.clip();
       drawRootGrove(rect, polygon, noise, treeX, treeY, time);
+      ctx.restore();
     }
 
-    for (let tx = Math.max(left, ROOT_GROVE.column + WEST_EXTENSION - 155);
-      tx < Math.min(right, ROOT_GROVE.column + WEST_EXTENSION + 155); tx++) {
+    for (let tx = Math.max(left, treeTile - ROOT_GROVE.mossReach);
+      tx < Math.min(right, treeTile + ROOT_GROVE.mossReach); tx++) {
       const column = tx - WEST_EXTENSION;
       for (let row = Math.max(top, 36); row < Math.min(bottom, ISLAND_DEEPSTONE_ROW); row++) {
         if (!isDryIslandCave(column, row - 1) || tileAt(world, tx, row - 1) || !tileAt(world, tx, row)) continue;
-        const density = Math.max(0, 1 - groveDistance(column, row) / 155);
-        if (density <= 0 || noise(column, row, 141) > density ** 1.8) continue;
+        const density = Math.max(0, 1 - groveDistance(column, row) / ROOT_GROVE.mossReach);
+        const lush = inRootGrove(column, row);
+        if (density <= 0 || (!lush && noise(column, row, 141) > density ** 1.6)) continue;
         const x = tx * TILE;
         const y = row * TILE;
-        rect(x, y, TILE, density > .6 ? 3 : 1, density > .45 ? '#547845' : '#455641');
-        for (let i = 0; i < (overview ? 2 : 5); i++) {
-          const bx = x + 1 + i * 3;
-          const reach = 1 + Math.round((3 + noise(tx, row, i + 91) * 17) * density);
+        rect(x, y, TILE, lush ? 4 : density > .6 ? 3 : 1, lush ? '#6da04e' : density > .45 ? '#547845' : '#455641');
+        const blades = overview ? 2 : lush ? 9 : 5;
+        for (let i = 0; i < blades; i++) {
+          const bx = x + (i + .4) * TILE / blades;
+          const reach = 1 + Math.round((4 + noise(tx, row, i + 91) * (lush ? 32 : 17)) * density);
           const near = Math.hypot(player.x - bx, player.y + player.height - y);
           const motion = Math.sin(time * 1.6 + bx * .13) * 2 * density +
             Math.max(0, 1 - near / 28) * Math.max(-8, Math.min(8, player.dx * .09));
           polygon([[bx - 1, y], [bx + 1, y], [bx + motion, y - reach]],
-            ['#638b4c', '#82a25b', '#456a42'][i % 3]);
+            (lush ? ['#83ac48', '#a4bf58', '#47794a', '#658e43'] : ['#638b4c', '#82a25b', '#456a42'])[i % (lush ? 4 : 3)]);
         }
       }
     }
@@ -2560,6 +2579,7 @@ export function createRenderer(canvas) {
     world,
     player,
     snorkel,
+    ring,
     camera,
     time,
     elapsed,
@@ -2647,6 +2667,7 @@ export function createRenderer(canvas) {
     }
     drawCharacter(player, player.appearance, {
       snorkel: playerHeadInWater(world, player) ? snorkel : null,
+      ring,
       time,
       miningSwing,
       held,

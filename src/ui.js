@@ -26,6 +26,7 @@ export function createUI(actions, version) {
     collectChest: actions.collectChest,
     getSnorkel: actions.getSnorkel,
     getFeet: actions.getFeet,
+    getRing: actions.getRing,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,

@@ -1,5 +1,6 @@
 import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { inWater, solidAt } from '../world.js';
+import { mineDecks } from '../world/island-cave.js';
+import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
@@ -136,6 +137,20 @@ function fly(player, { left, right, up, down, flightSpeedMultiplier = 1 }, dt) {
   player.y = clamp(player.y + player.dy * dt, 0, ROWS * TILE - player.height);
 }
 
+function landingDeck(world, player, nextFeet) {
+  const feet = player.y + player.height;
+  let landing = Infinity;
+  for (const structure of world.mineDecks ?? []) {
+    const { tx, floor, kind } = structure;
+    const { rises, halfWidth } = mineDecks[kind];
+    const deck = floor * TILE - rises.at(-1);
+    if (Math.abs(player.x - (tx + .5) * TILE) >= halfWidth + player.width / 2 ||
+        feet > deck || nextFeet < deck || !hasExposedCaveFloor(world, structure)) continue;
+    landing = Math.min(landing, deck);
+  }
+  return landing;
+}
+
 export function movePlayer(world, player, input, dt) {
   if (player.flightOrigin) {
     fly(player, input, dt);
@@ -158,20 +173,38 @@ export function movePlayer(world, player, input, dt) {
     down = false;
     jump = false;
   }
-  const climb = !left && !right && player.stun <= 0 && (up || down || player.climbing) &&
-    world.caveClimbs?.find(({ tx, top, bottom }) => {
+  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climbing);
+  const rope = canClimb && world.caveClimbs?.some(({ tx, top, bottom }) => {
       const hand = player.y + 8;
       return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
         hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
         !solidAt(world, tx, Math.floor(hand / TILE));
     });
-  player.climbing = Boolean(climb);
-  if (climb) {
+  const shaft = canClimb && !rope && world.mineDecks?.find((structure) => {
+    const { tx, floor, kind } = structure;
+    if (kind === 'trestle' || Math.abs(player.x - (tx + .5) * TILE) >= 9) return false;
+    const feet = player.y + player.height;
+    return feet >= floor * TILE - mineDecks[kind].rises.at(-1) - 1 &&
+      feet <= floor * TILE + 1 && hasExposedCaveFloor(world, structure);
+  });
+  player.climbing = Boolean(rope || shaft);
+  if (player.climbing) {
     player.dx = 0;
     player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81;
     player.canShortenJump = false;
     player.waterJump = false;
-    player.grounded = moveAxis(world, player, 'y', player.dy * dt) && player.dy > 0;
+    const climbDistance = player.dy * dt;
+    if (shaft && climbDistance < 0) {
+      const deck = shaft.floor * TILE - mineDecks[shaft.kind].rises.at(-1);
+      const toDeck = deck - player.height - player.y;
+      if (climbDistance <= toDeck) {
+        player.grounded = !moveAxis(world, player, 'y', toDeck);
+        player.dy = 0;
+        player.climbing = !player.grounded;
+        return;
+      }
+    }
+    player.grounded = moveAxis(world, player, 'y', climbDistance) && player.dy > 0;
     return;
   }
   const bodyInWater = playerInWater(world, player);
@@ -230,7 +263,9 @@ export function movePlayer(world, player, input, dt) {
   const previousX = player.x;
   if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
   const falling = player.dy >= 0;
-  const yCollision = moveAxis(world, player, 'y', player.dy * dt);
+  const dy = player.dy * dt;
+  const deck = falling && !down && !bodyInWater ? landingDeck(world, player, player.y + player.height + dy) : Infinity;
+  const yCollision = moveAxis(world, player, 'y', Math.min(dy, deck - player.y - player.height)) || Number.isFinite(deck);
   player.grounded = yCollision && falling;
   if (player.grounded) player.waterJump = false;
   if (yCollision) player.dy = 0;

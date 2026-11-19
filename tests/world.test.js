@@ -295,6 +295,10 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   ]) {
     const x = (column + WEST_EXTENSION) * TILE;
     walkUntil(() => direction === 'left' ? player.x <= x : player.x >= x, { [direction]: true, climb: true });
+    if (minFloor === 55 && player.y + player.height < minFloor * TILE) {
+      // The survey headframe now catches the descent. Drop through its deck.
+      for (let frame = 0; frame < 40; frame++) movePlayer(world, player, { down: true }, 1 / 60);
+    }
     assert.ok(player.y + player.height >= minFloor * TILE, `reached the room at row ${minFloor}`);
   }
 

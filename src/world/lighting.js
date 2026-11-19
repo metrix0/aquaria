@@ -78,11 +78,11 @@ export function createCaveLight() {
       if (!isSolid(world, player, y * size + x)) lightCell(y * size + x, 53);
     }
 
-    for (const [dx, rise] of [[-5, 5], [0, 3], [5, 9], [1, 13]]) {
+    for (const [dx, rise] of [[-11, 6], [-7, 13], [-3, 4], [0, 19], [4, 10], [9, 15], [12, 4]]) {
       const x = ROOT_GROVE.column + WEST_EXTENSION + dx - left;
       const y = ROOT_GROVE.floor - rise - top;
       if (x < 0 || y < 0 || x >= size || y >= size || isSolid(world, player, y * size + x)) continue;
-      lightCell(y * size + x, 67);
+      lightCell(y * size + x, source);
     }
 
     for (let start = 0; start < queue.length; start++) {

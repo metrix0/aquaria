@@ -3,6 +3,8 @@ import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPP
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
 
+export const ROOT_RING = { id: 'root-ring', name: 'Root ring', description: 'A living knot from the grove. It remembers what trespassers sound like.' };
+
 export const ITEMS = {
   [BROKEN_PICKAXE.id]: {
     name: 'Broken Pickaxe', description: 'One tooth left. The mountain still counts it.', hotbar: 0, pickaxe: 1,
@@ -13,7 +15,7 @@ export const ITEMS = {
   [IRON_PICKAXE.id]: {
     name: 'Iron pickaxe', description: 'Miners say you can hear it grinning in the dark.', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime,
   },
-  'root-ring': { name: 'Root ring', description: 'A living knot from the grove. It remembers what trespassers sound like.' },
+  [ROOT_RING.id]: ROOT_RING,
   'explorers-map': { name: 'Weathered explorer’s map', description: 'The ink survived the sea. The warnings in the margins nearly didn’t.' },
   [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },
   [CAPTAINS_CUTLASS.id]: {
