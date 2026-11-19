@@ -1323,6 +1323,23 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   assert.equal(kraken.attackMode, 'grab');
   assert.ok(kraken.grabbing || player.health < 100);
   assert.ok(player.y > beforeFarGrabY);
+
+  // Depth 4 or above favors grab over normal 1:1:1 proportion.
+  world.mobs = [kraken];
+  const shallowModes = [];
+  for (let i = 0; i < 5; i++) {
+    Object.assign(player, { x: barrierX - 75, y: WATER + 2 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
+    kraken.attackMode = 'idle';
+    kraken.windup = 0;
+    kraken.actionTime = 0;
+    kraken.attackTimer = 0;
+    kraken.attackIndex = i;
+    stepGame(game, {}, 1 / 60);
+    shallowModes.push(kraken.attackMode);
+  }
+  assert.equal(shallowModes.filter((m) => m === 'grab').length, 3);
+  assert.equal(shallowModes.filter((m) => m === 'tackle').length, 1);
+  assert.equal(shallowModes.filter((m) => m === 'summon').length, 1);
 });
 
 

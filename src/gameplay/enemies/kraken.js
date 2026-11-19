@@ -1,6 +1,6 @@
 import { MATERIAL } from '../../content.js';
 import { inWater } from '../../world.js';
-import { MOB_HEALTH, WATER, clamp, groundAt } from '../../world/generation.js';
+import { MOB_HEALTH, TILE, WATER, clamp, groundAt } from '../../world/generation.js';
 import { takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
@@ -125,7 +125,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   }
 
   const inRange = !player.flightOrigin && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
-  const originY = clamp(py, mob.y - 30, Math.max(mob.y + 80, py));
+  const originY = clamp(py, WATER + 16, Math.max(mob.y + 80, py));
 
   if (mob.windup > 0) {
     mob.windup = Math.max(0, mob.windup - dt);
@@ -271,7 +271,10 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     if (playerDist > KRAKEN_TACKLE_RANGE && playerInWater) {
       mode = 'grab';
     } else {
-      const cycle = ['tackle', 'summon', 'grab'];
+      const depth = Math.max(0, Math.floor((player.y + 5 - WATER) / TILE));
+      const cycle = depth <= 4 && playerInWater
+        ? ['grab', 'tackle', 'grab', 'summon', 'grab']
+        : ['tackle', 'summon', 'grab'];
       mode = cycle[mob.attackIndex % cycle.length];
       mob.attackIndex++;
       if (mode === 'summon' && (activeSquids >= 3 || !playerInWater)) {
