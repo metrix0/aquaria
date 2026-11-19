@@ -1458,7 +1458,7 @@ export function createRenderer(canvas) {
   function mobs(world, camera, time, targetMob) {
     for (const mob of world.mobs ?? []) {
       if (mob.health <= 0 || mob.respawn > 0) continue;
-      const marginX = mob.kind === "kraken" ? 280 : 32;
+      const marginX = mob.kind === "kraken" ? 480 : 32;
       const marginY = mob.kind === "kraken" ? 2000 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)

@@ -4,6 +4,9 @@ import { MOB_HEALTH, WATER, clamp, groundAt } from '../../world/generation.js';
 import { takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
+const KRAKEN_TACKLE_RANGE = 190;
+const KRAKEN_GRAB_RANGE = 410;
+const KRAKEN_ENGAGE_RANGE = 420;
 
 export const krakenSpec = {
   name: 'kraken',
@@ -121,7 +124,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
     });
   }
 
-  const inRange = !player.flightOrigin && Math.abs(mob.x - px) <= 290;
+  const inRange = !player.flightOrigin && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
   const originY = clamp(py, mob.y - 30, Math.max(mob.y + 80, py));
 
   if (mob.windup > 0) {
@@ -140,7 +143,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
         const dx = px - (mob.x - 24);
         const dy = py - originY;
         const len = Math.hypot(dx, dy) || 1;
-        const reachLen = Math.min(220, Math.max(125, len + 26));
+        const reachLen = Math.min(KRAKEN_TACKLE_RANGE, Math.max(125, len + 26));
         mob.tentacleTarget = {
           x: mob.x - 24 + (dx / len) * reachLen,
           y: originY + (dy / len) * reachLen,
@@ -153,7 +156,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
         const dx = px - (mob.x - 24);
         const dy = py - originY;
         const len = Math.hypot(dx, dy) || 1;
-        const reachLen = Math.min(215, Math.max(120, len + 20));
+        const reachLen = Math.min(KRAKEN_GRAB_RANGE, Math.max(120, len + 28));
         mob.tentacleTarget = {
           x: mob.x - 24 + (dx / len) * reachLen,
           y: originY + (dy / len) * reachLen,
@@ -202,7 +205,12 @@ export function stepKraken(world, player, mob, dt, time, effects) {
         const tipX = mob.x - 24 + (target.x - (mob.x - 24)) * extend;
         const tipY = (target.oy ?? mob.y) + (target.y - (target.oy ?? mob.y)) * extend;
 
-        if (!player.flightOrigin && playerInWater && Math.hypot(px - tipX, py - tipY) <= 30) {
+        if (
+          !player.flightOrigin &&
+          playerInWater &&
+          (Math.hypot(px - tipX, py - tipY) <= 32 ||
+            pointToSegmentDist(px, py, mob.x - 24, target.oy ?? mob.y, tipX, tipY) <= 24)
+        ) {
           mob.grabbing = true;
           mob.actionTime = Math.min(mob.actionTime, 1.25);
           if (!mob.attackHit) {
@@ -258,14 +266,20 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   mob.attackTimer = Math.max(0, mob.attackTimer - dt);
   if (mob.attackTimer <= 0) {
     const activeSquids = world.mobs.filter((m) => m.krakenMinion && m.health > 0).length;
-    const cycle = ['tackle', 'summon', 'grab'];
-    let mode = cycle[mob.attackIndex % cycle.length];
-    mob.attackIndex++;
-    if (mode === 'summon' && (activeSquids >= 3 || !playerInWater)) {
-      mode = playerInWater ? 'grab' : 'tackle';
-    }
-    if (mode === 'grab' && !playerInWater) {
-      mode = 'tackle';
+    const playerDist = Math.hypot(px - (mob.x - 24), py - originY);
+    let mode;
+    if (playerDist > KRAKEN_TACKLE_RANGE && playerInWater) {
+      mode = 'grab';
+    } else {
+      const cycle = ['tackle', 'summon', 'grab'];
+      mode = cycle[mob.attackIndex % cycle.length];
+      mob.attackIndex++;
+      if (mode === 'summon' && (activeSquids >= 3 || !playerInWater)) {
+        mode = playerInWater ? 'grab' : 'tackle';
+      }
+      if (mode === 'grab' && !playerInWater) {
+        mode = 'tackle';
+      }
     }
     mob.attackMode = mode;
     mob.windup = mode === 'summon' ? 0.6 : 0.52;

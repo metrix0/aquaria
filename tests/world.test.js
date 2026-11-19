@@ -1310,6 +1310,19 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   kraken.attackIndex = 2;
   for (let i = 0; i < 75; i++) stepGame(game, {}, 1 / 60);
   assert.ok(player.y > beforeGrabY);
+
+  // Distant player automatically triggers the extended-reach tertiary grab attack.
+  Object.assign(player, { x: barrierX - 280, y: WATER + 6 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
+  const beforeFarGrabY = player.y;
+  kraken.attackMode = 'idle';
+  kraken.windup = 0;
+  kraken.actionTime = 0;
+  kraken.attackTimer = 0;
+  kraken.attackIndex = 0;
+  for (let i = 0; i < 75; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(kraken.attackMode, 'grab');
+  assert.ok(kraken.grabbing || player.health < 100);
+  assert.ok(player.y > beforeFarGrabY);
 });
 
 
