@@ -40,6 +40,64 @@ test('dry falls keep accelerating after five tiles and stop safely at the floor'
   assert.equal(collides(world, player.x, player.y), false);
 });
 
+test('hard landings apply damage once, scale with distance, and can be fatal', () => {
+  for (const [x, y, expectedDamage] of [
+    [SPAWN.x, SPAWN.y - 8 * TILE, 0],
+    [SPAWN.x, SPAWN.y - 10 * TILE, 8],
+    [3000, 2665, 48],
+    [3000, 2385, 100],
+  ]) {
+    const game = createGame();
+    const { world, player } = game;
+    world.mobs = [];
+    world.caveTraps = [];
+    Object.assign(player, { x, y });
+    let note;
+    for (let i = 0; i < 150 && !player.grounded; i++) {
+      note = stepGame(game, {}, 1 / 60);
+    }
+
+    assert.equal(player.grounded, true);
+    assert.equal(player.health, 100 - expectedDamage);
+    if (expectedDamage === 100) {
+      assert.match(note, /Fatal fall/);
+      assert.notEqual(game.player, player);
+      assert.equal(game.player.x, SPAWN.x);
+      assert.equal(game.player.health, 100);
+    } else {
+      assert.equal(note, expectedDamage ? `Hard landing. −${expectedDamage} health` : undefined);
+      assert.equal(stepGame(game, {}, 1 / 60), undefined);
+      assert.equal(player.health, 100 - expectedDamage);
+    }
+  }
+});
+
+test('landing in swimmable water and grabbing a rope both break a long fall', () => {
+  const game = createGame();
+  const { world, player } = game;
+  world.mobs = [];
+  world.caveTraps = [];
+  const oceanColumn = 2;
+  assert.equal(editTile(world, oceanColumn, WATER_ROW + 1, MATERIAL.stone), true);
+  Object.assign(player, { x: (oceanColumn + 0.5) * TILE, y: 0 });
+  for (let i = 0; i < 120 && !player.grounded; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(playerInWater(world, player), true);
+  assert.equal(player.health, 100);
+
+  Object.assign(player, { x: SPAWN.x, y: 0, dy: 0, grounded: false });
+  const rope = { tx: Math.floor(SPAWN.x / TILE), top: 8, bottom: 11, kind: 'rope' };
+  world.caveClimbs = [rope];
+  for (let i = 0; i < 50 && player.y < 8.5 * TILE; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.y >= 8.5 * TILE && !player.grounded);
+  stepGame(game, { up: true }, 1 / 60);
+  assert.equal(player.climb, rope);
+  stepGame(game, { right: true }, 1 / 60);
+  for (let i = 0; i < 60 && !player.grounded; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(player.health, 100);
+});
+
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
   const { world, player } = game;

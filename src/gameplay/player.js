@@ -8,6 +8,8 @@ const jumpSpeed = 217;
 const shortHopSpeed = 115;
 const maxFallSpeed = 480;
 const maxWaterEntrySpeed = 245;
+const safeFallTiles = 8;
+const fallDamagePerTile = 4;
 const swimSpeed = 94;
 const flightSpeed = 240;
 
@@ -18,7 +20,7 @@ export const MAX_HEALTH = 100;
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
@@ -110,6 +112,7 @@ export function toggleGodMode(world, player) {
   const { flightOrigin, x, y, height } = player;
   player.dx = 0;
   player.dy = 0;
+  player.fallDistance = 0;
   player.grounded = false;
   player.canShortenJump = false;
   player.waterJump = false;
@@ -197,6 +200,7 @@ export function movePlayer(world, player, input, dt) {
   });
   player.climb = caveRoute || shaft || null;
   if (player.climb) {
+    player.fallDistance = 0;
     const standingY = player.y + player.height - PLAYER_SIZE.height;
     if (player.height === CRAWL_HEIGHT && standingY >= 0 && !collides(world, player.x, standingY)) {
       player.y = standingY;
@@ -276,6 +280,7 @@ export function movePlayer(world, player, input, dt) {
 
   const previousX = player.x;
   if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
+  const previousY = player.y;
   const falling = player.dy >= 0;
   const dy = player.dy * dt;
   const deck = falling && !down && !bodyInWater ? landingDeck(world, player, player.y + player.height + dy) : Infinity;
@@ -287,6 +292,13 @@ export function movePlayer(world, player, input, dt) {
   if (player.y < 0) player.y = 0;
   if (player.grounded && !bodyInWater) {
     player.walkPhase = (player.walkPhase + Math.abs(player.x - previousX) / WALK_CYCLE_DISTANCE) % 1;
+  }
+
+  player.fallDistance = falling && !bodyInWater ? player.fallDistance + (player.y - previousY) : 0;
+  if (player.grounded) {
+    const damage = Math.round((player.fallDistance / TILE - safeFallTiles) * fallDamagePerTile);
+    player.fallDistance = 0;
+    if (damage > 0 && !playerInWater(world, player)) return damage;
   }
 }
 

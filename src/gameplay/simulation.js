@@ -261,7 +261,13 @@ export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
-  movePlayer(world, player, input, dt);
+  const fallDamage = movePlayer(world, player, input, dt);
+  let fallLoss = 0;
+  if (fallDamage) {
+    fallLoss = takeDamage(player, fallDamage);
+    player.hurt = Math.max(player.hurt, 0.85);
+  }
+  const fatalFall = fallLoss > 0 && player.health === 0;
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
@@ -283,10 +289,11 @@ export function stepGame(game, input, dt) {
     game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
-    return 'You washed back up on the island.';
+    return fatalFall ? 'Fatal fall. You woke up back on the island.' : 'You washed back up on the island.';
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
+  if (fallLoss) return `Hard landing. −${fallLoss} health`;
 }
 
 function stockWreckLoot(world, item, slots, remaining) {
