@@ -1,5 +1,6 @@
+import { stepRootWave } from './root-ring.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ACCESSORIES, ACCESSORY_SLOTS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH, accessoryFor, normalizeAccessories } from '../content.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
@@ -39,6 +40,8 @@ export function createGame(snapshot) {
     progress: { snorkel: snapshot?.progress?.snorkel ?? null, ring: snapshot?.progress?.ring ?? null },
     dirty: false,
     elapsed: 0,
+    rootWave: null,
+    rootReadyAt: snapshot?.progress?.ringCooldown ?? 0,
     worldTime: snapshot?.worldTime ?? 0,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -65,7 +68,7 @@ export function createGame(snapshot) {
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
     Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null,
-    Object.hasOwn(FEET_GEAR, snapshot?.feet) ? snapshot.feet : null, normalizeAccessories(snapshot?.accessories));
+    Object.hasOwn(FEET_GEAR, snapshot?.feet) ? snapshot.feet : null);
 
   const position = snapshot?.player;
   if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
@@ -103,6 +106,8 @@ export function resetRoomProgress(previous) {
     player,
     dirty: true,
     elapsed: 0,
+    rootWave: null,
+    rootReadyAt: 0,
     worldTime: previous.worldTime,
     weatherSeed: previous.weatherSeed,
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -166,42 +171,6 @@ export function useDressing(game, slot) {
   player.health += healed;
   game.dirty = true;
   return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
-}
-
-export function useRootRing(game) {
-  if (!equippedRing(game) || game.player.stun > 0 || game.player.flightOrigin) return;
-  const { player, world, effects, elapsed } = game;
-  if (elapsed < (player.rootReadyAt ?? 0)) return 'The ring is gathering strength.';
-  const ox = player.x;
-  const oy = player.y + player.height / 2;
-  let target;
-  let best = 10 * TILE;
-  for (const mob of world.mobs) {
-    const spec = mobSpec(mob);
-    if (!spec || mob.health <= 0 || mob.respawn > 0 || mob.kind === 'crab' ||
-      (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) continue;
-    const dx = mob.x - ox;
-    const dy = mob.y + spec.centerY - oy;
-    const distance = Math.hypot(dx, dy);
-    if (dx * player.facing <= 0 || distance >= best || Math.abs(dy) > Math.abs(dx) + TILE) continue;
-    let clear = true;
-    for (let t = 5; t < distance; t += 5) {
-      if (solidAt(world, Math.floor((ox + dx * t / distance) / TILE), Math.floor((oy + dy * t / distance) / TILE))) {
-        clear = false;
-        break;
-      }
-    }
-    if (clear) {
-      target = mob;
-      best = distance;
-    }
-  }
-  if (!target) return 'Face a nearby enemy to call the roots.';
-  player.rootReadyAt = elapsed + 5;
-  damageMob(world, target, 3, player.facing > 0 ? 0 : Math.PI, 0, effects);
-  if (target.health > 0 && target.kind !== 'kraken') target.rooted = 2.2;
-  effects.push({ x: target.x, y: target.y + mobSpec(target).centerY, color: '#79bd69', count: 12, spread: 42 });
-  return 'Roots lash out.';
 }
 
 export function useWeapon(game, slot, wx, wy) {
@@ -292,10 +261,17 @@ export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
-  movePlayer(world, player, input, dt);
+  const fallDamage = movePlayer(world, player, input, dt);
+  let fallLoss = 0;
+  if (fallDamage) {
+    fallLoss = takeDamage(player, fallDamage);
+    player.hurt = Math.max(player.hurt, 0.85);
+  }
+  const fatalFall = fallLoss > 0 && player.health === 0;
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  stepRootWave(game, dt);
   stepDroppedChests(game, dt);
   stepProjectiles(game, dt);
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
@@ -307,15 +283,17 @@ export function stepGame(game, input, dt) {
     player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
   }
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
-    game.player = spawn(world, capacity, player.appearance, player.armor, player.feet, player.accessories);
+    game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.attack = null;
     game.projectiles.length = 0;
+    game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
-    return 'You washed back up on the island.';
+    return fatalFall ? 'Fatal fall. You woke up back on the island.' : 'You washed back up on the island.';
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
+  if (fallLoss) return `Hard landing. −${fallLoss} health`;
 }
 
 function stockWreckLoot(world, item, slots, remaining) {
@@ -360,53 +338,42 @@ export function chestAt(game, x, y) {
 }
 
 const EQUIP_SLOTS = {
-  head: { accepts: (id) => Object.hasOwn(SNORKELS, id), get: equippedSnorkel, set: setSnorkel },
-  feet: { accepts: (id) => Object.hasOwn(FEET_GEAR, id), get: equippedFeet, set: setFeet },
-  ring: { accepts: (id) => id === ROOT_RING.id, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
+  head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
+  feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
+  ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
 };
-
-const accessoryEquipment = ACCESSORY_SLOTS.map((slot) => ({
-  accepts: (id) => ACCESSORIES[id]?.slot === slot,
-  get: (game) => accessoryFor(game.player.accessories, slot),
-  set(game, id) {
-    if (id) game.player.accessories[slot] = id;
-    else delete game.player.accessories[slot];
-  },
-}));
-
-function equipmentAt({ group, index }) {
-  if (group === 'accessory' && Number.isInteger(index)) return accessoryEquipment[index];
-  if (index === 0 && Object.hasOwn(EQUIP_SLOTS, group)) return EQUIP_SLOTS[group];
-}
 
 export function moveInventoryStack(game, chestId, from, to) {
   const slots = game.chests.get(chestId);
-  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots };
-  const fromEquip = equipmentAt(from);
-  const toEquip = equipmentAt(to);
-  if (fromEquip && toEquip) return false;
+  const equipStacks = Object.fromEntries(Object.entries(EQUIP_SLOTS).map(([group, config]) => {
+    const item = config.get(game);
+    return [group, [item ? { id: item.id, count: 1 } : null]];
+  }));
+  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots, ...equipStacks };
+  const source = groups[from.group];
+  const target = groups[to.group];
+  const fromEquip = Object.hasOwn(EQUIP_SLOTS, from.group);
+  const toEquip = Object.hasOwn(EQUIP_SLOTS, to.group);
 
-  const config = fromEquip ?? toEquip;
-  if (config) {
+  if (fromEquip || toEquip) {
+    if (fromEquip && toEquip) return false;
+    const equipGroup = fromEquip ? from.group : to.group;
+    if ((fromEquip ? from.index : to.index) !== 0) return false;
+    const config = EQUIP_SLOTS[equipGroup];
     const current = config.get(game);
-    const equipped = [current ? { id: current.id, count: 1 } : null];
-    const otherAddress = fromEquip ? to : from;
-    const other = groups[otherAddress.group];
-    const index = otherAddress.index;
+    const other = fromEquip ? target : source;
+    const index = fromEquip ? to.index : from.index;
     if (!other || !Number.isInteger(index) || index < 0 || index >= other.length) return false;
     const stack = other[index];
-    if (stack && !config.accepts(stack.id)) return false;
+    if (stack && !Object.hasOwn(config.items, stack.id)) return false;
     if (toEquip && (!stack || stack.id === current?.id)) return false;
     if (stack?.count > 1 && stack.id !== current?.id) {
       if (current) return false;
       stack.count--;
-      equipped[0] = { id: stack.id, count: 1 };
-    } else {
-      const moved = fromEquip ? moveStack(equipped, 0, other, index) : moveStack(other, index, equipped, 0);
-      if (!moved) return false;
-    }
-    config.set(game, equipped[0]?.id ?? null);
-  } else if (!moveStack(groups[from.group], from.index, groups[to.group], to.index)) return false;
+      equipStacks[equipGroup][0] = { id: stack.id, count: 1 };
+    } else if (!moveStack(source, from.index, target, to.index)) return false;
+    config.set(game, equipStacks[equipGroup][0]?.id ?? null);
+  } else if (!moveStack(source, from.index, target, to.index)) return false;
 
   if (from.group === 'chest') restockPendingWreckLoot(game, chestId, slots);
   game.dirty = true;
@@ -602,8 +569,7 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const fixture = action.door ?? action.fixtureId;
   const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
-  const baseDuration = tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand;
-  const duration = baseDuration * (accessoryFor(game.player.accessories, 'hands')?.miningTime ?? 1);
+  const duration = tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand;
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier, tool };
 }
@@ -624,7 +590,7 @@ export function applyTerrain(game, tx, ty, material) {
   if (!editTile(world, tx, ty, material)) return;
   if (world.harvested.size !== harvested) game.dirty = true;
   if (material && collides(world, player.x, player.y, player.height)) {
-    game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor, player.feet, player.accessories);
+    game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
     game.attack = null;
     game.dirty = true;
   }

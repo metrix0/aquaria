@@ -1,7 +1,7 @@
 export const ISLAND_CAVE = { center: 56, camp: 55, campFloor: 33 };
 export const ISLAND_DEEPSTONE_ROW = 330;
 export const ISLAND_BOTTOM = 676;
-export const ROOT_GROVE = Object.freeze({ column: -12, floor: 190, approach: 48, radius: 32, mossReach: 155 });
+export const ROOT_GROVE = Object.freeze({ column: -36, floor: 196, waterline: 190, approach: 40, radius: 32, mossReach: 155 });
 
 export function groveDistance(column, row) {
   return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 9) * 1.12);
@@ -12,9 +12,9 @@ export function inRootGrove(column, row) {
 }
 
 export const mineDecks = {
-  headframe: { rises: [47, 83, 116], halfWidth: 66 },
-  shaft: { rises: [49], halfWidth: 34 },
-  trestle: { rises: [6], halfWidth: 33 },
+  headframe: [{ rise: 23, halfWidth: 26 }, { rise: 47, halfWidth: 66 }, { rise: 83, halfWidth: 66 }, { rise: 116, halfWidth: 66 }],
+  shaft: [{ rise: 49, halfWidth: 34 }],
+  trestle: [{ rise: 6, halfWidth: 33 }],
 };
 
 // Cross-sections are [column, walking floor, headroom] in island coordinates.
@@ -58,12 +58,18 @@ const eastCaves = [
 ];
 
 const groveGallery = [
-  [-31, 190, 9], [-26, 190, 20], [-20, 190, 28], [-10, 190, 29], [-1, 190, 25],
-  [8, 190, 17], [18, 190, 11], [27, 190, 13], [36, 190, 15], [48, 190, 17],
+  [-56, 190, 10], [-50, 190, 19], [-43, 190, 24], [-36, 190, 24], [-27, 190, 20],
+  [-17, 190, 13], [-4, 190, 11], [13, 190, 12], [30, 190, 15], [48, 190, 17],
 ];
 
+export function groveFloor(column) {
+  const { column: tree, floor, waterline } = ROOT_GROVE;
+  const depth = Math.min(floor - waterline, Math.max(0, Math.ceil((16 - Math.abs(column - tree)) / 2)));
+  return waterline + depth;
+}
+
 export function isGrovePool(column, row) {
-  return row === ROOT_GROVE.floor - 1 && ((column >= -27 && column <= -17) || (column >= -7 && column <= 0));
+  return row >= ROOT_GROVE.waterline && row < groveFloor(column);
 }
 
 const centralCaves = [
@@ -206,10 +212,9 @@ for (const [x, ledges] of makeBands(rockLedges)) {
   for (const row of ledges) dryBands.get(x)?.delete(row);
 }
 
-// Keep a continuous stone floor across the gallery, including under the two shallow pools.
-for (let column = groveGallery[0][0]; column <= ROOT_GROVE.approach; column++) {
-  for (let row = ROOT_GROVE.floor; row < ROOT_GROVE.floor + 3; row++) dryBands.get(column).delete(row);
-  if (isGrovePool(column, ROOT_GROVE.floor - 1)) dryBands.get(column).delete(ROOT_GROVE.floor - 1);
+// Keep a stone bed under both banks and the flooded steps down to the tree.
+for (let column = groveGallery[0][0]; column <= groveGallery.at(-1)[0]; column++) {
+  for (let row = ROOT_GROVE.waterline; row < groveFloor(column) + 3; row++) dryBands.get(column).delete(row);
 }
 
 const wetBands = makeBands(wetProfiles);
@@ -245,8 +250,7 @@ export function carveIslandCave(set, { left, right, top, bottom }, westExtension
     for (const y of wetBands.get(x) ?? []) {
       if (y >= top && y <= bottom && isIslandWaterway(x, y)) set(tx, y, true);
     }
-    const poolRow = ROOT_GROVE.floor - 1;
-    if (poolRow >= top && poolRow <= bottom && isGrovePool(x, poolRow)) set(tx, poolRow, true);
+    for (let row = Math.max(top, ROOT_GROVE.waterline); row <= bottom && isGrovePool(x, row); row++) set(tx, row, true);
     for (const y of dryBands.get(x) ?? []) {
       if (y >= top && y <= bottom) set(tx, y, false);
     }
@@ -260,7 +264,7 @@ export const islandCaches = [
   ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
   ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
   ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
-  ['island-grove-relics', 'Explorer’s satchel', -10, ROOT_GROVE.floor, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
+  ['island-grove-relics', 'Explorer’s satchel', ROOT_GROVE.column + 3, ROOT_GROVE.floor, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
   ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
@@ -270,23 +274,23 @@ export const islandCaches = [
 export const islandMushrooms = [[-15, 142], [95, 451]];
 
 export const caveStructures = [
-  ['headframe', 36, 59], ['headframe', 94, 56], ['headframe', 126, 105],
+  ['headframe', 36, 59], ['headframe', 94, 56], ['headframe', 123, 105],
   ['headframe', 29, 273],
   ['skeleton', 58, 33], ['lamp', 55, 33],
   ['worksite', 29, 59], ['lamp', 33, 59], ['worksite', 5, 83], ['lamp', 8, 83],
-  ['trestle', -27, 104], ['headframe', -32, 112], ['lamp', -25, 112], ['cart', -30, 112], ['lamp', -17, 142],
+  ['trestle', -27, 104], ['headframe', -34, 112], ['lamp', -25, 112], ['cart', -30, 112], ['lamp', -17, 142],
   ['lamp', 27, 161], ['lamp', 22, 192], ['cart', -20, 219], ['lamp', -10, 227], ['lamp', -9, 247],
   ['worksite', 33, 273], ['lamp', 29, 273], ['lamp', 19, 291], ['lamp', 45, 318],
   ['lamp', 84, 56], ['shaft', 111, 80], ['lamp', 114, 79],
-  ['trestle', 137, 96], ['headframe', 143, 103], ['worksite', 133, 105], ['lamp', 141, 103], ['lamp', 126, 132],
+  ['trestle', 138, 96], ['headframe', 143, 103], ['worksite', 133, 105], ['lamp', 141, 103], ['lamp', 126, 132],
   ['cart', 90, 159], ['lamp', 94, 159], ['headframe', 109, 182], ['lamp', 114, 183],
   ['worksite', 148, 216], ['lamp', 144, 222], ['lamp', 119, 243],
   ['cart', 95, 265], ['lamp', 99, 265], ['lamp', 91, 293], ['lamp', 125, 315],
   ['cart', 58, 79], ['lamp', 64, 64], ['lamp', 77, 59],
-  ['headframe', 54, 117], ['lamp', 49, 118], ['worksite', 63, 117], ['lamp', 70, 117],
+  ['headframe', 63, 117], ['lamp', 49, 118], ['worksite', 63, 117], ['lamp', 70, 117],
 
-  ['headframe', 31, 242], ['lamp', 24, 241], ['cart', 39, 241], ['lamp', 47, 240],
-  ['lamp', 57, 273], ['headframe', 66, 272], ['worksite', 80, 279], ['lamp', 83, 249],
+  ['headframe', 29, 242], ['lamp', 24, 241], ['cart', 39, 241], ['lamp', 47, 240],
+  ['lamp', 57, 273], ['headframe', 70, 272], ['worksite', 80, 279], ['lamp', 83, 249],
   ['lamp', 59, 320], ['cart', 81, 317], ['lamp', 91, 316], ['headframe', 113, 316],
   ['arch', 20, 345], ['gate', 42, 345], ['lamp', 37, 345], ['arch', 69, 357],
   ['arch', 112, 346], ['lamp', 117, 346], ['gate', 124, 346],
@@ -364,6 +368,6 @@ export const caveClimbs = [
 
 
 export function isCaveRefuge(column, row) {
-  return (inRootGrove(column, row) || (column >= 48 && column <= 65 && row <= ISLAND_CAVE.campFloor)) &&
-    isDryIslandCave(column, row);
+  return isGrovePool(column, row) || ((inRootGrove(column, row) ||
+    (column >= 48 && column <= 65 && row <= ISLAND_CAVE.campFloor)) && isDryIslandCave(column, row));
 }

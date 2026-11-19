@@ -1,8 +1,10 @@
+import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, isDryIslandCave, isDungeonMasonry, isGrovePool } from '../src/world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveFloor, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ACCESSORIES, ACCESSORY_SLOTS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { createCharacterRenderer } from '../src/character.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
@@ -40,6 +42,80 @@ test('dry falls keep accelerating after five tiles and stop safely at the floor'
   assert.equal(player.dy, 0);
   assert.ok(Math.abs(player.y - SPAWN.y) < 0.02);
   assert.equal(collides(world, player.x, player.y), false);
+});
+
+test('hard landings apply damage once, scale with distance, and can be fatal', () => {
+  for (const [x, y, expectedDamage] of [
+    [SPAWN.x, SPAWN.y - 8 * TILE, 0],
+    [SPAWN.x, SPAWN.y - 10 * TILE, 8],
+    [3000, 2665, 48],
+    [3000, 2385, 100],
+  ]) {
+    const game = createGame();
+    const { world, player } = game;
+    world.mobs = [];
+    world.caveTraps = [];
+    Object.assign(player, { x, y });
+    let note;
+    for (let i = 0; i < 150 && !player.grounded; i++) {
+      note = stepGame(game, {}, 1 / 60);
+    }
+
+    assert.equal(player.grounded, true);
+    assert.equal(player.health, 100 - expectedDamage);
+    if (expectedDamage === 100) {
+      assert.match(note, /Fatal fall/);
+      assert.notEqual(game.player, player);
+      assert.equal(game.player.x, SPAWN.x);
+      assert.equal(game.player.health, 100);
+    } else {
+      assert.equal(note, expectedDamage ? `Hard landing. −${expectedDamage} health` : undefined);
+      assert.equal(stepGame(game, {}, 1 / 60), undefined);
+      assert.equal(player.health, 100 - expectedDamage);
+    }
+  }
+});
+
+test('landing in swimmable water and grabbing a rope both break a long fall', () => {
+  const game = createGame();
+  const { world, player } = game;
+  world.mobs = [];
+  world.caveTraps = [];
+  const oceanColumn = 2;
+  assert.equal(editTile(world, oceanColumn, WATER_ROW + 1, MATERIAL.stone), true);
+  Object.assign(player, { x: (oceanColumn + 0.5) * TILE, y: 0 });
+  for (let i = 0; i < 120 && !player.grounded; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(playerInWater(world, player), true);
+  assert.equal(player.health, 100);
+
+  Object.assign(player, { x: SPAWN.x, y: 0, dy: 0, grounded: false });
+  const rope = { tx: Math.floor(SPAWN.x / TILE), top: 8, bottom: 11, kind: 'rope' };
+  world.caveClimbs = [rope];
+  for (let i = 0; i < 50 && player.y < 8.5 * TILE; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.y >= 8.5 * TILE && !player.grounded);
+  stepGame(game, { up: true }, 1 / 60);
+  assert.equal(player.climb, rope);
+  stepGame(game, { right: true }, 1 / 60);
+  for (let i = 0; i < 60 && !player.grounded; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(player.health, 100);
+});
+
+test('a climbing character renders both hands and the equipped ring', () => {
+  const { world, player } = createGame();
+  const rope = world.caveClimbs.find(({ kind }) => kind === 'rope');
+  Object.assign(player, { x: (rope.tx + .5) * TILE, y: (rope.top + 4) * TILE });
+  movePlayer(world, player, { up: true }, 1 / 60);
+  assert.equal(player.climb, rope);
+
+  const colors = [];
+  const ctx = {
+    save() {}, restore() {}, translate() {}, scale() {},
+    fillRect() { colors.push(this.fillStyle); },
+  };
+  createCharacterRenderer(ctx)(player, player.appearance, { ring: true });
+  assert.ok(colors.includes('#a8f184'));
 });
 
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
@@ -215,7 +291,7 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   assert.ok(ISLAND_DEEPSTONE_ROW - ceiling >= 300);
   assert.equal(deepest, 611);
   assert.ok(deepest - ISLAND_DEEPSTONE_ROW >= 280);
-  for (const [x, y] of [[-25, 110], [139, 102], [43, 316], [123, 344], [-12, 427], [118, 557], [60, 611], [100, 611]]) {
+  for (const [x, y] of [[-24, 110], [139, 102], [43, 316], [123, 344], [-12, 427], [118, 557], [60, 611], [100, 611]]) {
     assert.ok(visited.has(y * COLS + x + WEST_EXTENSION), `${x},${y} is reachable`);
   }
 
@@ -231,7 +307,7 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   }
   for (let x = left; x <= right; x++) {
     for (let y = ceiling; y <= deepest; y++) {
-      if (isDryIslandCave(x - WEST_EXTENSION, y)) {
+      if (isDryIslandCave(x - WEST_EXTENSION, y) && !tileAt(world, x, y)) {
         assert.ok(visited.has(y * COLS + x), `isolated cave space at ${x},${y}`);
       }
     }
@@ -248,7 +324,11 @@ test('the cave tiers stay dry outside the grove pools and two marked waterways',
   for (const item of world.items.filter(({ id }) => /^(island|underground|central-mine)-/.test(id))) {
     const x = Math.floor(item.x / TILE);
     const y = Math.floor(item.y / TILE);
-    assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
+    if (item.id === 'island-grove-relics') {
+      assert.ok(waterTileAt(world, x, y) && visited.has((ROOT_GROVE.waterline - 1) * COLS + x));
+    } else {
+      assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
+    }
   }
 
   const submerged = [[60 + WEST_EXTENSION, 612]];
@@ -334,24 +414,41 @@ test('after digging in, the expanded island cave is walkable and the survey cach
 
 });
 
-test('the grove has a continuous 60-tile approach across shallow water', () => {
+test('the grove approach has a level bank and a continuous submerged descent', () => {
   const { world, player } = createGame();
-  const { approach, column, floor } = ROOT_GROVE;
-  assert.equal(approach - column, 60);
-  for (let x = column; x <= approach; x++) {
-    assert.ok(tileAt(world, x + WEST_EXTENSION, floor));
-    assert.equal(tileAt(world, x + WEST_EXTENSION, floor - 1), MATERIAL.air);
-    assert.equal(waterTileAt(world, x + WEST_EXTENSION, floor - 1), isGrovePool(x, floor - 1));
-  }
+  const { approach, column, floor, waterline } = ROOT_GROVE;
   const xAt = (x) => (x + WEST_EXTENSION + .5) * TILE;
-  Object.assign(player, { x: xAt(approach), y: floor * TILE - player.height });
-  for (let i = 0; i < 600 && player.x > xAt(column); i++) {
-    movePlayer(world, player, { left: true }, 1 / 60);
-    assert.ok(Math.abs(player.y + player.height - floor * TILE) < .01);
-    assert.equal(playerInWater(world, player), false);
+  assert.equal(approach - (column + 16), 60);
+  assert.equal(floor - waterline, 6);
+  for (let x = column - 17; x <= approach; x++) {
+    const bed = groveFloor(x);
+    assert.ok(tileAt(world, x + WEST_EXTENSION, bed));
+    assert.equal(waterTileAt(world, x + WEST_EXTENSION, waterline - 1), false);
+    assert.ok(Math.abs(bed - groveFloor(x + 1)) <= 1);
+    for (let row = waterline; row < bed; row++) {
+      assert.equal(tileAt(world, x + WEST_EXTENSION, row), MATERIAL.air);
+      assert.ok(waterTileAt(world, x + WEST_EXTENSION, row));
+    }
+  }
+  Object.assign(player, { x: xAt(approach), y: waterline * TILE - player.height });
+  for (let i = 0; i < 760 && player.x > xAt(column); i++) {
+    movePlayer(world, player, { left: true, down: playerInWater(world, player) }, 1 / 60);
   }
   assert.ok(player.x <= xAt(column));
-  assert.ok(waterTileAt(world, WEST_EXTENSION - 20, floor - 1), 'pool beyond the tree');
+  assert.ok(playerInWater(world, player));
+  assert.ok(Math.abs(player.y + player.height - floor * TILE) < 1);
+});
+
+test('all headframe platforms take the player’s weight', () => {
+  const { world, player } = createGame();
+  const frame = world.mineDecks.find(({ tx, kind }) => tx === WEST_EXTENSION + 36 && kind === 'headframe');
+  for (const { rise } of mineDecks.headframe) {
+    const feet = frame.floor * TILE - rise;
+    Object.assign(player, { x: (frame.tx + .5) * TILE + 17, y: feet - player.height - 4, dy: 0, dx: 0, climb: null });
+    for (let tick = 0; tick < 12; tick++) movePlayer(world, player, {}, 1 / 60);
+    assert.ok(player.grounded, 'deck at rise ' + rise);
+    assert.ok(Math.abs(player.y + player.height - feet) < .01);
+  }
 });
 
 test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {
@@ -375,6 +472,61 @@ test('the island has uneven soil, two small shallow veins, and denser deep iron'
   assert.ok(copper >= 3 && copper <= 8);
   assert.ok(iron >= 3 && iron <= 8);
   assert.ok(deepIron > iron);
+});
+
+test('the ring casts without a target and recharges across reloads', () => {
+  const game = createGame();
+  game.progress.ring = 'root-ring';
+  Object.assign(game.player, { x: (WEST_EXTENSION + 58.5) * TILE, y: 33 * TILE - game.player.height, facing: -1 });
+  game.world.mobs = [];
+  assert.equal(useRootRing(game), true);
+  assert.equal(game.rootWave.facing, -1);
+  assert.equal(game.rootWave.length, 0);
+  assert.equal(useRootRing(game), undefined);
+  for (let frame = 0; frame < 20; frame++) stepGame(game, {}, 1 / 60);
+  assert.ok(game.rootWave.length > 0);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.rootWave, null);
+  assert.equal(ringCooldown(restored), ringCooldown(game));
+  assert.equal(useRootRing(restored), undefined);
+});
+
+test('the root wave travels before it hits, stops at rock, and suspends the first enemy it reaches', () => {
+  const game = createGame();
+  const { player, world } = game;
+  game.progress.ring = 'root-ring';
+  Object.assign(player, { x: (WEST_EXTENSION + 55.5) * TILE, y: 33 * TILE - player.height, facing: 1 });
+  const mob = world.mobs.find(({ kind }) => kind === 'miner');
+  Object.assign(mob, { x: player.x + 54, y: 33 * TILE, hurt: 0 });
+  world.mobs = [mob];
+  const health = mob.health;
+  const y = mob.y;
+  const advance = (frames) => {
+    for (let i = 0; i < frames; i++) stepGame(game, {}, 1 / 60);
+  };
+
+  const wall = Math.floor((player.x + 28) / TILE);
+  editTile(world, wall, 32, MATERIAL.stone);
+  assert.equal(useRootRing(game), true);
+  advance(30);
+  assert.equal(mob.health, health);
+  assert.equal(mob.rooted ?? 0, 0);
+  advance(1070);
+  assert.equal(ringCooldown(game), 0);
+
+  editTile(world, wall, 32, MATERIAL.air);
+  assert.equal(useRootRing(game), true);
+  advance(10);
+  assert.equal(mob.health, health);
+  advance(20);
+  assert.equal(mob.health, health - 3);
+  assert.ok(mob.rooted > 2);
+  assert.ok(mob.y < y - 2);
+  advance(10);
+  const suspendedAt = mob.y;
+  advance(40);
+  assert.equal(mob.y, suspendedAt);
+  assert.equal(mob.health, health - 3);
 });
 
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
@@ -1152,44 +1304,6 @@ test('spear and pickaxe recipes require a workbench without consuming materials 
     assert.equal(game.inventory.count(recipe.id), 1, recipe.id);
   }
   assert.equal(canCraftItem(createGame(), WOODEN_DOOR), true);
-});
-
-test('accessories craft at a bench and survive inventory transfers, reloads, and respawns', () => {
-  const game = createGame();
-  const chestId = 'island-cave-cache';
-  const chest = { group: 'chest', index: 1 };
-  const expected = {};
-  for (const [index, slot] of ACCESSORY_SLOTS.entries()) {
-    const recipe = Object.values(ACCESSORIES).find((item) => item.slot === slot);
-    for (const [id, count] of Object.entries(recipe.cost)) game.inventory.add(id, count);
-    assert.equal(craftItem(game, recipe), false);
-    assert.equal(craftItem(game, recipe, WORKBENCH.id), true);
-    const group = ['hotbar', 'backpack'].find((group) => game.inventory[group].some((stack) => stack?.id === recipe.id));
-    const inventory = { group, index: game.inventory[group].findIndex((stack) => stack?.id === recipe.id) };
-    const accessory = { group: 'accessory', index };
-    const wrongSlot = { group: 'accessory', index: (index + 1) % ACCESSORY_SLOTS.length };
-    assert.equal(moveInventoryStack(game, chestId, inventory, wrongSlot), false);
-    assert.equal(moveInventoryStack(game, chestId, inventory, chest), true);
-    assert.equal(moveInventoryStack(game, chestId, chest, accessory), true);
-    assert.equal(game.inventory.count(recipe.id), 0);
-    expected[slot] = recipe.id;
-  }
-
-  grantItem(game, 'copper-breastplate', 1);
-  const restored = createGame(decodeSave(encodeSave(game)));
-  assert.deepEqual(restored.player.accessories, expected);
-  assert.equal(restored.player.armor, 'copper-breastplate');
-  assert.equal(takeDamage(restored.player, 100), 78);
-  restored.player.health = 0;
-  restored.player.hurt = 1;
-  stepGame(restored, {}, 1 / 60);
-  assert.deepEqual(restored.player.accessories, expected);
-
-  const head = { group: 'accessory', index: 0 };
-  const backpack = { group: 'backpack', index: 0 };
-  assert.equal(moveInventoryStack(restored, chestId, head, backpack), true);
-  assert.equal(restored.inventory.count(expected.head), 1);
-  assert.equal(restored.player.accessories.head, undefined);
 });
 
 test('snorkels require a workbench and upgrade copper into iron, then iron into cobalt', () => {

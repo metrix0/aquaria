@@ -1,4 +1,4 @@
-import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeAccessories, normalizeSnorkel } from './content.js';
+import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
 import { ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
@@ -55,27 +55,27 @@ export function decodeSave(data) {
     appearance: data.appearance,
     armor: Object.hasOwn(ARMOR, player?.armor) ? player.armor : null,
     feet: Object.hasOwn(FEET_GEAR, player?.feet) ? player.feet : null,
-    accessories: normalizeAccessories(player?.accessories),
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
     player: {
       x: player?.x + WEST_EXTENSION * TILE, y: player?.y,
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
-    progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null },
+    progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null,
+      ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot, ...(krakenChest ? { krakenChest } : {}) },
   };
 }
 
 export function encodeSave(game, saveTerrain = true) {
   const { player, inventory, progress, world } = game;
+  const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const { x, y, height } = player.flightOrigin ?? player;
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
   if (player.armor) position.armor = player.armor;
   if (player.feet) position.feet = player.feet;
-  if (player.accessories && Object.keys(player.accessories).length) position.accessories = { ...player.accessories };
   if (height === CRAWL_HEIGHT) position.crawling = true;
   const droppedKrakenChest = world.items.find((item) => item.id === KRAKEN_CHEST_ID);
   return {
@@ -85,7 +85,8 @@ export function encodeSave(game, saveTerrain = true) {
     appearance: { ...player.appearance },
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
-    progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}) },
+    progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}),
+      ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),

@@ -1,13 +1,15 @@
-import { ARMOR, FEET_GEAR, accessoryFor, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { isGrovePool, mineDecks } from '../world/island-cave.js';
+import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
-import { COLS, ROWS, SPAWN, TILE, WEST_EXTENSION, clamp } from '../world/generation.js';
+import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
 const maxFallSpeed = 480;
 const maxWaterEntrySpeed = 245;
+const safeFallTiles = 8;
+const fallDamagePerTile = 4;
 const swimSpeed = 94;
 const flightSpeed = 240;
 
@@ -15,16 +17,15 @@ export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
-export function spawn(world, oxygen, appearance, armor = null, feet = null, accessories = {}) {
+export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, accessories, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
   const protection = ARMOR[player.armor]?.protection ?? 0;
-  const ward = accessoryFor(player.accessories, 'chest')?.protection ?? 0;
-  const loss = Math.max(1, Math.round(damage * (1 - protection) * (1 - ward)));
+  const loss = Math.max(1, Math.round(damage * (1 - protection)));
   player.health = Math.max(0, player.health - loss);
   return loss;
 }
@@ -91,12 +92,7 @@ function waterSensorOffset(player) {
 }
 
 export function playerInWater(world, player) {
-  const sensorY = player.y + waterSensorOffset(player);
-  if (!inWater(world, player.x, sensorY)) return false;
-  const tx = Math.floor(player.x / TILE);
-  const ty = Math.floor(sensorY / TILE);
-  // The grove pools are ankle-deep as long as their stone beds are intact.
-  return !isGrovePool(tx - WEST_EXTENSION, ty) || !solidAt(world, tx, ty + 1);
+  return inWater(world, player.x, player.y + waterSensorOffset(player));
 }
 
 export function playerWaterborne(world, player) {
@@ -111,6 +107,7 @@ export function toggleGodMode(world, player) {
   const { flightOrigin, x, y, height } = player;
   player.dx = 0;
   player.dy = 0;
+  player.fallDistance = 0;
   player.grounded = false;
   player.canShortenJump = false;
   player.waterJump = false;
@@ -151,11 +148,14 @@ function landingDeck(world, player, nextFeet) {
   let landing = Infinity;
   for (const structure of world.mineDecks ?? []) {
     const { tx, floor, kind } = structure;
-    const { rises, halfWidth } = mineDecks[kind];
-    const deck = floor * TILE - rises.at(-1);
-    if (Math.abs(player.x - (tx + .5) * TILE) >= halfWidth + player.width / 2 ||
-        feet > deck || nextFeet < deck || !hasExposedCaveFloor(world, structure)) continue;
-    landing = Math.min(landing, deck);
+    const distance = Math.abs(player.x - (tx + .5) * TILE);
+    if (distance >= mineDecks[kind].at(-1).halfWidth + player.width / 2 || !hasExposedCaveFloor(world, structure)) continue;
+    for (const { rise, halfWidth } of mineDecks[kind]) {
+      const deck = floor * TILE - rise;
+      if (feet <= deck && nextFeet >= deck && distance < halfWidth + player.width / 2) {
+        landing = Math.min(landing, deck);
+      }
+    }
   }
   return landing;
 }
@@ -193,24 +193,24 @@ export function movePlayer(world, player, input, dt) {
     const { tx, floor, kind } = structure;
     if (kind === 'trestle' || Math.abs(player.x - (tx + .5) * TILE) >= 9) return false;
     const feet = player.y + player.height;
-    return feet >= floor * TILE - mineDecks[kind].rises.at(-1) - 1 &&
+    return feet >= floor * TILE - mineDecks[kind].at(-1).rise - 1 &&
       feet <= floor * TILE + 1 && hasExposedCaveFloor(world, structure);
   });
   player.climb = caveRoute || shaft || null;
   if (player.climb) {
+    player.fallDistance = 0;
     const standingY = player.y + player.height - PLAYER_SIZE.height;
     if (player.height === CRAWL_HEIGHT && standingY >= 0 && !collides(world, player.x, standingY)) {
       player.y = standingY;
       player.height = PLAYER_SIZE.height;
     }
     player.dx = 0;
-    const climbSpeed = accessoryFor(player.accessories, 'legs')?.climbSpeed ?? 1;
-    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81 * climbSpeed;
+    player.dy = (Number(Boolean(down)) - Number(Boolean(up))) * 81;
     player.canShortenJump = false;
     player.waterJump = false;
     const climbDistance = player.dy * dt;
     if (shaft && climbDistance < 0) {
-      const deck = shaft.floor * TILE - mineDecks[shaft.kind].rises.at(-1);
+      const deck = shaft.floor * TILE - mineDecks[shaft.kind].at(-1).rise;
       const toDeck = deck - player.height - player.y;
       if (climbDistance <= toDeck) {
         player.grounded = !moveAxis(world, player, 'y', toDeck);
@@ -238,8 +238,7 @@ export function movePlayer(world, player, input, dt) {
   if (horizontal) player.facing = horizontal;
   const swimMultiplier = FEET_GEAR[player.feet]?.swimMultiplier ?? 1;
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
-  const walkSpeed = accessoryFor(player.accessories, 'feet')?.walkSpeed ?? 1;
-  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112 * walkSpeed;
+  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);
@@ -279,6 +278,7 @@ export function movePlayer(world, player, input, dt) {
 
   const previousX = player.x;
   if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
+  const previousY = player.y;
   const falling = player.dy >= 0;
   const dy = player.dy * dt;
   const deck = falling && !down && !bodyInWater ? landingDeck(world, player, player.y + player.height + dy) : Infinity;
@@ -290,6 +290,13 @@ export function movePlayer(world, player, input, dt) {
   if (player.y < 0) player.y = 0;
   if (player.grounded && !bodyInWater) {
     player.walkPhase = (player.walkPhase + Math.abs(player.x - previousX) / WALK_CYCLE_DISTANCE) % 1;
+  }
+
+  player.fallDistance = falling && !bodyInWater ? player.fallDistance + (player.y - previousY) : 0;
+  if (player.grounded) {
+    const damage = Math.round((player.fallDistance / TILE - safeFallTiles) * fallDamagePerTile);
+    player.fallDistance = 0;
+    if (damage > 0 && !playerInWater(world, player)) return damage;
   }
 }
 

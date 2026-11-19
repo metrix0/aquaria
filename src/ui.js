@@ -6,6 +6,7 @@ import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
+import { ringCooldown } from './gameplay/root-ring.js';
 import { MAX_HEALTH } from './gameplay/player.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
@@ -28,13 +29,34 @@ export function createUI(actions, version) {
     getSnorkel: actions.getSnorkel,
     getFeet: actions.getFeet,
     getRing: actions.getRing,
-    getAccessory: actions.getAccessory,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,
   });
   const touch = matchMedia('(pointer: coarse)').matches;
   let toastTimer;
+  let ringWasCharging = false;
+  let ringFlashUntil = 0;
+  const ringSlot = byId('cast-ring');
+  const ringTimer = ringSlot.querySelector('b');
+
+  function updateRing(game) {
+    const equipped = Boolean(actions.getRing());
+    ringSlot.hidden = !equipped;
+    const seconds = equipped ? Math.ceil(ringCooldown(game)) : 0;
+    if (equipped && ringWasCharging && !seconds) ringFlashUntil = game.elapsed + .9;
+    if (!equipped) ringFlashUntil = 0;
+    ringWasCharging = seconds > 0;
+    ringSlot.toggleAttribute('data-charging', ringWasCharging);
+    if (ringSlot.getAttribute('aria-disabled') !== String(ringWasCharging)) {
+      ringSlot.setAttribute('aria-disabled', String(ringWasCharging));
+    }
+    ringSlot.toggleAttribute('data-recharged', equipped && game.elapsed < ringFlashUntil);
+    const label = seconds ? `Root Ring recharging, ${seconds} seconds` : 'Cast Root Ring';
+    if (ringSlot.getAttribute('aria-label') !== label) ringSlot.setAttribute('aria-label', label);
+    const text = seconds ? seconds + 's' : '';
+    if (ringTimer.textContent !== text) ringTimer.textContent = text;
+  }
 
   function setText(id, value) {
     const element = fields[id];
@@ -70,6 +92,39 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
+  const deployAge = byId('deploy-age');
+  let lastBuildTime = 0;
+
+  function updateDeployAge() {
+    if (!lastBuildTime) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - lastBuildTime) / 1000));
+    const age = seconds >= 3600 ? Math.floor(seconds / 3600) + 'h'
+      : seconds >= 60 ? Math.floor(seconds / 60) + 'min' : seconds + 's';
+    const label = 'Last deploy ' + age + ' ago';
+    if (deployAge.textContent !== label) deployAge.textContent = label;
+  }
+
+  async function refreshDeployTime() {
+    try {
+      const response = await fetch('/deploy-info.json', { cache: 'no-cache', signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return;
+      const { builtAt } = await response.json();
+      if (!Number.isSafeInteger(builtAt) || builtAt <= 0) return;
+      deployAge.dateTime = new Date(builtAt).toISOString();
+      lastBuildTime = builtAt;
+      updateDeployAge();
+      deployAge.hidden = false;
+    } catch {
+      // Keep the last known build time if a deployment check fails.
+    }
+  }
+
+  void refreshDeployTime();
+  window.setInterval(updateDeployAge, 1000);
+  window.setInterval(() => {
+    if (!document.hidden) void refreshDeployTime();
+  }, 30000);
+
   const deploy = byId('deploy');
   deploy.addEventListener('click', async () => {
     if (deploy.disabled) return;
@@ -168,7 +223,10 @@ export function createUI(actions, version) {
       clearTimeout(toastTimer);
       fields.feedback.hidden = true;
     },
-    select: inventoryUI.render,
+    select(slot) {
+      inventoryUI.render(slot);
+      byId('explorers-map').hidden = actions.getInventory().hotbar[slot]?.id !== 'explorers-map';
+    },
     notify,
     room(state) {
       const inRoom = Boolean(state.room);
@@ -187,6 +245,7 @@ export function createUI(actions, version) {
       setText('multiplayer', inRoom ? 'Multiplayer · ' + state.count : 'Multiplayer');
     },
     update(game, conditions) {
+      updateRing(game);
       setText('world-conditions', (conditions.night ? 'Night' : 'Day') + ' · ' + (conditions.rain > 0.08 ? 'Rain' : 'Clear'));
       const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';

@@ -1,11 +1,12 @@
 import { Inventory, ITEMS } from './inventory.js';
-import { ARROW, WORKBENCH, accessoryFor } from './content.js';
+import { ARROW, WORKBENCH } from './content.js';
+import { useRootRing } from './gameplay/root-ring.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
+import { PLAYER_SIZE, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useRootRing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -38,6 +39,7 @@ let selected = 0;
 let flightSpeedIndex = flightSpeedLevels.indexOf(1);
 let count = 1;
 let time = 0;
+let cameraDescentTime = 0;
 let caveShadowsHidden = false;
 let message = available ? 'Create a room or join with an invite link.' : 'Multiplayer is unavailable in this build.';
 
@@ -57,6 +59,7 @@ function storeProgress() {
 
 function select(slot) {
   selected = slot;
+  if (game.inventory.hotbar[slot]?.id === 'explorers-map') input.stopMining();
   ui.select(slot);
 }
 
@@ -233,7 +236,8 @@ function switchView() {
   particles.length = 0;
   screenShake.clear();
   select(0);
-  updateCamera(1);
+  cameraDescentTime = 0;
+  updateCamera(0, true);
 }
 
 async function copyRoom() {
@@ -309,7 +313,6 @@ const ui = createUI({
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
-  getAccessory: (slot) => accessoryFor(game.player.accessories, slot),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
@@ -346,18 +349,14 @@ const input = bindInput(canvas, camera, {
   },
   castRing() {
     if (editPending) return;
-    const message = useRootRing(game);
-    if (message) ui.notify(message);
+    if (useRootRing(game)) storeProgress();
   },
   fend() {
     if (editPending || game.player.stun > 0) return false;
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
-    if (game.inventory.hotbar[selected]?.id === 'explorers-map') {
-      ui.open('explorers-map-panel');
-      return true;
-    }
+    if (game.inventory.hotbar[selected]?.id === 'explorers-map') return true;
     const dressing = useDressing(game, selected);
     if (dressing) {
       if (dressing.inventoryChanged) inventoryChanged();
@@ -395,14 +394,23 @@ const input = bindInput(canvas, camera, {
   pause: () => ui.open('pause-panel'),
 });
 
-function updateCamera(dt) {
+function updateCamera(dt, snap = false) {
+  const { player, world } = game;
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
-  const x = clamp(game.player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
-  const standingY = game.player.y + game.player.height - PLAYER_SIZE.height;
-  const y = clamp(standingY - camera.height * 0.28, 0, Math.max(0, ROWS * TILE - camera.height));
-  const factor = reducedMotion ? 1 : Math.min(1, dt * 5);
-  camera.x += (x - camera.x) * factor;
-  camera.y += (y - camera.y) * factor;
+  const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
+  const descending = !player.flightOrigin && !player.climb &&
+    (player.fallDistance >= 3 * TILE || (player.dy > 40 && playerInWater(world, player)));
+  const descentDelay = 0.12;
+  const descentRamp = 0.28;
+  cameraDescentTime = clamp(cameraDescentTime + (descending ? dt : -2 * dt), 0, descentDelay + descentRamp);
+  const lookAhead = clamp((cameraDescentTime - descentDelay) / descentRamp, 0, 1);
+  const verticalAnchor = 0.5 - 0.14 * lookAhead;
+  const standingCenterY = player.y + player.height - PLAYER_SIZE.height / 2;
+  const y = clamp(standingCenterY - camera.height * verticalAnchor, 0, Math.max(0, ROWS * TILE - camera.height));
+  const instant = snap || reducedMotion;
+  camera.x += (x - camera.x) * (instant ? 1 : Math.min(1, dt * 5));
+  // Follow fast descents closely enough for the additional space below to stay visible.
+  camera.y += (y - camera.y) * (instant ? 1 : Math.min(1, dt * (5 + 13 * lookAhead)));
 }
 
 function resize() {
@@ -418,7 +426,7 @@ function updateViewport() {
   camera.height = canvas.height / zoom;
   input.pointer.active = false;
   input.stopMining();
-  updateCamera(1);
+  updateCamera(0, true);
 }
 
 function updateParticles(dt) {
@@ -485,6 +493,7 @@ function frame(now) {
       if (game.player !== previousPlayer) {
         input.stopMining();
         miningSwing = null;
+        cameraDescentTime = 0;
       }
       if (note) showAndSave(note);
       accumulator -= timestep;
@@ -502,7 +511,7 @@ function frame(now) {
       miningSwing = null;
     } else if (game.attack) {
       mining = null;
-    } else if (input.holdingMine() && !editPending) {
+    } else if (input.holdingMine() && !editPending && heldItem !== 'explorers-map') {
       if (aimedMob()) {
         mining = null;
         if (!miningSwing && !ITEMS[heldItem]?.weapon) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
@@ -529,7 +538,7 @@ function frame(now) {
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
-    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
+    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake,
   });

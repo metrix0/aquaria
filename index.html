@@ -25,10 +25,21 @@
     <div class="feedback" aria-live="polite" id="feedback" hidden></div>
     <div class="interact" id="interact" hidden><kbd>E</kbd><span></span></div>
 
+    <figure id="explorers-map" hidden>
+      <img src="src/art/explorers-map.webp" alt="An old map of Aquaria. West leads to peaceful mermaids. East is marked DO NOT GO. Below the tree lie deeper dungeons.">
+      <figcaption>Switch items to put the map away</figcaption>
+    </figure>
+
     <div class="bottom">
       <section class="inventory" aria-label="Hotbar">
         <div class="inventory-title" id="selected">Broken Pickaxe</div>
-        <div id="hotbar-slots" class="slots"></div>
+        <div class="hotbar-row">
+          <div id="hotbar-slots" class="slots"></div>
+          <button id="cast-ring" class="slot ring-skill" type="button" aria-label="Cast Root Ring" aria-keyshortcuts="F" hidden>
+            <kbd aria-hidden="true">F</kbd><span class="item item-root-ring" aria-hidden="true"></span>
+            <b aria-hidden="true"></b><i aria-hidden="true"></i>
+          </button>
+        </div>
       </section>
 
       <div class="touch" aria-label="Touch controls">
@@ -40,7 +51,6 @@
           <button data-hold="KeyS" aria-label="Crawl or dive down">↓</button>
           <button data-hold="Space" aria-label="Jump or swim up">↑</button>
           <button id="grab" aria-label="Interact with nearby objects">Use</button>
-          <button id="cast-ring" aria-label="Cast ring skill" hidden>Roots</button>
           <button id="touch-mode" aria-label="Place blocks" aria-pressed="false">Mine</button>
         </div>
       </div>
@@ -65,21 +75,14 @@
             <output id="camera-zoom" aria-label="Zoom level">100%</output>
             <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
           </div>
-          <button id="deploy" class="deploy" type="button">Deploy</button>
+          <div class="footer-deploy">
+            <time id="deploy-age" hidden></time>
+            <button id="deploy" class="deploy" type="button">Deploy</button>
+          </div>
           <button id="pause" class="pause" aria-label="Pause game"><span></span><span></span></button>
         </div>
       </footer>
     </div>
-
-    <dialog id="explorers-map-panel" aria-labelledby="explorers-map-title">
-      <div class="dialog-head"><h2 id="explorers-map-title">Weathered explorer’s map</h2><button data-close aria-label="Close map">×</button></div>
-      <div class="explorers-map">
-        <p><strong>West ←</strong><br>Peaceful mermaids</p>
-        <p class="map-grove">✧<br>The old tree</p>
-        <p><strong>→ East</strong><br>DO NOT GO</p>
-        <p class="map-depths"><strong>↓ Below</strong><br>Harder dungeons. Bring better gear.</p>
-      </div>
-    </dialog>
 
     <dialog id="customize-panel" aria-labelledby="customize-title">
       <div class="dialog-head"><h2 id="customize-title">Customize character</h2><button data-close aria-label="Close character customization" autofocus>×</button></div>
@@ -95,7 +98,7 @@
       </form>
     </dialog>
 
-    <dialog id="backpack-panel" aria-labelledby="backpack-title" aria-describedby="backpack-help">
+    <dialog id="backpack-panel" aria-labelledby="backpack-title">
       <div class="dialog-head"><h2 id="backpack-title">Backpack</h2><button data-close aria-label="Close inventory" autofocus>×</button></div>
       <section class="chest-storage" id="chest-storage" aria-labelledby="chest-storage-title" hidden>
         <div class="chest-storage-head">
@@ -111,22 +114,29 @@
           <section aria-labelledby="backpack-hotbar-label"><h3 id="backpack-hotbar-label">Hotbar</h3><div id="backpack-hotbar" class="backpack-slots"></div></section>
           <section aria-label="Backpack storage"><div id="backpack-slots" class="backpack-slots"></div></section>
         </div>
-        <section class="backpack-gear" aria-labelledby="backpack-gear-label">
-          <h3 id="backpack-gear-label">Equipment</h3>
-          <ul class="gear-slots">
-            <li><button type="button" class="slot" id="backpack-head-slot" data-group="head" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-head-label">Head</span></li>
-            <li><span class="slot" aria-hidden="true"><span id="backpack-armor" aria-hidden="true" hidden></span></span><span id="backpack-chest-label">Chest</span></li>
-            <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
-            <li><button type="button" class="slot" id="backpack-feet-slot" data-group="feet" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-feet-label">Feet</span></li>
-            <li><button type="button" class="slot" id="backpack-ring-slot" data-group="ring" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-ring-label">Ring</span></li>
-          </ul>
-        </section>
+        <div class="backpack-equipment">
+          <section aria-labelledby="backpack-gear-label">
+            <h3 id="backpack-gear-label">Equipment</h3>
+            <ul class="gear-slots">
+              <li><button type="button" class="slot" id="backpack-head-slot" data-group="head" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-head-label">Head</span></li>
+              <li><span class="slot" aria-hidden="true"><span id="backpack-armor" aria-hidden="true" hidden></span></span><span id="backpack-chest-label">Chest</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
+              <li><button type="button" class="slot" id="backpack-feet-slot" data-group="feet" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-feet-label">Feet</span></li>
+              <li><button type="button" class="slot" id="backpack-ring-slot" data-group="ring" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-ring-label">Ring</span></li>
+            </ul>
+          </section>
+          <section aria-labelledby="backpack-accessories-label">
+            <h3 id="backpack-accessories-label">Accessories</h3>
+            <ul class="gear-slots">
+              <li><span class="slot" aria-hidden="true"></span><span>Head</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Chest</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
+              <li><span class="slot" aria-hidden="true"></span><span>Hands</span></li>
+            </ul>
+          </section>
+        </div>
       </div>
-      <section class="backpack-accessories" aria-labelledby="backpack-accessories-label">
-        <h3 id="backpack-accessories-label">Accessories</h3>
-        <ul id="accessory-slots" class="accessory-slots"></ul>
-      </section>
-      <p id="backpack-help">Drag items between slots, or select an item and its destination.</p>
       <div id="inventory-drag" class="slot" hidden aria-hidden="true"><span></span><b></b></div>
       <div id="inventory-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><small></small><em></em></div>
     </dialog>
