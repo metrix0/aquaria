@@ -194,9 +194,15 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
     assert.ok(visited.has(y * COLS + x + WEST_EXTENSION), `${x},${y} is reachable`);
   }
 
-  // The wings only share the entrance until the first Underground crossover.
-  for (let y = 40; y < ISLAND_DEEPSTONE_ROW; y++) {
-    for (let x = 55; x <= 64; x++) assert.ok(tileAt(world, x + WEST_EXTENSION, y));
+  // The middle of Caves has playable chambers at several depths.
+  for (const [x, floor, minHeadroom] of [[61, 65, 15], [54, 117, 18], [60, 161, 14],
+    [55, 195, 16], [31, 242, 18], [57, 273, 14], [69, 318, 10]]) {
+    for (let y = floor - minHeadroom; y < floor; y++) {
+      assert.ok(visited.has(y * COLS + x + WEST_EXTENSION) || tileAt(world, x + WEST_EXTENSION, y),
+        `chamber at ${x},${floor} is isolated`);
+    }
+    const open = cells.filter(([tx, y]) => tx === x + WEST_EXTENSION && y >= floor - minHeadroom && y < floor);
+    assert.ok(open.length >= minHeadroom - 4, `chamber at ${x},${floor} needs more headroom`);
   }
   for (let x = left; x <= right; x++) {
     for (let y = ceiling; y <= deepest; y++) {
@@ -207,16 +213,14 @@ test('both cave tiers stay dry up to the two marked waterways', () => {
   }
 
   const westMine = WEST_EXTENSION - 27;
-  assert.equal(tileAt(world, westMine, 105), MATERIAL.air);
-  assert.ok(tileAt(world, westMine, 107), 'solid shelf between two levels of the west mine');
-  assert.equal(tileAt(world, westMine, 109), MATERIAL.air);
+  assert.ok(tileAt(world, westMine, 105), 'solid shelf between two levels of the west mine');
   assert.ok(isDungeonMasonry(74, 353), 'the crossover has a built room');
   assert.equal(isDungeonMasonry(57, 347), false, 'approach stays natural rock');
   assert.ok(tileAt(world, 61 + WEST_EXTENSION, 345), 'rock above the staggered crossover');
   assert.equal(tileAt(world, 61 + WEST_EXTENSION, 352), MATERIAL.air);
 
   assert.deepEqual([...outlets].sort((a, b) => a - b), [59, 60, 61, 62, 100, 101]);
-  for (const item of world.items.filter(({ id }) => /^(island|underground)-/.test(id))) {
+  for (const item of world.items.filter(({ id }) => /^(island|underground|central-mine)-/.test(id))) {
     const x = Math.floor(item.x / TILE);
     const y = Math.floor(item.y / TILE);
     assert.ok(visited.has(y * COLS + x) && tileAt(world, x, y + 1), `${item.id} has a reachable floor`);
@@ -283,10 +287,22 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.x >= chamberX(140) && player.y > 100 * TILE, { right: true, climb: true });
   assert.ok(player.y < 105 * TILE);
 
-  // Follow the ruined upper gallery between the two wings using normal movement.
+  // Walk the central route continuously from the survey room into Underground.
+  restartAtSurvey();
+  for (const [column, direction, minFloor] of [
+    [33, 'left', 55], [98, 'right', 108], [29, 'left', 116], [81, 'right', 154], [51, 'left', 184],
+    [99, 'right', 225], [45, 'left', 270], [132, 'right', 313], [98.6, 'left', 333], [115, 'right', 343],
+  ]) {
+    const x = (column + WEST_EXTENSION) * TILE;
+    walkUntil(() => direction === 'left' ? player.x <= x : player.x >= x, { [direction]: true, climb: true });
+    assert.ok(player.y + player.height >= minFloor * TILE, `reached the room at row ${minFloor}`);
+  }
+
+  // The existing Underground crossover still connects the two entrance rooms.
   Object.assign(player, { x: chamberX(45), y: 345 * TILE - player.height, dx: 0, dy: 0 });
   walkUntil(() => player.x >= chamberX(105) && player.grounded, { right: true, climb: true });
   assert.ok(Math.abs(player.y + player.height - 346 * TILE) < 1);
+
 });
 
 test('the island has uneven soil, two small shallow veins, and denser deep iron', () => {

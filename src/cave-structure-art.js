@@ -1,4 +1,4 @@
-export function drawCaveStructure(rect, polygon, { kind }, x, y) {
+export function drawCaveStructure(rect, polygon, { kind, postFeet = [0, 0] }, x, y) {
   if (kind === 'skeleton') {
     polygon([[x - 19, y - 4], [x - 14, y - 7], [x - 9, y - 6], [x - 2, y - 1], [x - 15, y - 1]], '#72645b');
     rect(x + 7, y - 9, 9, 7, '#c7b393');
@@ -35,6 +35,31 @@ export function drawCaveStructure(rect, polygon, { kind }, x, y) {
         [x + offset + 20, y + 18], [x + offset + 17, y + 20]], '#78564c');
       rect(x + offset, y - 5, 2, 2, '#493535');
     }
+  } else if (kind === 'headframe') {
+    for (const [i, side] of [-60, 54].entries()) {
+      const base = postFeet[i];
+      rect(x + side, y - 116, 6, 116 + base, '#4d3635');
+      rect(x + side + 1, y - 113, 2, 110 + base, '#936945');
+      rect(x + side - 4, y + base - 6, 14, 6, '#664743');
+    }
+    for (const rise of [47, 83, 116]) {
+      rect(x - 66, y - rise, 132, 5, '#76533f');
+      rect(x - 63, y - rise, 126, 1, '#b48552');
+      if (rise > 47) {
+        const braceEnd = rise === 116 ? 83 : 47;
+        for (const side of [-1, 1]) {
+          const beam = x + side * 57;
+          polygon([[beam, y - rise + 5], [x + side * 24, y - braceEnd],
+            [x + side * 33, y - braceEnd], [beam, y - rise + 12]], '#63453b');
+        }
+      }
+    }
+    rect(x - 25, y - 84, 2, 64, '#967c60');
+    rect(x + 22, y - 84, 2, 64, '#967c60');
+    rect(x - 26, y - 22, 52, 4, '#684841');
+    rect(x - 25, y - 23, 50, 1, '#ab8455');
+    for (const rail of [-11, 8]) rect(x + rail, y - 48, 2, 48, '#805c48');
+    for (let rung = 4; rung < 48; rung += 8) rect(x - 10, y - rung, 20, 2, '#a37956');
   } else if (kind === 'shaft' || kind === 'worksite') {
     for (const side of [-29, 24]) {
       rect(x + side, y - 48, 5, 48, '#665048');

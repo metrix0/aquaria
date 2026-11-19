@@ -1397,19 +1397,27 @@ export function createRenderer(canvas) {
     }
 
     for (const structure of world.caveStructures) {
-      const { tx, floor } = structure;
+      const { tx, floor, kind } = structure;
+      const side = kind === "headframe" ? 5 : 2;
+      const height = kind === "headframe" ? 8 : 4;
+      const under = kind === "headframe" ? 12 : 1;
       if (
-        tx < left - 3 ||
-        tx >= right + 3 ||
-        floor <= top ||
-        floor > bottom + 4
+        tx < left - side - 1 ||
+        tx >= right + side + 1 ||
+        floor + under <= top ||
+        floor > bottom + height
       )
         continue;
       if (!hasExposedCaveFloor(world, structure)) continue;
+      const postFeet = kind === "headframe" ? [-4, 4].map((offset) => {
+        let depth = 0;
+        while (depth < under && !tileAt(world, tx + offset, floor + depth)) depth++;
+        return depth * TILE;
+      }) : undefined;
       ctx.save();
       ctx.beginPath();
-      for (let sx = tx - 2; sx <= tx + 2; sx++) {
-        for (let sy = floor - 4; sy <= floor + 1; sy++) {
+      for (let sx = tx - side; sx <= tx + side; sx++) {
+        for (let sy = floor - height; sy <= floor + under; sy++) {
           if (!tileAt(world, sx, sy))
             ctx.rect(sx * TILE, sy * TILE, TILE, TILE);
         }
@@ -1418,7 +1426,7 @@ export function createRenderer(canvas) {
       drawCaveStructure(
         rect,
         polygon,
-        structure,
+        postFeet ? { ...structure, postFeet } : structure,
         (tx + 0.5) * TILE,
         floor * TILE,
       );
