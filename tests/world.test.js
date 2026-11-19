@@ -1389,7 +1389,8 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
       );
       if (kind === 'kraken') {
         assert.ok(fillStyles.includes('#491f3d'));
-        assert.ok(strokeStyles.includes('#3d1b36'));
+        assert.ok(fillStyles.includes('#7e4268'));
+        assert.ok(fillStyles.includes('#da9292'));
       }
     }
   } finally {

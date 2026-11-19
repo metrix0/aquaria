@@ -1809,98 +1809,117 @@ export function createRenderer(canvas) {
         );
       } else if (mob.kind === "kraken") {
         const rage = (mob.windup ?? 0) > 0 || (mob.actionTime ?? 0) > 0;
-        const breathe = Math.sin(time * 2.1) * 2;
-        const strokeTentacle = (points, width, color) => {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = width;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.beginPath();
-          ctx.moveTo(points[0][0], points[0][1]);
-          for (let p = 1; p < points.length; p++) ctx.lineTo(points[p][0], points[p][1]);
-          ctx.stroke();
+        const breathe = Math.round(Math.sin(time * 2.1) * 2);
+        const pixelTentacle = (x0, y0, cx, cy, x1, y1, s0, s1, dark, mid, cup) => {
+          const dist = Math.hypot(x1 - cx, y1 - cy) + Math.hypot(cx - x0, cy - y0);
+          const steps = Math.max(4, Math.ceil(dist / 5));
+          for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const mt = 1 - t;
+            const px = Math.round(mt * mt * x0 + 2 * mt * t * cx + t * t * x1);
+            const py = Math.round(mt * mt * y0 + 2 * mt * t * cy + t * t * y1);
+            const s = Math.max(3, Math.round(s0 + (s1 - s0) * t));
+            const half = Math.floor(s / 2);
+            rect(px - half - 1, py - half - 1, s + 2, s + 2, "#2d1429");
+            rect(px - half, py - half, s, s, i % 3 === 0 ? dark : mid);
+            if (s >= 5) rect(px - half, py - half, Math.max(2, s - 3), 2, "#b0667d");
+            if (cup && i % 3 === 1) rect(px - half + 1, py + half - 2, 2, 2, cup);
+          }
         };
 
-        // Massive vertical tentacle wall stretching up to surface and down through the seabed/caves.
-        ctx.save();
+        // Pixel-stepped vertical barrier tentacles from surface down through seabed/caves.
         for (let t = 0; t < 4; t++) {
-          const baseX = -30 + t * 9;
-          const pts = [[baseX, 16]];
-          for (let y = 70; y <= 2200; y += 70) {
-            const sway = Math.sin(time * 2.1 + t * 1.4 + y * 0.025) * 6;
-            pts.push([baseX + sway, y]);
-          }
-          strokeTentacle(pts, 9 - t, t % 2 ? "#3d1b36" : "#5a274d");
-          for (let i = 1; i < pts.length; i += 2) {
-            rect(pts[i][0] - 3, pts[i][1] - 1, 2, 2, "#c9839b");
+          const baseX = -36 + t * 11;
+          const width = 9 - t;
+          const dark = t % 2 ? "#491f3d" : "#7e4268";
+          const light = t % 2 ? "#7e4268" : "#b0667d";
+          for (let y = 26; y <= 2200; y += 8) {
+            const sway = Math.round(Math.sin(time * 2.1 + t * 1.4 + y * 0.025) * 4);
+            const tx = baseX + sway;
+            rect(tx - 1, y, width + 2, 9, "#2d1429");
+            rect(tx, y, width, 8, dark);
+            rect(tx, y, 2, 8, light);
+            if (y % 24 === 2) rect(tx + 1, y + 2, 2, 2, "#da9292");
           }
         }
-        const topReach = WATER - mob.y + 4;
+        const topReach = Math.round(WATER - mob.y + 4);
         for (let t = 0; t < 2; t++) {
-          const baseX = -26 + t * 14;
-          const sway = Math.sin(time * 2.6 + t * 2.1) * 6;
-          const pts = [
-            [baseX, -36],
-            [baseX - 6 + sway, topReach * 0.5],
-            [baseX - 10 - sway * 0.5, topReach],
-          ];
-          strokeTentacle(pts, 7, t ? "#491f3d" : "#703156");
+          const baseX = -32 + t * 15;
+          const sway = Math.round(Math.sin(time * 2.5 + t * 2.1) * 5);
+          pixelTentacle(baseX, -62, baseX - 8 + sway, Math.round(topReach * 0.5), baseX - 10 - sway, topReach, 9, 5, "#491f3d", "#7e4268", "#da9292");
         }
 
-        // Dynamic tackle / grab tentacles.
+        // Pixel-stepped tackle / grab attack tentacles.
         const reach = mob.tentacleReach ?? 0;
         if (reach > 0 && mob.tentacleTarget) {
-          const oy = (mob.tentacleTarget.oy ?? mob.y) - mob.y;
-          const tx = -22 + (mob.tentacleTarget.x - mob.x + 22) * reach;
-          const ty = oy + (mob.tentacleTarget.y - mob.y - oy) * reach;
+          const oy = Math.round((mob.tentacleTarget.oy ?? mob.y) - mob.y);
+          const tx = Math.round(-30 + (mob.tentacleTarget.x - mob.x + 30) * reach);
+          const ty = Math.round(oy + (mob.tentacleTarget.y - mob.y - oy) * reach);
           if (mob.attackMode === "tackle") {
-            for (const offset of [-10, 10]) {
-              const midX = (-22 + tx) * 0.5;
-              const midY = oy + (ty - oy) * 0.5 + Math.sin(time * 18 + offset) * 8;
-              strokeTentacle([[-22, oy + offset], [midX, midY], [tx, ty + offset * 0.35]], 8, "#491f3d");
-              strokeTentacle([[-22, oy + offset], [midX, midY], [tx, ty + offset * 0.35]], 4, "#984b70");
-              rect(tx - 3, ty + offset * 0.35 - 3, 6, 6, "#c9839b");
+            for (const offset of [-11, 11]) {
+              const midX = Math.round((-30 + tx) * 0.5);
+              const midY = Math.round(oy + (ty - oy) * 0.5 + Math.sin(time * 18 + offset) * 8);
+              pixelTentacle(-30, oy + offset, midX, midY, tx, ty + Math.round(offset * 0.35), 10, 5, "#491f3d", "#7e4268", "#da9292");
+              rect(tx - 4, ty + Math.round(offset * 0.35) - 4, 8, 8, "#b0667d");
+              rect(tx - 2, ty + Math.round(offset * 0.35) - 2, 4, 4, "#f0c88b");
             }
           } else if (mob.attackMode === "grab") {
-            const midX = (-22 + tx) * 0.5;
-            const midY = oy + (ty - oy) * 0.5 - 12;
-            strokeTentacle([[-22, oy], [midX, midY], [tx, ty]], 7, "#3d1b36");
-            strokeTentacle([[-22, oy], [midX, midY], [tx, ty]], 3.5, "#833c66");
+            const midX = Math.round((-30 + tx) * 0.5);
+            const midY = Math.round(oy + (ty - oy) * 0.5 - 14);
+            pixelTentacle(-30, oy, midX, midY, tx, ty, 9, 5, "#491f3d", "#7e4268", "#da9292");
             if (mob.grabbing) {
-              ctx.strokeStyle = "#984b70";
-              ctx.lineWidth = 4;
-              ctx.beginPath();
-              ctx.arc(tx, ty, 12, 0, Math.PI * 2);
-              ctx.stroke();
+              rect(tx - 11, ty - 11, 22, 4, "#2d1429");
+              rect(tx - 10, ty - 10, 20, 3, "#b0667d");
+              rect(tx - 11, ty + 7, 22, 4, "#2d1429");
+              rect(tx - 10, ty + 8, 20, 3, "#b0667d");
+              rect(tx - 11, ty - 8, 4, 16, "#7e4268");
+              rect(tx + 7, ty - 8, 4, 16, "#7e4268");
+            } else {
+              rect(tx - 4, ty - 4, 8, 8, "#da9292");
             }
           }
         }
-        ctx.restore();
 
-        // Giant kraken head & bulbous mantle.
-        polygon([[-18, -32], [-6, -74 + breathe], [22, -74 + breathe], [34, -44], [28, 12], [-22, 16]], "#2d1429");
-        polygon([[-14, -28], [-2, -68 + breathe], [18, -68 + breathe], [28, -40], [24, 8], [-18, 12]], "#491f3d");
-        polygon([[-8, -32], [2, -60 + breathe], [14, -56 + breathe], [18, -28], [-8, -16]], "#703156");
-        polygon([[16, -68 + breathe], [36, -60 + breathe], [30, -44]], "#5a274d");
-        polygon([[-26, -38], [-14, -54 + breathe], [-10, -34]], "#5a274d");
-        rect(-26, -24, 50, 44, "#491f3d");
-        rect(-24, -18, 42, 34, "#703156");
-        rect(-16, -12, 26, 18, "#833c66");
-        // Glowing eyes and brow ridge.
-        rect(-22, -16, 14, 4, "#2d1429");
-        rect(-19, -12, 8, 7, "#111d2f");
-        rect(-18, -11, 6, 5, rage ? "#ff6b57" : "#f7c96b");
-        rect(-17, -10, 2, 3, "#192b3e");
-        // Siphon & summon ink flare.
-        rect(-30, 2, 10, 10, "#3d1b36");
+        // Larger pixel-art Kraken mantle & head matching Aquaria cephalopod style.
+        polygon([[-32, -38], [-22, -96 + breathe], [2, -118 + breathe], [34, -114 + breathe], [48, -74 + breathe], [44, 24], [-40, 28]], "#192b3e");
+        polygon([[24, -108 + breathe], [54, -92 + breathe], [44, -64 + breathe]], "#491f3d");
+        polygon([[28, -102 + breathe], [48, -90 + breathe], [42, -70 + breathe]], "#7e4268");
+        polygon([[-26, -78 + breathe], [-46, -62 + breathe], [-34, -42]], "#491f3d");
+        polygon([[-26, -72 + breathe], [-40, -61 + breathe], [-32, -48]], "#7e4268");
+        rect(-28, -90 + breathe, 68, 56, "#491f3d");
+        rect(-18, -110 + breathe, 52, 24, "#491f3d");
+        rect(-10, -114 + breathe, 36, 12, "#7e4268");
+        rect(-22, -88 + breathe, 56, 52, "#7e4268");
+        rect(-14, -104 + breathe, 42, 20, "#7e4268");
+        rect(-14, -96 + breathe, 36, 36, "#b0667d");
+        rect(-8, -110 + breathe, 24, 3, "#da9292");
+        rect(-16, -92 + breathe, 3, 28, "#da9292");
+        rect(8, -82 + breathe, 8, 6, "#da9292");
+        rect(20, -64 + breathe, 6, 6, "#da9292");
+        rect(0, -66 + breathe, 6, 4, "#f0c88b");
+        rect(14, -94 + breathe, 5, 4, "#f0c88b");
+        rect(-42, -40, 82, 64, "#2d1429");
+        rect(-38, -36, 74, 56, "#491f3d");
+        rect(-34, -32, 64, 48, "#7e4268");
+        rect(-28, -26, 46, 34, "#b0667d");
+        rect(-32, -32, 48, 3, "#da9292");
+        rect(-36, -24, 24, 6, "#2d1429");
+        rect(-34, -22, 20, 3, "#491f3d");
+        rect(-32, -18, 16, 14, "#111d2f");
+        rect(-30, -16, 12, 10, rage ? "#ff9b80" : "#f1f3e5");
+        rect(-28, -14, 8, 6, rage ? "#f8dca5" : "#efc27e");
+        rect(-29, -13, 5, 4, "#192b3e");
+        rect(-24, -15, 2, 2, "#f1f3e5");
+        rect(-6, 4, 6, 4, "#f0c88b");
+        rect(6, -6, 6, 4, "#f0c88b");
+        rect(-44, 6, 14, 14, "#2d1429");
+        rect(-42, 8, 10, 10, "#491f3d");
+        rect(-40, 10, 6, 6, "#7e4268");
         if (mob.attackMode === "summon" && (mob.windup ?? 0) > 0) {
-          rect(-36, 0, 8, 14, "#0d1017");
-          rect(-34, 3, 4, 8, "#833c66");
+          rect(-50, 4, 10, 18, "#0d1017");
+          rect(-48, 7, 6, 12, "#b0667d");
+          rect(-47, 10, 4, 6, "#f8dca5");
         }
-        // Upper mantle spots.
-        rect(4, -50 + breathe, 4, 4, "#984b70");
-        rect(12, -38 + breathe, 5, 4, "#984b70");
-        rect(-4, -36 + breathe, 3, 3, "#984b70");
       }
       ctx.restore();
 
@@ -1908,11 +1927,11 @@ export function createRenderer(canvas) {
         mob.maxHealth &&
         (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)
       ) {
-        const barWidth = mob.kind === "kraken" ? 56 : mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
+        const barWidth = mob.kind === "kraken" ? 64 : mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
         const barX = -Math.floor(barWidth / 2);
         const ghost = mob.kind === "ghost";
         const barY = mob.kind === "kraken"
-          ? -82
+          ? -128
           : ghost
           ? -21
           : mob.respawnDelay

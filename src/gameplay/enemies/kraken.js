@@ -10,10 +10,10 @@ const KRAKEN_ENGAGE_RANGE = 420;
 
 export const krakenSpec = {
   name: 'kraken',
-  width: 72,
-  height: 110,
-  radius: 46,
-  centerY: 0,
+  width: 84,
+  height: 144,
+  radius: 58,
+  centerY: -36,
   damage: 5,
   healthDamage: 24,
   message: 'Crushed by the Kraken!',
