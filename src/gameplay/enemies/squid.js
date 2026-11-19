@@ -1,6 +1,6 @@
 import { MATERIAL } from '../../content.js';
-import { takeDamage } from '../player.js';
-import { inWater, solidAt, waterTileAt } from '../../world.js';
+import { playerWaterborne, takeDamage } from '../player.js';
+import { solidAt, waterTileAt } from '../../world.js';
 import { MOB_HEALTH, TILE, WATER, clamp, waterwayAt } from '../../world/generation.js';
 import { stepSeaEnemy } from './sea-shared.js';
 
@@ -88,7 +88,7 @@ export function stepSquid(world, player, mob, dt, time, effects, ctx) {
 export function stepInkBubble(world, player, bubble, dt, time, effects) {
   const px = player.x;
   const py = player.y + Math.ceil(player.height / 2);
-  const playerInWater = inWater(world, px, py);
+  const playerInWater = playerWaterborne(world, player);
 
   bubble.life -= dt;
   const nx = bubble.x + bubble.dx * dt;

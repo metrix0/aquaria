@@ -68,15 +68,30 @@ function moveAxis(world, player, axis, amount) {
 }
 
 function canJumpAshore(world, player, direction, maxSwimSpeed = swimSpeed) {
-  if (!direction || player.height === CRAWL_HEIGHT || player.dy < -maxSwimSpeed || inWater(world, player.x, player.y + 5)
+  if (!direction || player.height === CRAWL_HEIGHT || player.dy < -maxSwimSpeed || playerHeadInWater(world, player)
     || !inWater(world, player.x, player.y + player.height - 0.01)) return false;
   const shoreX = player.x + direction * player.width;
   const clearanceY = player.y - 2 * TILE;
-  return collides(world, shoreX, player.y) && !collides(world, player.x, clearanceY) && !collides(world, shoreX, clearanceY);
+  if (collides(world, shoreX, player.y) && !collides(world, player.x, clearanceY) && !collides(world, shoreX, clearanceY)) {
+    return true;
+  }
+  const stepY = Math.floor((player.y - TILE) / TILE) * TILE - player.height;
+  return collides(world, shoreX, player.y - TILE)
+    && !collides(world, player.x, player.y - TILE)
+    && !collides(world, player.x, stepY)
+    && !collides(world, shoreX, stepY);
+}
+
+function waterSensorOffset(player) {
+  return player.height - PLAYER_SIZE.height * 0.35;
 }
 
 export function playerInWater(world, player) {
-  return inWater(world, player.x, player.y + player.height - PLAYER_SIZE.height * 0.35);
+  return inWater(world, player.x, player.y + waterSensorOffset(player));
+}
+
+export function playerWaterborne(world, player) {
+  return playerInWater(world, player) || Boolean(player.waterJump);
 }
 
 export function playerHeadInWater(world, player) {
@@ -89,6 +104,7 @@ export function toggleGodMode(world, player) {
   player.dy = 0;
   player.grounded = false;
   player.canShortenJump = false;
+  player.waterJump = false;
   if (!flightOrigin) {
     player.flightOrigin = { x, y, height };
     player.y = Math.max(0, y + height - PLAYER_SIZE.height);
@@ -160,15 +176,33 @@ export function movePlayer(world, player, input, dt) {
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
   const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
+  const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);
-  if (bodyInWater && !shoreJump) {
+  const surfaceJump = jump && !down && !crawling && bodyInWater && !headInWater;
+  const risingFromWaterJump = Boolean(player.waterJump) && player.dy < 0 && !down;
+  if (bodyInWater && !shoreJump && !surfaceJump && !risingFromWaterJump) {
     player.canShortenJump = false;
+    player.waterJump = false;
     const vertical = Number(Boolean(down)) - Number(Boolean(up));
-    player.dy += ((vertical ? vertical * verticalSwimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
+    let targetDy = vertical ? vertical * verticalSwimSpeed : 10;
+    let surfaceRestY = null;
+    if (up && !down && !headInWater) {
+      const waterOffset = waterSensorOffset(player);
+      const surfaceTileY = Math.floor((player.y + waterOffset) / TILE) * TILE;
+      if (!inWater(world, player.x, surfaceTileY - 1)) {
+        surfaceRestY = surfaceTileY - waterOffset + 1.5;
+        targetDy = clamp((surfaceRestY - player.y) * 8, -verticalSwimSpeed, verticalSwimSpeed);
+      }
+    }
+    player.dy += (targetDy - player.dy) * Math.min(1, 7 * dt);
+    if (surfaceRestY !== null && player.dy < 0 && player.y + player.dy * dt < surfaceRestY) {
+      player.dy = Math.min(0, (surfaceRestY - player.y) / dt);
+    }
   } else {
-    if (shoreJump || (jump && player.grounded && !crawling)) {
+    if (shoreJump || surfaceJump || (jump && player.grounded && !crawling)) {
       player.dy = -jumpSpeed;
       player.canShortenJump = !shoreJump;
+      player.waterJump = bodyInWater;
     }
     if (player.canShortenJump && !up) {
       player.dy = Math.max(player.dy, -shortHopSpeed);
@@ -182,6 +216,7 @@ export function movePlayer(world, player, input, dt) {
   const falling = player.dy >= 0;
   const yCollision = moveAxis(world, player, 'y', player.dy * dt);
   player.grounded = yCollision && falling;
+  if (player.grounded) player.waterJump = false;
   if (yCollision) player.dy = 0;
   if (player.dy >= 0) player.canShortenJump = false;
   if (player.y < 0) player.y = 0;

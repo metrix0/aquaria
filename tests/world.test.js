@@ -9,7 +9,7 @@ import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/k
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
-import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
+import { collides, movePlayer, playerHeadInWater, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
@@ -1269,6 +1269,8 @@ test('jellyfish shock stuns the player when inside its visual lightning area', (
   assert.ok(40 <= jellyfishShockRadius(jelly.shock));
   stepGame(game, {}, 1 / 60);
   assert.ok(player.stun > 0);
+  const shockEffect = game.effects.find((effect) => effect.shake);
+  assert.deepEqual(shockEffect?.shake, { intensity: 11, duration: 0.75, frequency: 46 });
 });
 
 
@@ -1806,4 +1808,171 @@ test('map expands beyond the kraken and ocean fades from blue to jungle green wa
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;
   }
+});
+
+test('sea monsters keep tracking and damaging a player holding up or hopping at the ocean surface', () => {
+  const openOceanX = (140 + WEST_EXTENSION) * TILE + 8;
+
+  // Holding up at the surface (even with Diving fin) floats without popping out of water.
+  const game = createGame();
+  const { world, player } = game;
+  Object.assign(player, { x: openOceanX, y: WATER + 2 * TILE, dx: 0, dy: 0, feet: DIVING_FIN.id, health: 100 });
+  const shark = world.mobs.find((mob) => mob.kind === 'shark');
+  assert.ok(shark);
+  Object.assign(shark, {
+    x: openOceanX + 48,
+    y: WATER + 20,
+    homeX: openOceanX + 48,
+    homeY: WATER + 20,
+    span: 40,
+    dx: 0,
+    dy: 0,
+    flee: 0,
+    cooldown: 0,
+    hurt: 0,
+    respawn: 0,
+    health: shark.maxHealth,
+    attackTimer: 1.5,
+    windup: 0,
+    dash: 0,
+  });
+  world.mobs = [shark];
+
+  for (let i = 0; i < 150; i++) {
+    stepGame(game, { left: false, right: false, up: true, down: false, jump: i === 0 }, 1 / 60);
+    if (i >= 45) {
+      assert.equal(playerInWater(world, player), true);
+      assert.equal(playerHeadInWater(world, player), false);
+    }
+  }
+  assert.ok(player.health < 100, 'expected shark to damage surface-swimming player');
+
+  // Enemy fish also target a player swimming at the surface with their head above water.
+  const fishGame = createGame();
+  Object.assign(fishGame.player, { x: openOceanX, y: WATER - 12, dx: 0, dy: 0, health: 100 });
+  fishGame.world.mobs = [{
+    kind: 'fish',
+    enemyType: { name: 'Reef snapper', speed: 42, airLoss: 1.5, healthLoss: 10 },
+    x: openOceanX + 18,
+    y: WATER + 14,
+    homeX: openOceanX + 18,
+    homeY: WATER + 14,
+    span: 40,
+    speed: 42,
+    facing: -1,
+    dx: 0,
+    dy: 0,
+    flee: 0,
+    phase: 0,
+    remainingLife: 20,
+    health: 2,
+    maxHealth: 2,
+    hurt: 0,
+    respawn: 0,
+  }];
+  for (let i = 0; i < 60; i++) {
+    stepGame(fishGame, { left: false, right: false, up: true, down: false, jump: false }, 1 / 60);
+  }
+  assert.ok(fishGame.player.health < 100, 'expected enemy fish to bite surface-swimming player');
+
+  // Repeatedly tapping jump at the ocean surface does not break squid targeting.
+  const squidGame = createGame();
+  Object.assign(squidGame.player, { x: openOceanX, y: WATER - 13, dx: 0, dy: 0, health: 100 });
+  const squid = squidGame.world.mobs.find((mob) => mob.kind === 'squid');
+  assert.ok(squid);
+  Object.assign(squid, {
+    x: openOceanX + 70,
+    y: WATER + 22,
+    homeX: openOceanX + 70,
+    homeY: WATER + 22,
+    span: 40,
+    dx: 0,
+    dy: 0,
+    flee: 0,
+    cooldown: 0,
+    hurt: 0,
+    respawn: 0,
+    health: squid.maxHealth,
+    attackTimer: 0.2,
+    windup: 0,
+  });
+  squidGame.world.mobs = [squid];
+  let fired = false;
+  for (let i = 0; i < 90; i++) {
+    stepGame(squidGame, { left: false, right: false, up: true, down: false, jump: i % 18 === 0 }, 1 / 60);
+    if (squidGame.world.projectiles.some((p) => p.kind === 'paint-bubble')) fired = true;
+  }
+  assert.equal(fired, true, 'expected squid to fire while player hops at the surface');
+});
+
+test('swimming player can exit water onto blocks at or above the waterline and stand safely above them', () => {
+  const baseTx = 145 + WEST_EXTENSION;
+
+  for (const blockRow of [WATER_ROW, WATER_ROW - 1, WATER_ROW - 2]) {
+    const game = createGame();
+    const { world, player } = game;
+    assert.equal(editTile(world, baseTx, blockRow, MATERIAL.wood), true);
+    Object.assign(player, {
+      x: baseTx * TILE - 8,
+      y: WATER - 13,
+      dx: 0,
+      dy: 0,
+      grounded: false,
+      waterJump: false,
+    });
+    const shark = world.mobs.find((mob) => mob.kind === 'shark');
+    Object.assign(shark, {
+      x: player.x - 45,
+      y: WATER + 22,
+      homeX: player.x - 45,
+      homeY: WATER + 22,
+      span: 40,
+      dx: 0,
+      dy: 0,
+      flee: 0,
+      cooldown: 0,
+      hurt: 0,
+      respawn: 0,
+      health: shark.maxHealth,
+      attackTimer: 1.5,
+      windup: 0,
+      dash: 0,
+    });
+    world.mobs = [shark];
+
+    for (let i = 0; i < 90; i++) {
+      const overBlock = Math.floor(player.x / TILE) === baseTx;
+      stepGame(game, { left: false, right: !overBlock, up: true, down: false, jump: i === 0 }, 1 / 60);
+      if (player.grounded && overBlock) break;
+    }
+
+    assert.equal(player.grounded, true, `expected player to land on block at row ${blockRow}`);
+    assert.ok(player.y + player.height <= blockRow * TILE + 0.02);
+    assert.equal(playerInWater(world, player), false);
+    assert.equal(player.waterJump, false);
+
+    // Once standing above the block out of water, nearby shark ignores the player.
+    const healthOnBlock = player.health;
+    for (let i = 0; i < 60; i++) {
+      stepGame(game, { left: false, right: false, up: false, down: false, jump: false }, 1 / 60);
+    }
+    assert.equal(player.health, healthOnBlock);
+  }
+
+  // Fresh jump from the surface clears WATER_ROW so the player can place a block beneath themselves.
+  const pillarGame = createGame();
+  const { world: pillarWorld, player: pillarPlayer } = pillarGame;
+  assert.equal(editTile(pillarWorld, baseTx + 1, WATER_ROW, MATERIAL.wood), true);
+  Object.assign(pillarPlayer, { x: baseTx * TILE + 8, y: WATER - 13, dx: 0, dy: 0, grounded: false });
+  let placed = false;
+  for (let i = 0; i < 65; i++) {
+    stepGame(pillarGame, { left: false, right: false, up: true, down: false, jump: i === 0 }, 1 / 60);
+    if (!placed && pillarPlayer.y + pillarPlayer.height <= WATER) {
+      placed = editTile(pillarWorld, baseTx, WATER_ROW, MATERIAL.wood);
+    }
+  }
+  assert.equal(placed, true);
+  assert.equal(pillarPlayer.grounded, true);
+  assert.ok(pillarPlayer.y + pillarPlayer.height <= WATER + 0.02);
+  assert.equal(playerInWater(pillarWorld, pillarPlayer), false);
 });

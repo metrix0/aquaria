@@ -1,5 +1,6 @@
 import { inWater } from '../world.js';
 import { TILE } from '../world/generation.js';
+import { playerWaterborne } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
@@ -130,8 +131,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
   const px = player.x;
   const py = player.y + 11;
-  const playerInWater = inWater(world, px, py);
-  const underwater = inWater(world, px, player.y + 5);
+  const playerInWater = playerWaterborne(world, player);
   const playerMoving = Math.hypot(player.dx, player.dy) > 14 || mining;
   let hit;
 
@@ -184,7 +184,6 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         diffX,
         diffY,
         playerInWater,
-        underwater,
         playerMoving,
       });
       if (fishHit) hit = fishHit;

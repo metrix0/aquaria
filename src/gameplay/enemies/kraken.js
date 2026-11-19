@@ -1,7 +1,7 @@
 import { DIVING_FIN, KRAKEN_CHEST_ID, MATERIAL } from '../../content.js';
-import { inWater, solidAt } from '../../world.js';
+import { solidAt } from '../../world.js';
 import { COLS, MOB_HEALTH, ROWS, TILE, WATER, clamp, groundAt } from '../../world/generation.js';
-import { takeDamage } from '../player.js';
+import { playerWaterborne, takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
 export const KRAKEN_BARRIER_EAST_OFFSET = 46;
@@ -162,7 +162,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
 
   const px = player.x;
   const py = player.y + Math.ceil(player.height / 2);
-  const playerInWater = inWater(world, px, py);
+  const playerInWater = playerWaterborne(world, player);
 
   // Barrier tentacle contact damage at any depth (surface, underwater, or caves).
   if (

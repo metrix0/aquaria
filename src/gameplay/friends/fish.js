@@ -35,7 +35,7 @@ export function stepFish(
   dt,
   time,
   enemies,
-  { dist, diffX, diffY, playerInWater, underwater, playerMoving },
+  { dist, diffX, diffY, playerInWater, playerMoving },
 ) {
   let hit;
   if (!mob.enemyType && playerInWater && dist < 44 && playerMoving) {
@@ -45,14 +45,14 @@ export function stepFish(
 
   let targetDx;
   let targetDy;
-  if (mob.enemyType && underwater && dist < 108 && mob.remainingLife > 2) {
+  if (mob.enemyType && playerInWater && dist < 108 && mob.remainingLife > 2) {
     targetDx = (-diffX / dist) * mob.speed;
     targetDy = (-diffY / dist) * mob.speed;
     if (
       !player.flightOrigin &&
       enemies.hitCooldown === 0 &&
       Math.abs(diffX) < 12 &&
-      Math.abs(diffY) < 10
+      Math.abs(diffY) < 16
     ) {
       enemies.hitCooldown = 3;
       hit = mob.enemyType;
