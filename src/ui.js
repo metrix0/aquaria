@@ -96,6 +96,12 @@ export function createUI(actions, version) {
   zoomIn.addEventListener('click', () => actions.zoomBy(1));
   const godMode = byId('god-mode');
   godMode.addEventListener('click', actions.toggleGodMode);
+  const flightSpeed = byId('flight-speed');
+  const flightSpeedValue = byId('flight-speed-value');
+  const flightSlower = byId('flight-slower');
+  const flightFaster = byId('flight-faster');
+  flightSlower.addEventListener('click', () => actions.adjustFlightSpeed(-1));
+  flightFaster.addEventListener('click', () => actions.adjustFlightSpeed(1));
   const shadows = byId('hide-cave-shadows');
   shadows.addEventListener('click', () => {
     const hidden = shadows.getAttribute('aria-pressed') !== 'true';
@@ -117,7 +123,15 @@ export function createUI(actions, version) {
       zoomOut.disabled = atMinimum;
       zoomIn.disabled = atMaximum;
     },
-    godMode: (enabled) => godMode.setAttribute('aria-pressed', String(enabled)),
+    godMode(enabled) {
+      godMode.setAttribute('aria-pressed', String(enabled));
+      flightSpeed.hidden = !enabled;
+    },
+    setFlightSpeed(multiplier, atMinimum, atMaximum) {
+      flightSpeedValue.value = 'Speed ' + multiplier + '×';
+      flightSlower.disabled = atMinimum;
+      flightFaster.disabled = atMaximum;
+    },
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft: craftingUI.render,

@@ -104,10 +104,10 @@ export function toggleGodMode(world, player) {
   return false;
 }
 
-function fly(player, { left, right, up, down }, dt) {
+function fly(player, { left, right, up, down, flightSpeedMultiplier = 1 }, dt) {
   const horizontal = Number(Boolean(right)) - Number(Boolean(left));
   const vertical = Number(Boolean(down)) - Number(Boolean(up));
-  const speed = horizontal && vertical ? flightSpeed * Math.SQRT1_2 : flightSpeed;
+  const speed = flightSpeed * flightSpeedMultiplier * (horizontal && vertical ? Math.SQRT1_2 : 1);
   player.dx = horizontal * speed;
   player.dy = vertical * speed;
   if (horizontal) player.facing = horizontal;

@@ -21,6 +21,7 @@ const available = Boolean(config.url && config.publishableKey);
 const camera = { x: 0, y: 0, width: 1, height: 1 };
 const particles = [];
 const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
+const flightSpeedLevels = [0.5, 1, 2, 4, 8];
 let zoomIndex = zoomLevels.indexOf(100);
 
 let save = soloSave;
@@ -32,6 +33,7 @@ let mining = null;
 let miningSwing = null;
 let craftingBench;
 let selected = 0;
+let flightSpeedIndex = flightSpeedLevels.indexOf(1);
 let count = 1;
 let time = 0;
 let caveShadowsHidden = false;
@@ -289,6 +291,12 @@ const ui = createUI({
       ui.clearNotice();
     }
   },
+  adjustFlightSpeed(step) {
+    if (!game.player.flightOrigin) return;
+    const last = flightSpeedLevels.length - 1;
+    flightSpeedIndex = clamp(flightSpeedIndex + step, 0, last);
+    ui.setFlightSpeed(flightSpeedLevels[flightSpeedIndex], flightSpeedIndex === 0, flightSpeedIndex === last);
+  },
   getInventory: () => game.inventory,
   getChest: (id) => game.chests.get(id),
   canMoveInventory: () => !editPending,
@@ -454,7 +462,12 @@ function frame(now) {
     accumulator += dt;
     while (accumulator >= timestep) {
       const previousPlayer = game.player;
-      const note = stepGame(game, { ...input.sample(), mining: input.holdingMine(), night: conditions.night }, timestep);
+      const note = stepGame(game, {
+        ...input.sample(),
+        mining: input.holdingMine(),
+        night: conditions.night,
+        flightSpeedMultiplier: flightSpeedLevels[flightSpeedIndex],
+      }, timestep);
       for (const effect of game.effects) emitEffect(effect);
       game.effects.length = 0;
       if (game.player !== previousPlayer) {

@@ -40,6 +40,24 @@ test('God mode flies into solid terrain and exits safely without saving the flig
   assert.equal(player.y, landingY);
 });
 
+test('God mode speed scales flight while preserving diagonal and normal movement', () => {
+  const { world, player } = createGame();
+  const normal = { ...player };
+  movePlayer(world, player, { right: true, up: false, down: false, left: false, flightSpeedMultiplier: 8 }, 1 / 60);
+  movePlayer(world, normal, { right: true, up: false, down: false, left: false }, 1 / 60);
+  assert.deepEqual(player, normal);
+
+  toggleGodMode(world, player);
+  movePlayer(world, player, { right: true }, 1 / 60);
+  const defaultSpeed = player.dx;
+  movePlayer(world, player, { right: true, flightSpeedMultiplier: 8 }, 1 / 60);
+  assert.equal(player.dx, defaultSpeed * 8);
+  movePlayer(world, player, { right: true, flightSpeedMultiplier: 0.5 }, 1 / 60);
+  assert.equal(player.dx, defaultSpeed / 2);
+  movePlayer(world, player, { right: true, down: true, flightSpeedMultiplier: 8 }, 1 / 60);
+  assert.ok(Math.abs(Math.hypot(player.dx, player.dy) - defaultSpeed * 8) < 1e-9);
+});
+
 test('God mode ignores enemy projectiles and oxygen loss while underwater', () => {
   const game = createGame();
   const { world, player } = game;

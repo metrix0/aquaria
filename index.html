@@ -53,8 +53,13 @@
           <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
           <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
+          <div id="flight-speed" class="footer-stepper flight-speed" role="group" aria-label="God mode flight speed" hidden>
+            <button id="flight-slower" type="button" aria-label="Decrease flight speed">−</button>
+            <output id="flight-speed-value" aria-label="Flight speed multiplier">Speed 1×</output>
+            <button id="flight-faster" type="button" aria-label="Increase flight speed">+</button>
+          </div>
           <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
-          <div class="zoom-controls" role="group" aria-label="Camera zoom">
+          <div class="footer-stepper" role="group" aria-label="Camera zoom">
             <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
             <output id="camera-zoom" aria-label="Zoom level">100%</output>
             <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>

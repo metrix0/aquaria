@@ -1,12 +1,13 @@
 import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_SNORKEL, SNORKEL, SNORKELS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
-import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION } from '../world/generation.js';
+import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
 
 const roomCodePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const poseOffset = (WEST_EXTENSION - ORIGINAL_WEST_EXTENSION) * TILE;
 const peerExpiry = 5000;
 const maxPeers = 64;
+const maxPeerVelocity = 300;
 let clientPromise;
 
 export function roomCode(value) {
@@ -47,8 +48,8 @@ function validPeer(payload) {
     Number.isFinite(payload.x) && payload.x >= -poseOffset && payload.x <= COLS * TILE - poseOffset &&
     Number.isFinite(payload.y) && payload.y >= 0 && payload.y <= ROWS * TILE &&
     (payload.facing === 1 || payload.facing === -1) &&
-    Number.isFinite(payload.dx) && Math.abs(payload.dx) <= 300 &&
-    Number.isFinite(payload.dy) && Math.abs(payload.dy) <= 300;
+    Number.isFinite(payload.dx) && Math.abs(payload.dx) <= maxPeerVelocity &&
+    Number.isFinite(payload.dy) && Math.abs(payload.dy) <= maxPeerVelocity;
 }
 
 export async function connectRoom(config, invite, handlers) {
@@ -180,7 +181,10 @@ export async function connectRoom(config, invite, handlers) {
     tick(now, dt, player, snorkel) {
       const pose = {
         id: peerId,
-        x: Math.round(player.x - poseOffset), y: Math.round(player.y), dx: Math.round(player.dx), dy: Math.round(player.dy),
+        x: Math.round(player.x - poseOffset), y: Math.round(player.y),
+        // Keep poses compatible with clients that cap animation velocity at 300.
+        dx: clamp(Math.round(player.dx), -maxPeerVelocity, maxPeerVelocity),
+        dy: clamp(Math.round(player.dy), -maxPeerVelocity, maxPeerVelocity),
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
         crawling: player.height === CRAWL_HEIGHT,
