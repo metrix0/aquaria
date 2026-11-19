@@ -2303,12 +2303,10 @@ export function createRenderer(canvas) {
     if (!splats?.length) return;
     const span = Math.min(camera.width, camera.height);
     ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
-    ctx.shadowBlur = Math.max(25, Math.round(canvas.height * 0.065));
-
-    // Increased offset so the shadow sticks out further
-    ctx.shadowOffsetX = Math.max(25, Math.round(canvas.height * 0.024));
-    ctx.shadowOffsetY = Math.max(14, Math.round(canvas.height * 0.036));
+    ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
+    ctx.shadowBlur = Math.max(6, Math.round(canvas.height * 0.018));
+    ctx.shadowOffsetX = Math.max(2, Math.round(canvas.height * 0.006));
+    ctx.shadowOffsetY = Math.max(3, Math.round(canvas.height * 0.008));
     for (const splat of splats) {
       const fade = Math.min(1, splat.time / 2);
       if (fade <= 0) continue;
