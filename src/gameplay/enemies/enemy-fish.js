@@ -1,4 +1,4 @@
-import { MOB_HEALTH, WATER } from './world/generation.js';
+import { MOB_HEALTH, WATER } from '../../world/generation.js';
 
 const species = [
   {

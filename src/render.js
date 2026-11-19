@@ -8,7 +8,7 @@ import {
 import { drawCaveEnemy } from "./cave-enemy-art.js";
 import { createCharacterRenderer } from "./character.js";
 import { MATERIAL, ORE_MATERIALS } from "./content.js";
-import { jellyfishShockRadius } from "./gameplay/mobs.js";
+import { jellyfishShockRadius } from "./gameplay/enemies/jellyfish.js";
 import { playerHeadInWater, playerInWater } from "./gameplay/player.js";
 import { createHelmetWreckArt } from "./helmet-wreck-art.js";
 import { ITEMS } from "./inventory.js";

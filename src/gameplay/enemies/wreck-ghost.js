@@ -1,8 +1,8 @@
-import { MATERIAL } from '../content.js';
-import { inWater, tileAt } from '../world.js';
-import { MOB_HEALTH, TILE, WEST_EXTENSION, clamp } from '../world/generation.js';
-import { isInsideShipwreck } from '../world/shipwreck.js';
-import { takeDamage } from './player.js';
+import { MATERIAL } from '../../content.js';
+import { inWater, tileAt } from '../../world.js';
+import { MOB_HEALTH, TILE, WEST_EXTENSION, clamp } from '../../world/generation.js';
+import { isInsideShipwreck } from '../../world/shipwreck.js';
+import { takeDamage } from '../player.js';
 
 const CHECK_INTERVAL = 150;
 const SPAWN_CHANCE = .06;
