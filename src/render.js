@@ -83,7 +83,7 @@ export function createRenderer(canvas) {
     const x = dx > 0 ? TILE : 0;
     const y = dy > 0 ? TILE : 0;
     const fade = tileCtx.createLinearGradient(x, y, x - dx * caveWallFadeDepth, y - dy * caveWallFadeDepth);
-    fade.addColorStop(0, '#000a');
+    fade.addColorStop(.05, '#000f');
     fade.addColorStop(.45, '#0005');
     fade.addColorStop(1, '#0000');
     return { dx, dy, fade, bit: 1 << index };
@@ -310,8 +310,8 @@ export function createRenderer(canvas) {
     rainSplashes(impacts, camera, time, intensity);
   }
 
-  function waterClip(world, camera) {
-    let path;
+  function waterClips(world, camera) {
+    let water, shore;
     const x = Math.round(camera.x);
     const y = Math.round(camera.y);
     const left = Math.floor(x / TILE);
@@ -322,16 +322,34 @@ export function createRenderer(canvas) {
       let tx = left;
       while (tx < right) {
         if (!waterTileAt(world, tx, ty)) {
+          // Give exposed background walls the ocean behind their transparent edges.
+          if (ty >= firstCaveRows[tx] && TILE_NEIGHBORS.some(([dx, dy]) =>
+            outsideCaveWall(tx + dx, ty + dy) && waterTileAt(world, tx + dx, ty + dy)
+          ) && !tileAt(world, tx, ty)) {
+            shore ??= new Path2D();
+            shore.rect(tx * TILE - x, ty * TILE - y, TILE, TILE);
+          }
           tx++;
           continue;
         }
         const start = tx++;
         while (tx < right && waterTileAt(world, tx, ty)) tx++;
-        path ??= new Path2D();
-        path.rect(start * TILE - x, ty * TILE - y, (tx - start) * TILE, TILE);
+        water ??= new Path2D();
+        water.rect(start * TILE - x, ty * TILE - y, (tx - start) * TILE, TILE);
       }
     }
-    return path;
+    const backdrop = shore ? new Path2D(shore) : water;
+    if (shore && water) backdrop.addPath(water);
+    return { water, shore, backdrop };
+  }
+
+  function tintWater(camera, surface, clip) {
+    if (!clip) return;
+    ctx.save();
+    ctx.clip(clip);
+    const start = Math.max(0, surface);
+    gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
+    ctx.restore();
   }
 
   function ocean(camera, surface, time, conditions, water) {
@@ -549,6 +567,10 @@ export function createRenderer(canvas) {
     rect(topX - 3, topY, 6, 4, '#745747');
   }
 
+  function outsideCaveWall(tx, ty) {
+    return ty < firstCaveRows[tx];
+  }
+
   function caveWall(world, tx, ty) {
     const x = tx * TILE;
     const y = ty * TILE;
@@ -566,7 +588,7 @@ export function createRenderer(canvas) {
       const neighborX = tx + dx;
       const neighborY = ty + dy;
       // Air below the surface can still have a cave wall behind it.
-      if (neighborY < firstCaveRows[neighborX] && !tileAt(world, neighborX, neighborY)) exposedEdges |= bit;
+      if (outsideCaveWall(neighborX, neighborY) && !tileAt(world, neighborX, neighborY)) exposedEdges |= bit;
     }
     const context = exposedEdges ? tileCtx : ctx;
     const tileX = exposedEdges ? 0 : x;
@@ -1147,7 +1169,7 @@ export function createRenderer(canvas) {
 
   function draw({ world, player, snorkel, camera, time, elapsed, aim, mining, miningSwing, held, attack, hasArrow, playerArrows, targetMob, particles, reducedMotion, conditions, worldTime, weatherSeed, caveShadowsHidden, openChestId, peers = [] }) {
     const surface = WATER - Math.round(camera.y);
-    const water = waterClip(world, camera);
+    const { water, shore, backdrop } = waterClips(world, camera);
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
@@ -1156,7 +1178,8 @@ export function createRenderer(canvas) {
     if (!reducedMotion && surface > 0 && !conditions.night && conditions.rain < 1) {
       skyBird(camera, birdFlightAt(worldTime, weatherSeed), (1 - conditions.darkness) * (1 - conditions.rain));
     }
-    ocean(camera, surface, time, conditions, water);
+    ocean(camera, surface, time, conditions, backdrop);
+    tintWater(camera, surface, shore);
     if (surface > -5 && surface < camera.height + 5) surfaceLine(world, camera, surface, time);
 
     ctx.save();
@@ -1212,13 +1235,7 @@ export function createRenderer(canvas) {
     }
     ctx.restore();
 
-    if (water) {
-      ctx.save();
-      ctx.clip(water);
-      const start = Math.max(0, surface);
-      gradient(0, start, camera.width, camera.height - start, [[0, '#183d4e07'], [.36, '#0a30422b'], [1, '#06152666']], surface, surface + 980);
-      ctx.restore();
-    }
+    tintWater(camera, surface, water);
   }
 
   return { draw };
