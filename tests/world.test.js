@@ -2,7 +2,7 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW, isDryIslandCave, isDungeonMasonry } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, REINFORCED_SNORKEL, SNORKEL, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { caveEnemySpecs, stepCaveEnemy, stepCaveHazard } from '../src/gameplay/cave-enemies.js';
 import { updateEnemySpawns } from '../src/enemies.js';
 import { damageMob, stepMobs } from '../src/gameplay/mobs.js';
@@ -10,7 +10,7 @@ import { stepWreckGhost } from '../src/gameplay/wreck-ghosts.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equipChestLoot, grantItem, moveChestStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, ISLAND_CAVE, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
@@ -261,7 +261,7 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.grounded && Math.abs(player.x - cache.x) < TILE / 4, { left: true });
   assert.equal(nearestItem(game), cache);
   assert.equal(chestAt(game, cache.x, cache.y), cache);
-  assert.equal(moveChestStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), true);
+  assert.equal(moveInventoryStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), true);
   assert.equal(game.inventory.count('copper'), 2);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(nearestItem(restored)?.id, cache.id);
@@ -495,7 +495,7 @@ test('legacy progress and edits on both sides of a chunk boundary migrate', () =
   assert.equal(saved.format, 3);
   assert.deepEqual(saved.world.edits, [[19, 32, 'wood'], [20, 32, 'air']]);
   assert.deepEqual(saved.world.harvested, ['wreck-cache']);
-  assert.deepEqual(saved.progress, {});
+  assert.deepEqual(saved.progress, { snorkel: null });
   assert.equal(saved.player.oxygen, 18);
   assert.equal(new Inventory(saved.inventory).count('wood'), 11);
   assert.deepEqual(encodeSave(createGame(decodeSave(saved))), saved);
@@ -528,9 +528,9 @@ test('fixed-step simulation supports mining, jumping and crafting without a brow
   assert.equal(tileAt(game.world, target.tx, target.ty), MATERIAL.air);
   assert.equal(game.inventory.count('sand'), 1);
   for (const [id, count] of Object.entries(COPPER_SNORKEL.cost)) game.inventory.add(id, count);
-  assert.equal(craftItem(game, COPPER_SNORKEL), true);
-  assert.equal(game.player.oxygen, 38);
   assert.equal(craftItem(game, COPPER_SNORKEL), false);
+  assert.equal(craftItem(game, COPPER_SNORKEL, WORKBENCH.id), true);
+  assert.equal(game.inventory.count(COPPER_SNORKEL.id), 1);
 });
 
 test('kelp is mined from its stalk or its supporting block and stays harvested on reload', () => {
@@ -727,29 +727,34 @@ test('the wreck chest opens before equipping the snorkel and stays available aft
   game.player.y = chest.y + 8 - game.player.height;
   assert.equal(nearestItem(game), chest);
   assert.equal(oxygenCapacity(game), 18);
-  assert.equal(game.chests.get(chest.id)[0].id, SNORKEL.id);
-  assert.equal(moveChestStack(game, chest.id, { group: 'chest', index: 0 }, { group: 'backpack', index: 0 }), false);
-  assert.equal(equipChestLoot(game, chest.id, 0), 'Snorkel equipped. +14s oxygen');
-  assert.equal(game.progress.snorkel, SNORKEL.id);
-  assert.equal(oxygenCapacity(game), 32);
-  assert.equal(game.player.oxygen, 32);
+  const loot = { group: 'chest', index: 0 };
+  const head = { group: 'head', index: 0 };
+  const backpack = { group: 'backpack', index: 0 };
+  assert.equal(game.chests.get(chest.id)[0].id, COPPER_SNORKEL.id);
+  assert.equal(moveInventoryStack(game, chest.id, loot, backpack), true);
+  assert.equal(moveInventoryStack(game, null, backpack, head), true);
+  assert.equal(oxygenCapacity(game), 38);
+  game.player.oxygen = 38;
+  assert.equal(moveInventoryStack(game, null, head, { group: 'hotbar', index: 0 }), false);
+  assert.equal(moveInventoryStack(game, null, head, backpack), true);
+  assert.equal(game.player.oxygen, 18);
+  assert.equal(game.inventory.count(COPPER_SNORKEL.id), 1);
 
-  const reloaded = decodeSave(encodeSave(game));
-  assert.equal(reloaded.progress.snorkel, SNORKEL.id);
-  assert.ok(reloaded.world.harvested.includes('wreck-chest'));
-
-  const reloadedGame = createGame(reloaded);
-  assert.equal(reloadedGame.progress.snorkel, SNORKEL.id);
-  assert.equal(oxygenCapacity(reloadedGame), 32);
-  assert.ok(reloadedGame.world.harvested.has('wreck-chest'));
-  assert.equal(nearestItem(reloadedGame)?.id, chest.id);
-  assert.equal(reloadedGame.chests.get(chest.id)[0], null);
-  assert.equal(equipChestLoot(reloadedGame, chest.id, 0), undefined);
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.equal(reloaded.progress.snorkel, null);
+  assert.equal(oxygenCapacity(reloaded), 18);
+  assert.equal(nearestItem(reloaded)?.id, chest.id);
+  assert.equal(reloaded.chests.get(chest.id)[0], null);
+  assert.equal(moveInventoryStack(reloaded, null, backpack, head), true);
+  assert.equal(reloaded.player.oxygen, 18);
+  assert.equal(moveInventoryStack(reloaded, chest.id, head, loot), true);
+  assert.equal(createGame(decodeSave(encodeSave(reloaded))).chests.get(chest.id)[0].id, COPPER_SNORKEL.id);
 });
 
 test('chest transfers, legacy loot, and room progress survive the appropriate save boundaries', () => {
   const fresh = encodeSave(createGame());
   delete fresh.world.chests;
+  delete fresh.progress.snorkel;
   fresh.world.harvested = ['wreck-cache', 'wreck-chest'];
   const game = createGame(decodeSave(fresh));
   const id = 'wreck-cache';
@@ -758,24 +763,24 @@ test('chest transfers, legacy loot, and room progress survive the appropriate sa
   const tool = { group: 'hotbar', index: 0 };
 
   assert.deepEqual(game.chests.get(id), Array(CHEST_SIZE).fill(null));
-  assert.equal(game.progress.snorkel, SNORKEL.id);
+  assert.equal(game.progress.snorkel, COPPER_SNORKEL.id);
   assert.equal(game.chests.get('wreck-chest')[0], null);
   assert.equal(chestAt(game, game.world.items.find((item) => item.id === id).x, 0), undefined);
-  assert.equal(moveChestStack(game, id, wood, { group: 'chest', index: CHEST_SIZE }), false);
-  assert.equal(moveChestStack(game, id, wood, chest), true);
-  assert.equal(moveChestStack(game, id, tool, chest), true);
+  assert.equal(moveInventoryStack(game, id, wood, { group: 'chest', index: CHEST_SIZE }), false);
+  assert.equal(moveInventoryStack(game, id, wood, chest), true);
+  assert.equal(moveInventoryStack(game, id, tool, chest), true);
   assert.equal(game.inventory.hotbar[0].id, 'wood');
   assert.deepEqual(game.chests.get(id)[chest.index], { id: BROKEN_PICKAXE.id, count: 1 });
 
   const roomSnapshot = encodeSave(game, false);
   const restored = createGame(decodeSave(roomSnapshot));
   assert.deepEqual(encodeSave(restored, false), roomSnapshot);
-  assert.equal(moveChestStack(restored, id, chest, wood), true);
+  assert.equal(moveInventoryStack(restored, id, chest, wood), true);
   assert.equal(restored.inventory.hotbar[3].id, BROKEN_PICKAXE.id);
   assert.equal(restored.chests.get(id)[chest.index], null);
   const reset = resetRoomProgress(restored);
   assert.deepEqual(reset.chests.get(id)[0], { id: 'wood', count: 8 });
-  assert.equal(reset.chests.get('wreck-chest')[0].id, SNORKEL.id);
+  assert.equal(reset.chests.get('wreck-chest')[0].id, COPPER_SNORKEL.id);
 });
 
 test('melee damages each mob once when the animated weapon reaches it', () => {
@@ -904,7 +909,7 @@ test('the western wreck has flooded holds, mineable timber, skeletons and persis
     player.y = cache.y - player.height / 2;
     assert.equal(nearestItem(game), cache);
     const index = game.inventory.backpack.findIndex((stack) => !stack);
-    assert.equal(moveChestStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index }), true);
+    assert.equal(moveInventoryStack(game, cache.id, { group: 'chest', index: 0 }, { group: 'backpack', index }), true);
   }
   assert.equal(game.inventory.count('wood'), startingWood + 76);
 
@@ -940,14 +945,14 @@ test('western wreck bonus loot arrives once and preserves a full chest from an o
 
   for (const index of [0, 1]) {
     const backpack = game.inventory.backpack.findIndex((stack) => !stack);
-    assert.ok(moveChestStack(game, id, { group: 'chest', index }, { group: 'backpack', index: backpack }));
+    assert.ok(moveInventoryStack(game, id, { group: 'chest', index }, { group: 'backpack', index: backpack }));
   }
   let restored = createGame(decodeSave(encodeSave(game)));
   assert.deepEqual(restored.chests.get(id).slice(0, 2), [{ id: BOW.id, count: 1 }, { id: ARROW.id, count: 8 }]);
   assert.deepEqual(restored.chests.get(id).slice(2), stored.slice(2));
 
   const backpack = restored.inventory.backpack.findIndex((stack) => !stack);
-  assert.ok(moveChestStack(restored, id, { group: 'chest', index: 0 }, { group: 'backpack', index: backpack }));
+  assert.ok(moveInventoryStack(restored, id, { group: 'chest', index: 0 }, { group: 'backpack', index: backpack }));
   restored = createGame(decodeSave(encodeSave(restored)));
   assert.equal(restored.chests.get(id)[0], null);
   assert.equal(restored.inventory.count(BOW.id), 1);
@@ -1056,17 +1061,15 @@ test('items menu grants persist for both inventory stacks and equipped gear', ()
   assert.equal(grantItem(game, 'unknown', 1), false);
   assert.equal(grantItem(game, 'copper', 12), true);
   assert.deepEqual(game.inventory.hotbar[1], { id: 'copper', count: 12 });
-  assert.equal(grantItem(game, REINFORCED_SNORKEL.id, 1), true);
+  assert.equal(grantItem(game, COBALT_SNORKEL.id, 1), true);
   assert.equal(grantItem(game, 'cobalt-breastplate', 1), true);
-  assert.equal(game.chests.get(SNORKEL.chestId)[0]?.id, SNORKEL.id);
+  assert.equal(game.chests.get(SNORKEL_CHEST_ID)[0]?.id, COPPER_SNORKEL.id);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(restored.inventory.count('copper'), 12);
+  assert.equal(restored.inventory.count(COBALT_SNORKEL.id), 1);
   assert.equal(restored.player.armor, 'cobalt-breastplate');
-  assert.equal(oxygenCapacity(restored), 46);
-  assert.equal(restored.player.oxygen, 46);
-  assert.equal(grantItem(restored, SNORKEL.id, 1), true);
-  assert.equal(restored.chests.get(SNORKEL.chestId)[0], null);
-  assert.equal(restored.player.oxygen, 32);
+  assert.equal(restored.progress.snorkel, null);
+  assert.equal(restored.chests.get(SNORKEL_CHEST_ID)[0]?.id, COPPER_SNORKEL.id);
 });
 
 test('spear and pickaxe recipes require a workbench without consuming materials in default crafting', () => {
@@ -1084,55 +1087,54 @@ test('spear and pickaxe recipes require a workbench without consuming materials 
   assert.equal(canCraftItem(createGame(), WOODEN_DOOR), true);
 });
 
-test('both snorkels can be upgraded at a workbench and preserve oxygen capacity across saves', () => {
-  for (const base of [SNORKEL, COPPER_SNORKEL]) {
-    const game = createGame();
-    for (const [id, count] of Object.entries(REINFORCED_SNORKEL.cost)) game.inventory.add(id, count);
-    assert.equal(craftItem(game, REINFORCED_SNORKEL, WORKBENCH.id), false);
-    assert.equal(oxygenCapacity(game), 18);
-    if (base === SNORKEL) {
-      equipChestLoot(game, SNORKEL.chestId, 0);
-      assert.equal(oxygenCapacity(game), 32);
-    } else {
-      for (const [id, count] of Object.entries(COPPER_SNORKEL.cost)) game.inventory.add(id, count);
-      assert.equal(craftItem(game, COPPER_SNORKEL), true);
-      assert.equal(oxygenCapacity(game), 38);
-    }
-    assert.equal(craftItem(game, REINFORCED_SNORKEL), false);
-    assert.equal(craftItem(game, REINFORCED_SNORKEL, WORKBENCH.id), true);
-    assert.equal(game.player.oxygen, 46);
-    const restored = createGame(decodeSave(encodeSave(game)));
-    assert.equal(oxygenCapacity(restored), 46);
-    assert.equal(restored.player.oxygen, 46);
-    assert.equal(canCraftItem(restored, COPPER_SNORKEL), false);
-    assert.equal(canCraftItem(restored, REINFORCED_SNORKEL, WORKBENCH.id), false);
-    if (base === COPPER_SNORKEL) {
-      assert.equal(restored.chests.get(SNORKEL.chestId)[0].id, SNORKEL.id);
-      assert.equal(equipChestLoot(restored, SNORKEL.chestId, 0), 'Wreck snorkel recovered.');
-      assert.equal(oxygenCapacity(restored), 46);
-    }
-    assert.equal(restored.chests.get(SNORKEL.chestId)[0], null);
-  }
+test('snorkels require a workbench and upgrade copper into iron, then iron into cobalt', () => {
+  const game = createGame();
+  const head = { group: 'head', index: 0 };
+  for (const [id, count] of Object.entries(COPPER_SNORKEL.cost)) game.inventory.add(id, count);
+  game.inventory.add('iron', 4);
+  game.inventory.add('cobalt', 2);
+  for (const recipe of [COPPER_SNORKEL, IRON_SNORKEL, COBALT_SNORKEL]) assert.equal(craftItem(game, recipe), false);
+  assert.equal(craftItem(game, IRON_SNORKEL, WORKBENCH.id), false);
+  assert.equal(craftItem(game, COPPER_SNORKEL, WORKBENCH.id), true);
+  assert.equal(craftItem(game, COBALT_SNORKEL, WORKBENCH.id), false);
+  assert.equal(craftItem(game, IRON_SNORKEL, WORKBENCH.id), true);
+  assert.equal(game.inventory.count(COPPER_SNORKEL.id), 0);
+  assert.equal(game.inventory.count(IRON_SNORKEL.id), 1);
+  assert.equal(oxygenCapacity(game), 18);
+  const slots = [game.inventory.hotbar, game.inventory.backpack];
+  const group = game.inventory.hotbar.some((stack) => stack?.id === IRON_SNORKEL.id) ? 'hotbar' : 'backpack';
+  const index = slots[group === 'hotbar' ? 0 : 1].findIndex((stack) => stack?.id === IRON_SNORKEL.id);
+  assert.equal(moveInventoryStack(game, null, { group, index }, head), true);
+  assert.equal(oxygenCapacity(game), 46);
+  assert.equal(craftItem(game, COBALT_SNORKEL, WORKBENCH.id), true);
+  assert.equal(game.inventory.count(IRON_SNORKEL.id), 0);
+  assert.equal(game.inventory.count(COBALT_SNORKEL.id), 0);
+  assert.equal(game.progress.snorkel, COBALT_SNORKEL.id);
+  assert.equal(oxygenCapacity(createGame(decodeSave(encodeSave(game)))), 54);
 });
 
-test('older helmet loot and upgrades become snorkels and saved oxygen fits the new capacity', () => {
+test('old helmet and snorkel IDs migrate to the new tiers without re-equipping removed gear', () => {
   const old = encodeSave(createGame());
-  old.world.chests[SNORKEL.chestId][0].id = 'swimming-helmet';
+  old.world.chests[SNORKEL_CHEST_ID][0].id = 'swimming-helmet';
   const unclaimed = createGame(decodeSave(old));
-  assert.equal(unclaimed.chests.get(SNORKEL.chestId)[0].id, SNORKEL.id);
+  assert.equal(unclaimed.chests.get(SNORKEL_CHEST_ID)[0].id, COPPER_SNORKEL.id);
   assert.equal(unclaimed.progress.snorkel, null);
 
-  for (const [gear, snorkel, capacity] of [
-    ['swimming-helmet', SNORKEL, 32],
-    ['reinforced-helmet', REINFORCED_SNORKEL, 46],
+  for (const [progress, snorkel, capacity] of [
+    [{ 'air-tank': true, 'swimming-helmet': true }, COPPER_SNORKEL, 38],
+    [{ snorkel: 'snorkel' }, COPPER_SNORKEL, 38],
+    [{ 'reinforced-helmet': true }, COBALT_SNORKEL, 54],
+    [{ snorkel: 'reinforced-snorkel' }, COBALT_SNORKEL, 54],
   ]) {
-    old.progress = { 'air-tank': true, [gear]: true };
+    old.progress = progress;
     old.player.oxygen = 70;
     const migrated = createGame(decodeSave(old));
     assert.equal(migrated.player.oxygen, capacity);
-    assert.equal(migrated.chests.get(SNORKEL.chestId)[0], null);
     assert.deepEqual(encodeSave(migrated).progress, { snorkel: snorkel.id });
   }
+  old.world.harvested.push(SNORKEL_CHEST_ID);
+  old.progress = { snorkel: null };
+  assert.equal(createGame(decodeSave(old)).progress.snorkel, null);
 });
 
 test('breastplates upgrade in order, mitigate damage and survive respawn and reload', () => {

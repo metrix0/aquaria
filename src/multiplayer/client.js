@@ -1,4 +1,4 @@
-import { ARMOR, MATERIAL, MATERIAL_IDS, REINFORCED_SNORKEL, SNORKEL, SNORKELS, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, MATERIAL, MATERIAL_IDS, normalizeAppearance, normalizeSnorkel, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
@@ -130,8 +130,8 @@ export async function connectRoom(config, invite, handlers) {
       id: payload.id, dx: payload.dx, dy: payload.dy, facing: payload.facing,
       x: old?.x ?? x, y: old ? old.y + old.height - height : payload.y,
       targetX: x, targetY: payload.y, seenAt: performance.now(),
-      snorkel: Object.hasOwn(SNORKELS, payload.snorkel) ? payload.snorkel
-        : payload.helmet === true ? (payload.reinforcedHelmet === true ? REINFORCED_SNORKEL.id : SNORKEL.id) : null,
+      snorkel: normalizeSnorkel(payload.snorkel ??
+        (payload.helmet === true ? (payload.reinforcedHelmet === true ? 'reinforced-helmet' : 'swimming-helmet') : null)),
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       appearance: normalizeAppearance(payload.appearance),
     });

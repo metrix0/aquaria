@@ -4,7 +4,7 @@ import { targetMobAt } from './gameplay/mobs.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equipChestLoot, equippedSnorkel, grantItem, moveChestStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -300,14 +300,8 @@ const ui = createUI({
   getInventory: () => game.inventory,
   getChest: (id) => game.chests.get(id),
   canMoveInventory: () => !editPending,
-  moveChestStack: (id, from, to) => moveChestStack(game, id, from, to),
-  equipChestLoot(id, slot) {
-    const note = equipChestLoot(game, id, slot);
-    if (!note) return;
-    inventoryChanged();
-    ui.updateBackpack(game);
-    ui.chestNotice(note);
-  },
+  moveInventoryStack: (id, from, to) => moveInventoryStack(game, id, from, to),
+  getSnorkel: () => equippedSnorkel(game),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;

@@ -36,27 +36,32 @@ export const BREATH_SECONDS = 18;
 
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 
-export const SNORKEL = {
-  id: 'snorkel', name: 'Snorkel', chestId: 'wreck-chest', bonusSeconds: 14,
-  colors: ['#386b6a', '#79caba'],
-};
+export const SNORKEL_CHEST_ID = 'wreck-chest';
 
 export const COPPER_SNORKEL = {
-  id: 'copper-snorkel', name: 'Copper snorkel',
-  cost: { copper: 3, kelp: 2 }, bonusSeconds: 20, equipment: 'snorkel',
-  colors: ['#875147', '#f1ac73'],
+  id: 'copper-snorkel', name: 'Copper snorkel', station: WORKBENCH.id,
+  cost: { copper: 3, kelp: 2 }, bonusSeconds: 20, colors: ['#875147', '#f1ac73'],
 };
 
-export const REINFORCED_SNORKEL = {
-  id: 'reinforced-snorkel', name: 'Reinforced snorkel',
-  cost: { iron: 4, cobalt: 2, kelp: 2 }, bonusSeconds: 28,
-  requires: SNORKEL.id, equipment: 'snorkel', station: WORKBENCH.id,
-  colors: ['#48568b', '#a6b7ff'],
+export const IRON_SNORKEL = {
+  id: 'iron-snorkel', name: 'Iron snorkel', station: WORKBENCH.id,
+  cost: { [COPPER_SNORKEL.id]: 1, iron: 4 }, bonusSeconds: 28, colors: ['#536874', '#d6e3df'],
+};
+
+export const COBALT_SNORKEL = {
+  id: 'cobalt-snorkel', name: 'Cobalt snorkel', station: WORKBENCH.id,
+  cost: { [IRON_SNORKEL.id]: 1, cobalt: 2 }, bonusSeconds: 36, colors: ['#48568b', '#a6b7ff'],
 };
 
 export const SNORKELS = Object.freeze(Object.fromEntries(
-  [SNORKEL, COPPER_SNORKEL, REINFORCED_SNORKEL].map((gear) => [gear.id, gear]),
+  [COPPER_SNORKEL, IRON_SNORKEL, COBALT_SNORKEL].map((gear) => [gear.id, gear]),
 ));
+
+export function normalizeSnorkel(id) {
+  if (id === 'snorkel' || id === 'swimming-helmet') return COPPER_SNORKEL.id;
+  if (id === 'reinforced-snorkel' || id === 'reinforced-helmet') return COBALT_SNORKEL.id;
+  return Object.hasOwn(SNORKELS, id) ? id : null;
+}
 
 export const ARMOR = Object.freeze({
   'copper-breastplate': {

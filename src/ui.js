@@ -3,16 +3,16 @@ import { ISLAND_DEEPSTONE_ROW, isDryIslandCave } from './world/island-cave.js';
 import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
-import { createInventoryUi, setItemIcon } from './inventory-ui.js';
+import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
 import { MAX_HEALTH } from './gameplay/player.js';
-import { areaDepth, equippedSnorkel, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
+import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
     'depth', 'depth-label', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
-    'interact', 'feedback', 'backpack-head-label', 'backpack-chest-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
+    'interact', 'feedback', 'backpack-chest-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
@@ -22,8 +22,8 @@ export function createUI(actions, version) {
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
     getInventory: actions.getInventory,
     getChest: actions.getChest,
-    moveChestStack: actions.moveChestStack,
-    equipChestLoot: actions.equipChestLoot,
+    moveInventoryStack: actions.moveInventoryStack,
+    getSnorkel: actions.getSnorkel,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,
@@ -136,15 +136,9 @@ export function createUI(actions, version) {
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft: craftingUI.render,
     openChestId: inventoryUI.openChestId,
-    chestNotice: inventoryUI.notice,
     updateCustomize: (game) => characterEditor.open(game.player.appearance),
     updateBackpack(game) {
-      const snorkel = equippedSnorkel(game);
       const armor = ARMOR[game.player.armor];
-      const snorkelIcon = byId('backpack-snorkel');
-      snorkelIcon.hidden = !snorkel;
-      setItemIcon(snorkelIcon, snorkel?.id);
-      setText('backpack-head-label', snorkel?.name ?? 'Head');
       byId('backpack-armor').hidden = !armor;
       if (armor) byId('backpack-armor').className = 'item item-' + armor.id;
       setText('backpack-chest-label', armor?.name ?? 'Chest');

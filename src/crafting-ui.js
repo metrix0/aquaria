@@ -1,10 +1,12 @@
-import { ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, REINFORCED_SNORKEL, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
-import { canCraftItem, equipmentCraftStatus } from './gameplay/simulation.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
+import { canCraftItem, craftMaterialCount, equipmentCraftStatus } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
 
 const recipes = [
-  { recipe: COPPER_SNORKEL, description: 'Lets you stay underwater for ' + (BREATH_SECONDS + COPPER_SNORKEL.bonusSeconds) + ' seconds.' },
+  ...[COPPER_SNORKEL, IRON_SNORKEL, COBALT_SNORKEL].map((recipe) => ({
+    recipe, description: 'Lets you stay underwater for ' + (BREATH_SECONDS + recipe.bonusSeconds) + ' seconds.',
+  })),
   { recipe: WORKBENCH, description: 'Place it from your hotbar to craft advanced gear. Press E, right-click it, or tap Use nearby to open it.' },
   { recipe: SPEAR, description: 'Thrust at nearby creatures to damage them and drive them back.' },
   { recipe: COPPER_SPEAR, description: 'A sturdier spear that deals ' + COPPER_SPEAR.damage + ' damage.' },
@@ -15,7 +17,6 @@ const recipes = [
   ...Object.values(ARMOR).map((recipe) => ({
     recipe, description: 'Reduces incoming health damage by ' + Math.round(recipe.protection * 100) + '%.',
   })),
-  { recipe: REINFORCED_SNORKEL, description: 'Extends underwater breathing to ' + (BREATH_SECONDS + REINFORCED_SNORKEL.bonusSeconds) + ' seconds.' },
   { recipe: KELP_DRESSING, description: 'Restores up to ' + KELP_DRESSING.heal + ' health. Put it in the hotbar, select it, and click or tap the world to use it.' },
   { recipe: WOODEN_DOOR, description: 'Place it above a solid floor with two blocks of clearance. Opens as you approach.' },
   { recipe: COPPER_PICKAXE, description: 'Carry it in your inventory to mine Deepstone and cobalt ore.' },
@@ -79,9 +80,7 @@ export function createCraftingUi(panel, { makeItem }) {
     description.textContent = detail + (recipe.equipment ? ' Equips when crafted.' : '');
     requirement.hidden = !recipe.requires;
     if (recipe.requires) {
-      requirement.textContent = recipe.equipment === 'snorkel'
-        ? 'Requires the wreck snorkel or a copper snorkel.'
-        : 'Upgrades your equipped ' + ARMOR[recipe.requires].name.toLowerCase() + '.';
+      requirement.textContent = 'Upgrades your equipped ' + ARMOR[recipe.requires].name.toLowerCase() + '.';
     }
     materials.replaceChildren(...cost.map(([id, count]) => {
       const row = document.createElement('li');
@@ -91,7 +90,7 @@ export function createCraftingUi(panel, { makeItem }) {
       const label = document.createElement('span');
       label.textContent = ITEMS[id].name;
       const quantity = document.createElement('strong');
-      const owned = game.inventory.count(id);
+      const owned = craftMaterialCount(game, recipe, id);
       quantity.textContent = owned + ' / ' + count;
       quantity.setAttribute('aria-label', owned + ' of ' + count + ' required');
       row.toggleAttribute('data-missing', !equipped && owned < count);
@@ -99,7 +98,7 @@ export function createCraftingUi(panel, { makeItem }) {
       return row;
     }));
 
-    const missing = cost.some(([id, count]) => game.inventory.count(id) < count);
+    const missing = cost.some(([id, count]) => craftMaterialCount(game, recipe, id) < count);
     craft.disabled = !ready[selected];
     craft.textContent = equipmentStatus ?? (equipped ? 'Equipped'
       : missing ? 'Missing materials'

@@ -1,4 +1,4 @@
-import { CHEST_SIZE, SNORKEL } from './content.js';
+import { CHEST_SIZE } from './content.js';
 import { BACKPACK_SIZE, HOTBAR_SIZE, ITEMS } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 
@@ -41,29 +41,27 @@ function drawStack(button, stack) {
 function drawSlots(buttons, stacks, selected) {
   for (const [index, button] of buttons.entries()) {
     const stack = stacks[index];
-    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest' }[button.dataset.group];
+    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest', head: 'Head equipment' }[button.dataset.group];
     const details = stack
       ? ITEMS[stack.id].name + (stack.count > 1 ? ' × ' + stack.count : '')
       : 'Empty';
-    const action = stack?.id === SNORKEL.id ? 'Collect ' + details.toLowerCase() : details;
-    button.toggleAttribute('data-equip', action !== details);
     drawStack(button, stack);
-    button.title = action;
-    button.setAttribute('aria-label', label + ' ' + (index + 1) + ', ' + action);
+    button.title = details;
+    button.setAttribute('aria-label', (button.dataset.group === 'head' ? label : label + ' ' + (index + 1)) + ', ' + details);
     if (selected !== undefined) button.setAttribute('aria-pressed', String(index === selected));
   }
 }
 
-export function createInventoryUi(panel, { getInventory, getChest, onMove, onSelect, canMove, moveChestStack, equipChestLoot }) {
+export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, onMove, onSelect, canMove, moveInventoryStack }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
   const chestSlots = createSlots(panel.querySelector('#chest-slots'), 'chest', CHEST_SIZE);
-  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots };
+  const headSlot = panel.querySelector('#backpack-head-slot');
+  const headLabel = panel.querySelector('#backpack-head-label');
+  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot] };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
-  const chestNotice = panel.querySelector('#chest-notice');
-  const equipHint = panel.querySelector('#chest-equip-hint');
   const close = panel.querySelector('[data-close]');
   let chestId;
   const ghost = panel.querySelector('#inventory-drag');
@@ -74,9 +72,13 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
   const address = (button) => ({ group: button.dataset.group, index: Number(button.dataset.index) });
   const stackAt = (button) => {
     const { group, index } = address(button);
+    if (group === 'head') {
+      const snorkel = getSnorkel();
+      return snorkel && { id: snorkel.id, count: 1 };
+    }
     return (group === 'chest' ? getChest(chestId) : getInventory()[group])?.[index];
   };
-  const slotAt = (element) => element?.closest('#backpack-panel .slot');
+  const slotAt = (element) => element?.closest('#backpack-panel .slot[data-group]');
   const slotAtPointer = ({ clientX, clientY }) => slotAt(document.elementFromPoint(clientX, clientY));
 
   function pick(button) {
@@ -96,15 +98,12 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
     if (!canMove() || from === to) return;
     const source = address(from);
     const target = address(to);
-    const moved = chestId ? moveChestStack(chestId, source, target) : getInventory().move(source, target);
-    if (moved) onMove();
+    if (moveInventoryStack(chestId, source, target)) onMove();
   }
 
   function activate(button) {
     if (picked) move(picked, button);
-    else if (button.hasAttribute('data-equip')) {
-      if (canMove()) equipChestLoot(chestId, address(button).index);
-    } else if (stackAt(button)) pick(button);
+    else if (stackAt(button)) pick(button);
   }
 
   function endGesture() {
@@ -123,7 +122,7 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
     if (gesture?.id !== event.pointerId) return;
     if (!gesture.dragging) {
       const stack = stackAt(gesture.button);
-      if (!stack || gesture.button.hasAttribute('data-equip') || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 6) return;
+      if (!stack || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 6) return;
       gesture.dragging = true;
       pick(gesture.button);
       drawStack(ghost, stack);
@@ -168,7 +167,10 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
     if (direction === undefined) return;
     event.preventDefault();
 
-    if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
+    if (group === 'head' && event.code === 'ArrowLeft') panelHotbar[HOTBAR_SIZE - 1].focus();
+    else if (group === 'hotbar' && index === HOTBAR_SIZE - 1 && event.code === 'ArrowRight') headSlot.focus();
+    else if (group === 'backpack' && index % columns === columns - 1 && event.code === 'ArrowRight') headSlot.focus();
+    else if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
     else if (group === 'hotbar' && event.code === 'ArrowUp' && chestId) chestSlots[index + 4].focus();
     else if (group === 'backpack' && index < 6 && event.code === 'ArrowUp') panelHotbar[Math.min(index, HOTBAR_SIZE - 1)].focus();
     else if (group === 'chest' && index >= 4 && event.code === 'ArrowDown') panelHotbar[index - 4].focus();
@@ -191,22 +193,19 @@ export function createInventoryUi(panel, { getInventory, getChest, onMove, onSel
       panel.querySelector('#backpack-title').textContent = chest?.name ?? 'Backpack';
       chestStorage.hidden = !chest;
       panel.querySelector('#chest-backpack-label').hidden = !chest;
-      chestNotice.hidden = true;
     },
     openChestId: () => panel.open ? chestId : undefined,
-    notice(message) {
-      chestNotice.textContent = message;
-      chestNotice.hidden = false;
-    },
     render(selected) {
       const { hotbar, backpack } = getInventory();
       drawSlots(hudSlots, hotbar, selected);
       drawSlots(panelHotbar, hotbar, selected);
       drawSlots(backpackSlots, backpack);
+      const snorkel = getSnorkel();
+      drawSlots([headSlot], [snorkel && { id: snorkel.id, count: 1 }]);
+      headLabel.textContent = snorkel?.name ?? 'Head';
       if (chestId) {
         const slots = getChest(chestId);
         drawSlots(chestSlots, slots);
-        equipHint.hidden = !slots.some((stack) => stack?.id === SNORKEL.id);
         chestCount.textContent = slots.filter(Boolean).length + ' / ' + CHEST_SIZE + ' slots';
       }
       document.getElementById('selected').textContent = ITEMS[hotbar[selected]?.id]?.name ?? 'Empty slot';

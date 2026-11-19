@@ -1,4 +1,4 @@
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL, SNORKELS, SPEAR, WORKBENCH } from './content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
@@ -20,21 +20,19 @@ export const ITEMS = {
   wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
   door: { name: 'Wooden door' },
   [WORKBENCH.id]: { name: 'Workbench', block: MATERIAL.workbench },
-  [SNORKEL.id]: SNORKEL,
+  ...SNORKELS,
   kelp: { name: 'Kelp' },
   copper: { name: 'Copper ore' },
   iron: { name: 'Iron ore' },
   cobalt: { name: 'Cobalt ore' },
 };
 
-export const EQUIPMENT_ITEMS = { ...SNORKELS, ...ARMOR };
-
-const legacyIds = { tool: BROKEN_PICKAXE.id, 'swimming-helmet': SNORKEL.id };
+export const EQUIPMENT_ITEMS = ARMOR;
 
 export function restoreSlots(slots, size) {
   return Array.from({ length: size }, (_, index) => {
     const stack = slots?.[index];
-    const id = Object.hasOwn(legacyIds, stack?.id) ? legacyIds[stack.id] : stack?.id;
+    const id = stack?.id === 'tool' ? BROKEN_PICKAXE.id : normalizeSnorkel(stack?.id) ?? stack?.id;
     if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(stack.count) || stack.count < 1) return null;
     return { id, count: stack.count };
   });

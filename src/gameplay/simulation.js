@@ -1,5 +1,5 @@
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKEL, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
@@ -15,12 +15,9 @@ export function oxygenCapacity(game) {
   return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0);
 }
 
-function equipSnorkel(game, snorkel, { allowDowngrade = false } = {}) {
-  const bonus = equippedSnorkel(game)?.bonusSeconds ?? 0;
-  if (!allowDowngrade && bonus >= snorkel.bonusSeconds) return false;
-  game.progress.snorkel = snorkel.id;
-  game.player.oxygen = Math.min(oxygenCapacity(game), game.player.oxygen + Math.max(0, snorkel.bonusSeconds - bonus));
-  return true;
+function setSnorkel(game, id) {
+  game.progress.snorkel = id;
+  game.player.oxygen = Math.min(game.player.oxygen, oxygenCapacity(game));
 }
 
 export function createGame(snapshot) {
@@ -42,8 +39,6 @@ export function createGame(snapshot) {
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
-  if (game.progress.snorkel === SNORKEL.id) world.harvested.add(SNORKEL.chestId);
-  if (!equippedSnorkel(game) && world.harvested.has(SNORKEL.chestId)) game.progress.snorkel = SNORKEL.id;
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
@@ -262,11 +257,6 @@ function restoreChests(world, saved, pendingWreckLoot) {
     const savedSlots = saved?.[item.id];
     const hasSavedSlots = Array.isArray(savedSlots);
     const slots = restoreSlots(hasSavedSlots ? savedSlots : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
-    if (item.id === SNORKEL.chestId && world.harvested.has(item.id)) {
-      for (const [index, stack] of slots.entries()) {
-        if (stack?.id === SNORKEL.id) slots[index] = null;
-      }
-    }
     if (item.bonusLoot) {
       const savedCount = pendingWreckLoot?.[item.id];
       const remaining = !pendingWreckLoot || !hasSavedSlots ? item.bonusLoot.length
@@ -288,14 +278,32 @@ export function chestAt(game, x, y) {
     itemDistance(game.player, item) < INTERACTION_RANGE);
 }
 
-export function moveChestStack(game, chestId, from, to) {
+export function moveInventoryStack(game, chestId, from, to) {
   const slots = game.chests.get(chestId);
-  if (!slots) return false;
-  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots };
+  const snorkel = equippedSnorkel(game);
+  const head = [snorkel ? { id: snorkel.id, count: 1 } : null];
+  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots, head };
   const source = groups[from.group];
   const target = groups[to.group];
-  if (source?.[from.index]?.id === SNORKEL.id || target?.[to.index]?.id === SNORKEL.id) return false;
-  if (!moveStack(source, from.index, target, to.index)) return false;
+  const fromHead = source === head;
+  const toHead = target === head;
+
+  if (fromHead || toHead) {
+    if (fromHead === toHead || (fromHead ? from.index : to.index) !== 0) return false;
+    const other = fromHead ? target : source;
+    const index = fromHead ? to.index : from.index;
+    if (!other || !Number.isInteger(index) || index < 0 || index >= other.length) return false;
+    const stack = other[index];
+    if (stack && !Object.hasOwn(SNORKELS, stack.id)) return false;
+    if (toHead && (!stack || stack.id === snorkel?.id)) return false;
+    if (stack?.count > 1 && stack.id !== snorkel?.id) {
+      if (snorkel) return false;
+      stack.count--;
+      head[0] = { id: stack.id, count: 1 };
+    } else if (!moveStack(source, from.index, target, to.index)) return false;
+    setSnorkel(game, head[0]?.id ?? null);
+  } else if (!moveStack(source, from.index, target, to.index)) return false;
+
   const remaining = game.world.pendingWreckLoot.get(chestId);
   if (remaining && from.group === 'chest') {
     const item = game.world.items.find(({ id }) => id === chestId);
@@ -303,16 +311,6 @@ export function moveChestStack(game, chestId, from, to) {
   }
   game.dirty = true;
   return true;
-}
-
-export function equipChestLoot(game, chestId, slot) {
-  const slots = game.chests.get(chestId);
-  if (slots?.[slot]?.id !== SNORKEL.id) return;
-  slots[slot] = null;
-  game.world.harvested.add(chestId);
-  const equipped = equipSnorkel(game, SNORKEL);
-  game.dirty = true;
-  return equipped ? 'Snorkel equipped. +' + SNORKEL.bonusSeconds + 's oxygen' : 'Wreck snorkel recovered.';
 }
 
 export function workbenchAt(game, tx, ty) {
@@ -352,23 +350,30 @@ export function nearestItem(game) {
   return result;
 }
 
-function craftResult(inventory, { id, cost, amount = 1, station }, activeStation) {
+function usesEquippedSnorkel(game, recipe, id) {
+  return id === game.progress.snorkel && Object.hasOwn(SNORKELS, recipe.id);
+}
+
+export function craftMaterialCount(game, recipe, id) {
+  return game.inventory.count(id) + Number(usesEquippedSnorkel(game, recipe, id));
+}
+
+function craftResult(game, recipe, activeStation) {
+  const { id, cost, amount = 1, station } = recipe;
   if (station && station !== activeStation) return null;
   const materials = Object.entries(cost);
-  if (!materials.every(([item, count]) => inventory.count(item) >= count)) return null;
-  const after = new Inventory(inventory);
-  for (const [item, count] of materials) after.spend(item, count);
-  return after.add(id, amount, { preferHotbar: true }) ? after : null;
+  if (!materials.every(([item, count]) => craftMaterialCount(game, recipe, item) >= count)) return null;
+  const after = new Inventory(game.inventory);
+  let upgrade = false;
+  for (const [item, count] of materials) {
+    const worn = usesEquippedSnorkel(game, recipe, item);
+    after.spend(item, count - Number(worn));
+    upgrade ||= worn;
+  }
+  return upgrade || after.add(id, amount, { preferHotbar: true }) ? { inventory: after, upgrade } : null;
 }
 
 export function equipmentCraftStatus(game, recipe) {
-  if (recipe.equipment === 'snorkel') {
-    const equipped = equippedSnorkel(game);
-    if (equipped?.id === recipe.id) return 'Equipped';
-    if (equipped && equipped.bonusSeconds >= recipe.bonusSeconds) return 'Already upgraded';
-    if (recipe.requires && (!equipped || equipped.bonusSeconds < SNORKELS[recipe.requires].bonusSeconds)) return 'Upgrade required';
-    return null;
-  }
   const current = game.player.armor;
   for (let id = current; id; id = ARMOR[id]?.requires) {
     if (id === recipe.id) return current === id ? 'Equipped' : 'Already upgraded';
@@ -379,7 +384,7 @@ export function equipmentCraftStatus(game, recipe) {
 
 export function canCraftItem(game, recipe, station) {
   if (recipe.station && recipe.station !== station) return false;
-  if (!recipe.equipment) return Boolean(craftResult(game.inventory, recipe, station));
+  if (!recipe.equipment) return Boolean(craftResult(game, recipe, station));
   return !equipmentCraftStatus(game, recipe) &&
     Object.entries(recipe.cost).every(([id, count]) => game.inventory.count(id) >= count);
 }
@@ -388,17 +393,14 @@ export function craftItem(game, recipe, station) {
   if (recipe.equipment) {
     if (!canCraftItem(game, recipe, station)) return false;
     for (const [id, count] of Object.entries(recipe.cost)) game.inventory.spend(id, count);
-    if (recipe.equipment === 'snorkel') {
-      equipSnorkel(game, recipe);
-    } else {
-      game.player.armor = recipe.id;
-    }
+    game.player.armor = recipe.id;
     game.dirty = true;
     return true;
   }
-  const inventory = craftResult(game.inventory, recipe, station);
-  if (!inventory) return false;
-  game.inventory = inventory;
+  const result = craftResult(game, recipe, station);
+  if (!result) return false;
+  game.inventory = result.inventory;
+  if (result.upgrade) setSnorkel(game, recipe.id);
   game.dirty = true;
   return true;
 }
@@ -407,13 +409,6 @@ export function grantItem(game, id, count) {
   if (!Number.isSafeInteger(count) || count < 1) return false;
   if (Object.hasOwn(ARMOR, id)) {
     game.player.armor = id;
-  } else if (Object.hasOwn(SNORKELS, id)) {
-    equipSnorkel(game, SNORKELS[id], { allowDowngrade: true });
-    if (id === SNORKEL.id) {
-      const slots = game.chests.get(SNORKEL.chestId);
-      const slot = slots.findIndex((stack) => stack?.id === id);
-      if (slot !== -1) equipChestLoot(game, SNORKEL.chestId, slot);
-    }
   } else if (!game.inventory.add(id, count, { preferHotbar: true })) return false;
   game.dirty = true;
   return true;

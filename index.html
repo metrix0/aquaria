@@ -91,8 +91,6 @@
           <h3 id="chest-storage-title">Chest storage</h3><span id="chest-count"></span>
         </div>
         <div id="chest-slots" class="backpack-slots"></div>
-        <p id="chest-equip-hint" hidden>Select the snorkel to collect it.</p>
-        <p id="chest-notice" role="status" hidden></p>
       </section>
       <h3 class="chest-backpack-label" id="chest-backpack-label" hidden>Your backpack</h3>
       <div class="backpack-layout">
@@ -103,7 +101,7 @@
         <section class="backpack-gear" aria-labelledby="backpack-gear-label">
           <h3 id="backpack-gear-label">Equipment</h3>
           <ul class="gear-slots">
-            <li><span class="slot" aria-hidden="true"><span id="backpack-snorkel" hidden></span></span><span id="backpack-head-label">Head</span></li>
+            <li><button type="button" class="slot" id="backpack-head-slot" data-group="head" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-head-label">Head</span></li>
             <li><span class="slot" aria-hidden="true"><span id="backpack-armor" hidden></span></span><span id="backpack-chest-label">Chest</span></li>
             <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
             <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
