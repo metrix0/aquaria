@@ -6,6 +6,8 @@ import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kra
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
+const maxFallSpeed = 480;
+const maxWaterEntrySpeed = 245;
 const swimSpeed = 94;
 const flightSpeed = 240;
 
@@ -243,6 +245,7 @@ export function movePlayer(world, player, input, dt) {
         targetDy = clamp((surfaceRestY - player.y) * 8, -verticalSwimSpeed, verticalSwimSpeed);
       }
     }
+    player.dy = Math.min(player.dy, maxWaterEntrySpeed);
     player.dy += (targetDy - player.dy) * Math.min(1, 7 * dt);
     if (surfaceRestY !== null && player.dy < 0 && player.y + player.dy * dt < surfaceRestY) {
       player.dy = Math.min(0, (surfaceRestY - player.y) / dt);
@@ -257,7 +260,7 @@ export function movePlayer(world, player, input, dt) {
       player.dy = Math.max(player.dy, -shortHopSpeed);
       player.canShortenJump = false;
     }
-    player.dy = Math.min(player.dy + 510 * dt, 245);
+    player.dy = Math.min(player.dy + 510 * dt, maxFallSpeed);
   }
 
   const previousX = player.x;

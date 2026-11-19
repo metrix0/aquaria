@@ -17,6 +17,28 @@ import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 
+test('dry falls keep accelerating after five tiles and stop safely at the floor', () => {
+  const { world, player } = createGame();
+  const startY = player.y - 10 * TILE;
+  player.y = startY;
+
+  for (let i = 0; i < 20; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.equal(player.dy, 170);
+  assert.ok(player.y - startY < 2 * TILE);
+
+  for (let i = 0; i < 12; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.ok(player.y - startY >= 4.5 * TILE);
+  const earlyFallSpeed = player.dy;
+  for (let i = 0; i < 10; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.ok(player.dy > earlyFallSpeed * 1.2);
+
+  for (let i = 0; i < 30 && !player.grounded; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(player.dy, 0);
+  assert.ok(Math.abs(player.y - SPAWN.y) < 0.02);
+  assert.equal(collides(world, player.x, player.y), false);
+});
+
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
   const { world, player } = game;
