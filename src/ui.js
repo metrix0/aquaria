@@ -91,6 +91,39 @@ export function createUI(actions, version) {
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());
   byId('reset-world').addEventListener('click', actions.restart);
+  const deployAge = byId('deploy-age');
+  let lastBuildTime = 0;
+
+  function updateDeployAge() {
+    if (!lastBuildTime) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - lastBuildTime) / 1000));
+    const age = seconds >= 3600 ? Math.floor(seconds / 3600) + 'h'
+      : seconds >= 60 ? Math.floor(seconds / 60) + 'min' : seconds + 's';
+    const label = 'Last deploy ' + age + ' ago';
+    if (deployAge.textContent !== label) deployAge.textContent = label;
+  }
+
+  async function refreshDeployTime() {
+    try {
+      const response = await fetch('/deploy-info.json', { cache: 'no-cache', signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return;
+      const { builtAt } = await response.json();
+      if (!Number.isSafeInteger(builtAt) || builtAt <= 0) return;
+      deployAge.dateTime = new Date(builtAt).toISOString();
+      lastBuildTime = builtAt;
+      updateDeployAge();
+      deployAge.hidden = false;
+    } catch {
+      // Keep the last known build time if a deployment check fails.
+    }
+  }
+
+  void refreshDeployTime();
+  window.setInterval(updateDeployAge, 1000);
+  window.setInterval(() => {
+    if (!document.hidden) void refreshDeployTime();
+  }, 30000);
+
   const deploy = byId('deploy');
   deploy.addEventListener('click', async () => {
     if (deploy.disabled) return;

@@ -29,3 +29,4 @@ if (config.publishableKey && !config.publishableKey.startsWith('sb_publishable_'
   throw new Error('Aquaria builds accept only a Supabase publishable key.');
 }
 await writeFile(new URL('src/config.js', dist), 'export const config = ' + JSON.stringify(config) + ';\n');
+await writeFile(new URL('deploy-info.json', dist), JSON.stringify({ builtAt: Date.now() }));
