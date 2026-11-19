@@ -3,7 +3,7 @@ import { ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
+import { PLAYER_SIZE, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
@@ -20,7 +20,7 @@ const renderer = createRenderer(canvas);
 const soloSave = createBrowserSave();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const available = Boolean(config.url && config.publishableKey);
-const camera = { x: 0, y: 0, width: 1, height: 1 };
+const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0 };
 const particles = [];
 const screenShake = createScreenShake();
 const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
@@ -235,7 +235,8 @@ function switchView() {
   particles.length = 0;
   screenShake.clear();
   select(0);
-  updateCamera(1);
+  resetSwimFraming();
+  updateCamera(0, true);
 }
 
 async function copyRoom() {
@@ -392,13 +393,32 @@ const input = bindInput(canvas, camera, {
   pause: () => ui.open('pause-panel'),
 });
 
-function updateCamera(dt) {
-  const { player } = game;
+function resetSwimFraming() {
+  camera.swimSeconds = 0;
+  camera.swimBlend = 0;
+}
+
+function updateCamera(dt, snap = false) {
+  const { player, world } = game;
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
   const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
-  const standingCenterY = player.y + player.height - PLAYER_SIZE.height / 2;
-  const y = clamp(standingCenterY - camera.height / 2, 0, Math.max(0, ROWS * TILE - camera.height));
-  const factor = reducedMotion ? 1 : Math.min(1, dt * 5);
+  const swimming = !player.flightOrigin && !player.climb && playerInWater(world, player);
+  const transitionDelay = 2;
+  const transitionDuration = 1.5;
+  // Count consecutive time in the water as positive and consecutive time out as negative.
+  camera.swimSeconds = swimming
+    ? Math.min(transitionDelay, Math.max(0, camera.swimSeconds) + dt)
+    : Math.max(-transitionDelay, Math.min(0, camera.swimSeconds) - dt);
+  if (Math.abs(camera.swimSeconds) >= transitionDelay) {
+    const direction = swimming ? 1 : -1;
+    camera.swimBlend = clamp(camera.swimBlend + direction * dt / transitionDuration, 0, 1);
+  }
+  const standingY = player.y + player.height - PLAYER_SIZE.height;
+  const centeredY = standingY + PLAYER_SIZE.height / 2 - camera.height / 2;
+  const underwaterY = standingY - camera.height * 0.28;
+  const targetY = centeredY + (underwaterY - centeredY) * camera.swimBlend;
+  const y = clamp(targetY, 0, Math.max(0, ROWS * TILE - camera.height));
+  const factor = snap || reducedMotion ? 1 : Math.min(1, dt * 5);
   camera.x += (x - camera.x) * factor;
   camera.y += (y - camera.y) * factor;
 }
@@ -416,7 +436,7 @@ function updateViewport() {
   camera.height = canvas.height / zoom;
   input.pointer.active = false;
   input.stopMining();
-  updateCamera(1);
+  updateCamera(0, true);
 }
 
 function updateParticles(dt) {
@@ -483,6 +503,7 @@ function frame(now) {
       if (game.player !== previousPlayer) {
         input.stopMining();
         miningSwing = null;
+        resetSwimFraming();
       }
       if (note) showAndSave(note);
       accumulator -= timestep;
