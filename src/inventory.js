@@ -3,31 +3,41 @@ import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPP
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
 
+export const ROOT_RING = { id: 'root-ring', name: 'Root ring', description: 'A living knot from the grove. It remembers what trespassers sound like.' };
+
 export const ITEMS = {
-  [BROKEN_PICKAXE.id]: { name: 'Broken Pickaxe', hotbar: 0, pickaxe: 1 },
-  [COPPER_PICKAXE.id]: { name: 'Copper pickaxe', pickaxe: 2 },
-  [IRON_PICKAXE.id]: { name: 'Iron pickaxe', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime },
-  'root-ring': { name: 'Root ring' },
-  'explorers-map': { name: 'Weathered explorer’s map' },
-  [KELP_DRESSING.id]: { name: 'Kelp dressing' },
-  [CAPTAINS_CUTLASS.id]: { name: CAPTAINS_CUTLASS.name, weapon: CAPTAINS_CUTLASS },
-  [IRON_SWORD.id]: { name: 'Iron sword', weapon: IRON_SWORD },
-  [COBALT_SPEAR.id]: { name: 'Cobalt spear', weapon: COBALT_SPEAR },
-  [SPEAR.id]: { name: 'Spear', weapon: SPEAR },
-  [COPPER_SPEAR.id]: { name: 'Copper spear', weapon: COPPER_SPEAR },
-  [BOW.id]: { name: 'Bow', weapon: BOW },
-  [ARROW.id]: { name: 'Arrow' },
-  sand: { name: 'Sand', block: MATERIAL.sand, hotbar: 1 },
-  stone: { name: 'Stone', block: MATERIAL.stone, hotbar: 2 },
-  wood: { name: 'Wood', block: MATERIAL.wood, hotbar: 3 },
-  door: { name: 'Wooden door' },
-  [WORKBENCH.id]: { name: 'Workbench', block: MATERIAL.workbench },
+  [BROKEN_PICKAXE.id]: {
+    name: 'Broken Pickaxe', description: 'One tooth left. The mountain still counts it.', hotbar: 0, pickaxe: 1,
+  },
+  [COPPER_PICKAXE.id]: {
+    name: 'Copper pickaxe', description: 'Rings like a harbor bell on the first strike.', pickaxe: 2,
+  },
+  [IRON_PICKAXE.id]: {
+    name: 'Iron pickaxe', description: 'Miners say you can hear it grinning in the dark.', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime,
+  },
+  [ROOT_RING.id]: ROOT_RING,
+  'explorers-map': { name: 'Weathered explorer’s map', description: 'The ink survived the sea. The warnings in the margins nearly didn’t.' },
+  [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },
+  [CAPTAINS_CUTLASS.id]: {
+    name: CAPTAINS_CUTLASS.name, description: 'The captain went down with the ship. His grudges came back up.', weapon: CAPTAINS_CUTLASS,
+  },
+  [IRON_SWORD.id]: { name: 'Iron sword', description: 'The smith etched a prayer on the edge, where it would do the most good.', weapon: IRON_SWORD },
+  [COBALT_SPEAR.id]: { name: 'Cobalt spear', description: 'A blue glint is often the last thing a cave beast sees.', weapon: COBALT_SPEAR },
+  [SPEAR.id]: { name: 'Spear', description: 'A stone tooth on a shaft. Every village’s first answer to a monster.', weapon: SPEAR },
+  [COPPER_SPEAR.id]: { name: 'Copper spear', description: 'Shore guards polish the tip so trouble can see itself coming.', weapon: COPPER_SPEAR },
+  [BOW.id]: { name: 'Bow', description: 'Driftwood bent low and strung with kelp. It sings on the release.', weapon: BOW },
+  [ARROW.id]: { name: 'Arrow', description: 'Stone-tipped and straight enough for a smuggler’s oath.' },
+  sand: { name: 'Sand', description: 'A handful of beach that will outlive every attempt to shake it out.', block: MATERIAL.sand, hotbar: 1 },
+  stone: { name: 'Stone', description: 'Cold and stubborn. Dwarves have been accused of worse.', block: MATERIAL.stone, hotbar: 2 },
+  wood: { name: 'Wood', description: 'The grain curls like a tiny chart of the sea.', block: MATERIAL.wood, hotbar: 3 },
+  door: { name: 'Wooden door', description: 'A good door makes even a rented cave feel like a castle.' },
+  [WORKBENCH.id]: { name: 'Workbench', description: 'Its legs are uneven. Its claim to have built a kingdom is unproven.', block: MATERIAL.workbench },
   ...SNORKELS,
   ...FEET_GEAR,
-  kelp: { name: 'Kelp' },
-  copper: { name: 'Copper ore' },
-  iron: { name: 'Iron ore' },
-  cobalt: { name: 'Cobalt ore' },
+  kelp: { name: 'Kelp', description: 'Sailors call it mermaid’s ribbon. Mermaids have lodged complaints.' },
+  copper: { name: 'Copper ore', description: 'Little flecks of sunset trapped in stone.' },
+  iron: { name: 'Iron ore', description: 'An old forge song calls it the bones of the earth.' },
+  cobalt: { name: 'Cobalt ore', description: 'A vein of midnight blue. The deep keeps its finest colors to itself.' },
 };
 
 export const EQUIPMENT_ITEMS = ARMOR;

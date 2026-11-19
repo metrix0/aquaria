@@ -2,7 +2,7 @@ import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
-import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
+import { Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, takeDamage, updateOxygen } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
@@ -13,6 +13,10 @@ export function equippedSnorkel(game) {
 
 export function equippedFeet(game) {
   return FEET_GEAR[game.player.feet] ?? null;
+}
+
+export function equippedRing(game) {
+  return game.progress.ring === ROOT_RING.id ? ROOT_RING : null;
 }
 
 export function oxygenCapacity(game) {
@@ -32,7 +36,7 @@ export function createGame(snapshot) {
   const game = {
     world: createWorld(),
     inventory: new Inventory(snapshot?.inventory),
-    progress: { snorkel: snapshot?.progress?.snorkel ?? null },
+    progress: { snorkel: snapshot?.progress?.snorkel ?? null, ring: snapshot?.progress?.ring ?? null },
     dirty: false,
     elapsed: 0,
     worldTime: snapshot?.worldTime ?? 0,
@@ -164,8 +168,8 @@ export function useDressing(game, slot) {
   return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
 }
 
-export function useRootRing(game, slot) {
-  if (game.inventory.hotbar[slot]?.id !== 'root-ring') return;
+export function useRootRing(game) {
+  if (!equippedRing(game) || game.player.stun > 0 || game.player.flightOrigin) return;
   const { player, world, effects, elapsed } = game;
   if (elapsed < (player.rootReadyAt ?? 0)) return 'The ring is gathering strength.';
   const ox = player.x;
@@ -358,16 +362,15 @@ export function chestAt(game, x, y) {
 const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
+  ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
 };
 
 export function moveInventoryStack(game, chestId, from, to) {
   const slots = game.chests.get(chestId);
-  const headItem = equippedSnorkel(game);
-  const feetItem = equippedFeet(game);
-  const equipStacks = {
-    head: [headItem ? { id: headItem.id, count: 1 } : null],
-    feet: [feetItem ? { id: feetItem.id, count: 1 } : null],
-  };
+  const equipStacks = Object.fromEntries(Object.entries(EQUIP_SLOTS).map(([group, config]) => {
+    const item = config.get(game);
+    return [group, [item ? { id: item.id, count: 1 } : null]];
+  }));
   const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots, ...equipStacks };
   const source = groups[from.group];
   const target = groups[to.group];
@@ -394,13 +397,37 @@ export function moveInventoryStack(game, chestId, from, to) {
     config.set(game, equipStacks[equipGroup][0]?.id ?? null);
   } else if (!moveStack(source, from.index, target, to.index)) return false;
 
-  const remaining = game.world.pendingWreckLoot.get(chestId);
-  if (remaining && from.group === 'chest') {
-    const item = game.world.items.find(({ id }) => id === chestId);
-    stockWreckLoot(game.world, item, slots, remaining);
-  }
+  if (from.group === 'chest') restockPendingWreckLoot(game, chestId, slots);
   game.dirty = true;
   return true;
+}
+
+function restockPendingWreckLoot(game, chestId, slots) {
+  const remaining = game.world.pendingWreckLoot.get(chestId);
+  if (!remaining) return false;
+  const item = game.world.items.find(({ id }) => id === chestId);
+  stockWreckLoot(game.world, item, slots, remaining);
+  return true;
+}
+
+export function collectChest(game, chestId) {
+  const slots = game.chests.get(chestId);
+  if (!slots) return false;
+
+  let collected = false;
+  let freedSlot;
+  do {
+    freedSlot = false;
+    for (const [index, stack] of slots.entries()) {
+      if (!stack || !game.inventory.add(stack.id, stack.count)) continue;
+      slots[index] = null;
+      freedSlot = true;
+      collected = true;
+    }
+  } while (freedSlot && restockPendingWreckLoot(game, chestId, slots));
+
+  if (collected) game.dirty = true;
+  return collected;
 }
 
 export function workbenchAt(game, tx, ty) {

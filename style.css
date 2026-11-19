@@ -176,11 +176,18 @@ dialog p { font-size: 13px; color: var(--muted); }
 .gear-slots li { display: grid; grid-template-columns: 35px minmax(0, 1fr); gap: 7px; overflow-wrap: anywhere; align-items: center; color: var(--muted); font-size: 12px; }
 #backpack-help { margin: 12px 0 0; }
 #backpack-panel #inventory-drag { position: fixed; z-index: 1; width: 42px; height: 42px; transform: translate(-50%, -50%); border-color: var(--mint); background: #172e39f5; pointer-events: none; }
+#inventory-tooltip { position: fixed; z-index: 2; pointer-events: none; display: grid; gap: 4px; width: max-content; max-width: min(230px, calc(100vw - 16px)); padding: 9px 11px; border: 1px solid #796846; border-radius: 4px; background: #0b1922; box-shadow: 0 5px 18px #02080bb3; }
+#inventory-tooltip strong { color: var(--gold); font-size: 13px; }
+#inventory-tooltip small { color: var(--mint); font: 11px var(--mono); }
+#inventory-tooltip em { color: #d4dfd6; font-size: 12px; line-height: 1.35; }
 .chest-storage { padding: 12px; margin-bottom: 17px; border: 1px solid #8d6e4b; border-radius: 5px; background: #211f1c; }
-.chest-storage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.chest-storage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 9px; }
 .chest-storage h3, .chest-backpack-label { margin: 0; font-size: 14px; }
 .chest-storage h3 { color: var(--gold); }
 .chest-storage-head span { color: #d5bc9e; font: 11px var(--mono); }
+#chest-collect-all { margin-left: auto; min-height: 40px; font-size: 13px; }
+#chest-status { margin: 8px 0 0; color: var(--gold); }
+#chest-status:empty { margin: 0; }
 .chest-backpack-label { margin-bottom: 9px; }
 #chest-slots { grid-template-columns: repeat(4, minmax(0, 44px)); gap: 5px; }
 #backpack-panel #chest-slots .slot { background: #161d23; border-color: #6e6053; }

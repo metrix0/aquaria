@@ -1,6 +1,21 @@
 export const ISLAND_CAVE = { center: 56, camp: 55, campFloor: 33 };
 export const ISLAND_DEEPSTONE_ROW = 330;
 export const ISLAND_BOTTOM = 676;
+export const ROOT_GROVE = Object.freeze({ column: 65, floor: 181, radius: 32, mossReach: 155 });
+
+export function groveDistance(column, row) {
+  return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 9) * 1.12);
+}
+
+export function inRootGrove(column, row) {
+  return groveDistance(column, row) <= ROOT_GROVE.radius;
+}
+
+export const mineDecks = {
+  headframe: { rises: [47, 83, 116], halfWidth: 66 },
+  shaft: { rises: [49], halfWidth: 34 },
+  trestle: { rises: [6], halfWidth: 33 },
+};
 
 // Cross-sections are [column, walking floor, headroom] in island coordinates.
 // Each chamber has its own silhouette. Broad galleries feed the next level
@@ -56,6 +71,7 @@ const centralCaves = [
   [[82, 162, 13], [79, 174, 15], [70, 183, 18], [60, 187, 20], [50, 190, 19], [40, 190, 16], [31, 190, 13]],
   [[25, 191, 12], [38, 191, 17], [48, 190, 21], [59, 188, 22], [72, 189, 16], [84, 187, 17],
     [99, 185, 14], [108, 182, 12]],
+  [[52, 181, 15], [57, 181, 22], [64, 181, 25], [72, 181, 24], [79, 181, 17]],
   [[52, 190, 15], [61, 204, 16], [73, 219, 21], [86, 228, 24], [99, 233, 19], [112, 241, 16], [124, 242, 13]],
   [[6, 240, 12], [19, 241, 17], [31, 242, 23], [44, 240, 19], [55, 241, 16], [69, 237, 16], [84, 229, 16]],
   [[97, 233, 13], [88, 246, 15], [76, 254, 18], [64, 262, 20], [51, 267, 19], [37, 272, 14]],
@@ -137,7 +153,7 @@ const rockLedges = [
   [[49, 62, 1], [54, 61, 2], [64, 61, 2], [68, 62, 1]],
   [[45, 112, 1], [51, 110, 2], [58, 109, 2], [62, 110, 1]],
   [[49, 157, 1], [56, 156, 2], [63, 155, 2], [70, 156, 1]],
-  [[57, 185, 1], [64, 183, 2], [68, 183, 2], [74, 184, 1]],
+  [[57, 185, 1], [64, 183, 2], [70, 183, 2], [74, 184, 1]],
   [[30, 236, 1], [36, 234, 2], [46, 233, 2], [51, 234, 1]],
   [[49, 270, 1], [54, 268, 2], [63, 267, 2], [68, 269, 1]],
   [[57, 315, 1], [63, 313, 2], [69, 313, 2], [73, 314, 1]],
@@ -228,7 +244,7 @@ export const islandCaches = [
   ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
   ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
   ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
-  ['island-grove-relics', 'Explorer’s satchel', 59, 183, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
+  ['island-grove-relics', 'Explorer’s satchel', 69, 181, 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
   ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
@@ -239,9 +255,9 @@ export const islandMushrooms = [[-15, 142], [95, 451]];
 
 export const caveStructures = [
   ['headframe', 36, 59], ['headframe', 94, 56], ['headframe', 126, 105],
-  ['headframe', 49, 190], ['headframe', 29, 273],
+  ['headframe', 29, 273],
   ['skeleton', 58, 33], ['lamp', 55, 33],
-  ['headframe', 29, 59], ['lamp', 33, 59], ['worksite', 5, 83], ['lamp', 8, 83],
+  ['worksite', 29, 59], ['lamp', 33, 59], ['worksite', 5, 83], ['lamp', 8, 83],
   ['trestle', -27, 104], ['headframe', -32, 112], ['lamp', -25, 112], ['cart', -30, 112], ['lamp', -17, 142],
   ['lamp', 27, 161], ['lamp', 22, 192], ['cart', -20, 219], ['lamp', -10, 227], ['lamp', -9, 247],
   ['worksite', 33, 273], ['lamp', 29, 273], ['lamp', 19, 291], ['lamp', 45, 318],
@@ -252,8 +268,7 @@ export const caveStructures = [
   ['cart', 95, 265], ['lamp', 99, 265], ['lamp', 91, 293], ['lamp', 125, 315],
   ['cart', 58, 79], ['lamp', 64, 64], ['lamp', 77, 59],
   ['headframe', 54, 117], ['lamp', 49, 118], ['worksite', 63, 117], ['lamp', 70, 117],
-  ['headframe', 66, 159], ['lamp', 60, 161], ['lamp', 77, 157],
-  ['headframe', 55, 195], ['lamp', 49, 190], ['cart', 79, 188], ['lamp', 73, 189],
+
   ['headframe', 31, 242], ['lamp', 24, 241], ['cart', 39, 241], ['lamp', 47, 240],
   ['lamp', 57, 273], ['headframe', 66, 272], ['worksite', 80, 279], ['lamp', 83, 249],
   ['lamp', 59, 320], ['cart', 81, 317], ['lamp', 91, 316], ['headframe', 113, 316],
@@ -279,6 +294,10 @@ export const islandTraps = [
 export const islandMobs = [
   ['upper-west-scout', 'spider', 33, 59, 49],
   ['upper-east-scout', 'spider', 85, 56, 48],
+  ['east-landing-miner', 'miner', 91, 56, 16],
+  ['west-landing-miner', 'miner', 30, 59, 16],
+  ['survey-gallery-miner', 'miner', 64, 64, 16],
+  ['east-haul-spider', 'spider', 108, 80, 16],
   ['upper-mine-scout', 'archer', 8, 83, 42],
   ['deep-miner-overlook', 'spider', 83, 249, 23],
   ['deep-supply-guard', 'miner', 68, 318, 22],
@@ -327,14 +346,6 @@ export const caveClimbs = [
   [25, 247, 271, 'ladder'],
 ];
 
-export const ROOT_GROVE = Object.freeze({ column: 60, floor: 183 });
-export function groveDistance(column, row) {
-  return Math.hypot(column - ROOT_GROVE.column, (row - ROOT_GROVE.floor + 7) * 1.12);
-}
-
-export function inRootGrove(column, row) {
-  return groveDistance(column, row) <= 22;
-}
 
 export function isCaveRefuge(column, row) {
   return (inRootGrove(column, row) || (column >= 48 && column <= 65 && row <= ISLAND_CAVE.campFloor)) &&

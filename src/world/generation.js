@@ -1,5 +1,5 @@
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
-import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, islandCaches, islandMobs, islandMushrooms, isIslandWaterway, protectsIslandCave } from './island-cave.js';
+import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, inRootGrove, isDryIslandCave, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 
@@ -472,6 +472,26 @@ function writeVein(get, set, bounds, x, y, count, material, flip = 1) {
   }
 }
 
+// Follow the exposed floor out from the frame, rising as the side of the gallery rises.
+const mineVeins = caveStructures.flatMap(([kind, column, floor], index) => {
+  if (!Object.hasOwn(mineDecks, kind) || floor >= ISLAND_DEEPSTONE_ROW || inRootGrove(column, floor)) return [];
+  const direction = index % 2 ? -1 : 1;
+  for (const side of [direction, -direction]) {
+    for (let offset = kind === 'trestle' ? 2 : 5; offset <= 10; offset++) {
+      const x = column + offset * side;
+      for (const rise of [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6]) {
+        const y = floor + rise;
+        const cells = [[x, y], [x, y + 1], [x + side, y + 1], [x + side, y], [x + 2 * side, y], [x + 2 * side, y - 1]]
+          .filter(([tx, ty]) => !isDryIslandCave(tx, ty) && !inRootGrove(tx, ty));
+        if (isDryIslandCave(x, y - 1) && cells[0]?.[0] === x && cells[0][1] === y && cells.length >= 4) {
+          return [{ cells, material: floor >= 83 && index % 3 === 0 ? MATERIAL.iron : MATERIAL.copper }];
+        }
+      }
+    }
+  }
+  return [];
+});
+
 function applyOres(get, set, bounds) {
   const shift = WEST_EXTENSION - ORIGINAL_WEST_EXTENSION;
   for (const { material, top, bottom, step, seed } of oreLayers) {
@@ -489,7 +509,15 @@ function applyOres(get, set, bounds) {
     }
   }
   for (const [x, y, count, material = MATERIAL.iron] of islandOreVeins) {
-    if (y + 1 >= bounds.top && y - 1 <= bounds.bottom) writeVein(get, set, bounds, x + WEST_EXTENSION, y, count, material);
+    if (!inRootGrove(x, y) && y + 1 >= bounds.top && y - 1 <= bounds.bottom) writeVein(get, set, bounds, x + WEST_EXTENSION, y, count, material);
+  }
+  for (const { cells, material } of mineVeins) {
+    for (const [column, y] of cells) {
+      const x = column + WEST_EXTENSION;
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom && get(x, y) === MATERIAL.stone) {
+        set(x, y, material);
+      }
+    }
   }
 }
 
@@ -630,8 +658,8 @@ export function generateMobs() {
     { id: 'squid-deep', kind: 'squid', x: caveSquid.x, y: caveSquid.y - 4 * TILE, span: 68, speed: 54, phase: 5.1 },
     { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
     { id: 'shark-deep', kind: 'shark', x: 146 * TILE, y: 33 * TILE, span: 104, speed: 66, phase: 2.9 },
-    ...islandMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
-      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor < 330 ? Math.round(52 - floor * .095) : respawnDelay, phase: index * .7,
+    ...islandMobs.filter(([, , column, floor]) => !inRootGrove(column, floor - 1)).map(([id, kind, column, floor, respawnDelay], index) => ({
+      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor <= ISLAND_DEEPSTONE_ROW ? Math.round(15 + 28 * clamp((WATER_ROW + 40 - floor) / (WATER_ROW + 40 - ISLAND_CAVE.campFloor), 0, 1)) : respawnDelay, phase: index * .7,
     })),
     ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,

@@ -1,3 +1,5 @@
+import { mineDecks } from './world/island-cave.js';
+
 export function drawCaveStructure(rect, polygon, { kind, postFeet = [0, 0] }, x, y) {
   if (kind === 'skeleton') {
     polygon([[x - 19, y - 4], [x - 14, y - 7], [x - 9, y - 6], [x - 2, y - 1], [x - 15, y - 1]], '#72645b');
@@ -42,7 +44,7 @@ export function drawCaveStructure(rect, polygon, { kind, postFeet = [0, 0] }, x,
       rect(x + side + 1, y - 113, 2, 110 + base, '#936945');
       rect(x + side - 4, y + base - 6, 14, 6, '#664743');
     }
-    for (const rise of [47, 83, 116]) {
+    for (const rise of mineDecks.headframe.rises) {
       rect(x - 66, y - rise, 132, 5, '#76533f');
       rect(x - 63, y - rise, 126, 1, '#b48552');
       if (rise > 47) {
@@ -58,8 +60,9 @@ export function drawCaveStructure(rect, polygon, { kind, postFeet = [0, 0] }, x,
     rect(x + 22, y - 84, 2, 64, '#967c60');
     rect(x - 26, y - 22, 52, 4, '#684841');
     rect(x - 25, y - 23, 50, 1, '#ab8455');
-    for (const rail of [-11, 8]) rect(x + rail, y - 48, 2, 48, '#805c48');
-    for (let rung = 4; rung < 48; rung += 8) rect(x - 10, y - rung, 20, 2, '#a37956');
+    const climbHeight = mineDecks.headframe.rises.at(-1);
+    for (const rail of [-11, 8]) rect(x + rail, y - climbHeight, 2, climbHeight, '#805c48');
+    for (let rung = 4; rung < climbHeight; rung += 8) rect(x - 10, y - rung, 20, 2, '#a37956');
   } else if (kind === 'shaft' || kind === 'worksite') {
     for (const side of [-29, 24]) {
       rect(x + side, y - 48, 5, 48, '#665048');

@@ -1,5 +1,5 @@
-import { CHEST_SIZE } from './content.js';
-import { BACKPACK_SIZE, HOTBAR_SIZE, ITEMS } from './inventory.js';
+import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING } from './content.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOTBAR_SIZE, ITEMS } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 
 function createSlots(container, group, size) {
@@ -38,41 +38,68 @@ function drawStack(button, stack) {
   button.toggleAttribute('data-filled', Boolean(stack));
 }
 
-function drawSlots(buttons, stacks, selected) {
+function drawSlots(buttons, stacks, selected, nativeHint = false) {
   for (const [index, button] of buttons.entries()) {
     const stack = stacks[index];
-    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest', head: 'Head equipment', feet: 'Feet equipment' }[button.dataset.group];
+    const label = { hotbar: 'Hotbar', backpack: 'Backpack', chest: 'Chest', head: 'Head equipment', feet: 'Feet equipment', ring: 'Ring equipment' }[button.dataset.group];
     const details = stack
       ? ITEMS[stack.id].name + (stack.count > 1 ? ' × ' + stack.count : '')
       : 'Empty';
     drawStack(button, stack);
-    button.title = details;
-    const isEquip = button.dataset.group === 'head' || button.dataset.group === 'feet';
+    if (nativeHint) button.title = details;
+    const isEquip = ['head', 'feet', 'ring'].includes(button.dataset.group);
     button.setAttribute('aria-label', (isEquip ? label : label + ' ' + (index + 1)) + ', ' + details);
     if (selected !== undefined) button.setAttribute('aria-pressed', String(index === selected));
   }
 }
 
-export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, onMove, onSelect, canMove, moveInventoryStack }) {
+function itemStats(id, item) {
+  if (item.weapon?.damage) return item.weapon.damage + ' damage';
+  if (id === ARROW.id) return ARROW.damage + ' damage';
+  if (id === BOW.id) return ARROW.damage + ' damage per arrow';
+  if (id === KELP_DRESSING.id) return 'Restores up to ' + KELP_DRESSING.heal + ' health';
+  if (item.bonusSeconds) return '+' + item.bonusSeconds + ' s underwater';
+  if (item.swimMultiplier) return item.swimMultiplier + '× swim speed';
+  if (item.protection) return Math.round(item.protection * 100) + '% damage reduction';
+  if (item.pickaxe) {
+    const tier = 'Mining tier ' + item.pickaxe;
+    return item.miningTime ? tier + ' · ' + Math.round((1 - item.miningTime) * 100) + '% less mining time' : tier;
+  }
+  if (id === 'root-ring') return 'F · Bind a nearby enemy and deal 3 damage';
+  if (id === 'explorers-map') return 'Use to open the map';
+  return '';
+}
+
+export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, getRing, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
   const chestSlots = createSlots(panel.querySelector('#chest-slots'), 'chest', CHEST_SIZE);
   const headSlot = panel.querySelector('#backpack-head-slot');
   const feetSlot = panel.querySelector('#backpack-feet-slot');
+  const ringSlot = panel.querySelector('#backpack-ring-slot');
   const equipSlots = {
     head: { slot: headSlot, label: panel.querySelector('#backpack-head-label'), fallback: 'Head', get: getSnorkel },
     feet: { slot: feetSlot, label: panel.querySelector('#backpack-feet-label'), fallback: 'Feet', get: getFeet },
+    ring: { slot: ringSlot, label: panel.querySelector('#backpack-ring-label'), fallback: 'Ring', get: getRing },
   };
-  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot] };
+  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot], ring: [ringSlot] };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
+  const collectAll = panel.querySelector('#chest-collect-all');
+  const chestStatus = panel.querySelector('#chest-status');
   const close = panel.querySelector('[data-close]');
+  const armorSlot = panel.querySelector('#backpack-armor').parentElement;
+  const tooltip = panel.querySelector('#inventory-tooltip');
+  const tooltipName = tooltip.querySelector('strong');
+  const tooltipStats = tooltip.querySelector('small');
+  const tooltipDescription = tooltip.querySelector('em');
   let chestId;
   const ghost = panel.querySelector('#inventory-drag');
   let gesture;
   let picked;
   let highlighted;
+  let tooltipSlot;
 
   const address = (button) => ({ group: button.dataset.group, index: Number(button.dataset.index) });
   const stackAt = (button) => {
@@ -85,6 +112,68 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   };
   const slotAt = (element) => element?.closest('#backpack-panel .slot[data-group]');
   const slotAtPointer = ({ clientX, clientY }) => slotAt(document.elementFromPoint(clientX, clientY));
+
+  function renderTooltip() {
+    if (!tooltipSlot) return;
+    const stack = tooltipSlot === armorSlot ? { id: armorSlot.dataset.item, count: 1 } : stackAt(tooltipSlot);
+    const item = ITEMS[stack?.id] ?? EQUIPMENT_ITEMS[stack?.id];
+    const anchor = tooltipSlot.getBoundingClientRect();
+    const bounds = panel.getBoundingClientRect();
+    if (!item || !panel.open || anchor.bottom <= bounds.top || anchor.top >= bounds.bottom) {
+      tooltipSlot.removeAttribute('aria-describedby');
+      tooltip.hidden = true;
+      return;
+    }
+
+    tooltipName.textContent = item.name + (stack.count > 1 ? ' × ' + stack.count : '');
+    tooltipStats.textContent = itemStats(stack.id, item);
+    tooltipStats.hidden = !tooltipStats.textContent;
+    tooltipDescription.textContent = item.description;
+    tooltip.hidden = false;
+    tooltipSlot.setAttribute('aria-describedby', tooltip.id);
+
+    const gap = 8;
+    const { offsetWidth: width, offsetHeight: height } = tooltip;
+    const { clientWidth, clientHeight } = document.documentElement;
+    const centerX = (anchor.left + anchor.right) / 2;
+    const leftSide = bounds.left - width - gap;
+    const rightSide = bounds.right + gap;
+    const fitsLeft = leftSide >= gap;
+    const fitsRight = rightSide + width <= clientWidth - gap;
+    let left = centerX - width / 2;
+    const above = anchor.top - height - gap;
+    let top = above >= gap ? above : anchor.bottom + gap;
+    if (fitsLeft || fitsRight) {
+      left = fitsLeft && (!fitsRight || centerX - bounds.left < bounds.right - centerX) ? leftSide : rightSide;
+      top = (anchor.top + anchor.bottom - height) / 2;
+    }
+    tooltip.style.left = Math.max(gap, Math.min(left, clientWidth - width - gap)) + 'px';
+    tooltip.style.top = Math.max(gap, Math.min(top, clientHeight - height - gap)) + 'px';
+  }
+
+  function showTooltip(slot) {
+    tooltipSlot?.removeAttribute('aria-describedby');
+    tooltipSlot = slot;
+    tooltip.hidden = true;
+    renderTooltip();
+  }
+
+  for (const slot of [...Object.values(groups).flat(), armorSlot]) {
+    slot.addEventListener('pointerenter', ({ pointerType }) => {
+      if (pointerType !== 'touch' && !gesture) showTooltip(slot);
+    });
+    slot.addEventListener('pointerleave', ({ pointerType }) => {
+      if (pointerType !== 'touch' && tooltipSlot === slot && !slot.matches(':focus-visible')) showTooltip(null);
+    });
+    slot.addEventListener('focus', () => {
+      if (slot.matches(':focus-visible')) showTooltip(slot);
+    });
+    slot.addEventListener('blur', () => {
+      if (tooltipSlot === slot && !slot.matches(':hover')) showTooltip(null);
+    });
+  }
+  panel.addEventListener('scroll', renderTooltip);
+  window.addEventListener('resize', renderTooltip);
 
   function pick(button) {
     picked?.removeAttribute('data-picked');
@@ -103,7 +192,10 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     if (!canMove() || from === to) return;
     const source = address(from);
     const target = address(to);
-    if (moveInventoryStack(chestId, source, target)) onMove();
+    if (moveInventoryStack(chestId, source, target)) {
+      chestStatus.textContent = '';
+      onMove();
+    }
   }
 
   function activate(button) {
@@ -117,8 +209,17 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     highlight(null);
   }
 
+  collectAll.addEventListener('click', () => {
+    if (!canMove() || gesture) return;
+    showTooltip(null);
+    pick(null);
+    if (collectChest(chestId)) onMove();
+    chestStatus.textContent = collectAll.disabled ? '' : 'Inventory full. Remaining items are in the chest.';
+  });
+
   panel.addEventListener('pointerdown', (event) => {
     const button = slotAt(event.target);
+    if (event.pointerType === 'touch') showTooltip(null);
     if (!button || gesture || event.button !== 0) return;
     gesture = { button, id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false };
     button.setPointerCapture(event.pointerId);
@@ -129,6 +230,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       const stack = stackAt(gesture.button);
       if (!stack || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 6) return;
       gesture.dragging = true;
+      showTooltip(null);
       pick(gesture.button);
       drawStack(ghost, stack);
       ghost.hidden = false;
@@ -146,6 +248,10 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       if (target) move(button, target);
       else pick(null);
     } else if (target === button) activate(button);
+    if (event.pointerType !== 'touch' || (!dragging && picked === target)) showTooltip(target);
+  });
+  armorSlot.addEventListener('pointerup', ({ pointerType }) => {
+    if (pointerType === 'touch') showTooltip(armorSlot);
   });
   for (const name of ['pointercancel', 'lostpointercapture']) {
     panel.addEventListener(name, ({ pointerId }) => {
@@ -172,9 +278,11 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     if (direction === undefined) return;
     event.preventDefault();
 
-    if ((group === 'head' || group === 'feet') && event.code === 'ArrowLeft') panelHotbar[HOTBAR_SIZE - 1].focus();
+    if (Object.hasOwn(equipSlots, group) && event.code === 'ArrowLeft') panelHotbar[HOTBAR_SIZE - 1].focus();
     else if (group === 'head' && event.code === 'ArrowDown') feetSlot.focus();
     else if (group === 'feet' && event.code === 'ArrowUp') headSlot.focus();
+    else if (group === 'feet' && event.code === 'ArrowDown') ringSlot.focus();
+    else if (group === 'ring' && event.code === 'ArrowUp') feetSlot.focus();
     else if (group === 'hotbar' && index === HOTBAR_SIZE - 1 && event.code === 'ArrowRight') headSlot.focus();
     else if (group === 'backpack' && index % columns === columns - 1 && event.code === 'ArrowRight') (index >= 12 ? feetSlot : headSlot).focus();
     else if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
@@ -184,6 +292,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     else groups[group][index + direction]?.focus();
   });
   panel.addEventListener('close', () => {
+    showTooltip(null);
     endGesture();
     pick(null);
   });
@@ -197,6 +306,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   return {
     showChest(chest) {
       chestId = chest?.id;
+      chestStatus.textContent = '';
       panel.querySelector('#backpack-title').textContent = chest?.name ?? 'Backpack';
       chestStorage.hidden = !chest;
       panel.querySelector('#chest-backpack-label').hidden = !chest;
@@ -204,19 +314,25 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     openChestId: () => panel.open ? chestId : undefined,
     render(selected) {
       const { hotbar, backpack } = getInventory();
-      drawSlots(hudSlots, hotbar, selected);
+      drawSlots(hudSlots, hotbar, selected, true);
       drawSlots(panelHotbar, hotbar, selected);
       drawSlots(backpackSlots, backpack);
       for (const { slot, label, fallback, get } of Object.values(equipSlots)) {
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
-        label.textContent = equipped?.name ?? fallback;
+        label.textContent = fallback === 'Ring' && equipped ? 'Root ring [F]' : (equipped?.name ?? fallback);
+        if (fallback === 'Ring') {
+          document.getElementById('cast-ring').hidden = !equipped;
+        }
       }
       if (chestId) {
         const slots = getChest(chestId);
         drawSlots(chestSlots, slots);
-        chestCount.textContent = slots.filter(Boolean).length + ' / ' + CHEST_SIZE + ' slots';
+        const occupied = slots.filter(Boolean).length;
+        chestCount.textContent = occupied + ' / ' + CHEST_SIZE + ' slots';
+        collectAll.disabled = occupied === 0;
       }
+      renderTooltip();
       document.getElementById('selected').textContent = ITEMS[hotbar[selected]?.id]?.name ?? 'Empty slot';
     },
   };

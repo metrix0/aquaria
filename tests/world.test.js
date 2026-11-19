@@ -18,6 +18,28 @@ import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStandi
 import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 import { jungleVillageStructures } from '../src/world/jungle-village.js';
 
+test('dry falls keep accelerating after five tiles and stop safely at the floor', () => {
+  const { world, player } = createGame();
+  const startY = player.y - 10 * TILE;
+  player.y = startY;
+
+  for (let i = 0; i < 20; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.equal(player.dy, 170);
+  assert.ok(player.y - startY < 2 * TILE);
+
+  for (let i = 0; i < 12; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.ok(player.y - startY >= 4.5 * TILE);
+  const earlyFallSpeed = player.dy;
+  for (let i = 0; i < 10; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.ok(player.dy > earlyFallSpeed * 1.2);
+
+  for (let i = 0; i < 30 && !player.grounded; i++) movePlayer(world, player, {}, 1 / 60);
+  assert.equal(player.grounded, true);
+  assert.equal(player.dy, 0);
+  assert.ok(Math.abs(player.y - SPAWN.y) < 0.02);
+  assert.equal(collides(world, player.x, player.y), false);
+});
+
 test('God mode flies into solid terrain and exits safely without saving the flight position', () => {
   const game = createGame();
   const { world, player } = game;
@@ -296,6 +318,10 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   ]) {
     const x = (column + WEST_EXTENSION) * TILE;
     walkUntil(() => direction === 'left' ? player.x <= x : player.x >= x, { [direction]: true, climb: true });
+    if (minFloor === 55 && player.y + player.height < minFloor * TILE) {
+      // The survey headframe now catches the descent. Drop through its deck.
+      for (let frame = 0; frame < 40; frame++) movePlayer(world, player, { down: true }, 1 / 60);
+    }
     assert.ok(player.y + player.height >= minFloor * TILE, `reached the room at row ${minFloor}`);
   }
 
