@@ -1549,6 +1549,10 @@ test('kraken death plays head implosion with screen shake and tentacle disintegr
 
     drawAt(KRAKEN_DEATH_DURATION * 0.75);
     assert.ok(fillRects.some(([, , , , color]) => color === '#ff9b80'));
+    assert.ok(fillRects.some(([, y, , , color]) => y < -100 && (color === '#491f3d' || color === '#7e4268')));
+
+    drawAt(KRAKEN_DEATH_DURATION * 0.52);
+    assert.ok(!fillRects.some(([, , w, , color]) => color === '#f1f3e5' && w >= 10));
 
     drawAt(KRAKEN_DEATH_DURATION * 0.3);
     assert.ok(strokes.includes('#8bdfd0'));

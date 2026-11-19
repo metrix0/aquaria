@@ -1831,6 +1831,30 @@ export function createRenderer(canvas) {
             if (y % 24 === 2 && progress < 0.7) rect(tx + 1, ty + 2, 2, 2, "#da9292");
           }
         }
+        const topReach = Math.round(WATER - mob.y + 4);
+        for (let t = 0; t < 2; t++) {
+          const baseX = -32 + t * 15;
+          const sway = Math.round(Math.sin(time * 2.5 + t * 2.1) * 5);
+          const x0 = baseX;
+          const y0 = -62;
+          const cx = baseX - 8 + sway;
+          const cy = Math.round(topReach * 0.5);
+          const x1 = baseX - 10 - sway;
+          const y1 = topReach;
+          const steps = Math.max(8, Math.ceil(Math.abs(topReach - y0) / 6));
+          for (let i = 0; i <= steps; i++) {
+            const roll = noise(t * 19 + 5, i, 79);
+            if (roll < progress * 1.15) continue;
+            const u = i / steps;
+            const mu = 1 - u;
+            const px = Math.round(mu * mu * x0 + 2 * mu * u * cx + u * u * x1 + (roll - 0.5) * progress * 42);
+            const py = Math.round(mu * mu * y0 + 2 * mu * u * cy + u * u * y1 - noise(i, t, 83) * progress * 24);
+            const s = Math.max(2, Math.round((9 - 4 * u) * (1 - progress * 0.75)));
+            const half = Math.floor(s / 2);
+            rect(px - half, py - half, s, s, i % 3 === 0 ? "#491f3d" : "#7e4268");
+            if (i % 3 === 1 && progress < 0.7) rect(px - half + 1, py + half - 2, 2, 2, "#da9292");
+          }
+        }
         ctx.restore();
 
         if (progress < 0.42) {
@@ -1867,10 +1891,16 @@ export function createRenderer(canvas) {
         } else {
           // Stage 2: singularity flash, shockwave rings, and scattering pixel debris.
           const burst = (progress - 0.42) / 0.58;
-          if (burst < 0.25) {
-            const core = Math.round((1 - burst / 0.25) * 18);
-            rect(-core, headY - core, core * 2, core * 2, "#f1f3e5");
-            rect(-Math.floor(core / 2), headY - Math.floor(core / 2), core, core, "#8bdfd0");
+          if (burst < 0.28) {
+            const coreR = Math.max(2, Math.round((1 - burst / 0.28) * 18));
+            ctx.fillStyle = "#2d1429";
+            ctx.beginPath();
+            ctx.arc(0, headY, coreR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#8bdfd0";
+            ctx.beginPath();
+            ctx.arc(0, headY, Math.max(1, Math.round(coreR * 0.55)), 0, Math.PI * 2);
+            ctx.fill();
           }
           ctx.save();
           ctx.globalAlpha *= Math.max(0, 1 - burst);
