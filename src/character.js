@@ -1,5 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, FEET_GEAR, SNORKELS, SPEAR } from './content.js';
+import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, FEET_GEAR, SNORKELS, SPEAR, accessoryFor } from './content.js';
 import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
@@ -52,7 +52,13 @@ export function createCharacterRenderer(ctx) {
     }
   }
 
-  function leg(hip, foot, pants, far, swimming, feetGear = null) {
+  function accessoryBand(x, y, width, item) {
+    if (!item) return;
+    rect(x, y, width, 2, item.colors[0]);
+    rect(x + 1, y, width - 2, 1, item.colors[1]);
+  }
+
+  function leg(hip, foot, pants, far, swimming, feetGear, accessories) {
     const [x, y, bend = 0] = foot;
     const ankle = [x, y - 1];
     let knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
@@ -67,6 +73,8 @@ export function createCharacterRenderer(ctx) {
     const trimWidth = far ? 1 : 2;
     pixelLine(hip, knee, trimWidth, far ? pants.front : pants.light);
     pixelLine(knee, ankle, trimWidth, pants.front);
+    accessoryBand(knee[0] - 1, knee[1] - 1, 3, accessoryFor(accessories, 'legs'));
+    accessoryBand(x - 1, y - 3, 3, accessoryFor(accessories, 'feet'));
     if (feetGear) {
       const [finShade, finMain, finLight] = feetGear.colors;
       if (swimming) {
@@ -303,18 +311,23 @@ export function createCharacterRenderer(ctx) {
     const targetY = miningSwing ? (miningSwing.ty + 0.5) * TILE - player.y : 0;
     const swingPhase = reducedMotion ? 0 : (miningSwing?.phase ?? 0);
     const armor = ARMOR[player.armor];
+    const { accessories } = player;
+    const circlet = accessoryFor(accessories, 'head');
+    const brooch = accessoryFor(accessories, 'chest');
+    const grips = accessoryFor(accessories, 'hands');
+    const armSkin = grips ? { ...skin, arm: grips.colors[1], hand: grips.colors[0] } : skin;
     const heldItem = ITEMS[held];
     const weapon = attack?.kind ?? heldItem?.weapon?.id;
 
     function drawFrontArm(restSwing, restY) {
       if (attack || (weapon && !miningSwing)) {
-        weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring);
+        weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, armSkin, shirt, hasArrow, reducedMotion, ring);
       } else if (miningSwing) {
-        miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, ring);
+        miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, armSkin, shirt, miningSwing.tier, ring);
       } else if (heldItem?.pickaxe) {
-        carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring);
+        carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, armSkin, shirt, heldItem.pickaxe, swimming, crawling, ring);
       } else {
-        arm(shoulderX, restY, restSwing, skin, shirt, false, ring);
+        arm(shoulderX, restY, restSwing, armSkin, shirt, false, ring);
       }
     }
 
@@ -365,20 +378,24 @@ export function createCharacterRenderer(ctx) {
       }
       rect(-5 - shuffle, 13, 3, 2, pants.back);
       rect(-5, 11, 6, 4, pants.front);
+      accessoryBand(-7 - shuffle, 12, 3, accessoryFor(accessories, 'feet'));
+      accessoryBand(-4, 12, 3, accessoryFor(accessories, 'legs'));
       rect(-6, 7, shoulder, 6, shirt.wet);
       rect(-5, 8, shoulder - 2, 4, swimming ? shirt.wet : shirt.base);
       rect(-5, 8, shoulder - 3, 1, shirt.light);
       if (armor) chestArmor(-6, 7, shoulder, armor);
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
       if (gear) divingSnorkel(3, 2, gear);
+      accessoryBand(0, 3, 7, circlet);
+      accessoryBand(-3, 9, 3, brooch);
       drawFrontArm(2 - shuffle, 9);
       drawElectricStun(12);
       ctx.restore();
       return;
     }
     if (swimming) ctx.rotate(tilt);
-    leg([-2, 17], farFoot, pants, true, swimming, feetGear);
-    if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear);
+    leg([-2, 17], farFoot, pants, true, swimming, feetGear, accessories);
+    if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear, accessories);
     arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     rect(-(shoulder - 1) / 2, 9, shoulder, 5, shirt.wet);
@@ -391,13 +408,15 @@ export function createCharacterRenderer(ctx) {
     rect(0, 13, 2, 1, shirt.light);
     rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
     rect(-1, 16, 2, 1, '#d9ac75');
-    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear);
+    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear, accessories);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
     if (gear) divingSnorkel(0, 0, gear);
     rect(-2, 9, 5, 1, '#efc48d');
     rect(-2, 10, 2, 1, '#b4755a');
 
     if (armor) chestArmor(-(shoulder - 1) / 2, 10, shoulder, armor);
+    accessoryBand(-3, 1, 7, circlet);
+    accessoryBand(-1, 11, 3, brooch);
     drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
 
     if (swimming) {

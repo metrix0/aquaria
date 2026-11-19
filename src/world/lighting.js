@@ -1,3 +1,4 @@
+import { ACCESSORIES, accessoryFor } from '../content.js';
 import { ROOT_GROVE } from './island-cave.js';
 import { hasOpenFace, hasExposedCaveFloor, solidAt, TILE_NEIGHBORS } from '../world.js';
 import { COLS, ROWS, TILE, WEST_EXTENSION, groundAt } from './generation.js';
@@ -6,7 +7,8 @@ const source = 72;
 const mushroomLight = 46;
 const openFalloff = 3;
 const rockFalloff = 10;
-const reach = Math.ceil(source / openFalloff);
+const maxPlayerBonus = Math.max(...Object.values(ACCESSORIES).map((item) => item.caveLight ?? 0));
+const reach = Math.ceil((source + maxPlayerBonus) / openFalloff);
 const size = reach * 2 + 1;
 
 export function caveAmbientAt(world, player, tx, ty) {
@@ -41,6 +43,7 @@ export function createCaveLight() {
   }
 
   function update(world, player) {
+    const brightness = source + (accessoryFor(player.accessories, 'head')?.caveLight ?? 0);
     const px = player.x / TILE;
     const py = (player.y + player.height / 2) / TILE;
     left = Math.floor(px) - reach;
@@ -54,7 +57,7 @@ export function createCaveLight() {
     const dx = offsetX < 0 ? -1 : 1;
     const dy = offsetY < 0 ? -1 : 1;
     const seed = (x, y) => {
-      lightCell(center + x + y * size, source - Math.round(openFalloff * (Math.abs(offsetX - x) + Math.abs(offsetY - y))));
+      lightCell(center + x + y * size, brightness - Math.round(openFalloff * (Math.abs(offsetX - x) + Math.abs(offsetY - y))));
     };
     seed(0, 0);
     const openX = !isSolid(world, player, center + dx);
@@ -107,7 +110,7 @@ export function createCaveLight() {
     const x = tx - left;
     const y = ty - top;
     if (x < 0 || x >= size || y < 0 || y >= size) return 0;
-    const level = levels[y * size + x] / source;
+    const level = Math.min(1, levels[y * size + x] / source);
     return level * level * (3 - 2 * level);
   }
 
