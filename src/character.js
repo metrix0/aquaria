@@ -1,5 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, SNORKELS, SPEAR } from './content.js';
+import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, FEET_GEAR, SNORKELS, SPEAR } from './content.js';
 import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
@@ -52,7 +52,7 @@ export function createCharacterRenderer(ctx) {
     }
   }
 
-  function leg(hip, foot, pants, far, swimming) {
+  function leg(hip, foot, pants, far, swimming, feetGear = null) {
     const [x, y, bend = 0] = foot;
     const ankle = [x, y - 1];
     let knee = [Math.round((hip[0] + x) / 2) + 1, Math.min(19, y - 2)];
@@ -67,6 +67,20 @@ export function createCharacterRenderer(ctx) {
     const trimWidth = far ? 1 : 2;
     pixelLine(hip, knee, trimWidth, far ? pants.front : pants.light);
     pixelLine(knee, ankle, trimWidth, pants.front);
+    if (feetGear) {
+      const [finShade, finMain, finLight] = feetGear.colors;
+      if (swimming) {
+        rect(x - 8, y - 2, 3, 3, finShade);
+        rect(x - 6, y - 1, 8, 2, finShade);
+        rect(x - 7, y - 1, 7, 1, far ? finShade : finMain);
+        if (!far) rect(x - 7, y - 1, 3, 1, finLight);
+      } else {
+        rect(x - 2, y - 1, far ? 6 : 8, 2, finShade);
+        rect(x - 1, y - 1, far ? 4 : 6, 1, far ? finShade : finMain);
+        if (!far) rect(x + 3, y - 1, 2, 1, finLight);
+      }
+      return;
+    }
     const bootLeft = x - (swimming ? 3 : 2);
     rect(bootLeft, y - 1, far ? 4 : 5, 2, sole);
     rect(bootLeft + 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
@@ -274,7 +288,8 @@ export function createCharacterRenderer(ctx) {
     const { x: shoulderX, y: shoulderY } = frontShoulder(player, appearance);
     const walkDirection = player.dx * facing < 0 ? -1 : 1;
     const rising = player.dy < -35;
-    const swimPhase = time * 7.5;
+    const feetGear = FEET_GEAR[player.feet] ?? null;
+    const swimPhase = time * (feetGear ? 9.5 : 7.5);
     const swimEffort = swimming && !reducedMotion
       ? 0.32 + 0.68 * clamp(Math.hypot(player.dx, player.dy) / 82, 0, 1) : 0;
     const nearFoot = swimming ? swimFoot(swimPhase, swimEffort, false)
@@ -305,33 +320,45 @@ export function createCharacterRenderer(ctx) {
     ctx.translate(Math.round(player.x) + jitter, Math.round(player.y));
     const drawElectricStun = (cy) => {
       if (!((player.stun ?? 0) > 0)) return;
-      ctx.save();
+      const tick = Math.floor(time * 24);
+      if (tick % 4 === 0) {
+        rect(-6, cy - 10, 12, 20, tick % 8 === 0 ? '#ffe44d38' : '#38bdf838');
+      }
       for (let b = 0; b < 3; b++) {
-        ctx.strokeStyle = b % 2 ? '#38bdf8' : '#ffe44d';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
+        const isBlue = (b + tick) % 2 === 1;
+        const color = isBlue ? '#38bdf8' : '#ffe44d';
+        const core = isBlue ? '#7dd3fc' : '#fff4a3';
         const startY = cy - 8 + b * 6;
-        ctx.moveTo(-8, startY);
+        let prev = [-8, startY];
         for (let s = 1; s <= 4; s++) {
-          const sx = -8 + s * 4;
-          const sy = startY + Math.sin(time * 42 + b * 2.1 + s * 2.9) * 3.5;
-          ctx.lineTo(sx, sy);
+          const next = [
+            -8 + s * 4,
+            Math.round(startY + Math.sin(time * 42 + b * 2.1 + s * 2.9) * 3),
+          ];
+          pixelLine(prev, next, 1, color);
+          if (s % 2 === 0) rect(next[0], next[1], 1, 1, core);
+          prev = next;
         }
-        ctx.stroke();
       }
-      for (let i = 0; i < 6; i++) {
-        const spark = time * 16 + i * 1.05;
+      for (let i = 0; i < 8; i++) {
+        const spark = time * 16 + i * 0.78;
         const sx = Math.round(Math.cos(spark) * 9);
-        const sy = Math.round(cy + Math.sin(spark * 1.3) * 9);
+        const sy = Math.round(cy + Math.sin(spark * 1.3) * 10);
         rect(sx, sy, 2, 1, i % 2 ? '#38bdf8' : '#ffe44d');
-        rect(sx + 1, sy - 1, 1, 2, i % 2 ? '#ffe44d' : '#38bdf8');
+        rect(sx + 1, sy - 1, 1, 2, i % 2 ? '#fff4a3' : '#7dd3fc');
       }
-      ctx.restore();
     };
     ctx.scale(facing, 1);
     if (crawling) {
       const shuffle = Math.round(armSwing * 0.4);
-      rect(-6 - shuffle, 13, 5, 3, sole);
+      if (feetGear) {
+        const [finShade, finMain, finLight] = feetGear.colors;
+        rect(-8 - shuffle, 13, 7, 3, finShade);
+        rect(-7 - shuffle, 13, 5, 2, finMain);
+        rect(-7 - shuffle, 13, 2, 1, finLight);
+      } else {
+        rect(-6 - shuffle, 13, 5, 3, sole);
+      }
       rect(-5 - shuffle, 13, 3, 2, pants.back);
       rect(-5, 11, 6, 4, pants.front);
       rect(-6, 7, shoulder, 6, shirt.wet);
@@ -346,8 +373,8 @@ export function createCharacterRenderer(ctx) {
       return;
     }
     if (swimming) ctx.rotate(tilt);
-    leg([-2, 17], farFoot, pants, true, swimming);
-    if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
+    leg([-2, 17], farFoot, pants, true, swimming, feetGear);
+    if (strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear);
     arm(-shoulderX, 11, swimming ? 1 - kick : armSwing, skin, shirt, true);
 
     rect(-(shoulder - 1) / 2, 9, shoulder, 5, shirt.wet);
@@ -360,7 +387,7 @@ export function createCharacterRenderer(ctx) {
     rect(0, 13, 2, 1, shirt.light);
     rect(-(waist - 3) / 2, 16, waist - 2, 1, '#5e4946');
     rect(-1, 16, 2, 1, '#d9ac75');
-    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming);
+    if (!strideWeight) leg([1, 17], nearFoot, pants, false, swimming, feetGear);
     head(hairStyles[appearance.hair], hair, skin, 0, 0, swimming ? -Math.sign(kick) : 0);
     if (gear) divingSnorkel(0, 0, gear);
     rect(-2, 9, 5, 1, '#efc48d');

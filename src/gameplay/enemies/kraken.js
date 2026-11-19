@@ -1,6 +1,6 @@
-import { MATERIAL } from '../../content.js';
-import { inWater } from '../../world.js';
-import { MOB_HEALTH, TILE, WATER, clamp, groundAt } from '../../world/generation.js';
+import { DIVING_FIN, KRAKEN_CHEST_ID, MATERIAL } from '../../content.js';
+import { inWater, solidAt } from '../../world.js';
+import { COLS, MOB_HEALTH, ROWS, TILE, WATER, clamp, groundAt } from '../../world/generation.js';
 import { takeDamage } from '../player.js';
 
 export const KRAKEN_BARRIER_OFFSET = 38;
@@ -28,7 +28,19 @@ export function krakenBarrierX(mob) {
   return mob.x - KRAKEN_BARRIER_OFFSET;
 }
 
-export function stepKrakenDeath(mob, dt, effects) {
+function chestRestY(world, x, startY) {
+  const leftTx = clamp(Math.floor((x - 10) / TILE), 0, COLS - 1);
+  const rightTx = clamp(Math.floor((x + 10) / TILE), 0, COLS - 1);
+  const startTy = Math.max(0, Math.floor((startY + 8) / TILE));
+  for (let ty = startTy; ty <= ROWS - 2; ty++) {
+    for (let tx = leftTx; tx <= rightTx; tx++) {
+      if (solidAt(world, tx, ty)) return ty * TILE - 8;
+    }
+  }
+  return (ROWS - 2) * TILE - 8;
+}
+
+export function stepKrakenDeath(world, mob, dt, effects) {
   if (!((mob.deathTime ?? 0) > 0)) return;
   mob.deathTime = Math.max(0, mob.deathTime - dt);
   const progress = 1 - mob.deathTime / KRAKEN_DEATH_DURATION;
@@ -42,6 +54,30 @@ export function stepKrakenDeath(mob, dt, effects) {
       spread: 140,
       shake: { intensity: 11, duration: 0.75, frequency: 46 },
     });
+    if (world && !world.items.some((item) => item.id === KRAKEN_CHEST_ID)) {
+      const dropX = clamp(mob.x - 40, TILE * 2, COLS * TILE - TILE * 2);
+      const startY = Math.max(WATER, mob.y - 24);
+      const restY = chestRestY(world, dropX, startY);
+      world.items.push({
+        id: KRAKEN_CHEST_ID,
+        name: 'Kraken chest',
+        kind: 'chest',
+        loot: { id: DIVING_FIN.id, count: 1 },
+        x: dropX,
+        y: startY,
+        dy: 0,
+        restY,
+        falling: startY < restY,
+      });
+      effects?.push({
+        x: dropX,
+        y: startY,
+        color: '#8bdfd0',
+        count: 14,
+        spread: 60,
+        message: 'The Kraken dropped a chest!',
+      });
+    }
   }
 }
 

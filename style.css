@@ -98,6 +98,19 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-copper-breastplate { --metal: #d88a62; --shine: #ffd3a0; --shade: #874f45; }
 .item-iron-breastplate { --metal: #9eafae; --shine: #e4e5cf; --shade: #536874; }
 .item-cobalt-breastplate { --metal: #768de5; --shine: #c4d8ff; --shade: #455294; }
+.item-diving-fin {
+  position: relative; width: 20px; height: 13px; transform: rotate(-18deg);
+  background: #3580e0; box-shadow: inset 3px 3px #82c8ff, inset -3px -3px #1e468a;
+  clip-path: polygon(0 30%, 28% 18%, 40% 34%, 100% 0, 100% 100%, 34% 88%, 0 74%);
+}
+.item-diving-fin::before {
+  content: ""; position: absolute; left: 2px; top: 4px; width: 4px; height: 4px;
+  background: #162c52; border-radius: 1px;
+}
+.item-diving-fin::after {
+  content: ""; position: absolute; right: 3px; top: 3px; bottom: 3px; width: 7px;
+  background: repeating-linear-gradient(180deg, #1e468a 0 1px, transparent 1px 3px);
+}
 .item-kelp-dressing { width: 19px; height: 12px; border-radius: 3px; transform: rotate(-24deg); background: #79b28b; box-shadow: inset 6px 0 #b6c899, inset -6px 0 #b6c899, inset 0 -2px #316e64; }
 footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px solid #4864646b; display: flex; justify-content: space-between; align-items: center; padding: 8px 25px max(8px, env(safe-area-inset-bottom)); }
 .footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

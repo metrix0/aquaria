@@ -2,7 +2,7 @@ import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-tra
 import { ISLAND_DEEPSTONE_ROW, isDryIslandCave, isDungeonMasonry } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
@@ -11,7 +11,7 @@ import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
@@ -1570,6 +1570,126 @@ test('kraken death plays head implosion with screen shake and tentacle disintegr
     });
     assert.ok(fillRects.some(([, , , , color]) => color === '#1e232e'));
     assert.ok(fillRects.some(([, , , , color]) => color === '#4b5263'));
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('defeating the kraken drops a chest with a blue diving fin that equips in feet and boosts swim speed', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const game = createGame();
+    const { world } = game;
+    assert.equal(world.items.some((item) => item.id === KRAKEN_CHEST_ID), false);
+
+    const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
+    damageMob(world, kraken, kraken.maxHealth, 0, 0, game.effects);
+
+    let dropNotice = false;
+    for (let i = 0; i < 240; i++) {
+      game.effects.length = 0;
+      stepGame(game, {}, 1 / 60);
+      if (game.effects.some((effect) => effect.message === 'The Kraken dropped a chest!')) dropNotice = true;
+    }
+    assert.equal(dropNotice, true);
+
+    const bossChest = world.items.find((item) => item.id === KRAKEN_CHEST_ID);
+    assert.ok(bossChest);
+    assert.equal(bossChest.falling, false);
+    assert.equal(game.chests.get(KRAKEN_CHEST_ID)?.[0]?.id, DIVING_FIN.id);
+    assert.equal(tileAt(world, Math.floor(bossChest.x / TILE), Math.floor((bossChest.y + 8) / TILE)) !== MATERIAL.air, true);
+
+    // Move player to the dropped chest, inspect it, and equip the diving fin in feet.
+    game.player.x = bossChest.x;
+    game.player.y = bossChest.y + 8 - game.player.height;
+    assert.equal(nearestItem(game), bossChest);
+    assert.equal(chestAt(game, bossChest.x, bossChest.y), bossChest);
+
+    const chestSlot = { group: 'chest', index: 0 };
+    const backpackSlot = { group: 'backpack', index: 0 };
+    const feetSlot = { group: 'feet', index: 0 };
+    const headSlot = { group: 'head', index: 0 };
+    assert.equal(moveInventoryStack(game, KRAKEN_CHEST_ID, { group: 'hotbar', index: 3 }, feetSlot), false);
+    assert.equal(moveInventoryStack(game, KRAKEN_CHEST_ID, chestSlot, backpackSlot), true);
+    assert.equal(moveInventoryStack(game, KRAKEN_CHEST_ID, backpackSlot, feetSlot), true);
+    assert.equal(moveInventoryStack(game, null, feetSlot, headSlot), false);
+    assert.equal(equippedFeet(game)?.id, DIVING_FIN.id);
+
+    // Compare horizontal and vertical swimming speeds without vs with diving fin, plus land walking speed.
+    const measureSwim = (feetId, input) => {
+      const sim = createGame();
+      sim.player.x = 24 * TILE;
+      sim.player.y = WATER + 6 * TILE;
+      sim.player.feet = feetId;
+      const startX = sim.player.x;
+      const startY = sim.player.y;
+      for (let i = 0; i < 45; i++) movePlayer(sim.world, sim.player, input, 1 / 60);
+      return { dx: sim.player.x - startX, dy: sim.player.y - startY };
+    };
+    const baseRight = measureSwim(null, { right: true });
+    const finRight = measureSwim(DIVING_FIN.id, { right: true });
+    assert.ok(finRight.dx > baseRight.dx * 1.35);
+
+    const baseUp = measureSwim(null, { up: true });
+    const finUp = measureSwim(DIVING_FIN.id, { up: true });
+    assert.ok(finUp.dy < baseUp.dy * 1.35);
+
+    const walkDist = (feetId) => {
+      const sim = createGame();
+      sim.player.feet = feetId;
+      const startX = sim.player.x;
+      for (let i = 0; i < 20; i++) movePlayer(sim.world, sim.player, { right: true }, 1 / 60);
+      return sim.player.x - startX;
+    };
+    assert.equal(walkDist(DIVING_FIN.id), walkDist(null));
+
+    // Respawn, save/reload, and room reset behavior.
+    game.player.health = 0;
+    game.player.hurt = 1;
+    stepGame(game, {}, 1 / 60);
+    assert.equal(game.player.feet, DIVING_FIN.id);
+
+    const restored = createGame(decodeSave(encodeSave(game)));
+    assert.equal(restored.player.feet, DIVING_FIN.id);
+    assert.equal(equippedFeet(restored)?.id, DIVING_FIN.id);
+    assert.ok(restored.world.items.some((item) => item.id === KRAKEN_CHEST_ID));
+    assert.equal(restored.chests.get(KRAKEN_CHEST_ID)?.[0], null);
+
+    // Blue diving fin renders on the character's feet.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const fillRects = [];
+    const makeCtx = (track) => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect(x, y, w, h) { if (track) fillRects.push([x, y, w, h, this.fillStyle]); },
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx(false) }) },
+      getContext: () => makeCtx(true),
+    };
+    const renderer = createRenderer(canvas);
+    restored.player.x = 24 * TILE;
+    restored.player.y = WATER + 6 * TILE;
+    renderer.draw({
+      world: restored.world, player: restored.player, snorkel: null,
+      camera: { x: restored.player.x - 160, y: restored.player.y - 90, width: 320, height: 180 },
+      time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+    assert.ok(fillRects.some(([, , , , color]) => color === DIVING_FIN.colors[1]));
+    assert.ok(fillRects.some(([, , , , color]) => color === DIVING_FIN.colors[2]));
+
+    const reset = resetRoomProgress(restored);
+    assert.equal(reset.player.feet, null);
+    assert.equal(reset.world.items.some((item) => item.id === KRAKEN_CHEST_ID), false);
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;

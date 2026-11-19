@@ -1,4 +1,4 @@
-import { ARMOR, MATERIAL, MATERIAL_IDS, normalizeAppearance, normalizeSnorkel, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, FEET_GEAR, MATERIAL, MATERIAL_IDS, normalizeAppearance, normalizeSnorkel, WALK_CYCLE_DISTANCE } from '../content.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
@@ -133,6 +133,7 @@ export async function connectRoom(config, invite, handlers) {
       snorkel: normalizeSnorkel(payload.snorkel ??
         (payload.helmet === true ? (payload.reinforcedHelmet === true ? 'reinforced-helmet' : 'swimming-helmet') : null)),
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
+      feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
     });
     if (!old) handlers.count(peers.size + 1);
@@ -187,6 +188,7 @@ export async function connectRoom(config, invite, handlers) {
         dy: clamp(Math.round(player.dy), -maxPeerVelocity, maxPeerVelocity),
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
+        feet: player.feet,
         crawling: player.height === CRAWL_HEIGHT,
       };
       if (connected && now - lastBroadcast >= 125) {

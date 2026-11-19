@@ -1,4 +1,4 @@
-import { ARMOR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
@@ -12,10 +12,10 @@ export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
 
-export function spawn(world, oxygen, appearance, armor = null) {
+export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, grounded: false, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
@@ -67,8 +67,8 @@ function moveAxis(world, player, axis, amount) {
   return false;
 }
 
-function canJumpAshore(world, player, direction) {
-  if (!direction || player.height === CRAWL_HEIGHT || player.dy < -swimSpeed || inWater(world, player.x, player.y + 5)
+function canJumpAshore(world, player, direction, maxSwimSpeed = swimSpeed) {
+  if (!direction || player.height === CRAWL_HEIGHT || player.dy < -maxSwimSpeed || inWater(world, player.x, player.y + 5)
     || !inWater(world, player.x, player.y + player.height - 0.01)) return false;
   const shoreX = player.x + direction * player.width;
   const clearanceY = player.y - 2 * TILE;
@@ -156,13 +156,15 @@ export function movePlayer(world, player, input, dt) {
   const horizontal = Number(Boolean(right)) - Number(Boolean(left));
 
   if (horizontal) player.facing = horizontal;
-  const speed = bodyInWater ? 102 : crawling ? 56 : 112;
+  const swimMultiplier = FEET_GEAR[player.feet]?.swimMultiplier ?? 1;
+  const verticalSwimSpeed = swimSpeed * swimMultiplier;
+  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
-  const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal);
+  const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);
   if (bodyInWater && !shoreJump) {
     player.canShortenJump = false;
     const vertical = Number(Boolean(down)) - Number(Boolean(up));
-    player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
+    player.dy += ((vertical ? vertical * verticalSwimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
   } else {
     if (shoreJump || (jump && player.grounded && !crawling)) {
       player.dy = -jumpSpeed;

@@ -37,6 +37,16 @@ export const BREATH_SECONDS = 18;
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 
 export const SNORKEL_CHEST_ID = 'wreck-chest';
+export const KRAKEN_CHEST_ID = 'kraken-chest';
+
+export const DIVING_FIN = {
+  id: 'diving-fin', name: 'Diving fin', swimMultiplier: 1.5,
+  colors: ['#1e468a', '#3580e0', '#82c8ff'],
+};
+
+export const FEET_GEAR = Object.freeze({
+  [DIVING_FIN.id]: DIVING_FIN,
+});
 
 export const COPPER_SNORKEL = {
   id: 'copper-snorkel', name: 'Copper snorkel', station: WORKBENCH.id,

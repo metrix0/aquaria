@@ -138,7 +138,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   for (const mob of [...world.mobs]) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
     if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
-      stepKrakenDeath(mob, dt, effects);
+      stepKrakenDeath(world, mob, dt, effects);
     }
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);

@@ -1,5 +1,5 @@
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DROPS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { Inventory, ITEMS, moveStack, restoreSlots } from '../inventory.js';
@@ -11,6 +11,10 @@ export function equippedSnorkel(game) {
   return SNORKELS[game.progress.snorkel] ?? null;
 }
 
+export function equippedFeet(game) {
+  return FEET_GEAR[game.player.feet] ?? null;
+}
+
 export function oxygenCapacity(game) {
   return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0);
 }
@@ -18,6 +22,10 @@ export function oxygenCapacity(game) {
 function setSnorkel(game, id) {
   game.progress.snorkel = id;
   game.player.oxygen = Math.min(game.player.oxygen, oxygenCapacity(game));
+}
+
+function setFeet(game, id) {
+  game.player.feet = Object.hasOwn(FEET_GEAR, id) ? id : null;
 }
 
 export function createGame(snapshot) {
@@ -39,10 +47,21 @@ export function createGame(snapshot) {
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
+  if (snapshot?.world.krakenChest && !world.items.some((item) => item.id === KRAKEN_CHEST_ID)) {
+    world.items.push({
+      id: KRAKEN_CHEST_ID,
+      name: 'Kraken chest',
+      kind: 'chest',
+      loot: { id: DIVING_FIN.id, count: 1 },
+      x: snapshot.world.krakenChest.x,
+      y: snapshot.world.krakenChest.y,
+    });
+  }
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
-    Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null);
+    Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null,
+    Object.hasOwn(FEET_GEAR, snapshot?.feet) ? snapshot.feet : null);
 
   const position = snapshot?.player;
   if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) {
@@ -67,6 +86,7 @@ export function resetRoomProgress(previous) {
     const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
     if (uprooted) world.harvested.add(uprooted.id);
   }
+  world.items = world.items.filter((item) => world.fixtureIds.has(item.id));
   world.mobs = generateMobs();
   world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
@@ -208,6 +228,26 @@ function stepAttack(game, dt) {
   }
 }
 
+function stepDroppedChests(game, dt) {
+  for (const item of game.world.items) {
+    if (item.kind !== 'chest') continue;
+    if (!game.chests.has(item.id)) {
+      game.chests.set(item.id, restoreSlots([item.loot], CHEST_SIZE));
+      game.dirty = true;
+    }
+    if (item.falling) {
+      item.dy = Math.min(130, (item.dy ?? 0) + 260 * dt);
+      item.y = Math.min(item.restY, item.y + item.dy * dt);
+      if (item.y >= item.restY) {
+        item.y = item.restY;
+        item.dy = 0;
+        item.falling = false;
+      }
+      game.dirty = true;
+    }
+  }
+}
+
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   const capacity = oxygenCapacity(game);
@@ -216,6 +256,7 @@ export function stepGame(game, input, dt) {
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  stepDroppedChests(game, dt);
   stepProjectiles(game, dt);
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
     damageMob(world, mob, 4, mob.x >= x ? 0 : Math.PI, 65, game.effects);
@@ -226,7 +267,7 @@ export function stepGame(game, input, dt) {
     player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
   }
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
-    game.player = spawn(world, capacity, player.appearance, player.armor);
+    game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.attack = null;
     game.projectiles.length = 0;
     resetHostiles(world);
@@ -278,30 +319,43 @@ export function chestAt(game, x, y) {
     itemDistance(game.player, item) < INTERACTION_RANGE);
 }
 
+const EQUIP_SLOTS = {
+  head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
+  feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
+};
+
 export function moveInventoryStack(game, chestId, from, to) {
   const slots = game.chests.get(chestId);
-  const snorkel = equippedSnorkel(game);
-  const head = [snorkel ? { id: snorkel.id, count: 1 } : null];
-  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots, head };
+  const headItem = equippedSnorkel(game);
+  const feetItem = equippedFeet(game);
+  const equipStacks = {
+    head: [headItem ? { id: headItem.id, count: 1 } : null],
+    feet: [feetItem ? { id: feetItem.id, count: 1 } : null],
+  };
+  const groups = { hotbar: game.inventory.hotbar, backpack: game.inventory.backpack, chest: slots, ...equipStacks };
   const source = groups[from.group];
   const target = groups[to.group];
-  const fromHead = source === head;
-  const toHead = target === head;
+  const fromEquip = Object.hasOwn(EQUIP_SLOTS, from.group);
+  const toEquip = Object.hasOwn(EQUIP_SLOTS, to.group);
 
-  if (fromHead || toHead) {
-    if (fromHead === toHead || (fromHead ? from.index : to.index) !== 0) return false;
-    const other = fromHead ? target : source;
-    const index = fromHead ? to.index : from.index;
+  if (fromEquip || toEquip) {
+    if (fromEquip && toEquip) return false;
+    const equipGroup = fromEquip ? from.group : to.group;
+    if ((fromEquip ? from.index : to.index) !== 0) return false;
+    const config = EQUIP_SLOTS[equipGroup];
+    const current = config.get(game);
+    const other = fromEquip ? target : source;
+    const index = fromEquip ? to.index : from.index;
     if (!other || !Number.isInteger(index) || index < 0 || index >= other.length) return false;
     const stack = other[index];
-    if (stack && !Object.hasOwn(SNORKELS, stack.id)) return false;
-    if (toHead && (!stack || stack.id === snorkel?.id)) return false;
-    if (stack?.count > 1 && stack.id !== snorkel?.id) {
-      if (snorkel) return false;
+    if (stack && !Object.hasOwn(config.items, stack.id)) return false;
+    if (toEquip && (!stack || stack.id === current?.id)) return false;
+    if (stack?.count > 1 && stack.id !== current?.id) {
+      if (current) return false;
       stack.count--;
-      head[0] = { id: stack.id, count: 1 };
+      equipStacks[equipGroup][0] = { id: stack.id, count: 1 };
     } else if (!moveStack(source, from.index, target, to.index)) return false;
-    setSnorkel(game, head[0]?.id ?? null);
+    config.set(game, equipStacks[equipGroup][0]?.id ?? null);
   } else if (!moveStack(source, from.index, target, to.index)) return false;
 
   const remaining = game.world.pendingWreckLoot.get(chestId);
@@ -495,7 +549,7 @@ export function applyTerrain(game, tx, ty, material) {
   if (!editTile(world, tx, ty, material)) return;
   if (world.harvested.size !== harvested) game.dirty = true;
   if (material && collides(world, player.x, player.y, player.height)) {
-    game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor);
+    game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
     game.attack = null;
     game.dirty = true;
   }

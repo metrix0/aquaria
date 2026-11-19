@@ -5,7 +5,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, commitTileAction, craftItem, createGame, equippedFeet, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -306,6 +306,7 @@ const ui = createUI({
   canMoveInventory: () => !editPending,
   moveInventoryStack: (id, from, to) => moveInventoryStack(game, id, from, to),
   getSnorkel: () => equippedSnorkel(game),
+  getFeet: () => equippedFeet(game),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
