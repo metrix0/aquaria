@@ -3,7 +3,7 @@ import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPP
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
 
-export const ROOT_RING = { id: 'root-ring', name: 'Root ring', description: 'A living knot from the grove. It remembers what trespassers sound like.' };
+export const ROOT_RING = { id: 'root-ring', name: 'Root ring', cooldown: 18, description: 'A living knot from the grove. It remembers what trespassers sound like.' };
 
 export const ITEMS = {
   [BROKEN_PICKAXE.id]: {

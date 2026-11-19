@@ -1708,6 +1708,29 @@ export function createRenderer(canvas) {
     }
   }
 
+  function drawRootWave(wave) {
+    if (!wave?.length) return;
+    const { x, y, facing, length, finished, fade } = wave;
+    ctx.save();
+    ctx.globalAlpha *= finished ? fade : 1;
+    for (const side of [-1, 1]) {
+      let previous = [x, y];
+      for (let start = 0; start < length; start += 6) {
+        const end = Math.min(length, start + 6);
+        const tipX = x + end * facing;
+        const tipY = y + side * (3 + 3 * Math.sin(end * .09)) * Math.min(1, end / 10);
+        polygon([[previous[0], previous[1] - 2], [tipX, tipY - 1], [tipX, tipY + 2],
+          [previous[0], previous[1] + 2]], side < 0 ? '#94c373' : '#577c44');
+        if (start % 18 === 0 && end - start > 3) {
+          polygon([[tipX, tipY], [tipX - facing * 8, tipY + side * 8],
+            [tipX - facing * 5, tipY + side * 2]], side < 0 ? '#b1d48b' : '#769c58');
+        }
+        previous = [tipX, tipY];
+      }
+    }
+    ctx.restore();
+  }
+
   function mobs(world, camera, time, targetMob, player) {
     for (const mob of world.mobs ?? []) {
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
@@ -2601,6 +2624,7 @@ export function createRenderer(canvas) {
     attack,
     hasArrow,
     playerArrows,
+    rootWave,
     targetMob,
     particles,
     reducedMotion,
@@ -2646,6 +2670,7 @@ export function createRenderer(canvas) {
     terrain(world, player, camera, time, bounds, openChestId, overview);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
+    drawRootWave(rootWave);
     mobs(world, camera, time, targetMob, player);
     projectiles(world, camera);
     arrows(playerArrows, camera);

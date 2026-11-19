@@ -1,3 +1,4 @@
+import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
 import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, isDryIslandCave, isDungeonMasonry, isGrovePool } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
@@ -372,6 +373,61 @@ test('the island has uneven soil, two small shallow veins, and denser deep iron'
   assert.ok(copper >= 3 && copper <= 8);
   assert.ok(iron >= 3 && iron <= 8);
   assert.ok(deepIron > iron);
+});
+
+test('the ring casts without a target and recharges across reloads', () => {
+  const game = createGame();
+  game.progress.ring = 'root-ring';
+  Object.assign(game.player, { x: (WEST_EXTENSION + 58.5) * TILE, y: 33 * TILE - game.player.height, facing: -1 });
+  game.world.mobs = [];
+  assert.equal(useRootRing(game), true);
+  assert.equal(game.rootWave.facing, -1);
+  assert.equal(game.rootWave.length, 0);
+  assert.equal(useRootRing(game), undefined);
+  for (let frame = 0; frame < 20; frame++) stepGame(game, {}, 1 / 60);
+  assert.ok(game.rootWave.length > 0);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.rootWave, null);
+  assert.equal(ringCooldown(restored), ringCooldown(game));
+  assert.equal(useRootRing(restored), undefined);
+});
+
+test('the root wave travels before it hits, stops at rock, and suspends the first enemy it reaches', () => {
+  const game = createGame();
+  const { player, world } = game;
+  game.progress.ring = 'root-ring';
+  Object.assign(player, { x: (WEST_EXTENSION + 55.5) * TILE, y: 33 * TILE - player.height, facing: 1 });
+  const mob = world.mobs.find(({ kind }) => kind === 'miner');
+  Object.assign(mob, { x: player.x + 54, y: 33 * TILE, hurt: 0 });
+  world.mobs = [mob];
+  const health = mob.health;
+  const y = mob.y;
+  const advance = (frames) => {
+    for (let i = 0; i < frames; i++) stepGame(game, {}, 1 / 60);
+  };
+
+  const wall = Math.floor((player.x + 28) / TILE);
+  editTile(world, wall, 32, MATERIAL.stone);
+  assert.equal(useRootRing(game), true);
+  advance(30);
+  assert.equal(mob.health, health);
+  assert.equal(mob.rooted ?? 0, 0);
+  advance(1070);
+  assert.equal(ringCooldown(game), 0);
+
+  editTile(world, wall, 32, MATERIAL.air);
+  assert.equal(useRootRing(game), true);
+  advance(10);
+  assert.equal(mob.health, health);
+  advance(20);
+  assert.equal(mob.health, health - 3);
+  assert.ok(mob.rooted > 2);
+  assert.ok(mob.y < y - 2);
+  advance(10);
+  const suspendedAt = mob.y;
+  advance(40);
+  assert.equal(mob.y, suspendedAt);
+  assert.equal(mob.health, health - 3);
 });
 
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {

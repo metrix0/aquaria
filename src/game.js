@@ -1,11 +1,12 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { ARROW, WORKBENCH } from './content.js';
+import { useRootRing } from './gameplay/root-ring.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useRootRing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -57,6 +58,7 @@ function storeProgress() {
 
 function select(slot) {
   selected = slot;
+  if (game.inventory.hotbar[slot]?.id === 'explorers-map') input.stopMining();
   ui.select(slot);
 }
 
@@ -345,18 +347,14 @@ const input = bindInput(canvas, camera, {
   },
   castRing() {
     if (editPending) return;
-    const message = useRootRing(game);
-    if (message) ui.notify(message);
+    if (useRootRing(game)) storeProgress();
   },
   fend() {
     if (editPending || game.player.stun > 0) return false;
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
-    if (game.inventory.hotbar[selected]?.id === 'explorers-map') {
-      ui.open('explorers-map-panel');
-      return true;
-    }
+    if (game.inventory.hotbar[selected]?.id === 'explorers-map') return true;
     const dressing = useDressing(game, selected);
     if (dressing) {
       if (dressing.inventoryChanged) inventoryChanged();
@@ -501,7 +499,7 @@ function frame(now) {
       miningSwing = null;
     } else if (game.attack) {
       mining = null;
-    } else if (input.holdingMine() && !editPending) {
+    } else if (input.holdingMine() && !editPending && heldItem !== 'explorers-map') {
       if (aimedMob()) {
         mining = null;
         if (!miningSwing && !ITEMS[heldItem]?.weapon) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
@@ -528,7 +526,7 @@ function frame(now) {
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
-    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles,
+    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake,
   });

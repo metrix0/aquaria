@@ -25,10 +25,21 @@
     <div class="feedback" aria-live="polite" id="feedback" hidden></div>
     <div class="interact" id="interact" hidden><kbd>E</kbd><span></span></div>
 
+    <figure id="explorers-map" hidden>
+      <img src="src/art/explorers-map.webp" alt="An old map of Aquaria. West leads to peaceful mermaids. East is marked DO NOT GO. Below the tree lie deeper dungeons.">
+      <figcaption>Switch items to put the map away</figcaption>
+    </figure>
+
     <div class="bottom">
       <section class="inventory" aria-label="Hotbar">
         <div class="inventory-title" id="selected">Broken Pickaxe</div>
-        <div id="hotbar-slots" class="slots"></div>
+        <div class="hotbar-row">
+          <div id="hotbar-slots" class="slots"></div>
+          <button id="cast-ring" class="slot ring-skill" type="button" aria-label="Cast Root Ring" aria-keyshortcuts="F" hidden>
+            <kbd aria-hidden="true">F</kbd><span class="item item-root-ring" aria-hidden="true"></span>
+            <b aria-hidden="true"></b><i aria-hidden="true"></i>
+          </button>
+        </div>
       </section>
 
       <div class="touch" aria-label="Touch controls">
@@ -40,7 +51,6 @@
           <button data-hold="KeyS" aria-label="Crawl or dive down">↓</button>
           <button data-hold="Space" aria-label="Jump or swim up">↑</button>
           <button id="grab" aria-label="Interact with nearby objects">Use</button>
-          <button id="cast-ring" aria-label="Cast ring skill" hidden>Roots</button>
           <button id="touch-mode" aria-label="Place blocks" aria-pressed="false">Mine</button>
         </div>
       </div>
@@ -70,16 +80,6 @@
         </div>
       </footer>
     </div>
-
-    <dialog id="explorers-map-panel" aria-labelledby="explorers-map-title">
-      <div class="dialog-head"><h2 id="explorers-map-title">Weathered explorer’s map</h2><button data-close aria-label="Close map">×</button></div>
-      <div class="explorers-map">
-        <p><strong>West ←</strong><br>Peaceful mermaids</p>
-        <p class="map-grove">✧<br>The old tree</p>
-        <p><strong>→ East</strong><br>DO NOT GO</p>
-        <p class="map-depths"><strong>↓ Below</strong><br>Harder dungeons. Bring better gear.</p>
-      </div>
-    </dialog>
 
     <dialog id="customize-panel" aria-labelledby="customize-title">
       <div class="dialog-head"><h2 id="customize-title">Customize character</h2><button data-close aria-label="Close character customization" autofocus>×</button></div>

@@ -1,4 +1,4 @@
-import { inWater } from '../world.js';
+import { inWater, solidAt } from '../world.js';
 import { TILE, WEST_EXTENSION } from '../world/generation.js';
 import { isCaveRefuge } from '../world/island-cave.js';
 
@@ -163,6 +163,8 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           flee: 0,
           cooldown: 0,
           hurt: 0,
+          rooted: 0,
+          rootLift: 0,
           health: mob.maxHealth,
           grounded: mob.kind === 'crab',
           attackTimer: 1.4 + (mob.phase % 1.5),
@@ -178,8 +180,24 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       }
       continue;
     }
-    if (mob.rooted > 0) {
+    if (mob.rooted > 0 && mob.health > 0) {
       mob.rooted = Math.max(0, mob.rooted - dt);
+      if (mob.rootLift > 0) {
+        const spec = mobSpec(mob);
+        const lift = Math.min(mob.rootLift, dt * 48);
+        const ceiling = Math.floor((mob.y + spec.centerY - spec.height / 2 - lift) / TILE);
+        const left = Math.floor((mob.x - spec.width / 2) / TILE);
+        const right = Math.floor((mob.x + spec.width / 2 - .01) / TILE);
+        let clear = true;
+        for (let tx = left; tx <= right; tx++) {
+          if (solidAt(world, tx, ceiling)) {
+            clear = false;
+            break;
+          }
+        }
+        if (clear) mob.y -= lift;
+        mob.rootLift = clear ? mob.rootLift - lift : 0;
+      }
       mob.dx = 0;
       mob.dy = 0;
       continue;
@@ -330,6 +348,8 @@ export function resetHostiles(world) {
         dy: 0,
         flee: 0,
         cooldown: 0,
+        rooted: 0,
+        rootLift: 0,
         health: mob.maxHealth,
         attackTimer: 1.4 + (mob.phase % 1.5),
         windup: 0,

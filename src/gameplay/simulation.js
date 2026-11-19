@@ -1,3 +1,4 @@
+import { stepRootWave } from './root-ring.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
@@ -39,6 +40,8 @@ export function createGame(snapshot) {
     progress: { snorkel: snapshot?.progress?.snorkel ?? null, ring: snapshot?.progress?.ring ?? null },
     dirty: false,
     elapsed: 0,
+    rootWave: null,
+    rootReadyAt: snapshot?.progress?.ringCooldown ?? 0,
     worldTime: snapshot?.worldTime ?? 0,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -103,6 +106,8 @@ export function resetRoomProgress(previous) {
     player,
     dirty: true,
     elapsed: 0,
+    rootWave: null,
+    rootReadyAt: 0,
     worldTime: previous.worldTime,
     weatherSeed: previous.weatherSeed,
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -166,42 +171,6 @@ export function useDressing(game, slot) {
   player.health += healed;
   game.dirty = true;
   return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
-}
-
-export function useRootRing(game) {
-  if (!equippedRing(game) || game.player.stun > 0 || game.player.flightOrigin) return;
-  const { player, world, effects, elapsed } = game;
-  if (elapsed < (player.rootReadyAt ?? 0)) return 'The ring is gathering strength.';
-  const ox = player.x;
-  const oy = player.y + player.height / 2;
-  let target;
-  let best = 10 * TILE;
-  for (const mob of world.mobs) {
-    const spec = mobSpec(mob);
-    if (!spec || mob.health <= 0 || mob.respawn > 0 || mob.kind === 'crab' ||
-      (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) continue;
-    const dx = mob.x - ox;
-    const dy = mob.y + spec.centerY - oy;
-    const distance = Math.hypot(dx, dy);
-    if (dx * player.facing <= 0 || distance >= best || Math.abs(dy) > Math.abs(dx) + TILE) continue;
-    let clear = true;
-    for (let t = 5; t < distance; t += 5) {
-      if (solidAt(world, Math.floor((ox + dx * t / distance) / TILE), Math.floor((oy + dy * t / distance) / TILE))) {
-        clear = false;
-        break;
-      }
-    }
-    if (clear) {
-      target = mob;
-      best = distance;
-    }
-  }
-  if (!target) return 'Face a nearby enemy to call the roots.';
-  player.rootReadyAt = elapsed + 5;
-  damageMob(world, target, 3, player.facing > 0 ? 0 : Math.PI, 0, effects);
-  if (target.health > 0 && target.kind !== 'kraken') target.rooted = 2.2;
-  effects.push({ x: target.x, y: target.y + mobSpec(target).centerY, color: '#79bd69', count: 12, spread: 42 });
-  return 'Roots lash out.';
 }
 
 export function useWeapon(game, slot, wx, wy) {
@@ -296,6 +265,7 @@ export function stepGame(game, input, dt) {
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  stepRootWave(game, dt);
   stepDroppedChests(game, dt);
   stepProjectiles(game, dt);
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
@@ -310,6 +280,7 @@ export function stepGame(game, input, dt) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.attack = null;
     game.projectiles.length = 0;
+    game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
     return 'You washed back up on the island.';

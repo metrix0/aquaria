@@ -61,13 +61,15 @@ export function decodeSave(data) {
       x: player?.x + WEST_EXTENSION * TILE, y: player?.y,
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
-    progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null },
+    progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null,
+      ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot, ...(krakenChest ? { krakenChest } : {}) },
   };
 }
 
 export function encodeSave(game, saveTerrain = true) {
   const { player, inventory, progress, world } = game;
+  const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const { x, y, height } = player.flightOrigin ?? player;
@@ -83,7 +85,8 @@ export function encodeSave(game, saveTerrain = true) {
     appearance: { ...player.appearance },
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
-    progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}) },
+    progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}),
+      ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),

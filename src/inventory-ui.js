@@ -1,5 +1,5 @@
 import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING } from './content.js';
-import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOTBAR_SIZE, ITEMS } from './inventory.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 
 function createSlots(container, group, size) {
@@ -64,8 +64,8 @@ function itemStats(id, item) {
     const tier = 'Mining tier ' + item.pickaxe;
     return item.miningTime ? tier + ' · ' + Math.round((1 - item.miningTime) * 100) + '% less mining time' : tier;
   }
-  if (id === 'root-ring') return 'F · Bind a nearby enemy and deal 3 damage';
-  if (id === 'explorers-map') return 'Use to open the map';
+  if (id === ROOT_RING.id) return `F · Lift and bind a foe · ${ROOT_RING.cooldown}s recharge`;
+  if (id === 'explorers-map') return 'Opens while held';
   return '';
 }
 
@@ -328,9 +328,6 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
         label.textContent = fallback === 'Ring' && equipped ? 'Root ring [F]' : (equipped?.name ?? fallback);
-        if (fallback === 'Ring') {
-          document.getElementById('cast-ring').hidden = !equipped;
-        }
       }
       if (chestId) {
         const slots = getChest(chestId);

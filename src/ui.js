@@ -5,6 +5,7 @@ import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
+import { ringCooldown } from './gameplay/root-ring.js';
 import { MAX_HEALTH } from './gameplay/player.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
@@ -33,6 +34,28 @@ export function createUI(actions, version) {
   });
   const touch = matchMedia('(pointer: coarse)').matches;
   let toastTimer;
+  let ringWasCharging = false;
+  let ringFlashUntil = 0;
+  const ringSlot = byId('cast-ring');
+  const ringTimer = ringSlot.querySelector('b');
+
+  function updateRing(game) {
+    const equipped = Boolean(actions.getRing());
+    ringSlot.hidden = !equipped;
+    const seconds = equipped ? Math.ceil(ringCooldown(game)) : 0;
+    if (equipped && ringWasCharging && !seconds) ringFlashUntil = game.elapsed + .9;
+    if (!equipped) ringFlashUntil = 0;
+    ringWasCharging = seconds > 0;
+    ringSlot.toggleAttribute('data-charging', ringWasCharging);
+    if (ringSlot.getAttribute('aria-disabled') !== String(ringWasCharging)) {
+      ringSlot.setAttribute('aria-disabled', String(ringWasCharging));
+    }
+    ringSlot.toggleAttribute('data-recharged', equipped && game.elapsed < ringFlashUntil);
+    const label = seconds ? `Root Ring recharging, ${seconds} seconds` : 'Cast Root Ring';
+    if (ringSlot.getAttribute('aria-label') !== label) ringSlot.setAttribute('aria-label', label);
+    const text = seconds ? seconds + 's' : '';
+    if (ringTimer.textContent !== text) ringTimer.textContent = text;
+  }
 
   function setText(id, value) {
     const element = fields[id];
@@ -166,7 +189,10 @@ export function createUI(actions, version) {
       clearTimeout(toastTimer);
       fields.feedback.hidden = true;
     },
-    select: inventoryUI.render,
+    select(slot) {
+      inventoryUI.render(slot);
+      byId('explorers-map').hidden = actions.getInventory().hotbar[slot]?.id !== 'explorers-map';
+    },
     notify,
     room(state) {
       const inRoom = Boolean(state.room);
@@ -185,6 +211,7 @@ export function createUI(actions, version) {
       setText('multiplayer', inRoom ? 'Multiplayer · ' + state.count : 'Multiplayer');
     },
     update(game, conditions) {
+      updateRing(game);
       setText('world-conditions', (conditions.night ? 'Night' : 'Day') + ' · ' + (conditions.rain > 0.08 ? 'Rain' : 'Clear'));
       const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';
