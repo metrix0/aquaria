@@ -1458,9 +1458,11 @@ export function createRenderer(canvas) {
   function mobs(world, camera, time, targetMob) {
     for (const mob of world.mobs ?? []) {
       if (mob.health <= 0 || mob.respawn > 0) continue;
-      if (mob.x < camera.x - 32 || mob.x > camera.x + camera.width + 32)
+      const marginX = mob.kind === "kraken" ? 280 : 32;
+      const marginY = mob.kind === "kraken" ? 2000 : 32;
+      if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
         continue;
-      if (mob.y < camera.y - 32 || mob.y > camera.y + camera.height + 32)
+      if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)
         continue;
       ctx.save();
       ctx.translate(Math.round(mob.x), Math.round(mob.y));
@@ -1806,6 +1808,100 @@ export function createRenderer(canvas) {
           ],
           "#263b51",
         );
+      } else if (mob.kind === "kraken") {
+        const rage = (mob.windup ?? 0) > 0 || (mob.actionTime ?? 0) > 0;
+        const breathe = Math.sin(time * 2.1) * 2;
+        const strokeTentacle = (points, width, color) => {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(points[0][0], points[0][1]);
+          for (let p = 1; p < points.length; p++) ctx.lineTo(points[p][0], points[p][1]);
+          ctx.stroke();
+        };
+
+        // Massive vertical tentacle wall stretching up to surface and down through the seabed/caves.
+        ctx.save();
+        for (let t = 0; t < 4; t++) {
+          const baseX = -30 + t * 9;
+          const pts = [[baseX, 16]];
+          for (let y = 70; y <= 2200; y += 70) {
+            const sway = Math.sin(time * 2.1 + t * 1.4 + y * 0.025) * 6;
+            pts.push([baseX + sway, y]);
+          }
+          strokeTentacle(pts, 9 - t, t % 2 ? "#3d1b36" : "#5a274d");
+          for (let i = 1; i < pts.length; i += 2) {
+            rect(pts[i][0] - 3, pts[i][1] - 1, 2, 2, "#c9839b");
+          }
+        }
+        const topReach = WATER - mob.y + 4;
+        for (let t = 0; t < 2; t++) {
+          const baseX = -26 + t * 14;
+          const sway = Math.sin(time * 2.6 + t * 2.1) * 6;
+          const pts = [
+            [baseX, -36],
+            [baseX - 6 + sway, topReach * 0.5],
+            [baseX - 10 - sway * 0.5, topReach],
+          ];
+          strokeTentacle(pts, 7, t ? "#491f3d" : "#703156");
+        }
+
+        // Dynamic tackle / grab tentacles.
+        const reach = mob.tentacleReach ?? 0;
+        if (reach > 0 && mob.tentacleTarget) {
+          const oy = (mob.tentacleTarget.oy ?? mob.y) - mob.y;
+          const tx = -22 + (mob.tentacleTarget.x - mob.x + 22) * reach;
+          const ty = oy + (mob.tentacleTarget.y - mob.y - oy) * reach;
+          if (mob.attackMode === "tackle") {
+            for (const offset of [-10, 10]) {
+              const midX = (-22 + tx) * 0.5;
+              const midY = oy + (ty - oy) * 0.5 + Math.sin(time * 18 + offset) * 8;
+              strokeTentacle([[-22, oy + offset], [midX, midY], [tx, ty + offset * 0.35]], 8, "#491f3d");
+              strokeTentacle([[-22, oy + offset], [midX, midY], [tx, ty + offset * 0.35]], 4, "#984b70");
+              rect(tx - 3, ty + offset * 0.35 - 3, 6, 6, "#c9839b");
+            }
+          } else if (mob.attackMode === "grab") {
+            const midX = (-22 + tx) * 0.5;
+            const midY = oy + (ty - oy) * 0.5 - 12;
+            strokeTentacle([[-22, oy], [midX, midY], [tx, ty]], 7, "#3d1b36");
+            strokeTentacle([[-22, oy], [midX, midY], [tx, ty]], 3.5, "#833c66");
+            if (mob.grabbing) {
+              ctx.strokeStyle = "#984b70";
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.arc(tx, ty, 12, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+          }
+        }
+        ctx.restore();
+
+        // Giant kraken head & bulbous mantle.
+        polygon([[-18, -32], [-6, -74 + breathe], [22, -74 + breathe], [34, -44], [28, 12], [-22, 16]], "#2d1429");
+        polygon([[-14, -28], [-2, -68 + breathe], [18, -68 + breathe], [28, -40], [24, 8], [-18, 12]], "#491f3d");
+        polygon([[-8, -32], [2, -60 + breathe], [14, -56 + breathe], [18, -28], [-8, -16]], "#703156");
+        polygon([[16, -68 + breathe], [36, -60 + breathe], [30, -44]], "#5a274d");
+        polygon([[-26, -38], [-14, -54 + breathe], [-10, -34]], "#5a274d");
+        rect(-26, -24, 50, 44, "#491f3d");
+        rect(-24, -18, 42, 34, "#703156");
+        rect(-16, -12, 26, 18, "#833c66");
+        // Glowing eyes and brow ridge.
+        rect(-22, -16, 14, 4, "#2d1429");
+        rect(-19, -12, 8, 7, "#111d2f");
+        rect(-18, -11, 6, 5, rage ? "#ff6b57" : "#f7c96b");
+        rect(-17, -10, 2, 3, "#192b3e");
+        // Siphon & summon ink flare.
+        rect(-30, 2, 10, 10, "#3d1b36");
+        if (mob.attackMode === "summon" && (mob.windup ?? 0) > 0) {
+          rect(-36, 0, 8, 14, "#0d1017");
+          rect(-34, 3, 4, 8, "#833c66");
+        }
+        // Upper mantle spots.
+        rect(4, -50 + breathe, 4, 4, "#984b70");
+        rect(12, -38 + breathe, 5, 4, "#984b70");
+        rect(-4, -36 + breathe, 3, 3, "#984b70");
       }
       ctx.restore();
 
@@ -1813,10 +1909,12 @@ export function createRenderer(canvas) {
         mob.maxHealth &&
         (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)
       ) {
-        const barWidth = mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
+        const barWidth = mob.kind === "kraken" ? 56 : mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
         const barX = -Math.floor(barWidth / 2);
         const ghost = mob.kind === "ghost";
-        const barY = ghost
+        const barY = mob.kind === "kraken"
+          ? -82
+          : ghost
           ? -21
           : mob.respawnDelay
             ? mob.kind === "spider"
@@ -1835,7 +1933,8 @@ export function createRenderer(canvas) {
           mob.enemyType ||
           mob.kind === "jellyfish" ||
           mob.kind === "squid" ||
-          mob.kind === "shark",
+          mob.kind === "shark" ||
+          mob.kind === "kraken",
         );
         rect(barX - 1, barY - 1, barWidth + 2, 4, "#111d2f");
         rect(barX, barY, barWidth, 2, "#283c44");

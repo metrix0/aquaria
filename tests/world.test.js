@@ -5,6 +5,7 @@ import test from 'node:test';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
+import { krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
@@ -1250,4 +1251,62 @@ test('jellyfish shock stuns the player when inside its visual lightning area', (
   assert.ok(40 <= jellyfishShockRadius(jelly.shock));
   stepGame(game, {}, 1 / 60);
   assert.ok(player.stun > 0);
+});
+
+
+test('giant kraken blocks the far right edge at all depths and performs all three attacks', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
+  assert.ok(kraken);
+  assert.ok(kraken.x > (COLS - 4) * TILE);
+  const barrierX = krakenBarrierX(kraken);
+  const startX = kraken.x;
+  const startY = kraken.y;
+
+  // Barrier blocks moving past the kraken in open water AND deep caves.
+  for (const testY of [WATER + 4 * TILE, 140 * TILE]) {
+    Object.assign(player, { x: barrierX - player.width / 2 - 2, y: testY, dx: 0, dy: 0, hurt: 0 });
+    for (let i = 0; i < 30; i++) movePlayer(world, player, { right: true }, 1 / 60);
+    assert.ok(player.x + player.width / 2 <= barrierX + 1e-6);
+  }
+
+  // Kraken remains static when damaged.
+  damageMob(world, kraken, 5, 0, 150, game.effects);
+  assert.equal(kraken.x, startX);
+  assert.equal(kraken.y, startY);
+
+  // Isolate kraken for deterministic attack testing.
+  world.mobs = [kraken];
+  Object.assign(player, { x: barrierX - 70, y: WATER + 12 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
+
+  // Primary attack: tentacle tackle.
+  kraken.attackTimer = 0;
+  kraken.attackIndex = 0;
+  for (let i = 0; i < 70; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.health < 100);
+  assert.ok(player.dx < 0 || player.x < barrierX - 70);
+
+  // Secondary attack: spawns three squids.
+  Object.assign(player, { x: barrierX - 90, y: WATER + 12 * TILE, dx: 0, dy: 0, hurt: 0 });
+  kraken.attackMode = 'idle';
+  kraken.windup = 0;
+  kraken.actionTime = 0;
+  kraken.attackTimer = 0;
+  kraken.attackIndex = 1;
+  for (let i = 0; i < 45; i++) stepGame(game, {}, 1 / 60);
+  const minions = world.mobs.filter((mob) => mob.krakenMinion && mob.kind === 'squid');
+  assert.equal(minions.length, 3);
+
+  // Tertiary attack: grabs the player and pulls them deeper underwater.
+  world.mobs = [kraken];
+  Object.assign(player, { x: barrierX - 65, y: WATER + 6 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
+  const beforeGrabY = player.y;
+  kraken.attackMode = 'idle';
+  kraken.windup = 0;
+  kraken.actionTime = 0;
+  kraken.attackTimer = 0;
+  kraken.attackIndex = 2;
+  for (let i = 0; i < 75; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.y > beforeGrabY);
 });

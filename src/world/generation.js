@@ -24,6 +24,7 @@ export const MOB_HEALTH = Object.freeze({
   jellyfish: 2,
   squid: 4,
   shark: 7,
+  kraken: 80,
   ghost: 5,
   spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9,
 });
@@ -556,6 +557,7 @@ export function generateMobs() {
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
+    { id: 'kraken-east', kind: 'kraken', x: (COLS - 1.5 - WEST_EXTENSION) * TILE, y: 32 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? groundAt(Math.floor(x / TILE)) * TILE : mob.y;
@@ -568,7 +570,7 @@ export function generateMobs() {
       homeY: y,
       dx: 0,
       dy: 0,
-      facing: index % 2 ? -1 : 1,
+      facing: mob.kind === 'kraken' ? -1 : index % 2 ? -1 : 1,
       grounded: mob.kind === 'crab',
       flee: 0,
       cooldown: 0,

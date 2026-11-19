@@ -25,6 +25,8 @@ export function takeDamage(player, damage) {
 }
 
 export function collides(world, x, y, height = PLAYER_SIZE.height) {
+  const kraken = world.mobs?.find((mob) => mob.kind === 'kraken' && mob.health > 0 && mob.respawn <= 0);
+  if (kraken && x + PLAYER_SIZE.width / 2 > kraken.x - 38) return true;
   const left = Math.floor((x - PLAYER_SIZE.width / 2) / TILE);
   const right = Math.floor((x + PLAYER_SIZE.width / 2 - 0.01) / TILE);
   const top = Math.floor(y / TILE);
@@ -150,7 +152,7 @@ export function movePlayer(world, player, input, dt) {
     }
   }
   const crawling = player.height === CRAWL_HEIGHT;
-  const horizontal = Number(right) - Number(left);
+  const horizontal = Number(Boolean(right)) - Number(Boolean(left));
 
   if (horizontal) player.facing = horizontal;
   const speed = bodyInWater ? 102 : crawling ? 56 : 112;
@@ -158,7 +160,7 @@ export function movePlayer(world, player, input, dt) {
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal);
   if (bodyInWater && !shoreJump) {
     player.canShortenJump = false;
-    const vertical = Number(down) - Number(up);
+    const vertical = Number(Boolean(down)) - Number(Boolean(up));
     player.dy += ((vertical ? vertical * swimSpeed : 10) - player.dy) * Math.min(1, 7 * dt);
   } else {
     if (shoreJump || (jump && player.grounded && !crawling)) {

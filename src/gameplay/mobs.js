@@ -4,6 +4,7 @@ import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
+import { krakenSpec, stepKraken } from './enemies/kraken.js';
 import { sharkSpec, stepShark } from './enemies/shark.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
 import { stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
@@ -19,6 +20,7 @@ const seaEnemySteps = {
   jellyfish: { spec: jellyfishSpec, step: stepJellyfish },
   squid: { spec: squidSpec, step: stepSquid },
   shark: { spec: sharkSpec, step: stepShark },
+  kraken: { spec: krakenSpec, step: stepKraken },
 };
 
 const caveEnemyModules = {
@@ -44,6 +46,24 @@ const mobSpecs = {
   ...caveEnemySpecs,
   ghost: wreckGhostSpec,
 };
+
+function clearKrakenState(mob) {
+  Object.assign(mob, {
+    attackMode: 'idle',
+    actionTime: 0,
+    attackIndex: 0,
+    attackHit: false,
+    grabbing: false,
+    tentacleReach: 0,
+    tentacleTarget: null,
+  });
+}
+
+function removeKrakenMinions(world) {
+  for (let i = world.mobs.length - 1; i >= 0; i--) {
+    if (world.mobs[i].krakenMinion) world.mobs.splice(i, 1);
+  }
+}
 
 export function stepCaveEnemy(world, player, mob, dt, effects) {
   caveEnemyModules[mob.kind]?.step(world, player, mob, dt, effects);
@@ -75,7 +95,7 @@ function stepProjectiles(world, player, dt, time, effects) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
-    if (caveEnemySpecs[mob.kind] || mob.kind === 'ghost') continue;
+    if (caveEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
     } else if (fishCollides(world, player, mob.x, mob.y)) {
@@ -97,6 +117,13 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) =>
     fishCollides(world, player, x, y),
   );
+  for (let i = world.mobs.length - 1; i >= 0; i--) {
+    const mob = world.mobs[i];
+    if (mob.krakenMinion) {
+      mob.remainingLife -= dt;
+      if (mob.remainingLife <= 0 || mob.health <= 0) world.mobs.splice(i, 1);
+    }
+  }
   enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
   const px = player.x;
   const py = player.y + 11;
@@ -105,7 +132,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   const playerMoving = Math.hypot(player.dx, player.dy) > 14 || mining;
   let hit;
 
-  for (const mob of world.mobs) {
+  for (const mob of [...world.mobs]) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
@@ -129,6 +156,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           shock: 0,
           shockHit: false,
         });
+        if (mob.kind === 'kraken') clearKrakenState(mob);
       }
       continue;
     }
@@ -156,6 +184,8 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       if (fishHit) hit = fishHit;
     } else if (mob.kind === 'crab') {
       stepCrab(world, player, mob, dt, time, { dist, diffX, playerMoving }, inWater);
+    } else if (mob.kind === 'kraken') {
+      stepKraken(world, player, mob, dt, time, effects);
     } else if (seaEnemySteps[mob.kind]) {
       seaEnemySteps[mob.kind].step(world, player, mob, dt, time, effects, {
         px,
@@ -181,7 +211,12 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
   mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - damage);
   mob.hurt = 0.32;
 
-  if (mob.kind === 'crab') {
+  if (mob.kind === 'kraken') {
+    mob.facing = -1;
+    mob.dx = 0;
+    mob.dy = 0;
+    mob.flee = 0;
+  } else if (mob.kind === 'crab') {
     mob.facing = dir;
     mob.dx = dir * (knockback ?? 95);
     mob.dy = -65;
@@ -204,11 +239,16 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
   const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
   let effect;
   if (mob.health <= 0) {
-    if (mob.enemyType) {
+    if (mob.enemyType || mob.krakenMinion) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
     } else if (mob.kind !== 'ghost' || mob.resident) {
       mob.respawn = mob.respawnDelay ?? 45;
+    }
+    if (mob.kind === 'kraken') {
+      clearKrakenState(mob);
+      mob.windup = 0;
+      removeKrakenMinions(world);
     }
     effect = {
       x: mob.x,
@@ -244,7 +284,8 @@ export function targetMobAt({ world, player }, wx, wy) {
     const cy = mob.y + spec.centerY;
     const pointerDist = Math.hypot(wx - mob.x, wy - cy);
     const playerDist = Math.hypot(mob.x - player.x, cy - (player.y + 11));
-    if (pointerDist <= spec.radius + 12 && playerDist <= 5 * TILE && pointerDist < bestDist) {
+    const maxRange = mob.kind === 'kraken' ? 8 * TILE : 5 * TILE;
+    if (pointerDist <= spec.radius + 12 && playerDist <= maxRange && pointerDist < bestDist) {
       best = mob;
       bestDist = pointerDist;
     }
@@ -254,6 +295,7 @@ export function targetMobAt({ world, player }, wx, wy) {
 
 export function resetHostiles(world) {
   if (world.projectiles) world.projectiles.length = 0;
+  removeKrakenMinions(world);
   for (const mob of world.mobs) {
     if ((seaEnemySpecs[mob.kind] || caveEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
       Object.assign(mob, {
@@ -273,6 +315,7 @@ export function resetHostiles(world) {
         shock: 0,
         shockHit: false,
       });
+      if (mob.kind === 'kraken') clearKrakenState(mob);
     }
   }
 }
