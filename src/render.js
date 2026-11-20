@@ -40,7 +40,8 @@ import {
   WATER_ROW,
   WEST_EXTENSION,
   clamp,
-  deepstoneStartAt,
+  isDeepstoneAt,
+  undergroundRockBlendAt,
   groundAt,
   noise,
 } from "./world/generation.js";
@@ -196,6 +197,13 @@ function mixPair({ blueHex, jungleHex, blue, jungle }, t) {
   const a = toHexByte(blue[3] + (jungle[3] - blue[3]) * t);
   return `#${r}${g}${b}${a}`;
 }
+
+// Cache the gradient palettes once; terrain tiles reuse these during rendering.
+const ROCK_GRADIENT_STEPS = 48;
+const rockGradientPalettes = Array.from({ length: ROCK_GRADIENT_STEPS + 1 }, (_, index) =>
+  palettes[MATERIAL.stone].map((hex, part) =>
+    mixPair(colorPair(hex, palettes[MATERIAL.deepstone][part]), index / ROCK_GRADIENT_STEPS)));
+const rockRimGradient = colorPair("#657a7d", "#6a587d");
 
 function jungleMixAt(worldX) {
   const raw = clamp((worldX - JUNGLE_FADE_START_X) / (JUNGLE_FADE_END_X - JUNGLE_FADE_START_X), 0, 1);
@@ -845,11 +853,16 @@ export function createRenderer(canvas) {
     }
     const ore = ORE_MATERIALS.has(material);
     const rock = ore
-      ? ty >= deepstoneStartAt(tx, ty)
+      ? isDeepstoneAt(tx, ty)
         ? MATERIAL.deepstone
         : MATERIAL.stone
       : material;
-    const [base, light, dark, bright] = palettes[rock];
+    const rockBlend = undergroundRockBlendAt(tx, ty);
+    const mixedRock = rockBlend !== null && (rock === MATERIAL.stone || rock === MATERIAL.deepstone);
+    const palette = mixedRock
+      ? rockGradientPalettes[Math.round(clamp(rockBlend + (rock === MATERIAL.deepstone ? .035 : -.035), 0, 1) * ROCK_GRADIENT_STEPS)]
+      : palettes[rock];
+    const [base, light, dark, bright] = palette;
     if (overview) {
       rect(x, y, TILE, TILE, oreOpacity > 0.5 ? palettes[material][1] : base);
       return;
@@ -900,7 +913,7 @@ export function createRenderer(canvas) {
       const dryAbove = top && isDryIslandCave(seed, ty - 1);
       const dryBelow = isDryIslandCave(seed, ty + 1);
       if (dryAbove || dryBelow) {
-        const rim = rock === MATERIAL.deepstone ? "#6a587d" : "#657a7d";
+        const rim = mixedRock ? mixPair(rockRimGradient, rockBlend) : rock === MATERIAL.deepstone ? "#6a587d" : "#657a7d";
         const width = 5 + Math.floor(variation * 11);
         const offset = variation < 0.5 ? 0 : TILE - width;
         if (dryAbove) {
@@ -1091,6 +1104,11 @@ export function createRenderer(canvas) {
     colorPair("#232d35", "#263d31"),
     colorPair("#3a474b", "#526b48"),
   ];
+  const undergroundWallGradient = [
+    colorPair("#2b343a", "#27253a"),
+    colorPair("#232d35", "#211e32"),
+    colorPair("#3a474b", "#3a334d"),
+  ];
 
   function caveWall(world, tx, ty, overview, time = 0) {
     const x = tx * TILE;
@@ -1103,6 +1121,7 @@ export function createRenderer(canvas) {
     const column = tx - WEST_EXTENSION;
     const jungleCave = !wet && isDryJungleCave(column, ty);
     const underground = !wet && !jungleCave && ty >= ISLAND_DEEPSTONE_ROW;
+    const undergroundBlend = !wet && !jungleCave ? undergroundRockBlendAt(tx, ty) : null;
     const masonry = underground && isDungeonMasonry(column, ty);
     const jungleMoss = jungleCave ? jungleMossProgress(ty) : 0;
     const jungleScripture = jungleCave ? jungleScriptureProgress(ty) : 0;
@@ -1117,9 +1136,11 @@ export function createRenderer(canvas) {
       ? palette
       : masonry
         ? ["#342941", "#261e34", "#4b3c59"]
-        : underground
-          ? ["#27253a", "#211e32", "#3a334d"]
-          : jungleCave
+        : undergroundBlend !== null && undergroundBlend > 0
+          ? undergroundWallGradient.map((colors) => mixPair(colors, undergroundBlend))
+          : underground
+            ? ["#27253a", "#211e32", "#3a334d"]
+            : jungleCave
             ? (jungleMoss > 0.36 && detail < 0.25 + jungleMoss * 0.55
               ? (jungleDeep ? ["#213831", "#182924", "#375a47"] : ["#283f33", "#1f322a", "#3f5f45"])
               : jungleDeep

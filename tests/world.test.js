@@ -19,7 +19,7 @@ import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, c
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, EAST_EXTENSION, exposedUndergroundVeins, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, EAST_EXTENSION, exposedUndergroundVeins, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, isDeepstoneAt, undergroundRockBlendAt, waterwayAt } from '../src/world/generation.js';
 import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
 import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
@@ -674,6 +674,35 @@ test('cave enemies start on dry floors and archer shots and venom can hurt the p
   Object.assign(player, { x: scorpion.x, y: scorpion.y - player.height, hurt: 0 });
   assert.equal(stepCaveHazard(world, player, venom, 1 / 60, effects), true);
   assert.equal(player.health, 80);
+});
+
+test('first cave rock fades gradually into the Undergrounds without changing other biomes', () => {
+  const world = createWorld();
+  const columns = Array.from({ length: 181 }, (_, i) => WEST_EXTENSION - 30 + i);
+  const levels = [300, 315, ISLAND_DEEPSTONE_ROW, 345, 360];
+  const proportions = levels.map((row) => {
+    let stone = 0;
+    let deepstone = 0;
+    for (const x of columns) {
+      const tile = tileAt(world, x, row);
+      if (tile === MATERIAL.stone) stone++;
+      if (tile === MATERIAL.deepstone) deepstone++;
+    }
+    assert.ok(stone + deepstone > 20, `expected visible rock at depth ${row}`);
+    return deepstone / (stone + deepstone);
+  });
+
+  assert.equal(proportions[0], 0, 'the upper cave stays ordinary stone');
+  assert.ok(proportions[1] > 0 && proportions[1] < proportions[2]);
+  assert.ok(proportions[2] > 0.2 && proportions[2] < 0.8, 'the old boundary is mixed, not a hard stripe');
+  assert.ok(proportions[2] < proportions[3] && proportions[3] < proportions[4]);
+  assert.equal(proportions[4], 1, 'the deep Undergrounds become entirely Deepstone');
+
+  assert.equal(undergroundRockBlendAt(WEST_EXTENSION + 60, 300), 0);
+  assert.equal(undergroundRockBlendAt(WEST_EXTENSION + 60, 330), 0.5);
+  assert.equal(undergroundRockBlendAt(WEST_EXTENSION + 60, 360), 1);
+  assert.equal(undergroundRockBlendAt(WEST_EXTENSION + 240, 330), null, 'other biomes use their original geology');
+  assert.equal(isDeepstoneAt(WEST_EXTENSION + 240, 330), true);
 });
 
 test('Underground iron occurs in small contiguous veins', () => {

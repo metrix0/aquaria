@@ -96,6 +96,27 @@ export function deepstoneStartAt(tx, row) {
   return 84 + Math.round(4 * Math.sin((x + ORIGINAL_WEST_EXTENSION) * 0.12));
 }
 
+// Blend the first cave's stone into Underground Deepstone over sixty tiles.
+// Return null outside the island cave so the ocean and jungle geology stay unchanged.
+export function undergroundRockBlendAt(tx, row) {
+  const x = tx - WEST_EXTENSION;
+  if (x < -51 || x > 177 || (row < OCEAN_ROWS && !protectsIslandCave(x, row))) return null;
+  const progress = clamp((row - (ISLAND_DEEPSTONE_ROW - 30)) / 60, 0, 1);
+  return progress * progress * (3 - 2 * progress);
+}
+
+export function isDeepstoneAt(tx, row) {
+  const blend = undergroundRockBlendAt(tx, row);
+  if (blend === null) return row >= deepstoneStartAt(tx, row);
+  if (blend <= 0) return false;
+  if (blend >= 1) return true;
+
+  // Broad rock patches plus fine grain: avoid a ruler-straight boundary.
+  const coarse = noise(Math.floor((tx - WEST_EXTENSION) / 3), Math.floor(row / 3), 411);
+  const fine = noise(tx - WEST_EXTENSION, row, 413);
+  return coarse * 0.72 + fine * 0.28 < blend;
+}
+
 function valueNoise(x, y, scale, seed) {
   const gx = x / scale;
   const gy = y / scale;
@@ -634,7 +655,7 @@ export function generateChunk(left, top, size) {
   applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
     for (let y = Math.max(bounds.top, 80); y <= bounds.bottom; y++) {
-      if (y >= deepstoneStartAt(x, y) && get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
+      if (isDeepstoneAt(x, y) && get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
     }
   }
 
