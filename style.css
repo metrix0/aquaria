@@ -21,8 +21,36 @@ button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 [hidden] { display: none !important; }
 
-.hud-top-right { position: absolute; z-index: 2; top: max(21px, env(safe-area-inset-top)); right: 25px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
-.meters { width: 159px; padding: 12px; background: var(--pane); border: 1px solid var(--line); border-radius: 5px; box-shadow: 0 5px 20px #04101654; pointer-events: auto; }
+.hud-top-right { position: absolute; z-index: 2; top: max(21px, env(safe-area-inset-top)); right: 25px; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; pointer-events: none; }
+.hud-vitals { display: grid; gap: 6px; width: 166px; }
+.vital {
+  --accent: #e18e82;
+  padding: 9px 11px 8px; color: #f1f5ed;
+  border: 1px solid #93b7b14f; border-radius: 8px;
+  background: linear-gradient(120deg, #09202bdc, #08151fc9);
+  box-shadow: 0 4px 17px #03111846;
+  backdrop-filter: blur(8px);
+}
+.vital-oxygen { --accent: #81d7df; border-color: #8abfd15c; }
+.vital-heading { display: flex; align-items: center; gap: 7px; font: 700 10px/1.1 var(--mono); letter-spacing: .1em; color: #b8cec9; }
+.vital-heading strong { margin-left: auto; color: #f4f4ed; font: 700 12px/1 var(--mono); letter-spacing: 0; }
+.vital-icon { width: 15px; height: 15px; flex: none; fill: var(--accent); filter: drop-shadow(0 0 4px #091720); }
+.vital-oxygen .vital-icon { fill: none; stroke: var(--accent); stroke-width: 2; }
+.vital-track { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #aec7bf29; }
+.vital-fill { width: 100%; height: 100%; border-radius: inherit; background: var(--accent); transition: width 120ms linear; }
+.vital-fill.low { background: #ff756a; }
+.vital-oxygen .vital-fill.low { background: #f5b46f; }
+.hud-context { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 255px; }
+.hud-depth, .hud-weather {
+  display: flex; align-items: center; gap: 7px; padding: 5px 8px;
+  border: 1px solid #80a9a64a; border-radius: 5px;
+  background: #081823b8; color: #bbd3c9;
+  font: 700 10px/1.2 var(--mono); letter-spacing: .04em;
+  text-shadow: 0 1px 3px #07151d;
+  backdrop-filter: blur(5px);
+}
+.hud-depth { color: #8cd5db; }
+.hud-depth strong { color: #e5f5f1; letter-spacing: 0; }
 .status-effects { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; pointer-events: auto; }
 .status-effects:empty { display: none; }
 .status-effect {
@@ -87,17 +115,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 }
 #status-tooltip strong { color: var(--gold); font-size: 13px; }
 #status-tooltip em { color: #d4dfd6; font-size: 12px; line-height: 1.35; }
-.meter-heading, .inventory-title { font: 700 10px var(--mono); letter-spacing: .14em; }
-.meter-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
-.meter-heading strong { color: #e9f4e9; font-size: 11px; letter-spacing: .02em; white-space: nowrap; }
-.health-heading, .air-heading { margin-top: 11px; }
-.health-track, .air-track { margin-top: 6px; height: 4px; background: #88bfb83a; overflow: hidden; border-radius: 3px; }
-#health-fill, #air-fill { height: 100%; width: 100%; transition: width 100ms linear; }
-#health-fill { background: #df8672; }
-#health-fill.low { background: #ff5c4d; }
-#air-fill { background: var(--mint); }
-#air-fill.low { background: #ff9b80; }
-.world-conditions { margin-top: 8px; color: var(--muted); font: 700 10px var(--mono); }
+.inventory-title { font: 700 10px var(--mono); letter-spacing: .14em; }
 
 .bottom { position: absolute; z-index: 3; inset: auto 0 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
 .bottom button { pointer-events: auto; }
@@ -354,9 +372,11 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 }
 @media (max-width: 670px) {
   .hud-top-right { top: max(10px, env(safe-area-inset-top)); right: 10px; }
-  .meters { width: 132px; padding: 8px; }
+  .hud-vitals { width: 148px; }
+  .vital { padding: 8px 9px 7px; }
   .status-effect { width: 36px; height: 36px; }
-  .meter-heading { font-size: 9px; }
+  .vital-heading { font-size: 9px; }
+  .hud-depth, .hud-weather { font-size: 9px; }
   footer { padding-left: 10px; padding-right: 10px; flex-wrap: wrap; gap: 6px; }
   .controls { gap: 5px 9px; }
   .footer-actions { margin-left: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

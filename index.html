@@ -33,14 +33,26 @@
     <canvas id="scene" aria-label="Aquaria side-scrolling game world"></canvas>
 
     <aside class="hud-top-right" aria-label="Status HUD">
-      <section class="meters" aria-label="Diver status">
-        <div class="meter-heading"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></div>
-        <div class="meter-heading health-heading"><span>HEALTH</span><strong id="health-label">100%</strong></div>
-        <div class="health-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="health-fill"></div></div>
-        <div class="meter-heading air-heading"><span>OXYGEN</span><strong id="air-label">100%</strong></div>
-        <div class="air-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="air-fill"></div></div>
-        <div id="world-conditions" class="world-conditions">Day · Clear</div>
-      </section>
+      <div class="hud-vitals" aria-label="Diver vitals">
+        <div class="vital vital-health">
+          <div class="vital-heading">
+            <svg class="vital-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-9-5.8-9-12.1C3 3.7 9 2.3 12 6.5 15 2.3 21 3.7 21 8.9 21 15.2 12 21 12 21Z"/></svg>
+            <span>HEALTH</span><strong id="health-label">100%</strong>
+          </div>
+          <div class="vital-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="vital-fill" id="health-fill"></div></div>
+        </div>
+        <div class="vital vital-oxygen" id="oxygen-meter" hidden>
+          <div class="vital-heading">
+            <svg class="vital-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="14" r="5"/><circle cx="17" cy="7" r="3"/><circle cx="18" cy="17" r="2"/></svg>
+            <span>OXYGEN</span><strong id="air-label">100%</strong>
+          </div>
+          <div class="vital-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="vital-fill" id="air-fill"></div></div>
+        </div>
+      </div>
+      <div class="hud-context" aria-label="Environment">
+        <div class="hud-depth" id="depth-meter" hidden><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></div>
+        <div class="hud-weather" id="world-conditions">Day · Clear</div>
+      </div>
       <div id="status-effects" class="status-effects" aria-label="Active status effects"></div>
       <div id="status-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><em></em></div>
     </aside>

@@ -12,12 +12,13 @@ import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
+import { hudVisibility } from './hud-state.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
-    'depth', 'depth-label', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill',
+    'depth', 'depth-label', 'depth-meter', 'health-label', 'health-fill', 'air-label', 'world-conditions', 'air-fill', 'oxygen-meter',
     'interact', 'feedback', 'backpack-chest-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
@@ -314,9 +315,13 @@ export function createUI(actions, version) {
       setText('world-conditions', (conditions.night ? 'Night' : 'Day') + ' · ' + (conditions.rain > 0.08 ? 'Rain' : 'Clear'));
       const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';
-      const air = Math.round(game.player.oxygen / oxygenCapacity(game) * 100);
+      const depth = areaDepth(game);
+      const { oxygenPercent: air, showOxygen, showDepth } =
+        hudVisibility(game.player.oxygen, oxygenCapacity(game), depth);
       const airValue = air + '%';
-      setText('depth', areaDepth(game) + ' m');
+      fields['oxygen-meter'].hidden = !showOxygen;
+      fields['depth-meter'].hidden = !showDepth;
+      if (showDepth) setText('depth', depth + ' m');
       const row = Math.floor((game.player.y + game.player.height / 2) / TILE);
       const column = Math.floor(game.player.x / TILE) - WEST_EXTENSION;
       const zone = isDryIslandCave(column, row)
