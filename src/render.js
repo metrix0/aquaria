@@ -42,6 +42,7 @@ import {
   WEST_EXTENSION,
   clamp,
   isDeepstoneAt,
+  firstCaveRockVariant,
   undergroundRockBlendAt,
   groundAt,
   noise,
@@ -70,6 +71,17 @@ const palettes = {
   [MATERIAL.iron]: ["#38484f", "#9baaa4", "#586970", "#dde3c9"],
   [MATERIAL.cobalt]: ["#262e52", "#788ae9", "#434f99", "#bdceff"],
   [MATERIAL.soil]: ["#6f594e", "#8e6b51", "#513f46", "#ab8056"],
+};
+
+const firstCaveTilePalettes = {
+  slate: ["#293c49", "#4a626a", "#1c2f40", "#7a8d90"],
+  gravel: ["#49585a", "#79847c", "#35454c", "#a1aaa0"],
+  earth: ["#514b43", "#766356", "#373e41", "#a18a6b"],
+};
+const firstCaveWallPalettes = {
+  slate: [colorPair("#29313a", "#2d4739"), colorPair("#1c2630", "#253a30"), colorPair("#495862", "#4b6547")],
+  gravel: [colorPair("#394244", "#344d3b"), colorPair("#272f34", "#263d31"), colorPair("#596562", "#58704d")],
+  earth: [colorPair("#403c39", "#3d4b38"), colorPair("#2c2b2e", "#293a2e"), colorPair("#65594e", "#62704c")],
 };
 
 const caveWallFadeDepth = 10;
@@ -896,9 +908,12 @@ export function createRenderer(canvas) {
       : material;
     const rockBlend = undergroundRockBlendAt(tx, ty);
     const mixedRock = rockBlend !== null && (rock === MATERIAL.stone || rock === MATERIAL.deepstone);
-    const palette = mixedRock
-      ? rockGradientPalettes[Math.round(clamp(rockBlend + (rock === MATERIAL.deepstone ? .035 : -.035), 0, 1) * ROCK_GRADIENT_STEPS)]
-      : palettes[rock];
+    const texture = material === MATERIAL.stone && !(rockBlend > 0)
+      ? firstCaveRockVariant(tx, ty) : null;
+    const palette = firstCaveTilePalettes[texture] ??
+      (mixedRock
+        ? rockGradientPalettes[Math.round(clamp(rockBlend + (rock === MATERIAL.deepstone ? .035 : -.035), 0, 1) * ROCK_GRADIENT_STEPS)]
+        : palettes[rock]);
     const [base, light, dark, bright] = palette;
     if (overview) {
       rect(x, y, TILE, TILE, oreOpacity > 0.5 ? palettes[material][1] : base);
@@ -928,6 +943,23 @@ export function createRenderer(canvas) {
         i % 3 ? 1 : 2,
         i % 2 ? light : dark,
       );
+    }
+    if (texture === "gravel") {
+      for (let i = 0; i < 6; i++) {
+        const px = 1 + Math.floor(noise(seed, ty, 151 + i) * 12);
+        const py = 2 + Math.floor(noise(seed, ty, 171 + i) * 11);
+        rect(x + px, y + py + 1, 3, 2, dark);
+        rect(x + px, y + py, 2, 1, i % 3 ? light : bright);
+      }
+    } else if (texture === "earth") {
+      for (let i = 0; i < 3; i++) {
+        const px = 1 + Math.floor(noise(seed, ty, 191 + i) * 7);
+        const py = 3 + i * 4 + Math.floor(noise(seed, ty, 201 + i) * 2);
+        rect(x + px, y + py, 5 + i % 3, 1, i === 1 ? light : dark);
+      }
+    } else if (texture === "slate") {
+      rect(x + 1, y + 5 + Math.floor(variation * 4), 11, 1, dark);
+      rect(x + 4, y + 6 + Math.floor(variation * 4), 8, 1, light);
     }
     if (variation < 0.29 && material !== MATERIAL.sand) {
       const h = 3 + Math.floor(variation * 25);
@@ -1158,6 +1190,8 @@ export function createRenderer(canvas) {
     const column = tx - WEST_EXTENSION;
     const jungleCave = !wet && isDryJungleCave(column, ty);
     const underground = !wet && !jungleCave && ty >= ISLAND_DEEPSTONE_ROW;
+    const caveRock = !wet && !jungleCave && !underground
+      ? firstCaveRockVariant(tx, ty) : null;
     const undergroundBlend = !wet && !jungleCave ? undergroundRockBlendAt(tx, ty) : null;
     const masonry = underground && isDungeonMasonry(column, ty);
     const jungleMoss = jungleCave ? jungleMossProgress(ty) : 0;
@@ -1183,7 +1217,7 @@ export function createRenderer(canvas) {
               : jungleDeep
                 ? ["#243033", "#192225", "#344748"]
                 : ["#2d3337", "#23292e", "#3d4649"])
-            : groveWallColors.map((colors) => mixPair(colors, tint));
+            : (firstCaveWallPalettes[caveRock] ?? groveWallColors).map((colors) => mixPair(colors, tint));
     if (overview) {
       rect(x, y, TILE, TILE, base);
       return;
@@ -1259,6 +1293,20 @@ export function createRenderer(canvas) {
         const fleck = Math.floor(detail * 12);
         rect(tileX + fleck, tileY + 10, 5, 3, shadow, context);
         rect(tileX + fleck + 2, tileY + 9, 3, 1, grain, context);
+      }
+      if (caveRock === "gravel") {
+        for (let i = 0; i < 4; i++) {
+          const px = 2 + Math.floor(noise(tx, ty, 251 + i) * 10);
+          const py = 2 + Math.floor(noise(tx, ty, 261 + i) * 11);
+          rect(tileX + px, tileY + py + 1, 3, 2, shadow, context);
+          rect(tileX + px, tileY + py, 2, 1, grain, context);
+        }
+      } else if (caveRock === "earth") {
+        rect(tileX + 2, tileY + 3 + Math.floor(detail * 3), 10, 2, shadow, context);
+        rect(tileX + 5, tileY + 11, 7, 1, grain, context);
+      } else if (caveRock === "slate") {
+        rect(tileX + 1, tileY + 7, 12, 1, shadow, context);
+        rect(tileX + 6, tileY + 6, 8, 1, grain, context);
       }
     }
     if (exposedEdges) {

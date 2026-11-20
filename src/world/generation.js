@@ -133,6 +133,22 @@ function valueNoise(x, y, scale, seed) {
   return (n00 * (1 - u) + n10 * u) * (1 - v) + (n01 * (1 - u) + n11 * u) * v;
 }
 
+// Deterministic geological clusters in the first dry cave; visual-only stone variants.
+export function firstCaveRockVariant(tx, row) {
+  const column = tx - WEST_EXTENSION;
+  if (column < -51 || column > 177 || row < 30 || row >= ISLAND_DEEPSTONE_ROW - 30) return null;
+  if (!protectsIslandCave(column, row) &&
+      !isDryIslandCave(column, row) &&
+      !isDryIslandCave(column, row - 2) &&
+      !isDryIslandCave(column, row + 2)) return null;
+  const grain = valueNoise(column, row * 1.08, 8, 723) * 0.73 +
+    valueNoise(column, row * 1.08, 3, 731) * 0.27;
+  if (grain > 0.77) return 'earth';
+  if (grain < 0.31) return 'slate';
+  if (grain > 0.65) return 'gravel';
+  return 'stone';
+}
+
 export function caveField(tx, ty, seed = 61) {
   const x = tx - WEST_EXTENSION;
   return valueNoise(x, ty * 1.15, 13, seed + 17) * 0.64 + valueNoise(x, ty * 1.15, 6, seed + 29) * 0.36;
