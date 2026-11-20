@@ -55,7 +55,7 @@ import {
   createCaveLight,
   createSurfaceLight,
 } from "./world/lighting.js";
-import { atmosphereTint, createOutdoorExposure, hasBackgroundWall } from "./world/atmosphere.js";
+import { atmosphereTint, hasBackgroundWall } from "./world/atmosphere.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -282,10 +282,6 @@ export function createRenderer(canvas) {
   const glowCoral = makeGlowCoral();
   const caveLight = createCaveLight();
   const surfaceLight = createSurfaceLight();
-  const outdoorExposure = createOutdoorExposure();
-  const climateCanvas = canvas.ownerDocument.createElement("canvas");
-  const climateCtx = climateCanvas.getContext("2d");
-  let climatePixels;
   const lightCanvas = canvas.ownerDocument.createElement("canvas");
   const lightCtx = lightCanvas.getContext("2d");
   const tileCanvas = canvas.ownerDocument.createElement("canvas");
@@ -1443,7 +1439,7 @@ export function createRenderer(canvas) {
     return clamp((caveLight.at(tx, ty) - 0.1) / 0.45, 0, 1);
   }
 
-  function shadeCaves(world, player, { left, right, top, bottom }, overview) {
+  function shadeCaves(world, player, { left, right, top, bottom }, overview, darkness = 0) {
     const width = right - left;
     const height = bottom - top;
     if (
@@ -1464,7 +1460,7 @@ export function createRenderer(canvas) {
     for (let x = left; x < right; x++) {
       let alpha = (x - left) * 4 + 3;
       for (let y = top; y < bottom; y++, alpha += width * 4) {
-        const naturalLight = surfaceLight.at(x, y) * (hasBackgroundWall(x, y) ? .22 : 1);
+        const naturalLight = surfaceLight.at(x, y) * (hasBackgroundWall(x, y) ? .22 : 1) * (tileAt(world, x, y) ? 1 - clamp(darkness, 0, 1) * .68 : 1);
         const light = Math.max(naturalLight, caveLight.at(x, y));
         let ambient = 0;
         if (light < 1)
@@ -1489,38 +1485,22 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function shadeAtmosphere(bounds, conditions, camera, time) {
-    if (!climateCtx?.createImageData || !climateCtx?.putImageData) return;
-    const { left, right, top, bottom } = bounds;
-    const width = right - left;
-    const height = bottom - top;
-    if (!width || !height) return;
-    if (!climatePixels || climatePixels.width !== width || climatePixels.height !== height) {
-      climateCanvas.width = width;
-      climateCanvas.height = height;
-      climatePixels = climateCtx.createImageData(width, height);
-    }
-    const data = climatePixels.data;
-    const columnTints = [];
-    for (let x = left; x < right; x++)
-      columnTints.push(atmosphereTint(conditions, jungleMixAt((x + .5) * TILE), time));
-    let index = 0;
-    for (let y = top; y < bottom; y++) {
-      for (let x = left; x < right; x++) {
-        const exposure = outdoorExposure.at(x, y);
-        const tint = columnTints[x - left];
-        data[index] = tint.r;
-        data[index + 1] = tint.g;
-        data[index + 2] = tint.b;
-        // Never grade an area with a background wall; it has its own cave light.
-        data[index + 3] = Math.round(tint.alpha * exposure * 255);
-        index += 4;
-      }
-    }
-    climateCtx.putImageData(climatePixels, 0, 0);
+  function shadeAtmosphere(camera, conditions, time) {
+    // One full-height pass over every pixel, including sky, terrain, water,
+    // caves and their background tiles. Overlay preserves the base art.
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(climateCanvas, left * TILE - Math.round(camera.x), top * TILE - Math.round(camera.y), width * TILE, height * TILE);
+    ctx.globalCompositeOperation = "overlay";
+    const first = Math.floor(camera.x / TILE);
+    const last = Math.ceil((camera.x + camera.width) / TILE);
+    for (let tx = first; tx <= last; tx++) {
+      const tint = atmosphereTint(conditions, jungleMixAt((tx + .5) * TILE), time);
+      if (tint.alpha <= 0) continue;
+      const left = Math.round(tx * TILE - camera.x);
+      const right = Math.round((tx + 1) * TILE - camera.x);
+      ctx.globalAlpha = tint.alpha;
+      ctx.fillStyle = "rgb(" + tint.r + ", " + tint.g + ", " + tint.b + ")";
+      ctx.fillRect(left, 0, right - left, camera.height);
+    }
     ctx.restore();
   }
 
@@ -3161,7 +3141,6 @@ export function createRenderer(canvas) {
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
-    outdoorExposure.update(world, bounds);
     rect(-32, -32, camera.width + 64, camera.height + 64, "#101f33");
     ctx.save();
     ctx.translate(shake.x, shake.y);
@@ -3270,11 +3249,11 @@ export function createRenderer(canvas) {
     for (const bit of particles) {
       if (bit.bubbleRadius) breathBubble(bit);
     }
-    if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
+    if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview, conditions.darkness);
     ctx.restore();
 
-    shadeAtmosphere(bounds, conditions, camera, time);
     rain(world, camera, surface, time, conditions);
+    shadeAtmosphere(camera, conditions, time);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));

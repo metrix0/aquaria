@@ -2,6 +2,8 @@ import { clamp, noise } from './world/generation.js';
 
 const cycleSeconds = 20 * 60;
 const daySeconds = 12 * 60;
+// New games and Start Over begin halfway through the daylight period.
+export const START_WORLD_TIME = daySeconds / 2;
 const twilightSeconds = 60;
 const weatherWindow = 5 * 60;
 const rainChance = .75;

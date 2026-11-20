@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WEATHER_MODES, worldConditions } from '../src/environment.js';
+import { START_WORLD_TIME, WEATHER_MODES, worldConditions } from '../src/environment.js';
+import { createGame } from '../src/gameplay/simulation.js';
 import { noise } from '../src/world/generation.js';
 
 test('rain is less frequent and each storm keeps its seeded direction and angle', () => {
@@ -99,4 +100,16 @@ test('automatic atmospheres vary across days while remaining stable per world se
   }
   assert.ok(days.size >= 3);
   assert.ok(nights.size >= 4);
+});
+
+
+test('Start Over and a new game begin at midday while saved time remains intact', () => {
+  const fresh = createGame();
+  assert.equal(fresh.worldTime, START_WORLD_TIME);
+  const conditions = worldConditions(fresh.worldTime, fresh.weatherSeed);
+  assert.equal(conditions.night, false);
+  assert.equal(conditions.skyProgress, .5);
+  assert.equal(conditions.darkness, 0);
+  assert.equal(conditions.rain, 0);
+  assert.equal(createGame({ worldTime: 0, world: {} }).worldTime, 0);
 });

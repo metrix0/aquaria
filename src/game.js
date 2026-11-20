@@ -277,6 +277,8 @@ function restart() {
   if (!confirm(question)) return;
   save.clear();
   game = room ? resetRoomProgress(game) : createGame();
+  weatherModeIndex = 0;
+  ui.setWeather(WEATHER_MODES[0].label);
   switchView();
   game.dirty = true;
   storeProgress();

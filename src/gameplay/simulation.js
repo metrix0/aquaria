@@ -1,3 +1,4 @@
+import { START_WORLD_TIME } from '../environment.js';
 import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
@@ -52,7 +53,7 @@ export function createGame(snapshot) {
     elapsed: 0,
     rootWave: null,
     rootReadyAt: snapshot?.progress?.ringCooldown ?? 0,
-    worldTime: snapshot?.worldTime ?? 0,
+    worldTime: snapshot?.worldTime ?? START_WORLD_TIME,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
     enemies: { spawnIn: 14, hitCooldown: 0 },
     attack: null,
