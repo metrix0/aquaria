@@ -82,6 +82,7 @@
             <button id="weather-next" type="button" aria-label="Next weather">›</button>
           </div>
           <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
+          <button id="spawn" class="spawn" type="button" aria-haspopup="dialog" aria-controls="spawn-panel">Spawn</button>
           <button id="drops" class="drops" type="button" aria-haspopup="dialog" aria-controls="drops-panel">Drops</button>
           <div class="footer-stepper" role="group" aria-label="Camera zoom">
             <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
@@ -187,6 +188,15 @@
       <div class="items-grid" id="items-grid"></div>
       <p id="items-empty" hidden>No matching items.</p>
       <p id="items-status" role="status"></p>
+    </dialog>
+
+    <dialog id="spawn-panel" aria-labelledby="spawn-title">
+      <div class="dialog-head"><h2 id="spawn-title">Spawn enemies</h2><button type="button" data-close aria-label="Close spawn menu" autofocus>×</button></div>
+      <label class="spawn-search-label" for="spawn-search">Search enemies<input id="spawn-search" type="search" placeholder="Search by name" autocomplete="off"></label>
+      <p class="items-help">Select a creature to spawn it near your character.</p>
+      <div id="spawn-grid"></div>
+      <p id="spawn-empty" hidden>No matching creatures.</p>
+      <p id="spawn-status" role="status"></p>
     </dialog>
 
     <dialog id="drops-panel" aria-labelledby="drops-title">

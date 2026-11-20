@@ -4,6 +4,7 @@ import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
 import { wakeMimic } from './gameplay/enemies/mimic.js';
 import { targetMobAt } from './gameplay/mobs.js';
+import { spawnEnemyNear } from './gameplay/enemy-spawner.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
@@ -234,6 +235,7 @@ function switchView() {
   ui.close('backpack-panel');
   ui.close('craft-panel');
   ui.close('items-panel');
+  ui.close('spawn-panel');
   ui.close('drops-panel');
   craftingBench = undefined;
   input.clear();
@@ -333,6 +335,11 @@ const ui = createUI({
     game.dirty = true;
     storeProgress();
     if (game.dirty) ui.notify('Appearance updated for this session. The browser could not save it.');
+  },
+  spawnEnemy(kind) {
+    if (editPending) return 'Wait for the terrain edit to finish.';
+    const result = spawnEnemyNear(game.world, game.player, kind);
+    return result.error;
   },
   giveItem(id, amount) {
     if (editPending) return 'Wait for the terrain edit to finish.';

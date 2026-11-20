@@ -193,10 +193,10 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .controls { display: flex; gap: 15px; flex-wrap: wrap; color: #b8cbc1; font-size: 11px; }
 .controls span { white-space: nowrap; }
 .controls kbd, .footer-actions kbd, .interact kbd { display: inline-block; border: 1px solid #aac5be54; border-radius: 3px; background: #182e37; padding: 3px 5px; color: #dde7db; font: 10px var(--mono); }
-.craft, .backpack, .customize, .shadows, .god-mode, .deploy, .items, .drops { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
+.craft, .backpack, .customize, .shadows, .god-mode, .deploy, .items, .spawn, .drops { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
 .backpack, .customize { color: var(--mint); background: #152730; }
-.shadows, .god-mode, .deploy, .items, .drops { color: #cbdad0; background: #152730; }
+.shadows, .god-mode, .deploy, .items, .spawn, .drops { color: #cbdad0; background: #152730; }
 .flight-speed output { min-width: 9ch; color: var(--gold); }
 .weather-control output { min-width: 8ch; color: var(--gold); }
 .deploy:disabled { opacity: .55; cursor: wait; }
@@ -267,6 +267,15 @@ dialog p { font-size: 13px; color: var(--muted); }
 
 #items-panel { width: min(504px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: clamp(12px, 4vw, 20px); }
 #drops-panel { width: min(460px, calc(100% - 24px)); }
+#spawn-panel { width: min(500px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.spawn-search-label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
+#spawn-search { width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid #42606b; border-radius: 4px; background: #08171f; color: #eef3e7; font: inherit; }
+#spawn-grid { display: grid; gap: 12px; max-height: min(56dvh, 370px); overflow-y: auto; }
+.spawn-category h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.spawn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.spawn-grid button { min-height: 39px; padding: 7px 8px; border: 1px solid #42606b; border-radius: 4px; background: #132934; text-align: left; font-size: 12px; }
+.spawn-grid button:hover { background: #203943; }
+#spawn-status { min-height: 16px; margin: 10px 0 0; color: var(--mint); }
 #drops-content { min-height: 170px; }
 .items-filters { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
 .items-filters label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }

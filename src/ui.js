@@ -7,6 +7,7 @@ import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
+import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
@@ -22,6 +23,7 @@ export function createUI(actions, version) {
   const panels = [...document.querySelectorAll('dialog')];
   const craftingUI = createCraftingUi(byId('craft-panel'), actions);
   createItemsMenu(byId('items-panel'), actions.giveItem);
+  createSpawnMenu(byId('spawn-panel'), actions.spawnEnemy);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
     getInventory: actions.getInventory,
@@ -194,6 +196,7 @@ export function createUI(actions, version) {
   byId('customize').addEventListener('click', () => open('customize-panel'));
   byId('craft').addEventListener('click', () => open('craft-panel'));
   byId('items').addEventListener('click', () => open('items-panel'));
+  byId('spawn').addEventListener('click', () => open('spawn-panel'));
   byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));

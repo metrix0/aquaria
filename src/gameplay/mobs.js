@@ -229,6 +229,10 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
     if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
       stepKrakenDeath(world, mob, dt, effects);
+      if (mob.testSpawn && mob.deathTime === 0) {
+        world.mobs.splice(world.mobs.indexOf(mob), 1);
+        continue;
+      }
     }
     if (mob.respawn > 0) {
       mob.respawn = Math.max(0, mob.respawn - dt);
@@ -390,7 +394,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
   const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
   let effect;
   if (mob.health <= 0) {
-    if (mob.enemyType || mob.krakenMinion) {
+    if (mob.enemyType || mob.krakenMinion || (mob.testSpawn && mob.kind !== 'kraken')) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
     } else if (mob.kind !== 'ghost' || mob.resident) {
