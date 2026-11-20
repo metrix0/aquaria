@@ -4,10 +4,11 @@ import { drawPickaxe } from './pickaxe-art.js';
 
 function drawFrogCultist(rect, polygon, mob, time) {
   const praying = Boolean(mob.praying && !mob.cultAggro);
-  const biting = mob.dash > 0 || (mob.windup > 0 && mob.attackMode === 'bite');
+  const leaping = !praying && mob.grounded === false;
+  const crouching = !praying && !leaping && (mob.leapCooldown ?? 0) > 0 && Math.abs(mob.dx) < 2;
   const slashing = mob.clawSlash != null;
-  const moving = !praying && Math.abs(mob.dx) > 2;
-  const stride = moving ? Math.round(Math.sin(time * (mob.dash > 0 ? 22 : 12) + mob.phase) * 2.5) : 0;
+  const moving = !praying && !leaping && Math.abs(mob.dx) > 2;
+  const stride = moving ? Math.round(Math.sin(time * 12 + mob.phase) * 2.5) : 0;
   const chant = praying ? Math.sin(time * 3.4 + mob.phase) : 0;
 
   const dark = '#243a24';
@@ -19,15 +20,27 @@ function drawFrogCultist(rect, polygon, mob, time) {
   const claw = '#e2dcc4';
   const eye = praying ? '#a3bf67' : '#ffcf54';
 
-  const bodyDrop = praying ? 5 + Math.round(Math.max(0, chant)) : biting ? 3 : 0;
-  const lean = praying ? 3 : biting ? 5 : 0;
+  const bodyDrop = praying ? 5 + Math.round(Math.max(0, chant)) : crouching ? 3 : leaping ? -1 : 0;
+  const lean = praying ? 3 : leaping ? 4 : crouching ? 2 : 0;
 
-  // Webbed clawed feet / kneeling calves
+  // Webbed clawed feet / kneeling calves / leaping hind legs
   if (praying) {
     rect(-8, -5, 11, 5, dark);
     rect(-6, -6, 9, 4, skin);
     rect(1, -3, 7, 3, dark);
     rect(2, -2, 6, 2, ridge);
+  } else if (leaping) {
+    const kick = mob.dy < -20 ? 1 : -1;
+    polygon([[-6, -9], [-12, -3 + kick], [-15, 0 + kick], [-10, 0 + kick], [-4, -6]], dark);
+    polygon([[-4, -8], [-10, -2 + kick], [-12, -1 + kick], [-3, -5]], skin);
+    rect(-15, -1 + kick, 5, 2, claw);
+    rect(2, -8, 5, 4, skin);
+    rect(5, -6, 4, 2, ridge);
+  } else if (crouching) {
+    rect(-7, -5, 6, 5, dark);
+    rect(-1, -5, 6, 5, skin);
+    rect(-9, -2, 7, 2, ridge);
+    rect(1, -2, 7, 2, claw);
   } else {
     rect(-6 - stride, -7, 4, 6, dark);
     rect(2 + stride, -7, 4, 6, skin);
@@ -51,8 +64,8 @@ function drawFrogCultist(rect, polygon, mob, time) {
   const headY = -28 + bodyDrop;
   rect(headX - 2, headY + 2, 12, 9, dark);
   rect(headX - 1, headY + 1, 11, 8, skin);
-  // Swelling vocal sac while chanting or snarling
-  const sacExpand = praying ? Math.round((chant + 1) * 1.2) : biting ? 2 : 0;
+  // Swelling vocal sac while chanting or leaping
+  const sacExpand = praying ? Math.round((chant + 1) * 1.2) : leaping ? 1 : 0;
   rect(headX + 2, headY + 7, 6 + sacExpand, 3 + Math.min(2, sacExpand), belly);
 
   // Bulging frog eye bumps & amber eyes
@@ -62,18 +75,10 @@ function drawFrogCultist(rect, polygon, mob, time) {
   rect(headX + 7, headY - 1, 2, 2, eye);
   rect(headX + 3, headY - 1, 1, 2, '#141f14');
 
-  // Wide fanged gape (snarling or biting wide open)
-  if (biting) {
-    rect(headX + 4, headY + 3, 9, 6, '#5c1824');
-    rect(headX + 5, headY + 3, 2, 2, claw);
-    rect(headX + 9, headY + 3, 2, 2, claw);
-    rect(headX + 6, headY + 7, 2, 2, claw);
-    rect(headX + 10, headY + 7, 2, 2, claw);
-  } else {
-    rect(headX + 4, headY + 5, 7, 2, '#2a181d');
-    rect(headX + 6, headY + 5, 1, 1, claw);
-    rect(headX + 9, headY + 5, 1, 1, claw);
-  }
+  // Fanged frog mouth
+  rect(headX + 4, headY + 5, 7, 2, '#2a181d');
+  rect(headX + 6, headY + 5, 1, 1, claw);
+  rect(headX + 9, headY + 5, 1, 1, claw);
 
   // Clawed arms
   if (praying) {
@@ -149,9 +154,178 @@ function drawJungleWorm(ctx, rect, polygon, mob, time) {
   }
 }
 
+function drawCaveFrog(rect, polygon, mob, time) {
+  const airborne = mob.grounded === false;
+  const mouthOpen = mob.windup > 0 || Boolean(mob.tongue) || (mob.biteTimer ?? 0) > 0;
+  const dark = '#244535';
+  const skin = '#3f7352';
+  const ridge = '#68a169';
+  const belly = '#b1c799';
+  const mouth = '#7a2237';
+  const hopLift = airborne ? (mob.dy < -30 ? 3 : 1) : 0;
+
+  // Elastic pink tongue stretching from mouth to world tip (rendered unflipped relative to facing)
+  if (mob.tongue) {
+    const localMouthX = 7;
+    const localMouthY = -10;
+    const tipX = (mob.tongue.tipX - mob.x) * mob.facing;
+    const tipY = mob.tongue.tipY - mob.y;
+    const dx = tipX - localMouthX;
+    const dy = tipY - localMouthY;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * 1.8;
+    const ny = (dx / len) * 1.8;
+    polygon([
+      [localMouthX + nx, localMouthY + ny],
+      [tipX + nx * 0.7, tipY + ny * 0.7],
+      [tipX - nx * 0.7, tipY - ny * 0.7],
+      [localMouthX - nx, localMouthY - ny],
+    ], '#d9647d');
+    rect(tipX - 3, tipY - 3, 6, 6, '#f58ca3');
+  }
+
+  // Heavy muscular hind jumping legs
+  if (airborne) {
+    polygon([[-12, -4], [-5, -12], [0, -7], [-8, -1]], skin);
+    rect(-15, -3, 6, 2, ridge);
+  } else {
+    polygon([[-10, -10], [-3, -10], [-1, -2], [-9, -2]], dark);
+    polygon([[-9, -11], [-2, -11], [-3, -3], [-10, -3]], skin);
+    rect(-12, -2, 8, 2, ridge);
+  }
+
+  // Squat cave toad body & warty crest
+  rect(-7, -14 - hopLift, 14, 11, dark);
+  rect(-6, -15 - hopLift, 13, 10, skin);
+  rect(0, -10 - hopLift, 7, 5, belly);
+  rect(-5, -16 - hopLift, 7, 2, ridge);
+
+  // Forelegs
+  rect(4, -7 - hopLift, 3, 7 + hopLift, skin);
+  rect(5, -2, 5, 2, ridge);
+
+  // Broad hinged frog head & mouth
+  if (mouthOpen) {
+    // Open upper & lower jaw revealing crimson maw and fangs
+    rect(1, -18 - hopLift, 10, 6, skin);
+    rect(3, -13 - hopLift, 9, 5, mouth);
+    rect(2, -9 - hopLift, 10, 3, skin);
+    rect(4, -8 - hopLift, 7, 2, belly);
+    rect(9, -13 - hopLift, 2, 2, '#ede4cb');
+    rect(9, -10 - hopLift, 2, 1, '#ede4cb');
+    // Bulging golden eye
+    rect(3, -20 - hopLift, 4, 4, ridge);
+    rect(4, -19 - hopLift, 2, 2, '#ffcf54');
+  } else {
+    const throat = Math.round(Math.sin(time * 4 + (mob.phase ?? 0)) * 0.8);
+    rect(1, -16 - hopLift, 10, 8, skin);
+    rect(3, -10 - hopLift, 7, 3 + Math.max(0, throat), belly);
+    rect(4, -12 - hopLift, 7, 1, dark);
+    rect(3, -18 - hopLift, 4, 4, ridge);
+    rect(4, -17 - hopLift, 2, 2, '#f2b354');
+    rect(5, -17 - hopLift, 1, 2, '#1b1d14');
+  }
+}
+
+function drawMimic(ctx, rect, mob, time) {
+  const frame = '#332c30';
+  const iron = '#716f65';
+  const edge = '#b5aa87';
+
+  if (!mob.awakened) {
+    // Disguised mimic matches closed chest pixels identically.
+    rect(-9, -16, 18, 2, frame);
+    rect(-11, -14, 22, 7, frame);
+    rect(-9, -14, 18, 5, '#ac7649');
+    rect(-8, -14, 16, 2, '#d0a06a');
+    rect(-8, -10, 16, 1, '#81513d');
+    rect(-8, -14, 2, 5, iron);
+    rect(6, -14, 2, 5, iron);
+
+    rect(-11, -8, 22, 8, frame);
+    rect(-9, -7, 18, 6, '#935c3e');
+    rect(-9, -7, 18, 2, '#b27b4c');
+    rect(-9, -3, 18, 1, '#784532');
+    for (const band of [-8, 6]) {
+      rect(band, -7, 2, 6, iron);
+      rect(band, -6, 1, 1, edge);
+    }
+    rect(-2, -9, 4, 5, '#bc8b56');
+    rect(-1, -8, 2, 1, '#edd09a');
+    rect(0, -6, 1, 1, frame);
+    return;
+  }
+
+  const biting = (mob.biteTimer ?? 0) > 0;
+  const chomp = biting
+    ? Math.max(0.08, Math.sin((mob.biteTimer / 0.34) * Math.PI))
+    : mob.grounded === false
+      ? 0.88
+      : 0.34 + Math.max(0, Math.sin(time * 9 + mob.phase)) * 0.35;
+  const bob = mob.grounded ? Math.round(Math.sin(time * 14 + mob.phase) * 0.6) : 0;
+
+  // Lower chest jaw
+  rect(-11, -8 + bob, 22, 8 - bob, frame);
+  rect(-9, -7 + bob, 18, 6, '#935c3e');
+  rect(-9, -7 + bob, 18, 2, '#b27b4c');
+  rect(-9, -3 + bob, 18, 1, '#784532');
+  for (const band of [-8, 6]) {
+    rect(band, -7 + bob, 2, 6, iron);
+    rect(band, -6 + bob, 1, 1, edge);
+  }
+  rect(-2, -7 + bob, 4, 4, '#bc8b56');
+  rect(-1, -6 + bob, 2, 1, '#edd09a');
+
+  // Dark maw & lolling fleshy tongue
+  const mawLift = Math.round(chomp * 4);
+  rect(-8, -9 - mawLift + bob, 16, 4 + mawLift, '#2b0d14');
+  rect(-6, -8 - mawLift + bob, 12, 2 + mawLift, '#591a26');
+  const tongueLen = Math.round(chomp * 5);
+  if (tongueLen > 0) {
+    rect(1, -6 + bob, 6, 2, '#c95763');
+    rect(4, -5 + bob, tongueLen, 2, '#e8898e');
+  }
+
+  // Lower row of jagged fangs
+  for (const fx of [-7, -2, 3, 7]) {
+    rect(fx, -10 + bob, 2, 3, '#f2ebda');
+    rect(fx, -8 + bob, 1, 1, '#c7baa3');
+  }
+
+  // Hinged upper lid & predatory eyes
+  ctx.save();
+  ctx.translate(-9, -8 + bob);
+  ctx.rotate(-chomp * 0.62);
+  rect(0, -8, 18, 2, frame);
+  rect(-2, -6, 22, 7, frame);
+  rect(0, -6, 18, 5, '#ac7649');
+  rect(1, -6, 16, 2, '#d0a06a');
+  rect(1, -2, 16, 1, '#81513d');
+  rect(1, -6, 2, 5, iron);
+  rect(15, -6, 2, 5, iron);
+  // Glowing eyes under lid shadow
+  rect(11, -3, 3, 2, '#ffcf54');
+  rect(13, -3, 1, 2, '#ff6b4a');
+  // Upper row of fangs
+  for (const fx of [3, 8, 13, 17]) {
+    rect(fx, 0, 2, 3, '#f2ebda');
+  }
+  ctx.restore();
+}
+
 export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   if (mob.kind === 'worm') {
     drawJungleWorm(ctx, rect, polygon, mob, time);
+    return;
+  }
+  if (mob.kind === 'mimic') {
+    if (mob.awakened) ctx.scale(mob.facing, 1);
+    drawMimic(ctx, rect, mob, time);
+    return;
+  }
+  if (mob.kind === 'cave-frog') {
+    ctx.scale(mob.facing, 1);
+    drawCaveFrog(rect, polygon, mob, time);
     return;
   }
   if (mob.kind === 'frog') {

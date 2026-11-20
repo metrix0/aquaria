@@ -285,7 +285,7 @@ export const islandCaches = [
   ['island-grove-relics', 'Explorer’s satchel', ROOT_GROVE.riverWest - 1, groveFloor(ROOT_GROVE.riverWest - 1), 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
   ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
   ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
-  ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
+  ['underground-cache', 'Gatehouse cache', 48, 399, 'grappling-hook', 1, [{ id: 'iron', count: 3 }]],
   ['underground-vault', 'Underground vault', 122, 560, 'iron', 4],
 ];
 
@@ -363,6 +363,10 @@ export const islandMobs = [
   ['lower-hammer', 'hammer', 51, 520, 68],
   ['vault-hammer', 'hammer', 114, 560, 80],
   ['waterway-scorpion', 'scorpion', 51, 574, 58],
+  ['mimic-east-gallery', 'mimic', 115, 346, 60],
+  ['mimic-gatehouse', 'mimic', 89, 396, 60],
+  ['mimic-mid-hall', 'mimic', 98, 451, 60],
+  ['mimic-lower-hall', 'mimic', 36, 520, 60],
 ];
 
 const masonryRooms = [

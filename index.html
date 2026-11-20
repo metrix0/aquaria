@@ -13,14 +13,18 @@
   <main id="game">
     <canvas id="scene" aria-label="Aquaria side-scrolling game world"></canvas>
 
-    <section class="meters" aria-label="Diver status">
-      <div class="meter-heading"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></div>
-      <div class="meter-heading health-heading"><span>HEALTH</span><strong id="health-label">100%</strong></div>
-      <div class="health-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="health-fill"></div></div>
-      <div class="meter-heading air-heading"><span>OXYGEN</span><strong id="air-label">100%</strong></div>
-      <div class="air-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="air-fill"></div></div>
-      <div id="world-conditions" class="world-conditions">Day · Clear</div>
-    </section>
+    <aside class="hud-top-right" aria-label="Status HUD">
+      <section class="meters" aria-label="Diver status">
+        <div class="meter-heading"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></div>
+        <div class="meter-heading health-heading"><span>HEALTH</span><strong id="health-label">100%</strong></div>
+        <div class="health-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="health-fill"></div></div>
+        <div class="meter-heading air-heading"><span>OXYGEN</span><strong id="air-label">100%</strong></div>
+        <div class="air-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="air-fill"></div></div>
+        <div id="world-conditions" class="world-conditions">Day · Clear</div>
+      </section>
+      <div id="status-effects" class="status-effects" aria-label="Active status effects"></div>
+      <div id="status-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><em></em></div>
+    </aside>
 
     <div class="feedback" aria-live="polite" id="feedback" hidden></div>
     <div class="interact" id="interact" hidden><kbd>E</kbd><span></span></div>
@@ -38,6 +42,9 @@
           <button id="cast-ring" class="slot ring-skill" type="button" aria-label="Cast Root Ring" aria-keyshortcuts="F" hidden>
             <kbd aria-hidden="true">F</kbd><span class="item item-root-ring" aria-hidden="true"></span>
             <b aria-hidden="true"></b><i aria-hidden="true"></i>
+          </button>
+          <button id="use-hook" class="slot hook-skill" type="button" aria-label="Fire Grappling Hook" aria-keyshortcuts="E" hidden>
+            <kbd aria-hidden="true">E</kbd><span class="item item-grappling-hook" aria-hidden="true"></span>
           </button>
         </div>
       </section>
@@ -68,6 +75,11 @@
             <button id="flight-slower" type="button" aria-label="Decrease flight speed">−</button>
             <output id="flight-speed-value" aria-label="Flight speed multiplier">Speed 1×</output>
             <button id="flight-faster" type="button" aria-label="Increase flight speed">+</button>
+          </div>
+          <div id="weather-control" class="footer-stepper weather-control" role="group" aria-label="God mode weather" hidden>
+            <button id="weather-prev" type="button" aria-label="Previous weather">‹</button>
+            <output id="weather-value" aria-label="Weather mode">Auto</output>
+            <button id="weather-next" type="button" aria-label="Next weather">›</button>
           </div>
           <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
           <div class="footer-stepper" role="group" aria-label="Camera zoom">
@@ -135,7 +147,7 @@
               <li><span class="slot" aria-hidden="true"></span><span>Chest</span></li>
               <li><span class="slot" aria-hidden="true"></span><span>Legs</span></li>
               <li><span class="slot" aria-hidden="true"></span><span>Feet</span></li>
-              <li><span class="slot" aria-hidden="true"></span><span>Hands</span></li>
+              <li><button type="button" class="slot" id="backpack-hands-slot" data-group="hands" data-index="0"><span aria-hidden="true"></span><b aria-hidden="true"></b></button><span id="backpack-hands-label">Hands</span></li>
             </ul>
           </section>
         </div>

@@ -131,6 +131,9 @@ export function bindInput(canvas, camera, actions) {
   document.getElementById('cast-ring').addEventListener('click', () => {
     if (!actions.blocked()) actions.castRing();
   });
+  document.getElementById('use-hook')?.addEventListener('click', () => {
+    if (!actions.blocked()) actions.useHook?.();
+  });
   document.getElementById('touch-mode').addEventListener('click', (event) => {
     stopMining();
     placing = !placing;

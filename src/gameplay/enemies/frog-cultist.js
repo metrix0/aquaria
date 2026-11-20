@@ -5,15 +5,13 @@ import { clearPath, hurtPlayer, makeCaveEnemySpec, stepCaveEnemyBase } from './c
 
 export const FROG_PROXIMITY_RANGE = 112;
 export const CLAW_SLASH_DURATION = 0.22;
-const BITE_WINDUP_DURATION = 0.18;
-const BITE_DASH_DURATION = 0.18;
-const BITE_DASH_SPEED = 225;
 const FROG_ATTACK_COOLDOWN = 0.58;
-const BITE_DAMAGE = 20;
+const FROG_LEAP_SPEED = 142;
+const FROG_LEAP_DY = 182;
 const CLAW_DAMAGE = 16;
 
 export const frogCultistSpec = {
-  ...makeCaveEnemySpec('frog', 'frog cultist', 16, 26, 74, CLAW_DAMAGE, 82),
+  ...makeCaveEnemySpec('frog', 'frog cultist', 16, 26, 68, CLAW_DAMAGE, 34),
   color: '#6e9a54',
 };
 
@@ -26,7 +24,7 @@ export function aggroJungleCult(world) {
   if (!world) return;
   world.jungleCultAggro = true;
   for (const mob of world.mobs ?? []) {
-    if (mob.kind !== 'frog' || mob.health <= 0 || mob.respawn > 0) continue;
+    if (mob.kind !== 'frog' || mob.dayKind || mob.health <= 0 || mob.respawn > 0) continue;
     mob.cultAggro = true;
     mob.praying = false;
     mob.attackTimer = Math.min(mob.attackTimer ?? 0, 0.18);
@@ -34,34 +32,41 @@ export function aggroJungleCult(world) {
 }
 
 export function stepFrogCultist(world, player, mob, dt, effects) {
+  const transformedCannibal = Boolean(mob.dayKind);
   if (mob.praying == null) {
-    mob.praying = !world.jungleCultAggro;
-    mob.facing = idolFacing(mob.x);
-    mob.attackMode = 'claw';
+    mob.praying = !transformedCannibal && !world.jungleCultAggro;
+    mob.cultAggro = transformedCannibal || Boolean(world.jungleCultAggro);
+    mob.facing = transformedCannibal ? (mob.facing ?? 1) : idolFacing(mob.x);
     mob.clawSlash = null;
     mob.clawHit = false;
-    mob.biteHit = false;
+    mob.leapCooldown = 0;
   }
 
-  const playerCenterY = player.y + player.height / 2;
-  const distToPlayer = Math.hypot(player.x - mob.x, playerCenterY - (mob.y + frogCultistSpec.centerY));
+  mob.leapCooldown = Math.max(0, (mob.leapCooldown ?? 0) - dt);
+  if (!transformedCannibal) {
+    const playerCenterY = player.y + player.height / 2;
+    const distToPlayer = Math.hypot(player.x - mob.x, playerCenterY - (mob.y + frogCultistSpec.centerY));
 
-  if (!world.jungleCultAggro && (
-    mob.hurt > 0 ||
-    mob.health < frogCultistSpec.maxHealth ||
-    (!player.flightOrigin && distToPlayer <= FROG_PROXIMITY_RANGE &&
-      clearPath(world, mob.x, mob.y + frogCultistSpec.centerY, player.x, playerCenterY))
-  )) {
-    aggroJungleCult(world);
+    if (!world.jungleCultAggro && (
+      mob.hurt > 0 ||
+      mob.health < frogCultistSpec.maxHealth ||
+      (!player.flightOrigin && distToPlayer <= FROG_PROXIMITY_RANGE &&
+        clearPath(world, mob.x, mob.y + frogCultistSpec.centerY, player.x, playerCenterY))
+    )) {
+      aggroJungleCult(world);
+    }
+    if (world.jungleCultAggro) {
+      mob.cultAggro = true;
+      mob.praying = false;
+    }
+  } else {
+    mob.cultAggro = true;
+    mob.praying = false;
   }
   if (mob.flee > 0) {
     mob.clawSlash = null;
     mob.clawHit = false;
-    mob.biteHit = false;
-  }
-  if (world.jungleCultAggro) {
-    mob.cultAggro = true;
-    mob.praying = false;
+    mob.leapCooldown = 0;
   }
 
   if (!mob.cultAggro) {
@@ -79,13 +84,13 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
     return;
   }
 
+  const leashRange = transformedCannibal ? 280 : 640;
   stepCaveEnemyBase(world, player, mob, frogCultistSpec, dt, effects, {
-    sightRange: 720,
-    leashRange: 640,
+    sightRange: transformedCannibal ? 230 : 720,
+    leashRange,
     chaseDistance: 16,
-    windupDuration: 0.16,
-    attackCooldown: FROG_ATTACK_COOLDOWN,
-    stepActive({ active, distance, deltaX, deltaY }) {
+    jumpSpeed: 210,
+    stepActive({ active, distance, deltaX }) {
       if (mob.clawSlash != null) {
         mob.clawSlash += dt;
         const phase = Math.min(1, mob.clawSlash / CLAW_SLASH_DURATION);
@@ -104,43 +109,28 @@ export function stepFrogCultist(world, player, mob, dt, effects) {
         return phase >= 0.18 && phase <= 0.56 ? mob.facing * 56 : 0;
       }
 
-      if (mob.dash > 0) {
-        mob.dash = Math.max(0, mob.dash - dt);
-        if (active && !mob.biteHit && Math.abs(deltaX) <= frogCultistSpec.radius + 9 && Math.abs(deltaY) < 18) {
-          mob.biteHit = true;
-          hurtPlayer(player, BITE_DAMAGE, mob.facing, 'Bitten by a frog cultist!', '#93c85e', effects);
-        }
-        if (mob.dash === 0) mob.biteHit = false;
-        return mob.facing * BITE_DASH_SPEED;
+      if (!active || (distance <= frogCultistSpec.reach && mob.attackTimer === 0)) {
+        return undefined;
       }
 
-      if (mob.windup > 0 && active && distance > 38 && mob.attackMode === 'claw') {
-        mob.attackMode = 'bite';
+      mob.facing = deltaX >= 0 ? 1 : -1;
+      if (!mob.grounded) {
+        return distance > 14 ? mob.facing * FROG_LEAP_SPEED : 0;
+      }
+      if (distance > 32 && Math.abs(mob.x - mob.homeX) < leashRange) {
+        if (mob.leapCooldown > 0) return 0;
+        mob.dy = -FROG_LEAP_DY;
+        mob.grounded = false;
+        mob.leapCooldown = 0.24 + (mob.phase % 0.12);
+        mob.jumpCooldown = 0.45;
+        return mob.facing * FROG_LEAP_SPEED;
       }
       return undefined;
     },
-    startAttack({ distance }) {
-      if (distance > 34 || mob.attackMode === 'bite') {
-        mob.attackMode = 'bite';
-        mob.windup = BITE_WINDUP_DURATION;
-        mob.biteHit = false;
-      } else {
-        mob.attackMode = 'claw';
-        mob.clawSlash = 0;
-        mob.clawHit = false;
-        mob.attackTimer = FROG_ATTACK_COOLDOWN;
-      }
-    },
-    onWindupComplete({ active }) {
-      if (mob.attackMode === 'bite') {
-        mob.dash = BITE_DASH_DURATION;
-        mob.biteHit = false;
-        mob.attackMode = 'claw';
-        mob.attackTimer = FROG_ATTACK_COOLDOWN + 0.04;
-      } else if (active) {
-        mob.clawSlash = 0;
-        mob.clawHit = false;
-      }
+    startAttack() {
+      mob.clawSlash = 0;
+      mob.clawHit = false;
+      mob.attackTimer = FROG_ATTACK_COOLDOWN;
     },
   });
 }

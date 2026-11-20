@@ -33,8 +33,10 @@ export const MOB_HEALTH = Object.freeze({
   shark: 7,
   kraken: 80,
   ghost: 5,
-  spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9,
+  spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9, mimic: 8,
   'cannibal-spear': 5, 'cannibal-bow': 4,
+  shaman: 5,
+  'cave-frog': 7,
   frog: 7,
   worm: 9,
 });
@@ -703,7 +705,7 @@ export function generateMobs() {
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor <= ISLAND_DEEPSTONE_ROW ? Math.round(15 + 28 * clamp((WATER_ROW + 40 - floor) / (WATER_ROW + 40 - ISLAND_CAVE.campFloor), 0, 1)) : respawnDelay, phase: index * .7,
     })),
     ...jungleMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
-      id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .9,
+      id, kind, dayKind: kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .9,
     })),
     ...jungleCaveMobs.map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay, phase: index * .7,
@@ -726,8 +728,9 @@ export function generateMobs() {
       homeY: y,
       dx: 0,
       dy: 0,
-      facing: mob.kind === 'kraken' ? -1 : mob.kind === 'frog' ? (x <= (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE ? 1 : -1) : index % 2 ? -1 : 1,
-      grounded: mob.kind === 'crab',
+      facing: mob.kind === 'kraken' ? -1 : mob.kind === 'mimic' ? 1 : mob.kind === 'frog' ? (x <= (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE ? 1 : -1) : index % 2 ? -1 : 1,
+      grounded: mob.kind === 'crab' || mob.kind === 'mimic',
+      awakened: false,
       flee: 0,
       cooldown: 0,
       maxHealth,

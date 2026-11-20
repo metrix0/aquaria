@@ -1,10 +1,11 @@
 import { stepRootWave } from './root-ring.js';
+import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
-import { Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, takeDamage, updateOxygen } from './player.js';
+import { GRAPPLING_HOOK, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, takeDamage, updateOxygen } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
@@ -37,7 +38,11 @@ export function createGame(snapshot) {
   const game = {
     world: createWorld(),
     inventory: new Inventory(snapshot?.inventory),
-    progress: { snorkel: snapshot?.progress?.snorkel ?? null, ring: snapshot?.progress?.ring ?? null },
+    progress: {
+      snorkel: snapshot?.progress?.snorkel ?? null,
+      ring: snapshot?.progress?.ring ?? null,
+      hands: snapshot?.progress?.hands ?? null,
+    },
     dirty: false,
     elapsed: 0,
     rootWave: null,
@@ -102,7 +107,7 @@ export function resetRoomProgress(previous) {
     world,
     inventory: new Inventory(),
     chests: restoreChests(world),
-    progress: { snorkel: null },
+    progress: { snorkel: null, ring: null, hands: null },
     player,
     dirty: true,
     elapsed: 0,
@@ -262,6 +267,7 @@ function stepDroppedChests(game, dt) {
 
 export function stepGame(game, input, dt) {
   const { player, world } = game;
+  if (player.hook && !hasHook(game)) player.hook = null;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
   const fallDamage = movePlayer(world, player, input, dt);
@@ -280,6 +286,8 @@ export function stepGame(game, input, dt) {
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
     damageMob(world, mob, 4, mob.x >= x ? 0 : Math.PI, 65, game.effects);
   });
+  stepBleed(player, dt, game.effects);
+  const fatalBleed = (player.bleed ?? 0) > 0 && player.health === 0;
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
     takeDamage(player, hit.healthLoss ?? 10);
@@ -292,7 +300,11 @@ export function stepGame(game, input, dt) {
     game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
-    return fatalFall ? 'Fatal fall. You woke up back on the island.' : 'You washed back up on the island.';
+    return fatalFall
+      ? 'Fatal fall. You woke up back on the island.'
+      : fatalBleed
+        ? 'You bled out. You woke up back on the island.'
+        : 'You washed back up on the island.';
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
@@ -335,15 +347,22 @@ function itemDistance(player, item) {
 }
 
 export function chestAt(game, x, y) {
-  return game.world.items.find((item) => item.kind === 'chest' &&
+  const realChest = game.world.items.find((item) => item.kind === 'chest' &&
     Math.abs(x - item.x) < 12 && y >= item.y - 11 && y < item.y + 8 &&
     itemDistance(game.player, item) < INTERACTION_RANGE);
+  if (realChest) return realChest;
+  const mimic = game.world.mobs?.find((mob) => mob.kind === 'mimic' && !mob.awakened &&
+    mob.health > 0 && !(mob.respawn > 0) &&
+    Math.abs(x - mob.x) < 12 && y >= (mob.y - 8) - 11 && y < (mob.y - 8) + 8 &&
+    itemDistance(game.player, { x: mob.x, y: mob.y - 8 }) < INTERACTION_RANGE);
+  return mimic && { id: mimic.id, kind: 'mimic', name: 'Chest', mob: mimic, x: mimic.x, y: mimic.y - 8 };
 }
 
 const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
   ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
+  hands: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK }, get: equippedHook, set: (game, id) => { game.progress.hands = id; } },
 };
 
 export function moveInventoryStack(game, chestId, from, to) {
@@ -429,6 +448,15 @@ export function nearestItem(game) {
       result = item;
     }
   }
+  for (const mob of world.mobs ?? []) {
+    if (mob.kind !== 'mimic' || mob.awakened || mob.health <= 0 || mob.respawn > 0) continue;
+    const mimicItem = { id: mob.id, kind: 'mimic', name: 'Chest', mob, x: mob.x, y: mob.y - 8 };
+    const difference = itemDistance(player, mimicItem);
+    if (difference < distance) {
+      distance = difference;
+      result = mimicItem;
+    }
+  }
   const row = player.y + Math.ceil(player.height / 2);
   const left = Math.floor((player.x - distance) / TILE);
   const right = Math.floor((player.x + distance) / TILE);
@@ -507,6 +535,9 @@ export function grantItem(game, id, count) {
   if (!Number.isSafeInteger(count) || count < 1) return false;
   if (Object.hasOwn(ARMOR, id)) {
     game.player.armor = id;
+  } else if (id === GRAPPLING_HOOK.id && !game.progress.hands) {
+    game.progress.hands = GRAPPLING_HOOK.id;
+    if (count > 1 && !game.inventory.add(id, count - 1, { preferHotbar: true })) return false;
   } else if (!game.inventory.add(id, count, { preferHotbar: true })) return false;
   game.dirty = true;
   return true;

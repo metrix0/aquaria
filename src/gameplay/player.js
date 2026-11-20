@@ -1,4 +1,5 @@
 import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
+import { stepGrapplingHook } from './hook.js';
 import { mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
@@ -17,11 +18,87 @@ const flightSpeed = 240;
 export const PLAYER_SIZE = { width: 12, height: 23 };
 export const CRAWL_HEIGHT = TILE;
 export const MAX_HEALTH = 100;
+export const CONFUSED_GRACE_DURATION = 1;
+
+export function playerImmobilized(player) {
+  return (player.stun ?? 0) > 0 || ((player.confused ?? 0) > 0 && player.confusedStyle === 'stars');
+}
+
+/**
+ * Applies confusion unless the player is within post-confusion invincibility frames.
+ */
+export function applyConfusion(player, duration, style = null) {
+  if ((player.confusedGrace ?? 0) > 0) return false;
+  player.confused = Math.max(player.confused ?? 0, duration);
+  if (style) player.confusedStyle = style;
+  return true;
+}
+
+/**
+ * Returns active timed status effects on the player for HUD display.
+ */
+export function playerStatusEffects(player) {
+  if (!player || player.flightOrigin) return [];
+  const effects = [];
+  if ((player.bleed ?? 0) > 0) {
+    effects.push({
+      id: 'bleeding',
+      title: 'Bleeding',
+      seconds: Math.ceil(player.bleed),
+      detail: 'Losing health over time.',
+    });
+  }
+  if ((player.stun ?? 0) > 0) {
+    effects.push({
+      id: 'shock',
+      title: 'Shocked',
+      seconds: Math.ceil(player.stun),
+      detail: 'Paralyzed by electric lightning and unable to move.',
+    });
+  }
+  if ((player.confused ?? 0) > 0) {
+    if (player.confusedStyle === 'stars') {
+      effects.push({
+        id: 'confusion',
+        title: 'Confusion',
+        seconds: Math.ceil(player.confused),
+        detail: 'Dazed by spinning stars and unable to move.',
+      });
+    } else {
+      effects.push({
+        id: 'cursed',
+        title: 'Cursed',
+        seconds: Math.ceil(player.confused),
+        detail: 'Controls are inverted by the shaman’s curse.',
+      });
+    }
+  }
+  if ((player.confusedGrace ?? 0) > 0) {
+    effects.push({
+      id: 'confused-grace',
+      title: 'Steadied',
+      seconds: Math.ceil(player.confusedGrace),
+      detail: 'Immune to being confused again.',
+    });
+  }
+  if (player.inkSplats?.length) {
+    const remaining = Math.max(0, ...player.inkSplats.map((splat) => splat.time ?? 0));
+    if (remaining > 0) {
+      effects.push({
+        id: 'inked',
+        title: 'Inked',
+        seconds: Math.ceil(remaining),
+        detail: 'Squid ink clouds your vision.',
+      });
+    }
+  }
+  return effects;
+}
 
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage) {
@@ -114,12 +191,18 @@ export function toggleGodMode(world, player) {
   player.canShortenJump = false;
   player.waterJump = false;
   player.climb = null;
+  player.hook = null;
   if (!flightOrigin) {
     player.flightOrigin = { x, y, height };
     player.y = Math.max(0, y + height - PLAYER_SIZE.height);
     player.height = PLAYER_SIZE.height;
     player.hurt = 0;
     player.stun = 0;
+    player.confused = 0;
+    player.confusedStyle = null;
+    player.confusedGrace = 0;
+    player.bleed = 0;
+    player.bleedTick = 0;
     player.inkCooldown = 0;
     player.inkSplats = [];
     return true;
@@ -170,6 +253,13 @@ export function movePlayer(world, player, input, dt) {
   let { left, right, up, down, jump } = input;
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   player.stun = Math.max(0, (player.stun ?? 0) - dt);
+  const wasConfused = (player.confused ?? 0) > 0;
+  player.confused = Math.max(0, (player.confused ?? 0) - dt);
+  player.confusedGrace = Math.max(0, (player.confusedGrace ?? 0) - dt);
+  if (wasConfused && player.confused === 0) {
+    player.confusedStyle = null;
+    player.confusedGrace = CONFUSED_GRACE_DURATION;
+  }
   player.inkCooldown = Math.max(0, (player.inkCooldown ?? 0) - dt);
   if (player.inkSplats?.length) {
     for (let i = player.inkSplats.length - 1; i >= 0; i--) {
@@ -177,14 +267,24 @@ export function movePlayer(world, player, input, dt) {
       if (player.inkSplats[i].time <= 0) player.inkSplats.splice(i, 1);
     }
   }
-  if (player.stun > 0) {
+  if (playerImmobilized(player)) {
     left = false;
     right = false;
     up = false;
     down = false;
     jump = false;
+  } else if (player.confused > 0) {
+    [left, right] = [right, left];
+    const nextDown = Boolean(jump || up);
+    const nextJump = Boolean(down);
+    down = nextDown;
+    jump = nextJump;
+    up = nextJump;
   }
-  const canClimb = !left && !right && player.stun <= 0 && (up || down || player.climb);
+  const hookState = stepGrapplingHook(world, player, { left, right, up, down, jump }, dt, { moveAxis, jumpSpeed });
+  if (hookState === 'latched') return;
+  if (hookState === 'jumped') player.waterJump = playerInWater(world, player);
+  const canClimb = hookState !== 'jumped' && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
   const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
     const hand = player.y + 8;
     return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
@@ -307,21 +407,47 @@ export function movePlayer(world, player, input, dt) {
   }
 }
 
+export function stepBleed(player, dt, effects) {
+  if (player.flightOrigin || !(player.bleed > 0)) {
+    if (player.bleed) player.bleed = 0;
+    player.bleedTick = 0;
+    return 0;
+  }
+  player.bleed = Math.max(0, player.bleed - dt);
+  player.bleedTick = (player.bleedTick ?? 1) - dt;
+  let lost = 0;
+  while (player.bleedTick <= 0 && player.bleed > 0 && player.health > 0) {
+    player.bleedTick += 1;
+    player.health = Math.max(0, player.health - 1);
+    lost += 1;
+    effects?.push({
+      x: player.x + (Math.random() - 0.5) * 8,
+      y: player.y + 8 + Math.random() * 10,
+      color: '#c4313d',
+      count: 4,
+      spread: 36,
+    });
+  }
+  if (player.bleed === 0) player.bleedTick = 0;
+  return lost;
+}
+
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
   if (player.flightOrigin) return false;
   const headInWater = playerHeadInWater(world, player);
   const atVent = headInWater && world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
+  const canRegen = player.hurt <= 0 && !(player.bleed > 0);
   if (atVent) {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
-    if (player.hurt <= 0) player.health = Math.min(MAX_HEALTH, player.health + 6 * dt);
+    if (canRegen) player.health = Math.min(MAX_HEALTH, player.health + 6 * dt);
   } else if (headInWater) {
     player.oxygen = Math.max(0, player.oxygen - dt);
-    if (player.hurt <= 0 && outOfCombat && player.oxygen > 0) {
+    if (canRegen && outOfCombat && player.oxygen > 0) {
       player.health = Math.min(MAX_HEALTH, player.health + 1.5 * dt);
     }
   } else {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 14 * dt);
-    if (player.hurt <= 0) player.health = Math.min(MAX_HEALTH, player.health + 8 * dt);
+    if (canRegen) player.health = Math.min(MAX_HEALTH, player.health + 8 * dt);
   }
   return player.oxygen === 0 || player.health === 0;
 }

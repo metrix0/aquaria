@@ -1,5 +1,5 @@
 import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING } from './content.js';
-import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 
 function createSlots(container, group, size) {
@@ -65,11 +65,12 @@ function itemStats(id, item) {
     return item.miningTime ? tier + ' · ' + Math.round((1 - item.miningTime) * 100) + '% less mining time' : tier;
   }
   if (id === ROOT_RING.id) return `F · Lift and bind a foe · ${ROOT_RING.cooldown}s recharge`;
+  if (id === GRAPPLING_HOOK.id) return 'E · Fire hook toward cursor · Space to jump off';
   if (id === 'explorers-map') return 'Opens while held';
   return '';
 }
 
-export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, getRing, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
+export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, getFeet, getRing, getHands, onMove, onSelect, canMove, moveInventoryStack, collectChest }) {
   const hudSlots = createSlots(document.getElementById('hotbar-slots'), 'hotbar', HOTBAR_SIZE);
   const panelHotbar = createSlots(panel.querySelector('#backpack-hotbar'), 'hotbar', HOTBAR_SIZE);
   const backpackSlots = createSlots(panel.querySelector('#backpack-slots'), 'backpack', BACKPACK_SIZE);
@@ -77,12 +78,14 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   const headSlot = panel.querySelector('#backpack-head-slot');
   const feetSlot = panel.querySelector('#backpack-feet-slot');
   const ringSlot = panel.querySelector('#backpack-ring-slot');
+  const handsSlot = panel.querySelector('#backpack-hands-slot');
   const equipSlots = {
     head: { slot: headSlot, label: panel.querySelector('#backpack-head-label'), fallback: 'Head', get: getSnorkel },
     feet: { slot: feetSlot, label: panel.querySelector('#backpack-feet-label'), fallback: 'Feet', get: getFeet },
     ring: { slot: ringSlot, label: panel.querySelector('#backpack-ring-label'), fallback: 'Ring', get: getRing },
+    hands: { slot: handsSlot, label: panel.querySelector('#backpack-hands-label'), fallback: 'Hands', get: getHands },
   };
-  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot], ring: [ringSlot] };
+  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot], ring: [ringSlot], hands: [handsSlot] };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
   const collectAll = panel.querySelector('#chest-collect-all');
@@ -276,6 +279,8 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     else if (group === 'feet' && event.code === 'ArrowUp') headSlot.focus();
     else if (group === 'feet' && event.code === 'ArrowDown') ringSlot.focus();
     else if (group === 'ring' && event.code === 'ArrowUp') feetSlot.focus();
+    else if (group === 'ring' && event.code === 'ArrowDown') handsSlot.focus();
+    else if (group === 'hands' && event.code === 'ArrowUp') ringSlot.focus();
     else if (group === 'hotbar' && index === HOTBAR_SIZE - 1 && event.code === 'ArrowRight') headSlot.focus();
     else if (group === 'backpack' && index % columns === columns - 1 && event.code === 'ArrowRight') (index >= 12 ? feetSlot : headSlot).focus();
     else if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
@@ -315,7 +320,9 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       for (const { slot, label, fallback, get } of Object.values(equipSlots)) {
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
-        label.textContent = fallback === 'Ring' && equipped ? 'Root ring [F]' : (equipped?.name ?? fallback);
+        label.textContent = fallback === 'Ring' && equipped ? 'Root ring [F]'
+          : fallback === 'Hands' && equipped ? 'Grappling hook [E]'
+          : (equipped?.name ?? fallback);
       }
       if (chestId) {
         const slots = getChest(chestId);

@@ -2,7 +2,7 @@ import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
 import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleWallGlyphs, jungleStructureBounds } from "./jungle-cave-art.js";
-import { drawCannibal, drawJungleVillageStructure } from "./jungle-village-art.js";
+import { drawCannibal, drawJungleVillageStructure, drawNativeShaman } from "./jungle-village-art.js";
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from "./world/jungle-cave.js";
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
@@ -1213,8 +1213,9 @@ export function createRenderer(canvas) {
       ctx.drawImage(tileCanvas, x, y);
     }
 
-    if (jungleScripture > 0 && !masonry && !exposedEdges && noise(tx, ty, 313) < 0.08 + jungleScripture * 0.54) {
-      drawJungleWallGlyphs(rect, x, y, tx, ty, jungleScripture, overview ? 0 : time);
+    if (jungleCave && ty >= JUNGLE_CAVE.scriptureStartRow && !masonry && !exposedEdges &&
+        noise(Math.floor(tx / 2), ty, 313) < 0.11 && noise(tx, ty, 319) < 0.72) {
+      drawJungleWallGlyphs(rect, x, y, tx, ty, 0.36 + jungleScripture * 0.34, overview ? 0 : time);
     }
 
     if (!masonry && detail > 0.69 && tileAt(world, tx, ty - 1)) {
@@ -1808,6 +1809,22 @@ export function createRenderer(canvas) {
             "#c2a5a2",
           );
         }
+      } else if (trap.kind === "false-ground") {
+        const leftX = trap.tx * TILE;
+        const topY = trap.ty * TILE;
+        const shaking = trap.state === "cracking";
+        rect(leftX + 2, topY + 2, 5, shaking ? 2 : 1, shaking ? "#1a2024" : "#283136");
+        rect(leftX + 9, topY + 6, 5, shaking ? 2 : 1, shaking ? "#1a2024" : "#283136");
+        rect(leftX + 4, topY + 11, 8, shaking ? 2 : 1, "#1e2529");
+        if (shaking) rect(leftX + 6, topY, 3, 14, "#67767d");
+      } else if (trap.kind === "spike") {
+        rect(x - 7, y - 2, 14, 2, "#2f383b");
+        const rise = trap.state === "extended" ? 15 : trap.state === "springing" ? 6 : 2;
+        for (const offset of [-4, 0, 4]) {
+          const tip = offset === 0 ? rise : Math.max(2, rise - 2);
+          polygon([[x + offset - 2, y - 1], [x + offset, y - tip], [x + offset + 2, y - 1]], "#6f7b7e");
+          polygon([[x + offset, y - 1], [x + offset, y - tip], [x + offset + 1, y - 1]], "#cfd6d0");
+        }
       } else {
         const color = trap.state === "springing" ? "#ed9e6d" : "#9c8b8b";
         rect(x - 10, y - 3, 20, 3, "#514252");
@@ -1836,12 +1853,44 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function drawHook(hook, player) {
+    if (!hook) return;
+    const ox = Math.round(player.x);
+    const oy = Math.round(player.y + player.height * 0.5);
+    const hx = Math.round(hook.x);
+    const hy = Math.round(hook.y);
+    const dx = hx - ox;
+    const dy = hy - oy;
+    const dist = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx) || hook.angle || 0;
+    const step = 4;
+    const count = Math.floor(dist / step);
+    for (let i = 1; i < count; i++) {
+      const t = i / Math.max(1, count);
+      const lx = Math.round(ox + dx * t);
+      const ly = Math.round(oy + dy * t);
+      rect(lx - 1, ly - 1, 2, 2, i % 2 ? '#23313d' : '#8da3a8');
+      if (i % 2 === 0) rect(lx - 1, ly - 1, 1, 1, '#dce5dc');
+    }
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(angle);
+    rect(-4, -1, 7, 2, '#374a57');
+    rect(-3, -1, 5, 1, '#9fb3b8');
+    rect(-1, -4, 3, 2, '#69808a');
+    rect(1, -5, 3, 2, '#dce5dc');
+    rect(-1, 2, 3, 2, '#69808a');
+    rect(1, 3, 3, 2, '#dce5dc');
+    rect(2, -1, 4, 2, '#dce5dc');
+    ctx.restore();
+  }
+
   function mobs(world, camera, time, targetMob, player, reducedMotion) {
     for (const mob of world.mobs ?? []) {
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
-      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" ? 150 : 32;
-      const marginY = mob.kind === "kraken" ? 2000 : mob.kind === "worm" ? 150 : 32;
+      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
+      const marginY = mob.kind === "kraken" ? 2000 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)
         continue;
@@ -1953,6 +2002,8 @@ export function createRenderer(canvas) {
         ctx.restore();
       } else if (mob.kind === "cannibal-spear" || mob.kind === "cannibal-bow") {
         drawCannibal(ctx, rect, polygon, mob, time);
+      } else if (mob.kind === "shaman") {
+        drawNativeShaman(ctx, rect, polygon, mob, time);
       } else if (mob.kind !== "kraken" && mob.respawnDelay) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
@@ -2529,6 +2580,7 @@ export function createRenderer(canvas) {
       if (roots) drawRootBind(polygon, roots, true);
       if (
         !dyingKraken &&
+        !(mob.kind === "mimic" && !mob.awakened) &&
         mob.maxHealth &&
         (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)
       ) {
@@ -2544,7 +2596,9 @@ export function createRenderer(canvas) {
           : mob.respawnDelay
             ? mob.kind === "spider"
               ? -15
-              : -31
+              : mob.kind === "cave-frog" || mob.kind === "mimic"
+                ? -24
+                : -31
             : mob.kind === "crab"
               ? -13
               : mob.kind === "jellyfish"
@@ -2576,7 +2630,7 @@ export function createRenderer(canvas) {
     }
   }
 
-  function projectiles(world, camera) {
+  function projectiles(world, camera, time) {
     arrows(
       world.projectiles.filter((entry) => entry.kind === "cave-arrow"),
       camera,
@@ -2587,6 +2641,32 @@ export function createRenderer(canvas) {
         continue;
       if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16)
         continue;
+      if (bubble.kind === "shaman-skull") {
+        const x = Math.round(bubble.x);
+        const y = Math.round(bubble.y);
+        const chomp = Math.round(Math.abs(Math.sin(time * 24 + x * 0.1)) * 3);
+        const flicker = Math.round(Math.sin(time * 18 + y * 0.2) * 1.5);
+        ctx.save();
+        // Green mystical flame aura & flickering wisps around the skull
+        rect(x - 8, y - 9 - Math.max(0, flicker), 16, 17 + Math.max(0, flicker), "#39b86440");
+        polygon([[x - 6, y - 4], [x - 2, y - 12 - Math.abs(flicker)], [x + 2, y - 11], [x + 6, y - 4]], "#46d973");
+        polygon([[x - 4, y - 4], [x, y - 10 - Math.abs(flicker)], [x + 4, y - 4]], "#a8ff9f");
+        rect(x - 7 - (bubble.facing > 0 ? 3 : -1), y - 3 + flicker, 4, 4, "#46d973");
+        // Pale skull cranium
+        rect(x - 5, y - 5, 10, 7, "#b5ab92");
+        rect(x - 4, y - 6, 8, 7, "#ece3c8");
+        rect(x - 3, y - 3, 2, 2, "#17211d");
+        rect(x + 1, y - 3, 2, 2, "#17211d");
+        rect(x - 2, y - 3, 1, 1, "#8eff94");
+        rect(x + 2, y - 3, 1, 1, "#8eff94");
+        // Hinged cackling jawbone bobbing up & down
+        rect(x - 3, y + 1 + chomp, 6, 3, "#d4cbb0");
+        rect(x - 2, y + 1 + chomp, 1, 1, "#2a2024");
+        rect(x, y + 1 + chomp, 1, 1, "#2a2024");
+        rect(x + 2, y + 1 + chomp, 1, 1, "#2a2024");
+        ctx.restore();
+        continue;
+      }
       if (bubble.kind === "venom") {
         ctx.save();
         ctx.globalAlpha = Math.min(1, bubble.life * 2);
@@ -2791,6 +2871,7 @@ export function createRenderer(canvas) {
     hasArrow,
     playerArrows,
     rootWave,
+    hook,
     targetMob,
     particles,
     reducedMotion,
@@ -2838,8 +2919,9 @@ export function createRenderer(canvas) {
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
     drawRootWave(rootWave, player);
+    drawHook(hook, player);
     mobs(world, camera, time, targetMob, player, reducedMotion);
-    projectiles(world, camera);
+    projectiles(world, camera, time);
     arrows(playerArrows, camera);
     for (const bit of particles) {
       if (!bit.bubbleRadius) rect(bit.x, bit.y, 2, 2, bit.color ?? palettes[bit.material][1]);
@@ -2879,6 +2961,34 @@ export function createRenderer(canvas) {
       reducedMotion,
       swimming: playerInWater(world, player),
     });
+    if ((player.confused ?? 0) > 0) {
+      if (player.confusedStyle === "stars") {
+        for (let i = 0; i < 4; i++) {
+          const angle = (reducedMotion ? 0 : time * 5.2) + (i * Math.PI * 2) / 4;
+          const sx = Math.round(player.x + Math.cos(angle) * 9);
+          const sy = Math.round(player.y - 7 + Math.sin(angle) * 3.5);
+          rect(sx - 2, sy, 5, 1, "#ffe875");
+          rect(sx, sy - 2, 1, 5, "#ffe875");
+          rect(sx, sy, 1, 1, "#fffbe0");
+        }
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const angle = (reducedMotion ? 0 : time * 4.5) + (i * Math.PI * 2) / 3;
+          const sx = Math.round(player.x + Math.cos(angle) * 8);
+          const sy = Math.round(player.y - 6 + Math.sin(angle) * 3);
+          rect(sx - 1, sy - 1, 3, 3, i % 2 ? "#7df594" : "#d8f5a8");
+        }
+      }
+    }
+    if ((player.bleed ?? 0) > 0) {
+      for (let i = 0; i < 3; i++) {
+        const cycle = reducedMotion ? i * 0.3 : (time * 1.9 + i * 0.37) % 1;
+        const bx = Math.round(player.x + (i - 1) * 4 + Math.sin(i * 2.1) * 1.5);
+        const by = Math.round(player.y + 8 + cycle * 14);
+        rect(bx, by, 2, 2, "#9c1b29");
+        rect(bx, by, 1, 1, "#e34a58");
+      }
+    }
     for (const bit of particles) {
       if (bit.bubbleRadius) breathBubble(bit);
     }
@@ -2917,6 +3027,20 @@ export function createRenderer(canvas) {
 
     tintWater(camera, surface, water);
     inkOverlay(camera, player);
+    if ((player.confused ?? 0) > 0) {
+      ctx.save();
+      ctx.globalAlpha = player.confusedStyle === "stars"
+        ? Math.min(0.08, player.confused * 0.025)
+        : Math.min(0.14, player.confused * 0.04);
+      rect(0, 0, camera.width, camera.height, player.confusedStyle === "stars" ? "#f7d06b" : "#4fd979");
+      ctx.restore();
+    }
+    if ((player.bleed ?? 0) > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.08 + (reducedMotion ? 0 : Math.abs(Math.sin(time * 4)) * 0.06);
+      rect(0, 0, camera.width, camera.height, "#b92534");
+      ctx.restore();
+    }
     ctx.restore();
     drowningVignette(camera, drowning);
   }

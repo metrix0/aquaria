@@ -1,4 +1,6 @@
 import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
+import { equippedHook, hasHook, useGrapplingHook } from '../src/gameplay/hook.js';
+import { wakeMimic } from '../src/gameplay/enemies/mimic.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
 import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveFloor, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
@@ -11,8 +13,8 @@ import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/k
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
-import { collides, movePlayer, playerHeadInWater, playerInWater, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
-import { Inventory } from '../src/inventory.js';
+import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
+import { GRAPPLING_HOOK, Inventory } from '../src/inventory.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
@@ -564,10 +566,34 @@ test('the root wave stops at rock and damages the first enemy only after lifting
   assert.equal(mob.rooted, 0);
 });
 
+test('the root wave travels toward the mouse pointer even when the character faces away', () => {
+  const game = createGame();
+  const { player, world } = game;
+  game.progress.ring = 'root-ring';
+  Object.assign(player, { x: (WEST_EXTENSION + 56.5) * TILE, y: 33 * TILE - player.height, facing: 1 });
+  const westMob = world.mobs.find(({ kind }) => kind === 'miner');
+  const eastMob = world.mobs.find(({ kind }) => kind === 'spider');
+  Object.assign(westMob, { x: player.x - 56, y: 33 * TILE, hurt: 0 });
+  Object.assign(eastMob, { x: player.x + 56, y: 33 * TILE, hurt: 0 });
+  world.mobs = [westMob, eastMob];
+  const westHp = westMob.health;
+  const eastHp = eastMob.health;
+
+  // Player faces east (+1), aim pointer diagonally up-left toward westMob.
+  assert.equal(useRootRing(game, westMob.x, westMob.y - 12), true);
+  assert.equal(game.rootWave.facing, -1);
+  assert.ok(game.rootWave.dirX < -0.9);
+  for (let i = 0; i < 60; i++) stepGame(game, {}, 1 / 60);
+
+  assert.equal(westMob.health, westHp - 3);
+  assert.equal(eastMob.health, eastHp);
+  assert.equal(player.facing, 1);
+});
+
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
   const { player, world } = createGame();
   const foes = world.mobs.filter((mob) => caveEnemySpecs[mob.kind]);
-  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 5);
+  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 6);
   for (const mob of foes) {
     const x = Math.floor(mob.x / TILE);
     const feet = mob.y / TILE;
@@ -1729,6 +1755,7 @@ test('renderer draws visible friendly and hostile mobs including the kraken', ()
 });
 
 
+
 test('screen shake module decays impulses cleanly and respects reduced motion', () => {
   const shake = createScreenShake();
   shake.trigger({ intensity: 10, duration: 0.5, frequency: 40 });
@@ -1829,6 +1856,7 @@ test('kraken death plays head implosion with screen shake and tentacle disintegr
     else globalThis.Path2D = prevPath2D;
   }
 });
+
 
 test('defeating the kraken drops a chest with a blue diving fin that equips in feet and boosts swim speed', () => {
   const prevPath2D = globalThis.Path2D;
@@ -1950,6 +1978,7 @@ test('defeating the kraken drops a chest with a blue diving fin that equips in f
   }
 });
 
+
 test('map expands beyond the kraken and ocean fades from blue to jungle green water', () => {
   const prevPath2D = globalThis.Path2D;
   globalThis.Path2D = class {
@@ -2045,6 +2074,7 @@ test('map expands beyond the kraken and ocean fades from blue to jungle green wa
     else globalThis.Path2D = prevPath2D;
   }
 });
+
 
 test('sea monsters keep tracking and damaging a player holding up or hopping at the ocean surface', () => {
   const openOceanX = (140 + WEST_EXTENSION) * TILE + 8;
@@ -2297,6 +2327,7 @@ test('jungle ocean biome contains a larger island with jungle trees and an indig
   }
 });
 
+
 test('jungle island hosts bow and spear cannibals that chase, attack, and render cleanly', () => {
   const prevPath2D = globalThis.Path2D;
   globalThis.Path2D = class {
@@ -2418,6 +2449,7 @@ test('jungle island hosts bow and spear cannibals that chase, attack, and render
   }
 });
 
+
 test('cannibals can jump over obstacles, pits, and toward elevated players without jumping into the ocean', () => {
   // 1. Spear cannibal jumps up a 2-tile-high barricade to reach an elevated player.
   const wallGame = createGame();
@@ -2521,7 +2553,6 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
       deepest = Math.max(deepest, cy);
       if (cx + ',' + cy === targetKey) {
         reachedSanctuary = true;
-        break;
       }
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
         const nx = cx + dx;
@@ -2541,8 +2572,9 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
     // Progressive features: normal cave top -> moss/scriptures -> statues/columns -> deepstone cult idol.
     assert.equal(tileAt(world, startTx, JUNGLE_CAVE.entryFloor), MATERIAL.stone);
     assert.equal(tileAt(world, endTx, JUNGLE_CAVE.sanctuaryFloor), MATERIAL.deepstone);
-    assert.ok(jungleMossProgress(180) > jungleMossProgress(80));
-    assert.ok(jungleScriptureProgress(260) > jungleScriptureProgress(120));
+    assert.ok(visited.has((334 + WEST_EXTENSION) + ',' + 285), 'west branch is reachable');
+    assert.ok(visited.has((400 + WEST_EXTENSION) + ',' + 283), 'east branch is reachable');
+    assert.ok(jungleMossProgress(220) > jungleMossProgress(100));
 
     const kindsByFloor = (kind) => world.caveStructures.filter((s) => s.kind === kind).map((s) => s.floor);
     const torchFloors = kindsByFloor('native-torch');
@@ -2554,12 +2586,41 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
 
     assert.ok(Math.min(...torchFloors) < 40);
     assert.ok(Math.min(...boneFloors) < 40);
-    assert.ok(Math.min(...scriptureFloors) > 85);
+    assert.ok(Math.min(...scriptureFloors) > 100);
     const firstStatueFloor = Math.min(...statueFloors);
-    assert.ok(firstStatueFloor > 190 && firstStatueFloor < 240);
-    assert.ok(Math.min(...columnFloors) > 190);
+    assert.ok(firstStatueFloor > 230 && firstStatueFloor < 290);
+    assert.ok(Math.min(...columnFloors) > 230);
     assert.ok(idol && idol.floor === JUNGLE_CAVE.sanctuaryFloor);
-    assert.ok(idol.floor - firstStatueFloor < 80);
+    assert.ok(world.caveTraps.some((t) => t.kind === 'spike'));
+    assert.ok(world.caveTraps.some((t) => t.kind === 'false-ground'));
+
+    // Stepping onto a spike trap makes spikes emerge under the player and hurt them.
+    const spikeTrap = world.caveTraps.find((t) => t.kind === 'spike');
+    const spikeGame = createGame();
+    spikeGame.world.mobs = [];
+    Object.assign(spikeGame.player, {
+      x: (spikeTrap.tx + 0.5) * TILE,
+      y: (spikeTrap.ty + 1) * TILE - spikeGame.player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+    const activeSpike = spikeGame.world.caveTraps.find((t) => t.tx === spikeTrap.tx && t.ty === spikeTrap.ty && t.kind === 'spike');
+    for (let i = 0; i < 25; i++) stepGame(spikeGame, {}, 1 / 60);
+    assert.equal(activeSpike.state, 'extended');
+    assert.ok(spikeGame.player.health < 100);
+
+    // Stepping onto a false-ground slab cracks and collapses it so the player falls into the pit below.
+    const falseSlab = world.caveTraps.find((t) => t.kind === 'false-ground');
+    const falseGame = createGame();
+    falseGame.world.mobs = [];
+    Object.assign(falseGame.player, {
+      x: (falseSlab.tx + 0.5) * TILE,
+      y: falseSlab.ty * TILE - falseGame.player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+    const startFallY = falseGame.player.y;
+    for (let i = 0; i < 35; i++) stepGame(falseGame, {}, 1 / 60);
+    assert.equal(tileAt(falseGame.world, falseSlab.tx, falseSlab.ty), MATERIAL.air);
+    assert.ok(falseGame.player.y > startFallY + TILE);
 
     // Render upper cave and sunken cult chamber without errors.
     const noop = () => {};
@@ -2598,7 +2659,8 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
   }
 });
 
-test('frog cultists pray aligned toward the idol and all aggro to bite and slash on proximity or attack', () => {
+
+test('frog cultists pray aligned toward the idol and all aggro to leap and claw-slash on proximity or attack', () => {
   // 1. Aligned prayer at distance & group aggro when one is attacked.
   const game = createGame();
   const frogs = game.world.mobs.filter((mob) => mob.kind === 'frog').sort((a, b) => a.x - b.x);
@@ -2633,22 +2695,24 @@ test('frog cultists pray aligned toward the idol and all aggro to bite and slash
     assert.equal(frog.praying, false);
   }
 
-  // 2. Approaching too close without attacking aggros all frogs and triggers biting & claw-slashing attacks.
+  // 2. Approaching too close without attacking aggros all frogs and triggers leap movement & claw-slashing attacks.
   const proxGame = createGame();
   const proxFrogs = proxGame.world.mobs.filter((mob) => mob.kind === 'frog');
   const firstFrog = proxFrogs.reduce((best, mob) => (mob.x < best.x ? mob : best));
   Object.assign(proxGame.player, {
-    x: firstFrog.x - (FROG_PROXIMITY_RANGE - 24),
+    x: firstFrog.x - (FROG_PROXIMITY_RANGE - 16),
     y: JUNGLE_CAVE.sanctuaryFloor * TILE - proxGame.player.height,
     dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
   });
   let sawClawSlash = false;
+  let sawLeap = false;
   let sawBiteDash = false;
   let playerHurt = false;
   for (let i = 0; i < 240; i++) {
     stepGame(proxGame, {}, 1 / 60);
     for (const frog of proxFrogs) {
       if (frog.clawSlash != null) sawClawSlash = true;
+      if (!frog.grounded && frog.dy < -50 && Math.abs(frog.dx) >= 120) sawLeap = true;
       if (frog.dash > 0) sawBiteDash = true;
     }
     if (proxGame.player.health < 100) playerHurt = true;
@@ -2657,8 +2721,10 @@ test('frog cultists pray aligned toward the idol and all aggro to bite and slash
   }
   assert.equal(proxGame.world.jungleCultAggro, true);
   for (const frog of proxFrogs) assert.equal(frog.cultAggro, true);
+  assert.equal(sawLeap, true);
+  assert.equal(sawBiteDash, false);
+  assert.equal(sawClawSlash, true);
   assert.equal(playerHurt, true);
-  assert.ok(sawClawSlash || sawBiteDash);
 });
 
 test('jungle cave hosts a segmented Terraria-style worm that burrows through solid walls and damages or takes hits across segments', () => {
@@ -2675,10 +2741,10 @@ test('jungle cave hosts a segmented Terraria-style worm that burrows through sol
     const worm = worms[0];
     world.mobs = [worm];
 
-    // Position player on the open mid-cave floor (row 104) above the burrowing worm.
+    // Position player on the open Crossroads Vault floor (row 208) above the burrowing worm.
     Object.assign(player, {
       x: worm.x - 48,
-      y: 104 * TILE - player.height,
+      y: 208 * TILE - player.height,
       dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
     });
 
@@ -2746,6 +2812,602 @@ test('jungle cave hosts a segmented Terraria-style worm that burrows through sol
       particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
       worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
     });
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('jungle island cannibals transform into frog people at night and revert at day without affecting cave cultists', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const cannibals = world.mobs.filter((mob) => mob.kind === 'cannibal-spear' || mob.kind === 'cannibal-bow');
+  const caveFrogs = world.mobs.filter((mob) => mob.kind === 'frog');
+  assert.ok(cannibals.length >= 4);
+  assert.equal(caveFrogs.length, 6);
+  const originalKinds = new Map(cannibals.map((mob) => [mob.id, mob.kind]));
+
+  // Position player near a surface cannibal on the Jungle Island.
+  const target = cannibals[0];
+  Object.assign(player, {
+    x: target.x + 4 * TILE,
+    y: target.y - player.height,
+    dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+  });
+
+  // Nightfall transforms surface cannibals into frogs, while cave cultists remain undisturbed frogs.
+  stepGame(game, { night: true }, 1 / 60);
+  for (const mob of cannibals) {
+    assert.equal(mob.kind, 'frog');
+    assert.equal(mob.praying, false);
+    assert.equal(mob.maxHealth, 7);
+    assert.equal(mob.health, 7);
+  }
+  assert.equal(world.jungleCultAggro ?? false, false);
+  for (const caveFrog of caveFrogs) {
+    assert.equal(caveFrog.kind, 'frog');
+    assert.equal(caveFrog.praying, true);
+  }
+
+  // Transformed surface frogs leap toward the player and attacking them does not aggro cave cultists.
+  let sawSurfaceLeap = false;
+  for (let i = 0; i < 60; i++) {
+    stepGame(game, { night: true }, 1 / 60);
+    if (!target.grounded && target.dy < -50 && Math.abs(target.dx) >= 120) sawSurfaceLeap = true;
+  }
+  assert.equal(sawSurfaceLeap, true);
+  damageMob(world, target, 3, 0, 20, []);
+  assert.equal(target.health, 4);
+  assert.equal(world.jungleCultAggro ?? false, false);
+
+  // Daybreak reverts only the surface cannibals back to their original spear/bow forms (scaling HP), leaving cave frogs untouched.
+  stepGame(game, { night: false }, 1 / 60);
+  for (const mob of cannibals) {
+    assert.equal(mob.kind, originalKinds.get(mob.id));
+    assert.equal(mob.praying, false);
+    assert.equal(mob.cultAggro, false);
+  }
+  assert.ok(target.health > 0 && target.health < target.maxHealth);
+  for (const caveFrog of caveFrogs) {
+    assert.equal(caveFrog.kind, 'frog');
+    assert.equal(caveFrog.praying, true);
+  }
+});
+
+test('grappling hook is found deep in the first island caves, equips to hands, persists, and follows Terraria hook physics', () => {
+  const game = createGame();
+  const { world, player } = game;
+
+  // Deep cave chest contains the grappling hook and bonus iron ore.
+  const deepChest = world.items.find((item) => item.id === 'underground-cache');
+  assert.ok(deepChest);
+  assert.ok(Math.floor(deepChest.y / TILE) >= ISLAND_DEEPSTONE_ROW);
+  const chestSlots = game.chests.get('underground-cache');
+  assert.equal(chestSlots[0]?.id, GRAPPLING_HOOK.id);
+  assert.equal(chestSlots[1]?.id, 'iron');
+  assert.equal(chestSlots[1]?.count, 3);
+
+  // Move from chest into Hands slot and verify persistence across save/reload.
+  assert.equal(moveInventoryStack(game, 'underground-cache', { group: 'chest', index: 0 }, { group: 'hands', index: 0 }), true);
+  assert.equal(equippedHook(game)?.id, GRAPPLING_HOOK.id);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(equippedHook(restored)?.id, GRAPPLING_HOOK.id);
+  assert.equal(hasHook(restored)?.id, GRAPPLING_HOOK.id);
+
+  // Clear a shaft above spawn with a solid ceiling tile to grapple onto.
+  const tx = Math.floor(SPAWN.x / TILE);
+  const ceilingTy = Math.floor(player.y / TILE) - 6;
+  const floorTy = Math.floor((player.y + player.height) / TILE);
+  for (let y = ceilingTy + 1; y <= floorTy - 1; y++) {
+    for (let x = tx - 2; x <= tx + 2; x++) editTile(restored.world, x, y, MATERIAL.air);
+  }
+  editTile(restored.world, tx - 2, ceilingTy, MATERIAL.stone);
+  editTile(restored.world, tx - 1, ceilingTy, MATERIAL.stone);
+  player.health = 100;
+  Object.assign(restored.player, {
+    x: (tx + 0.5) * TILE,
+    y: floorTy * TILE - restored.player.height,
+    dx: 0, dy: 0, grounded: true, facing: 1, fallDistance: 120, oxygen: 100, stun: 0,
+  });
+
+  // Shoot hook toward ceiling left of player (opposite facing) -> turns, latches, pulls up, resets fallDistance, and hangs.
+  const targetX = (tx - 1.5) * TILE;
+  const targetY = (ceilingTy + 0.5) * TILE;
+  assert.equal(useGrapplingHook(restored, targetX, targetY), true);
+  assert.equal(restored.player.facing, -1);
+  assert.equal(restored.player.hook.state, 'extending');
+
+  let sawLatched = false;
+  for (let i = 0; i < 60; i++) {
+    stepGame(restored, {}, 1 / 60);
+    if (restored.player.hook?.state === 'latched') sawLatched = true;
+  }
+  assert.equal(sawLatched, true);
+  assert.equal(restored.player.hook.state, 'latched');
+  assert.equal(restored.player.fallDistance, 0);
+  const hangY = restored.player.y;
+  assert.ok(hangY < floorTy * TILE - restored.player.height - 20);
+
+  // Remains suspended cleanly without falling while latched.
+  for (let i = 0; i < 20; i++) stepGame(restored, {}, 1 / 60);
+  assert.equal(restored.player.hook.state, 'latched');
+  assert.ok(Math.abs(restored.player.y - hangY) < 0.5);
+
+  // Render frame with active hook/chain without errors.
+  const noop = () => {};
+  const grad = { addColorStop: noop };
+  const makeCtx = () => ({
+    save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+    beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+    quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+    fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+    fillRect() {},
+  });
+  const renderer = createRenderer({
+    width: 640, height: 360,
+    ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+    getContext: makeCtx,
+  });
+  renderer.draw({
+    world: restored.world, player: restored.player, snorkel: null,
+    camera: { x: restored.player.x - 160, y: restored.player.y - 90, width: 320, height: 180 },
+    time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+    held: null, attack: null, hasArrow: false, playerArrows: [], hook: restored.player.hook,
+    targetMob: null, particles: [], reducedMotion: false,
+    conditions: { darkness: 0, rain: 0, night: false }, worldTime: 0, weatherSeed: 0,
+    caveShadowsHidden: true, openChestId: null,
+  });
+
+  // Mining away the latched tile releases the player cleanly.
+  const latchedTx = restored.player.hook.tx;
+  const latchedTy = restored.player.hook.ty;
+  applyTerrain(restored, latchedTx, latchedTy, MATERIAL.air);
+  stepGame(restored, {}, 1 / 60);
+  assert.equal(restored.player.hook, null);
+
+  // Latch onto stone ceiling, then pressing Jump releases from the ceiling;
+  // Latching onto an open side wall and pressing Jump launches upward cleanly.
+  editTile(restored.world, tx - 2, ceilingTy, MATERIAL.stone);
+  const wallTy = floorTy - 3;
+  editTile(restored.world, tx - 3, wallTy, MATERIAL.stone);
+  restored.player.x = (tx + 0.5) * TILE;
+  restored.player.y = floorTy * TILE - restored.player.height;
+  restored.player.grounded = true;
+  assert.equal(useGrapplingHook(restored, (tx - 2.5) * TILE, (wallTy + 0.5) * TILE), true);
+  for (let i = 0; i < 40; i++) stepGame(restored, {}, 1 / 60);
+  assert.equal(restored.player.hook?.state, 'latched');
+  stepGame(restored, { jump: true, up: true }, 1 / 60);
+  assert.equal(restored.player.hook, null);
+  assert.ok(restored.player.dy < -100);
+
+  // Shooting upward into open sky beyond max range extends then retracts and clears.
+  for (let x = tx - 2; x <= tx + 2; x++) {
+    for (let y = 0; y <= floorTy - 1; y++) editTile(restored.world, x, y, MATERIAL.air);
+  }
+  restored.player.x = (tx + 0.5) * TILE;
+  restored.player.y = floorTy * TILE - restored.player.height;
+  restored.player.grounded = true;
+  assert.equal(useGrapplingHook(restored, restored.player.x, 0), true);
+  let sawRetracting = false;
+  for (let i = 0; i < 120; i++) {
+    stepGame(restored, {}, 1 / 60);
+    if (restored.player.hook?.state === 'retracting') sawRetracting = true;
+  }
+  assert.equal(sawRetracting, true);
+  assert.equal(restored.player.hook, null);
+});
+
+test('jungle caves host native shamans shooting laughing skulls that invert player controls cleanly', () => {
+  const game = createGame();
+  const shamans = game.world.mobs.filter((mob) => mob.kind === 'shaman');
+  assert.ok(shamans.length >= 2);
+  for (const mob of game.world.mobs.filter((m) => m.kind === 'shaman' || m.kind === 'cave-frog' || m.kind === 'frog')) {
+    const tx = Math.floor(mob.x / TILE);
+    const ty = mob.y / TILE;
+    assert.ok(tileAt(game.world, tx, ty), mob.id + ' stands on floor');
+    assert.equal(tileAt(game.world, tx, ty - 1), MATERIAL.air, mob.id + ' has open body cell');
+  }
+  const shaman = shamans.find((s) => s.id === 'jungle-shaman-3') ?? shamans[0];
+  game.world.mobs = [shaman];
+  shaman.attackTimer = 0.05;
+
+  Object.assign(game.player, {
+    x: shaman.x + 4 * TILE,
+    y: shaman.y - game.player.height,
+    dx: 0, dy: 0, grounded: true, hurt: 0, confused: 0, health: 100, oxygen: 100,
+  });
+
+  let sawSkull = false;
+  let hitConfused = false;
+  for (let i = 0; i < 180; i++) {
+    stepGame(game, {}, 1 / 60);
+    if (game.world.projectiles.some((p) => p.kind === 'shaman-skull')) sawSkull = true;
+    if ((game.player.confused ?? 0) > 0) {
+      hitConfused = true;
+      break;
+    }
+  }
+  assert.equal(sawSkull, true);
+  assert.equal(hitConfused, true);
+  assert.ok(game.player.health < 100);
+
+  // Verify confused control inversion: left -> right, right -> left, down -> jump, up -> crouch.
+  game.world.mobs = [];
+  game.world.projectiles.length = 0;
+  Object.assign(game.player, { dx: 0, dy: 0, grounded: true, height: 23 });
+  for (let i = 0; i < 5; i++) stepGame(game, { left: true }, 1 / 60);
+  assert.ok(game.player.dx > 0, 'holding left should move right while confused');
+
+  for (let i = 0; i < 5; i++) stepGame(game, { right: true }, 1 / 60);
+  assert.ok(game.player.dx < 0, 'holding right should move left while confused');
+
+  stepGame(game, { up: true, jump: true }, 1 / 60);
+  assert.equal(game.player.height, 16, 'pressing jump/up should crouch while confused');
+
+  stepGame(game, { down: true }, 1 / 60);
+  assert.ok(game.player.dy < -100, 'pressing down should jump while confused');
+
+  // Verify shaman jumps across a 2-tile pit and up a 2-tile wall without triggering traps.
+  const jumpGame = createGame();
+  const jumpShaman = jumpGame.world.mobs.find((mob) => mob.id === 'jungle-shaman-3');
+  jumpGame.world.mobs = [jumpShaman];
+  const sTx = Math.floor(jumpShaman.x / TILE);
+  const sFloor = jumpShaman.y / TILE;
+  // Dig a 2-tile pit at sTx + 2..3 with a spike trap at sTx + 1 and clear line of sight to player past the pit
+  editTile(jumpGame.world, sTx + 2, sFloor, MATERIAL.air);
+  editTile(jumpGame.world, sTx + 2, sFloor + 1, MATERIAL.air);
+  editTile(jumpGame.world, sTx + 3, sFloor, MATERIAL.air);
+  editTile(jumpGame.world, sTx + 3, sFloor + 1, MATERIAL.air);
+  const spike = jumpGame.world.caveTraps.find((t) => t.kind === 'spike');
+  spike.tx = sTx + 1;
+  spike.ty = sFloor - 1;
+  const shamanStartHp = jumpShaman.health;
+  Object.assign(jumpGame.player, {
+    x: (sTx + 6.5) * TILE,
+    y: sFloor * TILE - jumpGame.player.height,
+    dx: 0, dy: 0, grounded: true, hurt: 0, confused: 0, health: 100, oxygen: 100,
+  });
+  jumpShaman.attackTimer = 5;
+  let shamanJumped = false;
+  for (let i = 0; i < 120; i++) {
+    stepGame(jumpGame, {}, 1 / 60);
+    if (!jumpShaman.grounded && jumpShaman.dy < -60) shamanJumped = true;
+    assert.equal(spike.state, 'armed', 'shaman should not trigger spike traps');
+    assert.equal(jumpShaman.health, shamanStartHp, 'shaman should take no trap damage');
+  }
+  assert.equal(shamanJumped, true);
+});
+
+test('deep jungle caves host leaping giant frogs that grab, pull, and bite with their tongue', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const frogs = game.world.mobs.filter((mob) => mob.kind === 'cave-frog');
+    assert.ok(frogs.length >= 2);
+    const frog = frogs[0];
+    game.world.mobs = [frog];
+    frog.attackTimer = 0.05;
+
+    // Place player across the flat temple floor at tongue-snare distance (84px)
+    const startPlayerX = frog.x + 84;
+    Object.assign(game.player, {
+      x: startPlayerX,
+      y: frog.y - game.player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+
+    let sawTongue = false;
+    let sawPullCloser = false;
+    let sawBiteDamage = false;
+    for (let i = 0; i < 180; i++) {
+      stepGame(game, {}, 1 / 60);
+      if (frog.tongue?.state === 'shoot' || frog.tongue?.state === 'pull') sawTongue = true;
+      if (frog.tongue?.state === 'pull' && game.player.x < startPlayerX - 10) sawPullCloser = true;
+      if (game.player.health < 100) sawBiteDamage = true;
+    }
+    assert.equal(sawTongue, true);
+    assert.equal(sawPullCloser, true);
+    assert.equal(sawBiteDamage, true);
+
+    // Move player beyond tongue reach to verify leaping movement toward player
+    const leapFrog = createGame();
+    const jumper = leapFrog.world.mobs.find((mob) => mob.kind === 'cave-frog');
+    leapFrog.world.mobs = [jumper];
+    Object.assign(leapFrog.player, {
+      x: jumper.x + 150,
+      y: jumper.y - leapFrog.player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+    let sawLeap = false;
+    for (let i = 0; i < 90; i++) {
+      stepGame(leapFrog, {}, 1 / 60);
+      if (!jumper.grounded && jumper.dy < -60) {
+        sawLeap = true;
+        break;
+      }
+    }
+    assert.equal(sawLeap, true);
+
+    // Verify cave-frog is immune to traps (neither triggers nor takes damage from spikes/jaws)
+    const trapFrogGame = createGame();
+    const trapFrog = trapFrogGame.world.mobs.find((mob) => mob.kind === 'cave-frog');
+    const trapCultist = trapFrogGame.world.mobs.find((mob) => mob.kind === 'frog');
+    trapFrogGame.world.mobs = [trapFrog, trapCultist];
+    const frogSpike = trapFrogGame.world.caveTraps.find((t) => t.kind === 'spike');
+    frogSpike.tx = Math.floor(trapFrog.x / TILE);
+    frogSpike.ty = trapFrog.y / TILE - 1;
+    const jawsTrap = trapFrogGame.world.caveTraps.find((t) => t.kind === 'jaws');
+    jawsTrap.tx = Math.floor(trapCultist.x / TILE);
+    jawsTrap.ty = trapCultist.y / TILE - 1;
+    const frogStartHp = trapFrog.health;
+    const cultistStartHp = trapCultist.health;
+    for (let i = 0; i < 30; i++) stepGame(trapFrogGame, {}, 1 / 60);
+    assert.equal(frogSpike.state, 'armed');
+    assert.equal(jawsTrap.state, 'armed');
+    assert.equal(trapFrog.health, frogStartHp);
+    assert.equal(trapCultist.health, cultistStartHp);
+
+    // Verify shaman skull & frog tongue render without errors
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const renderer = createRenderer({
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    });
+    game.world.mobs = [frog];
+    frog.tongue = { state: 'shoot', tipX: frog.x + 48, tipY: frog.y - 10 };
+    game.world.projectiles = [{ kind: 'shaman-skull', x: frog.x + 20, y: frog.y - 16, facing: 1 }];
+    game.player.confused = 2;
+    renderer.draw({
+      world: game.world, player: game.player, snorkel: null,
+      camera: { x: frog.x - 160, y: frog.y - 90, width: 320, height: 180 },
+      time: 1.5, elapsed: 1.5, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('first island dungeon hosts mimic chests that look normal until attacked or opened, then leap and bite', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    const mimics = world.mobs.filter((mob) => mob.kind === 'mimic');
+    assert.ok(mimics.length >= 3);
+    for (const mob of mimics) {
+      const col = Math.floor(mob.x / TILE) - WEST_EXTENSION;
+      const row = Math.floor(mob.y / TILE);
+      assert.equal(isDungeonMasonry(col, row - 1), true, 'mimic should sit in first island dungeon masonry');
+      assert.equal(mob.awakened, false);
+      assert.equal(mob.facing, 1);
+    }
+
+    // Isolate first mimic to test sleeping disguise, opening wake-up, leap & bite.
+    const mimic = mimics[0];
+    const otherMimic = mimics[1];
+    world.mobs = [mimic, otherMimic];
+
+    Object.assign(player, {
+      x: mimic.x - 18,
+      y: mimic.y - player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+
+    // Walking nearby without opening or attacking leaves mimic dormant and detectable as an interactable chest.
+    for (let i = 0; i < 20; i++) stepGame(game, {}, 1 / 60);
+    assert.equal(mimic.awakened, false);
+    assert.equal(mimic.x, mimic.homeX);
+    assert.equal(mimic.y, mimic.homeY);
+    assert.equal(player.health, 100);
+    const nearby = nearestItem(game);
+    assert.equal(nearby?.kind, 'mimic');
+    assert.equal(chestAt(game, mimic.x, mimic.y - 8)?.kind, 'mimic');
+
+    // Render dormant mimic before waking.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const renderer = createRenderer({
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    });
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: mimic.x - 160, y: mimic.y - 90, width: 320, height: 180 },
+      time: 1, elapsed: 1, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: mimic,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+
+    // Trying to open (interact) wakes the mimic up; chestAt/nearestItem stop treating it as a passive chest.
+    assert.equal(wakeMimic(world, mimic, player, game.effects), true);
+    assert.equal(mimic.awakened, true);
+    assert.notEqual(chestAt(game, mimic.x, mimic.y - 8)?.kind, 'mimic');
+    assert.notEqual(nearestItem(game)?.kind, 'mimic');
+
+    // Awakened mimic leaps toward player and bites them.
+    player.x = mimic.x - 42;
+    let sawLeap = false;
+    for (let i = 0; i < 150; i++) {
+      player.hurt = i < 15 ? 0 : player.hurt;
+      stepGame(game, {}, 1 / 60);
+      if (!mimic.grounded && Math.abs(mimic.dx) > 50) sawLeap = true;
+    }
+    assert.equal(sawLeap, true);
+    assert.ok(player.health < 100, 'awakened mimic should bite the player');
+
+    // Attacking another dormant mimic wakes and damages it.
+    damageMob(world, otherMimic, 3, 0, 30, game.effects);
+    assert.equal(otherMimic.awakened, true);
+    assert.equal(otherMimic.health, otherMimic.maxHealth - 3);
+
+    // Render awakened mimic cleanly.
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: mimic.x - 160, y: mimic.y - 90, width: 320, height: 180 },
+      time: 2, elapsed: 2, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: mimic,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('spike and bear traps inflict 10s bleeding without shock, while spiked pendulum confuses with orbiting stars and immobilizes until stars end', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player, effects } = game;
+    world.mobs = [];
+
+    // 1. Spike trap inflicts 10 seconds bleeding and no electric stun.
+    const spike = world.caveTraps.find((t) => t.kind === 'spike');
+    assert.ok(spike);
+    const spikeX = (spike.tx + 0.5) * TILE;
+    const spikeY = (spike.ty + 1) * TILE;
+    Object.assign(player, { x: spikeX, y: spikeY - player.height, hurt: 0, stun: 0, bleed: 0, confused: 0, health: 100 });
+    stepCaveTraps(world, player, 0, 1 / 60, effects, () => {});
+    assert.equal(spike.state, 'springing');
+    stepCaveTraps(world, player, 0.2, 0.2, effects, () => {});
+    assert.equal(player.stun, 0, 'spike trap must not shock/stun');
+    assert.equal(player.bleed, 10, 'spike trap must inflict 10 seconds bleeding');
+    assert.equal(player.health, 80);
+
+    // Move off trap and verify bleed ticks down health over 10s without passive healing.
+    Object.assign(player, { x: SPAWN.x, y: SPAWN.y, grounded: true });
+    for (let i = 0; i < 60 * 10 + 5; i++) {
+      stepGame(game, {}, 1 / 60);
+    }
+    assert.equal(player.bleed, 0);
+    assert.ok(player.health <= 72, `expected bleeding to lower health before expiring, got ${player.health}`);
+
+    // 2. Bear trap (jaws) inflicts 10 seconds bleeding and no shock.
+    const jaw = world.caveTraps.find((t) => t.kind === 'jaws');
+    const jawX = (jaw.tx + 0.5) * TILE;
+    const jawY = (jaw.ty + 1) * TILE;
+    Object.assign(player, { x: jawX, y: jawY - player.height, hurt: 0, stun: 0, bleed: 0, health: 100 });
+    stepCaveTraps(world, player, 0, 1 / 60, effects, () => {});
+    stepCaveTraps(world, player, 0.3, 0.3, effects, () => {});
+    assert.equal(player.stun, 0, 'bear trap must not shock/stun');
+    assert.equal(player.bleed, 10, 'bear trap must inflict 10 seconds bleeding');
+    assert.equal(player.health, 82);
+
+    // 3. Moving spiked ball (swing) gives confusion/stars without electric shock, and immobilizes player until stars end.
+    const swing = world.caveTraps.find((t) => t.kind === 'swing');
+    const head = swingHead(swing, 0);
+    Object.assign(player, { x: head.x, y: head.y - player.height / 2, hurt: 0, stun: 0, bleed: 0, confused: 0, confusedStyle: null, health: 100 });
+    stepCaveTraps(world, player, 0, 1 / 60, effects, () => {});
+    assert.equal(player.stun, 0, 'spiked ball must not electric-stun');
+    assert.ok(player.confused > 0, 'spiked ball must confuse/daze the player');
+    assert.equal(player.confusedStyle, 'stars');
+
+    // Player cannot move while confused with floating stars.
+    Object.assign(player, { x: SPAWN.x, y: SPAWN.y, dx: 0, dy: 0, grounded: true });
+    const startX = player.x;
+    for (let i = 0; i < 10; i++) stepGame(game, { left: true, jump: true, up: true }, 1 / 60);
+    assert.equal(player.dx, 0, 'player cannot move horizontally while stunned by stars');
+    assert.equal(player.x, startX, 'player position stays locked while stunned by stars');
+    assert.equal(player.grounded, true, 'player cannot jump while stunned by stars');
+
+    // Render orbiting stars and bleeding visuals without error.
+    player.bleed = 5;
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const renderer = createRenderer({
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    });
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: player.x - 160, y: player.y - 90, width: 320, height: 180 },
+      time: 1.2, elapsed: 1.2, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+
+    // Clear after star confusion expires, confirm 1s post-confusion invincibility frames, then allow re-confusion.
+    for (let i = 0; i < 200 && player.confused > 0; i++) stepGame(game, {}, 1 / 60);
+    assert.equal(player.confused, 0);
+    assert.equal(player.confusedStyle, null);
+    assert.ok(player.confusedGrace > 0.95 && player.confusedGrace <= 1, '1s post-confusion invincibility grace starts when confusion ends');
+    for (let i = 0; i < 5; i++) stepGame(game, { right: true }, 1 / 60);
+    assert.ok(player.dx > 0, 'player can move again after stars expire');
+
+    // During the 1s post-confusion grace window, spiked pendulum cannot re-confuse or hit the player.
+    const hpBeforeGraceHit = player.health;
+    Object.assign(player, { x: head.x, y: head.y - player.height / 2, hurt: 0 });
+    stepCaveTraps(world, player, 0, 1 / 60, effects, () => {});
+    assert.equal(player.confused, 0, 'cannot be re-confused during 1s invincibility grace');
+    assert.equal(player.health, hpBeforeGraceHit, 'invincibility frames protect from pendulum hit');
+
+    // Once the 1s grace expires, player can be confused again cleanly.
+    Object.assign(player, { x: SPAWN.x, y: SPAWN.y, dx: 0, dy: 0, grounded: true });
+    for (let i = 0; i < 62; i++) stepGame(game, {}, 1 / 60);
+    assert.equal(player.confusedGrace, 0);
+    Object.assign(player, { x: head.x, y: head.y - player.height / 2, hurt: 0 });
+    stepCaveTraps(world, player, 0, 1 / 60, effects, () => {});
+    assert.ok(player.confused > 0, 'can be hit with confusion again after 1s grace expires');
+
+    // Verify playerStatusEffects reports all active effects with ceil durations.
+    Object.assign(player, { bleed: 9.2, stun: 2.1, confused: 2.4, confusedStyle: 'stars', confusedGrace: 0, inkSplats: [{ time: 3.4 }] });
+    let list = playerStatusEffects(player);
+    assert.deepEqual(list.map((e) => [e.id, e.title, e.seconds]), [
+      ['bleeding', 'Bleeding', 10],
+      ['shock', 'Shocked', 3],
+      ['confusion', 'Confusion', 3],
+      ['inked', 'Inked', 4],
+    ]);
+    player.confusedStyle = null;
+    player.confused = 4.1;
+    player.confusedGrace = 0.8;
+    list = playerStatusEffects(player);
+    assert.ok(list.some((e) => e.id === 'cursed' && e.title === 'Cursed' && e.seconds === 5));
+    assert.ok(list.some((e) => e.id === 'confused-grace' && e.title === 'Steadied' && e.seconds === 1));
   } finally {
     if (prevPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = prevPath2D;

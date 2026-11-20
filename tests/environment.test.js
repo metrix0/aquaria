@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { worldConditions } from '../src/environment.js';
+import { WEATHER_MODES, worldConditions } from '../src/environment.js';
 import { noise } from '../src/world/generation.js';
 
 test('rain is less frequent and each storm keeps its seeded direction and angle', () => {
@@ -36,4 +36,36 @@ test('rain is less frequent and each storm keeps its seeded direction and angle'
   assert.ok([...angles].some((slope) => slope < 0));
   assert.ok([...angles].some((slope) => slope > 0));
   assert.ok(angles.size > 2);
+});
+
+test('weather mode presets override natural cycle cleanly while auto preserves dynamic conditions', () => {
+  assert.deepEqual(worldConditions(150, 7, 'auto'), worldConditions(150, 7));
+
+  const day = worldConditions(900, 7, 'day');
+  assert.deepEqual(day, { night: false, skyProgress: .5, darkness: 0, rain: 0, rainSlope: 0 });
+
+  const dusk = worldConditions(100, 7, 'dusk');
+  assert.equal(dusk.night, false);
+  assert.ok(dusk.darkness > 0 && dusk.darkness < 1 && dusk.skyProgress > .9);
+
+  const night = worldConditions(100, 7, 'night');
+  assert.deepEqual(night, { night: true, skyProgress: .5, darkness: 1, rain: 0, rainSlope: 0 });
+
+  const dawn = worldConditions(900, 7, 'dawn');
+  assert.equal(dawn.night, false);
+  assert.ok(dawn.skyProgress < .1 && dawn.rain === 0);
+
+  const rain = worldConditions(900, 7, 'rain');
+  assert.equal(rain.night, false);
+  assert.equal(rain.rain, 1);
+  assert.ok(rain.rainSlope !== 0);
+
+  const storm = worldConditions(100, 7, 'storm');
+  assert.equal(storm.night, true);
+  assert.equal(storm.darkness, 1);
+  assert.equal(storm.rain, 1);
+  assert.ok(storm.rainSlope !== 0);
+
+  assert.equal(WEATHER_MODES[0].id, 'auto');
+  assert.ok(WEATHER_MODES.length >= 6);
 });

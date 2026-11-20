@@ -234,3 +234,58 @@ export function drawCannibal(ctx, rect, polygon, mob, time) {
     }
   }
 }
+
+export function drawNativeShaman(ctx, rect, polygon, mob, time) {
+  const moving = Math.abs(mob.dx) > 2;
+  const stride = moving ? Math.round(Math.sin(time * 11 + (mob.phase ?? 0)) * 2) : 0;
+  const bob = moving ? Math.abs(Math.round(Math.cos(time * 11 + (mob.phase ?? 0)))) : 0;
+  const windingUp = mob.windup > 0;
+  const skinShade = '#633e2b';
+  const skin = '#8c5a3e';
+  const cloakDark = '#3a2645';
+  const cloak = '#563961';
+  const bone = '#ece3c8';
+  const boneShade = '#b5ab92';
+  const emerald = '#5ee67d';
+
+  ctx.scale(mob.facing, 1);
+
+  // Legs & bone anklets
+  rect(-4 - stride, -6, 3, 6, skinShade);
+  rect(2 + stride, -6, 3, 6, skin);
+  rect(-4 - stride, -3, 3, 1, bone);
+  rect(2 + stride, -3, 3, 1, bone);
+
+  // Layered shaman cloak & waist fetish wrap
+  polygon([[-6, -4 - bob], [-5, -16 - bob], [4, -16 - bob], [5, -4 - bob]], cloakDark);
+  rect(-4, -15 - bob, 7, 10, cloak);
+  rect(-2, -13 - bob, 4, 2, emerald);
+  rect(-5, -10 - bob, 10, 2, '#9c7b49');
+
+  // Horned tribal skull mask & feathers
+  rect(-5, -24 - bob, 9, 8, skinShade);
+  rect(-4, -23 - bob, 8, 7, bone);
+  rect(0, -21 - bob, 2, 2, '#17211d');
+  rect(3, -21 - bob, 2, 2, '#17211d');
+  rect(1, -21 - bob, 1, 1, '#a9ff9e');
+  rect(4, -21 - bob, 1, 1, '#a9ff9e');
+  rect(-1, -18 - bob, 5, 2, boneShade);
+  // Horned crest
+  polygon([[-5, -23 - bob], [-8, -28 - bob], [-3, -25 - bob]], boneShade);
+  polygon([[1, -24 - bob], [4, -29 - bob], [4, -23 - bob]], bone);
+  rect(-3, -26 - bob, 2, 3, '#c8503c');
+
+  // Staff arm & skull-topped totem staff glowing with green flame
+  const raise = windingUp ? -4 : 0;
+  rect(1, -14 - bob + Math.round(raise * 0.5), 5, 2, skin);
+  rect(6, -24 - bob + raise, 2, 23 - raise, '#734b34');
+  rect(6, -22 - bob + raise, 2, 2, '#b84839');
+  // Floating green-flamed skull atop staff
+  const flame = Math.round(Math.sin(time * 13 + (mob.phase ?? 0)) * 1.5);
+  rect(4, -31 - bob + raise + flame, 6, 7, windingUp ? '#78ffa044' : '#50d17428');
+  rect(5, -29 - bob + raise, 5, 5, bone);
+  rect(6, -28 - bob + raise, 1, 1, '#1b2b20');
+  rect(8, -28 - bob + raise, 1, 1, '#1b2b20');
+  rect(6, -32 - bob + raise + Math.min(0, flame), 3, 3, emerald);
+  if (windingUp) rect(5, -34 - bob + raise - Math.abs(flame), 5, 3, '#b8ffb8');
+}

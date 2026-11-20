@@ -8,7 +8,8 @@ import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
-import { MAX_HEALTH } from './gameplay/player.js';
+import { hasHook } from './gameplay/hook.js';
+import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
@@ -30,6 +31,7 @@ export function createUI(actions, version) {
     getSnorkel: actions.getSnorkel,
     getFeet: actions.getFeet,
     getRing: actions.getRing,
+    getHands: actions.getHands,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,
@@ -40,6 +42,109 @@ export function createUI(actions, version) {
   let ringFlashUntil = 0;
   const ringSlot = byId('cast-ring');
   const ringTimer = ringSlot.querySelector('b');
+  const hookSlot = byId('use-hook');
+  const statusEffects = byId('status-effects');
+  const statusTooltip = byId('status-tooltip');
+  const statusTitle = statusTooltip?.querySelector('strong');
+  const statusDesc = statusTooltip?.querySelector('em');
+  const statusNodes = new Map();
+  let hoveredEffectId = null;
+  let lastEffects = [];
+
+  function renderStatusTooltip() {
+    if (!statusTooltip) return;
+    const active = !panels.some((panel) => panel.open) && hoveredEffectId
+      ? lastEffects.find((effect) => effect.id === hoveredEffectId)
+      : null;
+    const node = active && statusNodes.get(active.id);
+    if (!active || !node) {
+      statusTooltip.hidden = true;
+      return;
+    }
+    const unit = active.seconds === 1 ? 'second' : 'seconds';
+    const description = `${active.detail} Duration ${active.seconds} ${unit}.`;
+    if (statusTitle.textContent !== active.title) statusTitle.textContent = active.title;
+    if (statusDesc.textContent !== description) statusDesc.textContent = description;
+    statusTooltip.hidden = false;
+    const anchor = node.getBoundingClientRect();
+    const { offsetWidth: width, offsetHeight: height } = statusTooltip;
+    const { clientWidth, clientHeight } = document.documentElement;
+    const left = Math.max(8, Math.min(anchor.left - width - 8, clientWidth - width - 8));
+    const top = Math.max(8, Math.min(anchor.top + (anchor.height - height) / 2, clientHeight - height - 8));
+    statusTooltip.style.left = left + 'px';
+    statusTooltip.style.top = top + 'px';
+  }
+
+  function updateStatusEffects(game) {
+    if (!statusEffects) return;
+    const active = playerStatusEffects(game.player);
+    lastEffects = active;
+    const activeIds = new Set(active.map((effect) => effect.id));
+    for (const [id, node] of statusNodes) {
+      if (!activeIds.has(id)) {
+        node.remove();
+        statusNodes.delete(id);
+        if (hoveredEffectId === id) hoveredEffectId = null;
+      }
+    }
+    for (const [index, effect] of active.entries()) {
+      let node = statusNodes.get(effect.id);
+      if (!node) {
+        node = document.createElement('button');
+        node.type = 'button';
+        node.className = 'status-effect';
+        node.dataset.effect = effect.id;
+        const icon = document.createElement('span');
+        icon.className = 'status-icon status-icon-' + effect.id;
+        icon.setAttribute('aria-hidden', 'true');
+        const duration = document.createElement('b');
+        duration.setAttribute('aria-hidden', 'true');
+        node.append(icon, duration);
+        node.addEventListener('pointerenter', ({ pointerType }) => {
+          if (pointerType !== 'touch') {
+            hoveredEffectId = effect.id;
+            renderStatusTooltip();
+          }
+        });
+        node.addEventListener('pointerleave', ({ pointerType }) => {
+          if (pointerType !== 'touch' && hoveredEffectId === effect.id && !node.matches(':focus-visible')) {
+            hoveredEffectId = null;
+            renderStatusTooltip();
+          }
+        });
+        node.addEventListener('focus', () => {
+          if (node.matches(':focus-visible')) {
+            hoveredEffectId = effect.id;
+            renderStatusTooltip();
+          }
+        });
+        node.addEventListener('blur', () => {
+          if (hoveredEffectId === effect.id && !node.matches(':hover')) {
+            hoveredEffectId = null;
+            renderStatusTooltip();
+          }
+        });
+        node.addEventListener('click', (event) => {
+          if (event.pointerType === 'touch') {
+            hoveredEffectId = hoveredEffectId === effect.id ? null : effect.id;
+            renderStatusTooltip();
+          }
+        });
+        statusNodes.set(effect.id, node);
+      }
+      if (statusEffects.children[index] !== node) statusEffects.insertBefore(node, statusEffects.children[index] ?? null);
+      const timer = node.lastElementChild;
+      const timerText = effect.seconds + 's';
+      if (timer.textContent !== timerText) timer.textContent = timerText;
+      const label = `${effect.title}, ${effect.seconds} ${effect.seconds === 1 ? 'second' : 'seconds'} remaining`;
+      if (node.getAttribute('aria-label') !== label) node.setAttribute('aria-label', label);
+    }
+    renderStatusTooltip();
+  }
+
+  function updateHook(game) {
+    if (hookSlot) hookSlot.hidden = !hasHook(game);
+  }
 
   function updateRing(game) {
     const equipped = Boolean(actions.getRing());
@@ -106,6 +211,10 @@ export function createUI(actions, version) {
   const flightFaster = byId('flight-faster');
   flightSlower.addEventListener('click', () => actions.adjustFlightSpeed(-1));
   flightFaster.addEventListener('click', () => actions.adjustFlightSpeed(1));
+  const weatherControl = byId('weather-control');
+  const weatherValue = byId('weather-value');
+  byId('weather-prev').addEventListener('click', () => actions.adjustWeather(-1));
+  byId('weather-next').addEventListener('click', () => actions.adjustWeather(1));
   const shadows = byId('hide-cave-shadows');
   shadows.addEventListener('click', () => {
     const hidden = shadows.getAttribute('aria-pressed') !== 'true';
@@ -130,11 +239,15 @@ export function createUI(actions, version) {
     godMode(enabled) {
       godMode.setAttribute('aria-pressed', String(enabled));
       flightSpeed.hidden = !enabled;
+      weatherControl.hidden = !enabled;
     },
     setFlightSpeed(multiplier, atMinimum, atMaximum) {
       flightSpeedValue.value = 'Speed ' + multiplier + '×';
       flightSlower.disabled = atMinimum;
       flightFaster.disabled = atMaximum;
+    },
+    setWeather(label) {
+      weatherValue.value = label;
     },
     close: (id) => byId(id).close(),
     activePanel: () => panels.find((panel) => panel.open)?.id,
@@ -189,6 +302,8 @@ export function createUI(actions, version) {
     },
     update(game, conditions) {
       updateRing(game);
+      updateHook(game);
+      updateStatusEffects(game);
       setText('world-conditions', (conditions.night ? 'Night' : 'Day') + ' · ' + (conditions.rain > 0.08 ? 'Rain' : 'Clear'));
       const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';
@@ -200,7 +315,7 @@ export function createUI(actions, version) {
       const zone = isDryIslandCave(column, row)
         ? (row >= ISLAND_DEEPSTONE_ROW ? 'UNDERGROUND' : 'CAVES')
         : isDryJungleCave(column, row)
-          ? (row >= 245 ? 'SANCTUM' : row >= JUNGLE_CAVE.deepstoneRow ? 'TEMPLE' : 'JUNGLE CAVE')
+          ? (row >= 412 ? 'SANCTUM' : row >= JUNGLE_CAVE.deepstoneRow ? 'TEMPLE' : 'JUNGLE CAVE')
           : 'DEPTH';
       setText('depth-label', zone);
       setText('health-label', healthValue);

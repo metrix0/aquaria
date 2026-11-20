@@ -1,9 +1,18 @@
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
+import { TILE } from './world/generation.js';
 
 export const HOTBAR_SIZE = 4;
 export const BACKPACK_SIZE = 24;
 
 export const ROOT_RING = { id: 'root-ring', name: 'Root ring', cooldown: 18, description: 'A living knot from the grove. It remembers what trespassers sound like.' };
+export const GRAPPLING_HOOK = {
+  id: 'grappling-hook',
+  name: 'Grappling hook',
+  range: 18 * TILE,
+  speed: 480,
+  pullSpeed: 330,
+  description: 'An iron-clawed climber’s line. Fires where you aim and hauls you to solid rock.',
+};
 
 export const ITEMS = {
   [BROKEN_PICKAXE.id]: {
@@ -16,6 +25,7 @@ export const ITEMS = {
     name: 'Iron pickaxe', description: 'Miners say you can hear it grinning in the dark.', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime,
   },
   [ROOT_RING.id]: ROOT_RING,
+  [GRAPPLING_HOOK.id]: GRAPPLING_HOOK,
   'explorers-map': { name: 'Weathered explorer’s map', description: 'The ink survived the sea. The warnings in the margins nearly didn’t.' },
   [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },
   [CAPTAINS_CUTLASS.id]: {

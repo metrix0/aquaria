@@ -357,7 +357,8 @@ export function createCharacterRenderer(ctx) {
     }
 
     ctx.save();
-    if (player.hurt > 0 && Math.floor(player.hurt * 14) % 2 === 1) ctx.globalAlpha = 0.65;
+    const flashTimer = player.hurt > 0 ? player.hurt : (player.confusedGrace ?? 0);
+    if (flashTimer > 0 && Math.floor(flashTimer * 14) % 2 === 1) ctx.globalAlpha = 0.65;
     const jitter = (player.stun ?? 0) > 0 && !reducedMotion ? Math.round(Math.sin(time * 48)) : 0;
     ctx.translate(Math.round(player.x) + jitter, pixelY);
     const drawElectricStun = (cy) => {

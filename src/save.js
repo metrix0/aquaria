@@ -1,5 +1,5 @@
 import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
-import { ROOT_RING } from './inventory.js';
+import { GRAPPLING_HOOK, ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
@@ -62,6 +62,7 @@ export function decodeSave(data) {
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
     progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null,
+      hands: gear.hands === GRAPPLING_HOOK.id ? gear.hands : null,
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot, ...(krakenChest ? { krakenChest } : {}) },
   };
@@ -86,6 +87,7 @@ export function encodeSave(game, saveTerrain = true) {
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
     progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}),
+      ...(progress.hands ? { hands: progress.hands } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),

@@ -1,11 +1,13 @@
 import { Inventory, ITEMS } from './inventory.js';
 import { ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
+import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
+import { wakeMimic } from './gameplay/enemies/mimic.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, playerHeadInWater, playerInWater, toggleGodMode } from './gameplay/player.js';
+import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
-import { worldConditions } from './environment.js';
+import { WEATHER_MODES, worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
@@ -39,6 +41,7 @@ let miningSwing = null;
 let craftingBench;
 let selected = 0;
 let flightSpeedIndex = flightSpeedLevels.indexOf(1);
+let weatherModeIndex = 0;
 let count = 1;
 let time = 0;
 let drowning = 0;
@@ -308,6 +311,13 @@ const ui = createUI({
     flightSpeedIndex = clamp(flightSpeedIndex + step, 0, last);
     ui.setFlightSpeed(flightSpeedLevels[flightSpeedIndex], flightSpeedIndex === 0, flightSpeedIndex === last);
   },
+  adjustWeather(step) {
+    if (!game.player.flightOrigin) return;
+    weatherModeIndex = (weatherModeIndex + step + WEATHER_MODES.length) % WEATHER_MODES.length;
+    const mode = WEATHER_MODES[weatherModeIndex];
+    ui.setWeather(mode.label);
+    ui.notify('Weather: ' + mode.label + (mode.id === 'auto' ? ' (natural cycle)' : ''));
+  },
   getInventory: () => game.inventory,
   getChest: (id) => game.chests.get(id),
   canMoveInventory: () => !editPending,
@@ -316,6 +326,7 @@ const ui = createUI({
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
+  getHands: () => equippedHook(game),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
@@ -341,21 +352,47 @@ const input = bindInput(canvas, camera, {
     if (editPending) return;
     const item = nearestItem(game);
     if (item?.kind === WORKBENCH.id) ui.open('craft-panel', item);
-    else if (item) ui.open('backpack-panel', item);
+    else if (item?.kind === 'mimic') {
+      if (wakeMimic(game.world, item.mob, game.player, game.effects)) {
+        for (const effect of game.effects) emitEffect(effect);
+        game.effects.length = 0;
+      }
+    } else if (item) ui.open('backpack-panel', item);
+    else this.useHook();
+  },
+  useHook() {
+    if (editPending) return;
+    const { pointer } = input;
+    const shot = pointer.active
+      ? useGrapplingHook(game, pointer.x + camera.x, pointer.y + camera.y)
+      : useGrapplingHook(game);
+    if (shot) game.dirty = true;
   },
   interactAtPointer() {
     const { pointer } = input;
     const chest = chestAt(game, pointer.x + camera.x, pointer.y + camera.y);
     if (!chest) return false;
+    if (chest.kind === 'mimic') {
+      if (editPending) return true;
+      if (wakeMimic(game.world, chest.mob, game.player, game.effects)) {
+        for (const effect of game.effects) emitEffect(effect);
+        game.effects.length = 0;
+      }
+      return !ITEMS[game.inventory.hotbar[selected]?.id]?.weapon;
+    }
     if (!editPending) ui.open('backpack-panel', chest);
     return true;
   },
   castRing() {
     if (editPending) return;
-    if (useRootRing(game)) storeProgress();
+    const { pointer } = input;
+    const cast = pointer.active
+      ? useRootRing(game, pointer.x + camera.x, pointer.y + camera.y)
+      : useRootRing(game);
+    if (cast) storeProgress();
   },
   fend() {
-    if (editPending || game.player.stun > 0) return false;
+    if (editPending || playerImmobilized(game.player)) return false;
     const { pointer } = input;
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
@@ -515,7 +552,7 @@ function frame(now) {
     game.dirty = true;
   }
   const worldTime = room?.worldAge(now) ?? game.worldTime;
-  const conditions = worldConditions(worldTime, game.weatherSeed);
+  const conditions = worldConditions(worldTime, game.weatherSeed, WEATHER_MODES[weatherModeIndex].id);
   let shake = { x: 0, y: 0 };
   if (playing) {
     time += dt;
@@ -547,7 +584,7 @@ function frame(now) {
       if (miningSwing.phase >= 1) miningSwing = null;
     }
     const heldItem = game.inventory.hotbar[selected]?.id;
-    if (game.player.stun > 0) {
+    if (playerImmobilized(game.player)) {
       input.stopMining();
       miningSwing = null;
     } else if (game.attack) {
@@ -579,7 +616,7 @@ function frame(now) {
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
-    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave,
+    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
   });

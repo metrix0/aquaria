@@ -11,7 +11,29 @@ function smoothStep(progress) {
   return t * t * (3 - 2 * t);
 }
 
-export function worldConditions(seconds, weatherSeed) {
+export const WEATHER_MODES = Object.freeze([
+  { id: 'auto', label: 'Auto' },
+  { id: 'day', label: 'Day', night: false, skyProgress: .5, darkness: 0, rain: 0, rainSlope: 0 },
+  { id: 'dusk', label: 'Dusk', night: false, skyProgress: .95, darkness: .35, rain: 0, rainSlope: 0 },
+  { id: 'night', label: 'Night', night: true, skyProgress: .5, darkness: 1, rain: 0, rainSlope: 0 },
+  { id: 'dawn', label: 'Dawn', night: false, skyProgress: .05, darkness: 0, rain: 0, rainSlope: 0 },
+  { id: 'rain', label: 'Rain', night: false, skyProgress: .5, darkness: 0, rain: 1, rainSlope: .28 },
+  { id: 'storm', label: 'Storm', night: true, skyProgress: .5, darkness: 1, rain: 1, rainSlope: -.38 },
+]);
+
+export function worldConditions(seconds, weatherSeed, mode = 'auto') {
+  if (mode && mode !== 'auto') {
+    const preset = WEATHER_MODES.find((entry) => entry.id === mode);
+    if (preset) {
+      return {
+        night: preset.night,
+        skyProgress: preset.skyProgress,
+        darkness: preset.darkness,
+        rain: preset.rain,
+        rainSlope: preset.rainSlope,
+      };
+    }
+  }
   const phase = seconds % cycleSeconds;
   const night = phase >= daySeconds;
   const dusk = (phase - daySeconds + twilightSeconds) / twilightSeconds;

@@ -16,9 +16,12 @@ import { skeletonArcherSpec, stepCaveArrow, stepSkeletonArcher } from './enemies
 import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.js';
 import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies/cave-scorpion.js';
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
+import { mimicSpec, stepMimic, wakeMimic } from './enemies/mimic.js';
 import { cannibalBowSpec, cannibalSpearSpec, stepCannibalBow, stepCannibalSpear } from './enemies/cannibal.js';
 import { aggroJungleCult, frogCultistSpec, idolFacing, stepFrogCultist } from './enemies/frog-cultist.js';
 import { jungleWormSpec, stepJungleWorm } from './enemies/jungle-worm.js';
+import { nativeShamanSpec, stepNativeShaman, stepShamanSkull } from './enemies/jungle-shaman.js';
+import { caveFrogSpec, stepCaveFrog } from './enemies/cave-frog.js';
 
 export { jellyfishShockRadius };
 
@@ -41,11 +44,14 @@ const caveEnemyModules = {
   miner: { spec: skeletalMinerSpec, step: stepSkeletalMiner },
   scorpion: { spec: caveScorpionSpec, step: stepCaveScorpion },
   hammer: { spec: hammerSkeletonSpec, step: stepHammerSkeleton },
+  mimic: { spec: mimicSpec, step: stepMimic },
 };
 
 const jungleEnemyModules = {
   'cannibal-spear': { spec: cannibalSpearSpec, step: stepCannibalSpear },
   'cannibal-bow': { spec: cannibalBowSpec, step: stepCannibalBow },
+  shaman: { spec: nativeShamanSpec, step: stepNativeShaman },
+  'cave-frog': { spec: caveFrogSpec, step: stepCaveFrog },
   frog: { spec: frogCultistSpec, step: stepFrogCultist },
   worm: { spec: jungleWormSpec, step: stepJungleWorm },
 };
@@ -100,6 +106,9 @@ export function stepCaveHazard(world, player, hazard, dt, effects) {
   if (hazard.kind === 'cave-arrow') {
     return stepCaveArrow(world, player, hazard, dt, effects);
   }
+  if (hazard.kind === 'shaman-skull') {
+    return stepShamanSkull(world, player, hazard, dt, effects);
+  }
   return stepScorpionVenom(world, player, hazard, dt, effects);
 }
 
@@ -108,7 +117,7 @@ function stepProjectiles(world, player, dt, time, effects) {
 
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const projectile = world.projectiles[i];
-    if (projectile.kind === 'cave-arrow' || projectile.kind === 'venom') {
+    if (projectile.kind === 'cave-arrow' || projectile.kind === 'venom' || projectile.kind === 'shaman-skull') {
       if (atPeace(player.x, player.y + 11) && Math.abs(projectile.x - player.x) < 350) {
         world.projectiles.splice(i, 1);
         continue;
@@ -144,7 +153,43 @@ export function syncMobs(world, player) {
   }
 }
 
+function syncCannibalForms(world, night, effects) {
+  for (const mob of world.mobs) {
+    if (mob.kind === 'cannibal-spear' || mob.kind === 'cannibal-bow') {
+      mob.dayKind ??= mob.kind;
+    }
+    if (!mob.dayKind) continue;
+    const targetKind = night ? 'frog' : mob.dayKind;
+    if (mob.kind === targetKind) continue;
+    const nextSpec = mobSpecs[targetKind];
+    if (!nextSpec) continue;
+    const prevMax = mob.maxHealth || mobSpecs[mob.kind]?.maxHealth || nextSpec.maxHealth;
+    const wasAlive = mob.health > 0 && !(mob.respawn > 0);
+    mob.kind = targetKind;
+    mob.maxHealth = nextSpec.maxHealth;
+    mob.health = wasAlive ? Math.max(1, Math.round((mob.health / prevMax) * nextSpec.maxHealth)) : 0;
+    mob.windup = 0;
+    mob.spearThrust = null;
+    mob.spearHit = false;
+    mob.clawSlash = null;
+    mob.clawHit = false;
+    mob.leapCooldown = 0;
+    mob.praying = false;
+    mob.cultAggro = targetKind === 'frog';
+    if (wasAlive) {
+      effects?.push({
+        x: mob.x,
+        y: mob.y - 12,
+        color: targetKind === 'frog' ? '#7cb356' : '#d95c48',
+        count: 10,
+        spread: 48,
+      });
+    }
+  }
+}
+
 export function stepMobs(world, player, dt, time, mining, night, enemies, effects) {
+  syncCannibalForms(world, night, effects);
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) =>
     atPeace(x, y) || fishCollides(world, player, x, y),
   );
@@ -181,7 +226,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           rooted: 0,
           rootLift: 0,
           health: mob.maxHealth,
-          grounded: mob.kind === 'crab',
+          grounded: mob.kind === 'crab' || mob.kind === 'mimic',
+          awakened: false,
+          biteHit: false,
           attackTimer: 1.4 + (mob.phase % 1.5),
           windup: 0,
           minerSwing: null,
@@ -189,11 +236,13 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           spearHit: false,
           clawSlash: null,
           clawHit: false,
-          biteHit: false,
+          tongue: null,
+          biteTimer: 0,
+          leapCooldown: 0,
           segments: null,
-          praying: mob.kind === 'frog' && !world.jungleCultAggro,
-          cultAggro: mob.kind === 'frog' && Boolean(world.jungleCultAggro),
-          facing: mob.kind === 'frog' ? idolFacing(mob.homeX) : (mob.facing ?? 1),
+          praying: mob.kind === 'frog' && !mob.dayKind && !world.jungleCultAggro,
+          cultAggro: mob.kind === 'frog' && (Boolean(mob.dayKind) || Boolean(world.jungleCultAggro)),
+          facing: mob.kind === 'mimic' ? 1 : mob.kind === 'frog' && !mob.dayKind ? idolFacing(mob.homeX) : (mob.facing ?? 1),
           jumpCooldown: 0,
           airDx: 0,
           dash: 0,
@@ -306,9 +355,10 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     const force = knockback ?? (mob.kind === 'shark' ? 85 : 115);
     mob.dx = Math.cos(angle) * force;
     mob.dy = Math.sin(angle) * (force * 0.75);
-    mob.flee = mob.kind === 'shark' ? 0.65 : mob.kind === 'cannibal-spear' ? 0.55 : mob.kind === 'frog' ? 0.32 : 1.6;
+    mob.flee = mob.kind === 'shark' ? 0.65 : mob.kind === 'cannibal-spear' ? 0.55 : mob.kind === 'frog' ? 0.32 : mob.kind === 'mimic' ? 0.22 : 1.6;
     mob.cooldown = Math.max(mob.cooldown ?? 0, 0.9);
-    if (mob.kind === 'frog') aggroJungleCult(world);
+    if (mob.kind === 'frog' && !mob.dayKind) aggroJungleCult(world);
+    if (mob.kind === 'mimic' && !mob.awakened) wakeMimic(world, mob, null, effects);
   }
 
   const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
@@ -380,6 +430,10 @@ export function resetHostiles(world) {
   removeKrakenMinions(world);
   for (const mob of world.mobs) {
     if ((seaEnemySpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
+      if (mob.dayKind && mob.kind !== mob.dayKind) {
+        mob.kind = mob.dayKind;
+        mob.maxHealth = mobSpecs[mob.dayKind].maxHealth;
+      }
       Object.assign(mob, {
         x: mob.homeX,
         y: mob.homeY,
@@ -397,11 +451,15 @@ export function resetHostiles(world) {
         spearHit: false,
         clawSlash: null,
         clawHit: false,
+        tongue: null,
+        biteTimer: 0,
         biteHit: false,
+        awakened: false,
+        leapCooldown: 0,
         segments: null,
-        praying: mob.kind === 'frog',
+        praying: mob.kind === 'frog' && !mob.dayKind,
         cultAggro: false,
-        facing: mob.kind === 'frog' ? idolFacing(mob.homeX) : (mob.facing ?? 1),
+        facing: mob.kind === 'mimic' ? 1 : mob.kind === 'frog' && !mob.dayKind ? idolFacing(mob.homeX) : (mob.facing ?? 1),
         jumpCooldown: 0,
         airDx: 0,
         dash: 0,
