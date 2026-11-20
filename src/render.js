@@ -292,10 +292,10 @@ export function createRenderer(canvas) {
       width,
       surface,
       [
-        [0, "#35536a"],
-        [0.43, "#62848a"],
-        [0.77, "#a9a28e"],
-        [1, "#ebbf8c"],
+        [0, "#30485e"],
+        [0.43, "#4d6d7a"],
+        [0.77, "#788783"],
+        [1, "#b0a387"],
       ],
       -camera.y,
       surface,
@@ -365,23 +365,23 @@ export function createRenderer(canvas) {
     } else {
       const sunY = Math.round(surface + 20 - 178 * altitude);
       ctx.globalAlpha = 1 - rain * 0.66;
-      const glow = ctx.createRadialGradient(bodyX, sunY, 5, bodyX, sunY, 130);
+      const glow = ctx.createRadialGradient(bodyX, sunY, 5, bodyX, sunY, 94);
       for (const [position, color] of [
-        [0, "#ffdea4aa"],
-        [0.31, "#ffcb8e36"],
-        [1, "#ffca8600"],
+        [0, "#f6cf9299"],
+        [0.34, "#eeb87c3c"],
+        [1, "#eeb87c00"],
       ])
         glow.addColorStop(position, color);
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, width, surface);
-      for (let row = -24; row < 24; row += 2) {
-        const radius = Math.floor(Math.sqrt(24 * 24 - row * row));
+      for (let row = -20; row < 20; row += 2) {
+        const radius = Math.floor(Math.sqrt(400 - row * row));
         rect(
           bodyX - radius,
           sunY + row,
           radius * 2,
           2,
-          row < 6 ? "#f8dca5" : "#efc692",
+          row < 6 ? "#f5d5a3" : "#e8bb8d",
         );
       }
     }
@@ -3091,10 +3091,7 @@ export function createRenderer(canvas) {
     if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
     ctx.restore();
 
-    // Rain keeps a softer daytime atmosphere without washing out the world colors.
-    // Night storms retain the same darkness as before.
-    const rainShade = conditions.rain * (0.08 + conditions.darkness * 0.13);
-    const shade = conditions.darkness * 0.48 + rainShade;
+    const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
     if (shade > 0) {
       ctx.save();
       ctx.globalAlpha = shade;
