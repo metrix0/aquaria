@@ -101,6 +101,7 @@ export function resetRoomProgress(previous) {
   }
   world.items = world.items.filter((item) => world.fixtureIds.has(item.id));
   world.mobs = generateMobs();
+  world.ambientCells?.clear();
   world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
   syncMobs(world, player);

@@ -1,4 +1,6 @@
 import { inWater, solidAt } from '../world.js';
+import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
+import { ambientMobSpecs, stepAmbientMob } from './ambient-fauna.js';
 import { TILE, WEST_EXTENSION } from '../world/generation.js';
 import { isCaveRefuge } from '../world/island-cave.js';
 
@@ -71,6 +73,7 @@ const seaEnemySpecs = Object.fromEntries(
 );
 
 const mobSpecs = {
+  ...ambientMobSpecs,
   crab: crabSpec,
   fish: fishSpec,
   ...seaEnemySpecs,
@@ -149,7 +152,7 @@ function stepProjectiles(world, player, dt, time, effects) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
-    if (caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
+    if (ambientMobSpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
     } else if (fishCollides(world, player, mob.x, mob.y)) {
@@ -203,6 +206,7 @@ function syncCannibalForms(world, night, effects) {
 }
 
 export function stepMobs(world, player, dt, time, mining, night, enemies, effects) {
+  spawnCaveFaunaNear(world, player);
   syncCannibalForms(world, night, effects);
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) =>
     atPeace(x, y) || fishCollides(world, player, x, y),
@@ -302,7 +306,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     const diffY = (mob.kind === 'crab' ? mob.y - 4 : mob.y) - py;
     const dist = Math.hypot(diffX, diffY) || 1;
 
-    if (caveEnemyModules[mob.kind]) {
+    if (ambientMobSpecs[mob.kind]) {
+      if (Math.abs(mob.x - px) < 900 && Math.abs(mob.y - py) < 700) stepAmbientMob(world, mob, dt);
+    } else if (caveEnemyModules[mob.kind]) {
       stepCaveEnemy(world, player, mob, dt, effects);
     } else if (jungleEnemyModules[mob.kind]) {
       jungleEnemyModules[mob.kind].step(world, player, mob, dt, effects);
@@ -354,6 +360,11 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     mob.dy *= 0.65;
     mob.flee = 0;
     mob.aggroTimer = 5;
+  } else if (ambientMobSpecs[mob.kind]) {
+    mob.facing = dir;
+    mob.dx = dir * Math.min(knockback ?? 65, 65);
+    mob.dy = mob.kind === 'ambient-bat' ? Math.sin(angle) * 35 : 0;
+    mob.flee = .7;
   } else if (mob.kind === 'crab') {
     mob.facing = dir;
     mob.dx = dir * (knockback ?? 95);
@@ -397,8 +408,8 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       y: cy,
       material: spec.material,
       color: spec.color,
-      count: 14,
-      spread: 72,
+      count: ambientMobSpecs[mob.kind] ? 4 : 14,
+      spread: ambientMobSpecs[mob.kind] ? 22 : 72,
       message: 'Defeated ' + label + '!',
     };
   } else {
@@ -407,8 +418,8 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       y: cy,
       material: spec.material,
       color: spec.color,
-      count: mob.kind === 'squid' ? 12 : 7,
-      spread: 58,
+      count: ambientMobSpecs[mob.kind] ? 3 : mob.kind === 'squid' ? 12 : 7,
+      spread: ambientMobSpecs[mob.kind] ? 22 : 58,
       message: 'Hit ' + label + ' (' + mob.health + '/' + mob.maxHealth + ' HP)',
     };
   }

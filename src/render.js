@@ -12,7 +12,7 @@ import {
   isDungeonMasonry,
 } from "./world/island-cave.js";
 import { drawCaveEnemy } from "./cave-enemy-art.js";
-import { drawCaveAmbience } from './cave-ambient-art.js';
+import { drawCaveAmbienceMob } from './cave-ambient-art.js';
 import { createCharacterRenderer } from "./character.js";
 import { MATERIAL, ORE_MATERIALS } from "./content.js";
 import { jellyfishShockRadius } from "./gameplay/enemies/jellyfish.js";
@@ -1997,7 +1997,9 @@ export function createRenderer(canvas) {
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0)
         ctx.globalAlpha = 0.6;
 
-      if (mob.kind === "ghost") {
+      if (mob.kind === 'ambient-ant' || mob.kind === 'ambient-spider' || mob.kind === 'ambient-bat') {
+        drawCaveAmbienceMob(ctx, mob, time, reducedMotion);
+      } else if (mob.kind === "ghost") {
         ctx.scale(mob.facing, 1);
         ctx.globalAlpha *= mob.resident
           ? 0.82
@@ -3103,7 +3105,6 @@ export function createRenderer(canvas) {
     caveTraps(world, camera, elapsed);
     drawRootWave(rootWave, player);
     drawHook(hook, player);
-    if (!overview) drawCaveAmbience(ctx, world, camera, time, player, reducedMotion);
     mobs(world, camera, time, targetMob, player, reducedMotion);
     projectiles(world, camera, time);
     arrows(playerArrows, camera);
