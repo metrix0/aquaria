@@ -50,34 +50,24 @@ function thorn(polygon, [x, y], side, size) {
 
 export function drawRootTrail(polygon, wave, player) {
   const { x, y, facing, length } = wave;
-  const dirX = wave.dirX ?? facing;
-  const dirY = wave.dirY ?? 0;
-  const perpX = -dirY;
-  const perpY = dirX;
   const startX = player.x;
   const startY = player.y + player.height * .66;
   // Bend the near end with the player while the leading tip follows the cast.
-  const joinDistance = Math.min(length, Math.max(24, (startX - x) * dirX + (startY - y) * dirY + 16));
+  const joinDistance = Math.min(length, Math.max(24, (startX - x) * facing + 16));
   for (const side of [-1, 1]) {
     const points = [[startX, startY]];
     for (let start = 0; start < length; start += 6) {
       const end = Math.min(length, start + 6);
       const follow = Math.max(0, 1 - end / joinDistance);
       const curl = side * (3 + 3 * Math.sin(end * .09)) * Math.min(1, end / 10);
-      points.push([
-        x + end * dirX + perpX * curl + (startX - x) * follow,
-        y + end * dirY + perpY * curl + (startY - y) * follow,
-      ]);
+      points.push([x + end * facing + (startX - x) * follow, y + curl + (startY - y) * follow]);
     }
     tendril(polygon, points, 1.8, side < 0 ? '#6b9955' : '#446238', side < 0 ? '#94c373' : '#577c44');
     for (let i = 1; i < points.length; i += 3) {
       if (length - (i - 1) * 6 <= 3) break;
       const [tipX, tipY] = points[i];
-      polygon([
-        [tipX, tipY],
-        [tipX - dirX * 8 + perpX * side * 8, tipY - dirY * 8 + perpY * side * 8],
-        [tipX - dirX * 5 + perpX * side * 2, tipY - dirY * 5 + perpY * side * 2],
-      ], side < 0 ? '#b1d48b' : '#769c58');
+      polygon([[tipX, tipY], [tipX - facing * 8, tipY + side * 8],
+        [tipX - facing * 5, tipY + side * 2]], side < 0 ? '#b1d48b' : '#769c58');
     }
   }
 }

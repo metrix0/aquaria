@@ -405,10 +405,7 @@ const input = bindInput(canvas, camera, {
   },
   castRing() {
     if (editPending) return;
-    const { pointer } = input;
-    const cast = pointer.active
-      ? useRootRing(game, pointer.x + camera.x, pointer.y + camera.y)
-      : useRootRing(game);
+    const cast = useRootRing(game);
     if (cast) storeProgress();
   },
   fend() {
