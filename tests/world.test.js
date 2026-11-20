@@ -637,7 +637,7 @@ test('the root wave stops at rock and damages the first enemy only after lifting
   assert.equal(mob.rooted, 0);
 });
 
-test('the root wave travels toward the mouse pointer even when the character faces away', () => {
+test('the root wave follows the character facing direction, ignoring cursor coordinates', () => {
   const game = createGame();
   const { player, world } = game;
   game.progress.ring = 'root-ring';
@@ -650,14 +650,14 @@ test('the root wave travels toward the mouse pointer even when the character fac
   const westHp = westMob.health;
   const eastHp = eastMob.health;
 
-  // Player faces east (+1), aim pointer diagonally up-left toward westMob.
+  // Deliberately provide a westward cursor target: casting must still go east.
   assert.equal(useRootRing(game, westMob.x, westMob.y - 12), true);
-  assert.equal(game.rootWave.facing, -1);
-  assert.ok(game.rootWave.dirX < -0.9);
+  assert.equal(game.rootWave.facing, 1);
+  assert.equal(game.rootWave.dirX, undefined);
   for (let i = 0; i < 60; i++) stepGame(game, {}, 1 / 60);
 
-  assert.equal(westMob.health, westHp - 3);
-  assert.equal(eastMob.health, eastHp);
+  assert.equal(westMob.health, westHp);
+  assert.equal(eastMob.health, eastHp - 3);
   assert.equal(player.facing, 1);
 });
 
