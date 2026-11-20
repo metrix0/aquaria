@@ -36,7 +36,7 @@ export function createWorld() {
     caveTraps: [...islandTraps, ...jungleCaveTraps].map(([kind, column, ty], index) => ({
       kind, tx: column + WEST_EXTENSION, ty, phase: index * .76, timer: 0, state: 'armed',
     })),
-    caveClimbs: [...caveClimbs, ...jungleCaveClimbs].map(([column, top, bottom, kind, path]) => ({ tx: column + WEST_EXTENSION, top, bottom, kind, path: path.map((x) => x + WEST_EXTENSION) })),
+    caveClimbs: [...caveClimbs, ...jungleCaveClimbs].map(([column, top, bottom, kind]) => ({ tx: column + WEST_EXTENSION, top, bottom, kind })),
     caveStructures: structures,
     mineDecks: structures.filter(({ kind }) => Object.hasOwn(mineDecks, kind)),
     projectiles: [],

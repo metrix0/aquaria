@@ -24,42 +24,54 @@ import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
 import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
 
-test('cave climbs follow natural cliff edges without carving a straight shaft', () => {
+test('climbs hang straight down from real ledge edges without carved terrain', () => {
   const world = createWorld();
-  assert.ok(world.caveClimbs.length >= 19);
+  assert.ok(world.caveClimbs.length >= 16, 'most tiers have a usable edge');
   for (const { tx, top, bottom, path } of world.caveClimbs) {
-    assert.equal(path.length, bottom - top + 1);
-    for (let i = 0; i < path.length; i++) {
-      const row = top + i;
-      const x = path[i];
-      if (i < path.length - 1) assert.equal(tileAt(world, x, row), MATERIAL.air,
-        `route ${tx - WEST_EXTENSION} blocked at ${x - WEST_EXTENSION},${row}`);
-      const wallDistance = Array.from({ length: 4 }, (_, d) => d + 1)
-        .find((d) => tileAt(world, x - d, row) || tileAt(world, x + d, row));
-      assert.ok(wallDistance, `climb at ${x - WEST_EXTENSION},${row} is too far from a wall`);
-      if (i) assert.ok(Math.abs(path[i] - path[i - 1]) <= 1, 'no jumping between columns');
+    assert.equal(path, undefined, 'no zigzag path');
+    assert.ok(bottom - top >= 6, 'a usable vertical drop');
+    assert.equal(tileAt(world, tx, top), MATERIAL.air);
+    assert.equal(tileAt(world, tx, top + 1), MATERIAL.air);
+    assert.ok(tileAt(world, tx - 1, top) || tileAt(world, tx + 1, top) ||
+      tileAt(world, tx - 1, top + 1) || tileAt(world, tx + 1, top + 1),
+      'the upper anchor touches an actual ledge edge');
+    for (let y = top; y <= bottom; y++) {
+      assert.equal(tileAt(world, tx, y), MATERIAL.air, 'rope must not intersect rock');
     }
   }
-  assert.notEqual(tileAt(world, WEST_EXTENSION + 334, 98), MATERIAL.air,
-    'the previously excavated straight shaft must remain solid');
 });
 
-test('a sloping jungle rope is climbable without tunneling into rock', () => {
+test('every cave rope and ladder can be descended vertically without touching rock', () => {
   const { world, player } = createGame();
-  const rope = world.caveClimbs.find(({ top }) => top === 66);
-  assert.ok(rope, 'upper western jungle rope is present');
-  Object.assign(player, {
-    x: (rope.path[0] + .5) * TILE,
-    y: rope.top * TILE,
-    dx: 0, dy: 0, grounded: false,
-  });
-  assert.equal(collides(world, player.x, player.y), false);
-  for (let frame = 0; frame < 180; frame++) {
-    movePlayer(world, player, { down: true }, 1 / 60);
+  for (const route of world.caveClimbs) {
+    const originalX = (route.tx + .5) * TILE;
+    Object.assign(player, {
+      x: originalX, y: route.top * TILE, dx: 0, dy: 0,
+      grounded: false, climb: null, stun: 0, confused: 0,
+      neurotoxin: 0, flightOrigin: null,
+    });
+    assert.equal(collides(world, player.x, player.y), false);
+    for (let frame = 0; frame < (route.bottom - route.top + 5) * 18; frame++) {
+      if (player.y / TILE >= route.bottom - 1.6) break;
+      movePlayer(world, player, { down: true }, 1 / 60);
+    }
+    assert.ok(player.y / TILE >= route.bottom - 1.6,
+      `${route.kind} at ${route.tx - WEST_EXTENSION}, ${route.top} is traversable`);
+    assert.equal(player.x, originalX, 'climbing is perfectly vertical');
+    assert.equal(collides(world, player.x, player.y), false);
   }
-  assert.ok(player.y > (rope.top + 12) * TILE, 'climbing progresses downward');
+});
+
+test('a straight cave rope can be climbed without crossing rock', () => {
+  const { world, player } = createGame();
+  const rope = world.caveClimbs.find(({ top, kind }) => kind === 'rope' && top > 50 && top < 85);
+  assert.ok(rope);
+  Object.assign(player, { x: (rope.tx + .5) * TILE, y: rope.top * TILE,
+    dx: 0, dy: 0, grounded: false });
   assert.equal(collides(world, player.x, player.y), false);
-  assert.notEqual(Math.round(player.x / TILE), rope.path[0], 'climbing follows the sloped wall');
+  for (let frame = 0; frame < 140; frame++) movePlayer(world, player, { down: true }, 1 / 60);
+  assert.ok(player.y >= (rope.top + 6) * TILE, 'descend at least 6 blocks');
+  assert.equal(collides(world, player.x, player.y), false);
 });
 
 test('a late ledge jump works briefly and uses up the grace period', () => {
@@ -172,8 +184,8 @@ test('landing in swimmable water and grabbing a rope both break a long fall', ()
 
 test('a climbing character renders both hands and the equipped ring', () => {
   const { world, player } = createGame();
-  const rope = world.caveClimbs.find(({ kind, top }) => kind === 'rope' && top === 66);
-  Object.assign(player, { x: (rope.path[4] + .5) * TILE, y: (rope.top + 4) * TILE });
+  const rope = world.caveClimbs.find(({ kind }) => kind === 'rope');
+  Object.assign(player, { x: (rope.tx + .5) * TILE, y: (rope.top + 4) * TILE });
   movePlayer(world, player, { up: true }, 1 / 60);
   assert.equal(player.climb, rope);
 

@@ -1,5 +1,4 @@
 import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
-import { climbCenterX } from '../world/climb-placement.js';
 import { stepGrapplingHook } from './hook.js';
 import { mineDecks } from '../world/island-cave.js';
 import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
@@ -313,18 +312,13 @@ export function movePlayer(world, player, input, dt) {
   if (hookState === 'latched') return;
   if (hookState === 'jumped') player.waterJump = playerInWater(world, player);
   const canClimb = hookState !== 'jumped' && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
-  const caveRoute = canClimb && world.caveClimbs?.find((route) => {
+  const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
     const hand = player.y + 8;
-    // At overlapping tier boundaries, descend via the next ladder rather
-    // than grabbing a previous rope that already ends at this row.
-    if (down && hand > (route.bottom - .5) * TILE) return false;
-    if (up && hand < (route.top + .5) * TILE) return false;
-    return Math.min(
-      Math.abs(player.x - climbCenterX(route, hand, TILE)),
-      Math.abs(player.x - climbCenterX(route, player.y + player.height, TILE)),
-    ) < 20 &&
-      hand >= route.top * TILE - 12 && hand <= (route.bottom + 1) * TILE + 4 &&
-      !solidAt(world, Math.floor(climbCenterX(route, hand, TILE) / TILE), Math.floor(hand / TILE));
+    // Never grab a climb after passing its end.
+    if (down && hand > (bottom - .5) * TILE) return false;
+    return Math.abs(player.x - (tx + .5) * TILE) < 12 &&
+      hand >= top * TILE - 12 && hand <= (bottom + 1) * TILE + 4 &&
+      !solidAt(world, tx, Math.floor(hand / TILE));
   });
   const shaft = canClimb && !caveRoute && world.mineDecks?.find((structure) => {
     const { tx, floor, kind } = structure;
@@ -347,35 +341,6 @@ export function movePlayer(world, player, input, dt) {
     player.canShortenJump = false;
     player.waterJump = false;
     const climbDistance = player.dy * dt;
-    if (caveRoute) {
-      const nextY = player.y + climbDistance;
-      const centerX = climbCenterX(caveRoute, nextY + 8, TILE);
-      // First stay exactly on the rope. At sharp cliff bends, shift towards
-      // the next rung only if the current position would hit the rock.
-      const aheadX = climbCenterX(caveRoute,
-        nextY + (climbDistance > 0 ? player.height : 0), TILE);
-      let freeX = null;
-      for (const target of [centerX, aheadX]) {
-        for (let offset = 0; offset <= 10 && freeX === null; offset++) {
-          for (const direction of offset ? [1, -1] : [0]) {
-            const probeX = target + direction * offset;
-            if (!collides(world, probeX, nextY, player.height)) {
-              freeX = probeX;
-              break;
-            }
-          }
-        }
-        if (freeX !== null) break;
-      }
-      if (freeX !== null) {
-        player.x = freeX;
-        player.y = nextY;
-        player.grounded = false;
-      } else {
-        player.dy = 0;
-      }
-      return;
-    }
     if (shaft && climbDistance < 0) {
       const deck = shaft.floor * TILE - mineDecks[shaft.kind].at(-1).rise;
       const toDeck = deck - player.height - player.y;

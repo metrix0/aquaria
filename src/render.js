@@ -4,7 +4,6 @@ import { drawCaveStructure } from "./cave-structure-art.js";
 import { JUNGLE_CAVE_STRUCTURE_KINDS, drawJungleWallGlyphs, jungleStructureBounds } from "./jungle-cave-art.js";
 import { drawCannibal, drawJungleVillageStructure, drawNativeShaman } from "./jungle-village-art.js";
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from "./world/jungle-cave.js";
-import { climbCenterX } from "./world/climb-placement.js";
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
@@ -1580,39 +1579,29 @@ export function createRenderer(canvas) {
       }
     }
 
-    for (const route of world.caveClimbs ?? []) {
-      const { top: start, bottom: end, kind } = route;
-      if (start >= bottom || end < top || start >= bottom) continue;
+    for (const { tx, top: start, bottom: end, kind } of world.caveClimbs ?? []) {
+      if (tx < left || tx >= right || start >= bottom || end < top) continue;
+      const x = (tx + .5) * TILE;
       for (let row = Math.max(top, start); row <= Math.min(end, bottom - 1); row++) {
+        if (tileAt(world, tx, row)) continue;
         const y = row * TILE;
-        const x = climbCenterX(route, (row + .5) * TILE, TILE);
-        const nextX = climbCenterX(route, (row + 1.5) * TILE, TILE);
-        if (x < left * TILE - 32 || x > right * TILE + 32) continue;
-        if (tileAt(world, Math.floor(x / TILE), row)) continue;
-        ctx.save();
-        ctx.lineWidth = kind === 'ladder' ? 2 : 3;
-        ctx.strokeStyle = kind === 'ladder' ? '#987457' : '#8c6c53';
-        ctx.beginPath();
         if (kind === 'ladder') {
-          ctx.moveTo(x - 5, y);
-          ctx.lineTo(nextX - 5, y + TILE);
-          ctx.moveTo(x + 5, y);
-          ctx.lineTo(nextX + 5, y + TILE);
+          rect(x - 5, y, 2, TILE, '#987457');
+          rect(x + 4, y, 2, TILE, '#987457');
+          rect(x - 5, y + 4, 11, 2, '#bc9467');
+          rect(x - 5, y + 12, 11, 2, '#bc9467');
         } else {
-          ctx.moveTo(x, y);
-          ctx.lineTo(nextX, y + TILE);
-        }
-        ctx.stroke();
-        ctx.restore();
-        if (kind === 'ladder') {
-          for (const offset of [4, 12]) {
-            const rungX = x + (nextX - x) * offset / TILE;
-            rect(rungX - 5, y + offset, 11, 2, '#bc9467');
-          }
-        } else {
+          rect(x - 1, y, 3, TILE, '#8c6c53');
           rect(x - 1, y + 2, 2, 2, '#d0ad7b');
+          rect(x, y + 10, 2, 2, '#b59368');
         }
-        if (row === start) rect(x - 8, y, 16, 3, '#a17b58');
+        if (row === start) {
+          // Anchor the line to the adjacent solid ledge, not to thin air.
+          const leftLedge = tileAt(world, tx - 1, row) || tileAt(world, tx - 1, row + 1);
+          const rightLedge = tileAt(world, tx + 1, row) || tileAt(world, tx + 1, row + 1);
+          const anchorX = leftLedge ? x - TILE : rightLedge ? x - 1 : x - 8;
+          rect(anchorX, y, leftLedge || rightLedge ? TILE + 2 : 16, 3, '#a17b58');
+        }
       }
     }
     const treeX = (WEST_EXTENSION + ROOT_GROVE.column + .5) * TILE;
