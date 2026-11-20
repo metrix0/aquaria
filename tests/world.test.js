@@ -2,7 +2,7 @@ import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
 import { equippedHook, hasHook, useGrapplingHook } from '../src/gameplay/hook.js';
 import { wakeMimic } from '../src/gameplay/enemies/mimic.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, groveFloor, groveGroundGrowth, groveMossDistance, inRootGrove, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
+import { GROVE_FLOOR_GAP, ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, groveFloor, groveGroundGrowth, groveMossDistance, inRootGrove, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
@@ -481,7 +481,15 @@ test('grove moss spreads sideways while the refuge and water stay unchanged', ()
   assert.ok(groveMossDistance(column, middle + 100) > wallMossReach);
   assert.ok(groveGroundGrowth(column + 90, middle) > groveGroundGrowth(column, middle + 90));
   assert.equal(inRootGrove(column + ROOT_GROVE.radius + 1, middle), false);
-  assert.equal(isDryIslandCave(40, 168), true, 'the rising passage has a slightly higher roof');
+  assert.equal(isDryIslandCave(40, 168), false, 'the earlier roof enlargement was reverted');
+  for (let x = GROVE_FLOOR_GAP.left; x <= GROVE_FLOOR_GAP.right; x++) {
+    for (let y = GROVE_FLOOR_GAP.row; y < GROVE_FLOOR_GAP.row + 3; y++) {
+      assert.equal(isDryIslandCave(x, y), true, `floor gap ${x},${y} is open`);
+    }
+    assert.equal(isDryIslandCave(x, GROVE_FLOOR_GAP.row + 3), true, 'gap connects to lower passage');
+  }
+  assert.equal(isDryIslandCave(GROVE_FLOOR_GAP.left - 1, GROVE_FLOOR_GAP.row), false);
+  assert.equal(isDryIslandCave(GROVE_FLOOR_GAP.right + 1, GROVE_FLOOR_GAP.row), false);
 });
 
 test('the grove river sits one tile deep between dry banks and the satchel', () => {
@@ -495,7 +503,8 @@ test('the grove river sits one tile deep between dry banks and the satchel', () 
   for (let x = column - 17; x <= approach; x++) {
     const bed = groveFloor(x);
     const tx = x + WEST_EXTENSION;
-    assert.ok(tileAt(world, tx, bed));
+    if (x >= GROVE_FLOOR_GAP.left && x <= GROVE_FLOOR_GAP.right) assert.equal(tileAt(world, tx, bed), MATERIAL.air);
+    else assert.ok(tileAt(world, tx, bed));
     assert.ok(Math.abs(bed - groveFloor(x + 1)) <= 1);
     for (let row = bank - 1; row < bed; row++) {
       assert.equal(tileAt(world, tx, row), MATERIAL.air);
@@ -504,7 +513,8 @@ test('the grove river sits one tile deep between dry banks and the satchel', () 
   }
   Object.assign(player, { x: xAt(approach), y: bank * TILE - player.height });
   for (let i = 0; i < 720 && player.x > xAt(column); i++) {
-    movePlayer(world, player, { left: true }, 1 / 60);
+    const nearGap = player.x < xAt(GROVE_FLOOR_GAP.right + 1) && player.x > xAt(GROVE_FLOOR_GAP.left - 4);
+    movePlayer(world, player, { left: true, up: nearGap, jump: nearGap }, 1 / 60);
   }
   assert.ok(player.x <= xAt(column));
   assert.equal(playerInWater(world, player), false);

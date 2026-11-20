@@ -46,7 +46,7 @@ const westCaves = [
   [[-28, 120, 10], [-22, 128, 11], [-17, 135, 11], [-11, 142, 12], [1, 143, 9]],
   [[-20, 142, 9], [-15, 142, 13], [-7, 142, 15], [1, 143, 15], [7, 148, 13],
     [14, 157, 12], [20, 161, 11], [29, 161, 17], [36, 163, 21], [46, 164, 13]],
-  [[10, 192, 11], [20, 192, 16], [30, 190, 15], [40, 179, 12], [46, 169, 11], [48, 164, 11]],
+  [[10, 192, 11], [20, 192, 16], [30, 190, 15], [40, 179, 10], [46, 169, 11], [48, 164, 11]],
   [[-23, 219, 13], [-16, 219, 19], [-7, 215, 16], [3, 204, 13], [10, 192, 11]],
   [[-33, 219, 9], [-26, 219, 15], [-19, 219, 15], [-13, 223, 10], [-8, 229, 12],
     [-1, 235, 15], [11, 240, 17], [21, 241, 12]],
@@ -238,6 +238,14 @@ for (let column = groveGallery[0][0]; column <= groveGallery.at(-1)[0]; column++
     else rows.add(row);
   }
   for (let row = floor; row < floor + 3; row++) rows.delete(row);
+}
+
+// A narrow break in the grassy gallery floor opens into the shallow cave below.
+// Keep it separate from the grove's river, so the rest of the walkway stays dry.
+export const GROVE_FLOOR_GAP = Object.freeze({ left: 4, right: 6, row: ROOT_GROVE.bank });
+for (let x = GROVE_FLOOR_GAP.left; x <= GROVE_FLOOR_GAP.right; x++) {
+  const rows = dryBands.get(x);
+  for (let y = GROVE_FLOOR_GAP.row; y < GROVE_FLOOR_GAP.row + 3; y++) rows.add(y);
 }
 
 const wetBands = makeBands(wetProfiles);
