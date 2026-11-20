@@ -24,6 +24,39 @@ import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
 import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
 
+test('cave ropes and ladders anchor at ledges and remain clear to their exits', () => {
+  const world = createWorld();
+  for (const climb of world.caveClimbs) {
+    const { tx, top, bottom } = climb;
+    for (let row = top - 1; row <= bottom; row++) {
+      assert.equal(tileAt(world, tx, row), MATERIAL.air,
+        `${climb.kind} at (${tx - WEST_EXTENSION}, ${row}) must have a clear passage`);
+    }
+    assert.ok(bottom > top);
+  }
+  // The upper jungle descents used to hang several tiles away from these edges.
+  const western = world.caveClimbs.find(({ top }) => top === 66);
+  const eastern = world.caveClimbs.find(({ top }) => top === 62);
+  assert.equal(western.tx - WEST_EXTENSION, 334);
+  assert.equal(eastern.tx - WEST_EXTENSION, 395);
+});
+
+test('the repositioned jungle rope can be climbed down its shaft', () => {
+  const { world, player } = createGame();
+  const rope = world.caveClimbs.find(({ top }) => top === 62);
+  Object.assign(player, {
+    x: (rope.tx + .5) * TILE,
+    y: (rope.top + .5) * TILE - 8,
+    dx: 0, dy: 0, grounded: false,
+  });
+  assert.equal(collides(world, player.x, player.y), false);
+  for (let frame = 0; frame < 220; frame++) {
+    movePlayer(world, player, { down: true }, 1 / 60);
+  }
+  assert.ok(player.y > (rope.top + 16) * TILE,
+    'the rope should be climbable well below its upper ledge');
+});
+
 test('a late ledge jump works briefly and uses up the grace period', () => {
   const dt = 1 / 60;
   const column = Math.floor(SPAWN.x / TILE);
