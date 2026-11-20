@@ -6,7 +6,7 @@ import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
 import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
-import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs } from '../src/gameplay/mobs.js';
+import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
@@ -2655,4 +2655,95 @@ test('frog cultists pray aligned toward the idol and all aggro to bite and slash
   for (const frog of proxFrogs) assert.equal(frog.cultAggro, true);
   assert.equal(playerHurt, true);
   assert.ok(sawClawSlash || sawBiteDash);
+});
+
+test('jungle cave hosts a segmented Terraria-style worm that burrows through solid walls and damages or takes hits across segments', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    const worms = world.mobs.filter((mob) => mob.kind === 'worm');
+    assert.ok(worms.length >= 2);
+    const worm = worms[0];
+    world.mobs = [worm];
+
+    // Position player on the open mid-cave floor (row 104) above the burrowing worm.
+    Object.assign(player, {
+      x: worm.x - 48,
+      y: 104 * TILE - player.height,
+      dx: 0, dy: 0, grounded: true, hurt: 0, health: 100, oxygen: 100,
+    });
+
+    let sawSolid = false;
+    let sawAir = false;
+    let hitPlayer = false;
+    for (let i = 0; i < 360; i++) {
+      stepGame(game, {}, 1 / 60);
+      const tx = Math.floor(worm.x / TILE);
+      const ty = Math.floor(worm.y / TILE);
+      if (tileAt(world, tx, ty)) sawSolid = true;
+      else sawAir = true;
+      if (player.health < 100) {
+        hitPlayer = true;
+        player.health = 100;
+      }
+      player.oxygen = 100;
+    }
+
+    assert.equal(worm.segments?.length, 12);
+    assert.equal(sawSolid, true, 'worm should burrow through solid cave blocks');
+    assert.equal(sawAir, true, 'worm should emerge into cave background walls');
+    assert.equal(hitPlayer, true, 'worm segments should damage the player on contact');
+
+    // Verify segment spacing follows smoothly behind the head.
+    for (let i = 1; i < worm.segments.length; i++) {
+      const gap = Math.hypot(worm.segments[i - 1].x - worm.segments[i].x, worm.segments[i - 1].y - worm.segments[i].y);
+      assert.ok(gap >= 9 && gap <= 12);
+    }
+
+    // Verify hovering or attacking a trailing tail segment targets and damages the worm.
+    const tail = worm.segments[worm.segments.length - 1];
+    Object.assign(player, { x: tail.x - 14, y: tail.y - player.height / 2, facing: 1 });
+    assert.equal(targetMobAt(game, tail.x, tail.y), worm);
+    grantItem(game, IRON_SWORD.id, 1);
+    const swordSlot = game.inventory.hotbar.findIndex((s) => s?.id === IRON_SWORD.id);
+    const prevHp = worm.health;
+    worm.dx = 0;
+    worm.dy = 0;
+    useWeapon(game, swordSlot >= 0 ? swordSlot : 0, tail.x, tail.y);
+    for (let i = 0; i < 20; i++) stepGame(game, {}, 1 / 60);
+    assert.ok(worm.health < prevHp);
+
+    // Render segmented worm clipped cleanly behind solid terrain without errors.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const canvas = {
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    };
+    const renderer = createRenderer(canvas);
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: worm.x - 160, y: worm.y - 90, width: 320, height: 180 },
+      time: 2, elapsed: 2, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: worm,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
 });

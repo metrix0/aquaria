@@ -36,6 +36,7 @@ export const MOB_HEALTH = Object.freeze({
   spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9,
   'cannibal-spear': 5, 'cannibal-bow': 4,
   frog: 7,
+  worm: 9,
 });
 
 export function noise(x, y = 0, seed = 0) {

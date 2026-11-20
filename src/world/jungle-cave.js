@@ -147,6 +147,8 @@ export const jungleCaveCaches = [
 
 // [id, kind, column, floor, respawnDelay]
 export const jungleCaveMobs = [
+  ['jungle-worm-mid', 'worm', 370, 114, 55],
+  ['jungle-worm-deep', 'worm', 368, 226, 55],
   ['jungle-frog-cultist-1', 'frog', 352, 282, 60],
   ['jungle-frog-cultist-2', 'frog', 358, 282, 60],
   ['jungle-frog-cultist-3', 'frog', 365, 282, 60],

@@ -38,14 +38,19 @@ function reachedEnemy(world, wave, x, y) {
     if ((mob.x - wave.x) * wave.facing <= 0 || mob.health <= 0 || mob.respawn > 0 || mob.kind === 'crab' ||
         (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) return false;
     const spec = mobSpec(mob);
-    if (!spec || Math.abs(x - mob.x) > spec.width / 2) return false;
-    const center = mob.y + spec.centerY;
-    const distance = center - y;
-    if (Math.abs(distance) > spec.height / 2 + 8) return false;
-    for (let reach = 4; reach < Math.abs(distance); reach += 4) {
-      if (blocksRoot(world, x, y + Math.sign(distance) * reach)) return false;
-    }
-    return true;
+    if (!spec) return false;
+    const points = mob.segments?.length
+      ? mob.segments.map((seg) => ({ x: seg.x, y: seg.y, halfW: seg.radius, halfH: seg.radius }))
+      : [{ x: mob.x, y: mob.y + spec.centerY, halfW: spec.width / 2, halfH: spec.height / 2 }];
+    return points.some((pt) => {
+      if ((pt.x - wave.x) * wave.facing <= 0 || Math.abs(x - pt.x) > pt.halfW) return false;
+      const distance = pt.y - y;
+      if (Math.abs(distance) > pt.halfH + 8) return false;
+      for (let reach = 4; reach < Math.abs(distance); reach += 4) {
+        if (blocksRoot(world, x, y + Math.sign(distance) * reach)) return false;
+      }
+      return true;
+    });
   });
 }
 

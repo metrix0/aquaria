@@ -150,7 +150,10 @@ function stepProjectiles(game, dt) {
         if (mob.health <= 0 || mob.respawn > 0) continue;
         const spec = mobSpec(mob);
         if (!spec) continue;
-        if (Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius + 4) {
+        const hit = mob.segments?.length
+          ? mob.segments.some((seg) => Math.hypot(arrow.x - seg.x, arrow.y - seg.y) <= seg.radius + 4)
+          : Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius + 4;
+        if (hit) {
           damageMob(world, mob, arrow.damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects);
           removed = true;
           break;

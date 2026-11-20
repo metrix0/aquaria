@@ -1840,8 +1840,8 @@ export function createRenderer(canvas) {
     for (const mob of world.mobs ?? []) {
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
-      const marginX = mob.kind === "kraken" ? 480 : 32;
-      const marginY = mob.kind === "kraken" ? 2000 : 32;
+      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" ? 150 : 32;
+      const marginY = mob.kind === "kraken" ? 2000 : mob.kind === "worm" ? 150 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)
         continue;
@@ -1917,6 +1917,40 @@ export function createRenderer(canvas) {
           );
           rect(-6, -10, 12, 1, "#b3ede0");
         }
+      } else if (mob.kind === "worm") {
+        // Faint burrowing silhouette through lit rock, full vivid body across open cave walls.
+        ctx.save();
+        ctx.globalAlpha *= 0.24;
+        drawCaveEnemy(ctx, rect, polygon, mob, time);
+        ctx.restore();
+
+        const segs = mob.segments?.length ? mob.segments : [mob];
+        let minX = mob.x;
+        let maxX = mob.x;
+        let minY = mob.y;
+        let maxY = mob.y;
+        for (const seg of segs) {
+          if (seg.x < minX) minX = seg.x;
+          if (seg.x > maxX) maxX = seg.x;
+          if (seg.y < minY) minY = seg.y;
+          if (seg.y > maxY) maxY = seg.y;
+        }
+        const leftTx = Math.floor((minX - 18) / TILE);
+        const rightTx = Math.floor((maxX + 18) / TILE);
+        const topTy = Math.floor((minY - 18) / TILE);
+        const bottomTy = Math.floor((maxY + 18) / TILE);
+        ctx.save();
+        ctx.beginPath();
+        for (let sx = leftTx; sx <= rightTx; sx++) {
+          for (let sy = topTy; sy <= bottomTy; sy++) {
+            if (!tileAt(world, sx, sy)) {
+              ctx.rect(sx * TILE - Math.round(mob.x), sy * TILE - Math.round(mob.y), TILE, TILE);
+            }
+          }
+        }
+        ctx.clip();
+        drawCaveEnemy(ctx, rect, polygon, mob, time);
+        ctx.restore();
       } else if (mob.kind === "cannibal-spear" || mob.kind === "cannibal-bow") {
         drawCannibal(ctx, rect, polygon, mob, time);
       } else if (mob.kind !== "kraken" && mob.respawnDelay) {
@@ -2503,8 +2537,10 @@ export function createRenderer(canvas) {
         const ghost = mob.kind === "ghost";
         const barY = mob.kind === "kraken"
           ? -128
-          : ghost
-          ? -21
+          : mob.kind === "worm"
+            ? -16
+            : ghost
+              ? -21
           : mob.respawnDelay
             ? mob.kind === "spider"
               ? -15

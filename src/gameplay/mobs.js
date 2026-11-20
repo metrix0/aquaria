@@ -18,6 +18,7 @@ import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
 import { cannibalBowSpec, cannibalSpearSpec, stepCannibalBow, stepCannibalSpear } from './enemies/cannibal.js';
 import { aggroJungleCult, frogCultistSpec, idolFacing, stepFrogCultist } from './enemies/frog-cultist.js';
+import { jungleWormSpec, stepJungleWorm } from './enemies/jungle-worm.js';
 
 export { jellyfishShockRadius };
 
@@ -46,6 +47,7 @@ const jungleEnemyModules = {
   'cannibal-spear': { spec: cannibalSpearSpec, step: stepCannibalSpear },
   'cannibal-bow': { spec: cannibalBowSpec, step: stepCannibalBow },
   frog: { spec: frogCultistSpec, step: stepFrogCultist },
+  worm: { spec: jungleWormSpec, step: stepJungleWorm },
 };
 
 export const caveEnemySpecs = Object.fromEntries(
@@ -188,6 +190,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           clawSlash: null,
           clawHit: false,
           biteHit: false,
+          segments: null,
           praying: mob.kind === 'frog' && !world.jungleCultAggro,
           cultAggro: mob.kind === 'frog' && Boolean(world.jungleCultAggro),
           facing: mob.kind === 'frog' ? idolFacing(mob.homeX) : (mob.facing ?? 1),
@@ -282,6 +285,11 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     mob.dx = 0;
     mob.dy = 0;
     mob.flee = 0;
+  } else if (mob.kind === 'worm') {
+    mob.dx *= 0.65;
+    mob.dy *= 0.65;
+    mob.flee = 0;
+    mob.aggroTimer = 5;
   } else if (mob.kind === 'crab') {
     mob.facing = dir;
     mob.dx = dir * (knockback ?? 95);
@@ -350,13 +358,17 @@ export function targetMobAt({ world, player }, wx, wy) {
     if (mob.health <= 0 || mob.respawn > 0) continue;
     const spec = mobSpecs[mob.kind];
     if (!spec) continue;
-    const cy = mob.y + spec.centerY;
-    const pointerDist = Math.hypot(wx - mob.x, wy - cy);
-    const playerDist = Math.hypot(mob.x - player.x, cy - (player.y + 11));
     const maxRange = mob.kind === 'kraken' ? 8 * TILE : 5 * TILE;
-    if (pointerDist <= spec.radius + 12 && playerDist <= maxRange && pointerDist < bestDist) {
-      best = mob;
-      bestDist = pointerDist;
+    const points = mob.segments?.length
+      ? mob.segments.map((seg) => ({ x: seg.x, y: seg.y, r: seg.radius }))
+      : [{ x: mob.x, y: mob.y + spec.centerY, r: spec.radius }];
+    for (const pt of points) {
+      const pointerDist = Math.hypot(wx - pt.x, wy - pt.y);
+      const playerDist = Math.hypot(pt.x - player.x, pt.y - (player.y + 11));
+      if (pointerDist <= pt.r + 12 && playerDist <= maxRange && pointerDist < bestDist) {
+        best = mob;
+        bestDist = pointerDist;
+      }
     }
   }
   return best;
@@ -386,6 +398,7 @@ export function resetHostiles(world) {
         clawSlash: null,
         clawHit: false,
         biteHit: false,
+        segments: null,
         praying: mob.kind === 'frog',
         cultAggro: false,
         facing: mob.kind === 'frog' ? idolFacing(mob.homeX) : (mob.facing ?? 1),

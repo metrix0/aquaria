@@ -98,7 +98,62 @@ function drawFrogCultist(rect, polygon, mob, time) {
   }
 }
 
+function drawJungleWorm(ctx, rect, polygon, mob, time) {
+  const segments = mob.segments?.length ? mob.segments : [{ x: mob.x, y: mob.y, angle: mob.angle ?? 0 }];
+  const chomp = mob.aggroTimer > 0 ? Math.abs(Math.sin(time * 9 + (mob.phase ?? 0))) * 2.5 : 0.6;
+
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const seg = segments[i];
+    ctx.save();
+    ctx.translate(Math.round(seg.x - mob.x), Math.round(seg.y - mob.y));
+    ctx.rotate(seg.angle ?? 0);
+
+    if (i === segments.length - 1) {
+      // Tapered spiky burrow tail
+      polygon([[-9, 0], [-2, -6], [6, -5], [6, 5], [-2, 6]], '#382633');
+      polygon([[-7, 0], [-1, -4], [5, -4], [5, 4], [-1, 4]], '#5e4352');
+      rect(-3, -2, 6, 4, '#9c7b59');
+      rect(-8, -1, 4, 2, '#c7a772');
+    } else if (i > 0) {
+      const taper = Math.max(0.74, 1 - i * 0.022);
+      ctx.scale(taper, taper);
+      const wiggle = (i % 2 ? 1 : -1) * Math.round(Math.sin(time * 12 + i * 0.9) * 1.2);
+      // Side crawling bristles
+      rect(-2, -9 + wiggle, 4, 2, '#9c7b59');
+      rect(-2, 7 - wiggle, 4, 2, '#9c7b59');
+      // Armored ring segment with mossy chitin ridges
+      rect(-7, -7, 14, 14, '#382633');
+      rect(-6, -6, 12, 12, i % 2 === 0 ? '#5d4252' : '#533b4a');
+      rect(-5, -5, 10, 4, '#876866');
+      rect(-4, -3, 7, 6, '#b39463');
+      rect(-2, -1, 4, 2, '#d4b885');
+      if (i % 3 === 1) rect(-4, 2, 4, 3, '#4c7b45');
+    } else {
+      // Head carapace & snapping pincer mandibles
+      polygon([[4, -6 - chomp], [13, -3 - chomp * 0.7], [10, -1], [4, -2]], '#c9bc9f');
+      polygon([[4, 6 + chomp], [13, 3 + chomp * 0.7], [10, 1], [4, 2]], '#c9bc9f');
+      rect(6, -4 - chomp * 0.6, 5, 2, '#eee3cb');
+      rect(6, 2 + chomp * 0.6, 5, 2, '#eee3cb');
+      rect(-8, -8, 15, 16, '#33202d');
+      rect(-7, -7, 13, 14, '#6b4b5a');
+      rect(-6, -6, 10, 5, '#967470');
+      rect(-5, -3, 8, 6, '#b89662');
+      rect(-3, -6, 4, 3, '#4c7b45');
+      // Predatory amber eyes
+      rect(1, -5, 3, 2, '#1a1118');
+      rect(1, 3, 3, 2, '#1a1118');
+      rect(2, -5, 2, 2, '#f7d06b');
+      rect(2, 3, 2, 2, '#f7d06b');
+    }
+    ctx.restore();
+  }
+}
+
 export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
+  if (mob.kind === 'worm') {
+    drawJungleWorm(ctx, rect, polygon, mob, time);
+    return;
+  }
   if (mob.kind === 'frog') {
     ctx.scale(mob.facing, 1);
     drawFrogCultist(rect, polygon, mob, time);

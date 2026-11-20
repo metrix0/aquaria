@@ -71,6 +71,9 @@ export function toolHitbox(x, y, facing, angle, bounds) {
 }
 
 export function overlapsMob(hitbox, mob, spec) {
+  if (mob.segments?.length) {
+    return mob.segments.some((seg) => overlapsMob(hitbox, seg, { width: seg.radius * 2, height: seg.radius * 2, centerY: 0 }));
+  }
   const { x, y, ux, uy, halfWidth, halfHeight } = hitbox;
   const dx = mob.x - x;
   const dy = mob.y + spec.centerY - y;
