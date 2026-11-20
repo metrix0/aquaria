@@ -334,7 +334,7 @@ def sprite(name):
 ITEMS = [
  'root-ring','grappling-hook','explorers-map','kelp-dressing',
  'captains-cutlass','iron-sword','cobalt-spear','spear','copper-spear','bow','arrow',
- 'sand','stone','wood','door','workbench','copper-snorkel','iron-snorkel','cobalt-snorkel',
+ 'door','workbench','copper-snorkel','iron-snorkel','cobalt-snorkel',
  'diving-fin','scrappers-gloves','explorers-anklet','padded-leg-wraps','prospectors-brooch',
  'rusty-metal-scraps','torn-cloth','broken-gears','ancient-coins','glowshroom-torch','rope-bundle',
  'kelp','copper','iron','cobalt','copper-breastplate','iron-breastplate','cobalt-breastplate'

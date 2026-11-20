@@ -1,4 +1,4 @@
-import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING } from './content.js';
+import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING, MATERIAL } from './content.js';
 import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
@@ -29,7 +29,9 @@ function createSlots(container, group, size) {
 export function setItemIcon(icon, id) {
   const item = ITEMS[id] ?? EQUIPMENT_ITEMS[id];
   const appearance = item?.icon ?? id;
-  const sprite = Boolean(appearance && ITEM_ICON_IDS.has(appearance));
+  // Placeable terrain cubes use their original block icon, not a loose-resource sprite.
+  const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench);
+  const sprite = Boolean(!cubeBlock && appearance && ITEM_ICON_IDS.has(appearance));
   icon.className = id ? 'item item-' + appearance : '';
   if (item?.pickaxe) icon.classList.add('item-pickaxe');
   if (sprite) icon.classList.add('item-sprite');

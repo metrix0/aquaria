@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { ITEMS, EQUIPMENT_ITEMS } from '../src/inventory.js';
+import { MATERIAL } from '../src/content.js';
 import { ITEM_ICON_IDS } from '../src/art/items/manifest.js';
 
-test('every non-pickaxe inventory item and equipment piece has a unique transparent 24px PNG sprite', () => {
+test('every non-block, non-pickaxe item and equipment piece has a unique transparent 24px PNG sprite', () => {
   const all = { ...ITEMS, ...EQUIPMENT_ITEMS };
   const required = Object.entries(all)
-    .filter(([, item]) => !item.pickaxe)
+    .filter(([, item]) => !item.pickaxe && (!item.block || item.block === MATERIAL.workbench))
     .map(([id, item]) => item.icon ?? id);
   assert.equal(ITEM_ICON_IDS.size, required.length);
   for (const id of required) {
@@ -19,4 +20,14 @@ test('every non-pickaxe inventory item and equipment piece has a unique transpar
     assert.equal(png.readUInt32BE(20), 24, id + ' should be 24px tall');
     assert.equal(png[25], 6, id + ' should use RGBA transparency');
   }
+});
+
+
+test('placeable terrain cubes keep the original block icons instead of PNG sprites', () => {
+  for (const id of ['sand', 'stone', 'wood']) {
+    assert.ok(ITEMS[id].block, id + ' must be placeable');
+    assert.ok(!ITEM_ICON_IDS.has(id), id + ' must not use a PNG item sprite');
+  }
+  assert.ok(ITEM_ICON_IDS.has('workbench'), 'placeable workbench is not a cube');
+  assert.ok(ITEM_ICON_IDS.has('copper'), 'ores are resources, not placeable cubes');
 });
