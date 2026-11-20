@@ -1,4 +1,4 @@
-import { MOB_HEALTH, WATER } from '../../world/generation.js';
+import { KRAKEN_COLUMN, MOB_HEALTH, TILE, WATER } from '../../world/generation.js';
 
 const species = [
   {
@@ -40,6 +40,34 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
     const x = player.x - facing * (92 + Math.random() * 125);
     const y = Math.max(WATER + 15, player.y + 12 - 60) + Math.random() * 85;
     if (fishCollides(x, y) || mobs.some((mob) => Math.hypot(mob.x - x, mob.y - y) < 56)) continue;
+    const inLionfishBand = x < KRAKEN_COLUMN * TILE && y >= WATER + 20 * TILE && y <= WATER + 80 * TILE;
+    if (inLionfishBand && Math.random() < 0.45) {
+      mobs.push({
+        kind: 'lionfish',
+        enemyType: { name: 'Lionfish' },
+        x,
+        y,
+        facing,
+        dx: 0,
+        dy: 0,
+        flee: 0,
+        cooldown: 0,
+        windup: 0,
+        attackTimer: 1.5,
+        burstCount: 0,
+        homeX: x,
+        homeY: y,
+        span: 32,
+        speed: 22,
+        phase: Math.random() * Math.PI * 2,
+        remainingLife: 40 + Math.random() * 20,
+        maxHealth: MOB_HEALTH.lionfish,
+        health: MOB_HEALTH.lionfish,
+        hurt: 0,
+        respawn: 0,
+      });
+      return;
+    }
     const enemyType = pickEnemyType(night, Math.random());
     mobs.push({
       kind: 'fish', enemyType, x, y, facing, dx: 0, dy: 0, flee: 0,

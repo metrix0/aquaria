@@ -2004,6 +2004,54 @@ export function createRenderer(canvas) {
         drawCannibal(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "shaman") {
         drawNativeShaman(ctx, rect, polygon, mob, time);
+      } else if (mob.kind === "lionfish") {
+        const charging = (mob.windup ?? 0) > 0;
+        const flash = charging && Math.floor(time * 16) % 2 === 0;
+        const puff = charging ? 3 : 0;
+        const bob = charging ? 0 : Math.round(Math.sin(time * 3.4 + mob.phase) * 1);
+        ctx.scale(mob.facing, 1);
+        if (charging) {
+          ctx.save();
+          ctx.globalAlpha *= 0.38 + Math.abs(Math.sin(time * 18)) * 0.28;
+          const haloColor = flash ? "#ff3b6b" : "#b84cff";
+          for (let r = 0; r < 12; r++) {
+            const a = (r / 12) * Math.PI * 2 + time * 4;
+            const d = 12 + puff + (r % 2) * 2;
+            rect(Math.cos(a) * d - 1, Math.sin(a) * d - 1 + bob, 3, 3, haloColor);
+          }
+          ctx.restore();
+        }
+        const dark = flash ? "#9c1942" : "#5e1830";
+        const red = flash ? "#ff426b" : "#c73c4a";
+        const cream = flash ? "#f2b8ff" : "#f0dec2";
+        const tip = charging ? (flash ? "#ffe375" : "#d96bff") : "#b552e6";
+        // Fanning dorsal & pectoral spine plumes
+        for (let s = -2; s <= 2; s++) {
+          const spreadX = s * (3 + puff * 0.6);
+          const dorsalTop = -11 - puff + Math.abs(s);
+          polygon([[s * 2, -2 + bob], [spreadX - 1, dorsalTop + bob], [spreadX + 1, dorsalTop + bob]], s % 2 ? cream : red);
+          rect(spreadX, dorsalTop - 1 + bob, 2, 2, tip);
+          const pectoralBot = 9 + puff - Math.abs(s);
+          polygon([[s * 2, 2 + bob], [spreadX - 2, pectoralBot + bob], [spreadX + 1, pectoralBot + bob]], s % 2 ? dark : cream);
+          rect(spreadX - 1, pectoralBot + bob, 2, 2, tip);
+        }
+        // Tail fin
+        const wag = Math.round(Math.sin(time * 6 + mob.phase) * 1.4);
+        polygon([[-7, -2 + bob], [-12, -5 + wag + bob], [-11, 0 + bob], [-12, 5 + wag + bob], [-7, 2 + bob]], "#8f2744");
+        rect(-12, -3 + wag + bob, 2, 2, cream);
+        rect(-12, 2 + wag + bob, 2, 2, cream);
+        // Striped oval body
+        rect(-7, -4 + bob, 14, 8 + puff * 0.5, dark);
+        rect(-6, -3 + bob, 12, 6, red);
+        rect(-5, -3 + bob, 2, 6, cream);
+        rect(-1, -3 + bob, 2, 6, cream);
+        rect(3, -3 + bob, 2, 6, cream);
+        rect(-3, -3 + bob, 2, 6, "#2c1125");
+        rect(1, -3 + bob, 2, 6, "#2c1125");
+        // Snout & eye
+        rect(5, -2 + bob, 4, 4, red);
+        rect(4, -2 + bob, 2, 2, "#ffe066");
+        rect(5, -2 + bob, 1, 2, "#191528");
       } else if (mob.kind !== "kraken" && mob.respawnDelay) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
@@ -2589,7 +2637,7 @@ export function createRenderer(canvas) {
         const ghost = mob.kind === "ghost";
         const barY = mob.kind === "kraken"
           ? -128
-          : mob.kind === "worm"
+          : mob.kind === "worm" || mob.kind === "lionfish"
             ? -16
             : ghost
               ? -21
@@ -2613,6 +2661,7 @@ export function createRenderer(canvas) {
           mob.kind === "jellyfish" ||
           mob.kind === "squid" ||
           mob.kind === "shark" ||
+          mob.kind === "lionfish" ||
           mob.kind === "kraken",
         );
         rect(barX - 1, barY - 1, barWidth + 2, 4, "#111d2f");
@@ -2637,10 +2686,49 @@ export function createRenderer(canvas) {
     );
     for (const bubble of world.projectiles) {
       if (bubble.kind === "cave-arrow") continue;
-      if (bubble.x < camera.x - 16 || bubble.x > camera.x + camera.width + 16)
+      const margin = bubble.kind === "neurotoxin-cloud" ? 32 : 16;
+      if (bubble.x < camera.x - margin || bubble.x > camera.x + camera.width + margin)
         continue;
-      if (bubble.y < camera.y - 16 || bubble.y > camera.y + camera.height + 16)
+      if (bubble.y < camera.y - margin || bubble.y > camera.y + camera.height + margin)
         continue;
+      if (bubble.kind === "lionfish-spine") {
+        ctx.save();
+        ctx.translate(Math.round(bubble.x), Math.round(bubble.y));
+        ctx.rotate(bubble.angle ?? 0);
+        rect(-5, -1, 10, 2, "#3a142d");
+        rect(-4, -1, 3, 2, "#c73c4a");
+        rect(-1, -1, 2, 2, "#f0dec2");
+        rect(1, -1, 3, 2, "#c85cff");
+        rect(4, 0, 2, 1, "#f4b8ff");
+        ctx.restore();
+        continue;
+      }
+      if (bubble.kind === "neurotoxin-cloud") {
+        const lifeFrac = clamp(bubble.life / (bubble.maxLife || 4.5), 0, 1);
+        const expand = Math.min(1, 0.4 + ((bubble.maxLife - bubble.life) / 0.25) * 0.6);
+        const r = bubble.radius * expand;
+        const fade = lifeFrac < 0.22 ? lifeFrac / 0.22 : 1;
+        ctx.save();
+        ctx.globalAlpha *= 0.62 * fade;
+        // Billowing toxic hazard puffs around the embedded spine
+        for (let p = 0; p < 7; p++) {
+          const a = p * 0.9 + time * 1.1 + (bubble.phase ?? 0);
+          const dist = p === 0 ? 0 : r * (0.34 + (p % 2) * 0.26);
+          const px = Math.round(bubble.x + Math.cos(a) * dist);
+          const py = Math.round(bubble.y + Math.sin(a) * dist);
+          const pr = Math.round(r * (p === 0 ? 0.52 : 0.36));
+          rect(px - pr, py - pr, pr * 2, pr * 2, p % 3 === 0 ? "#8538ba" : p % 2 ? "#62267d" : "#9bd959");
+        }
+        // Embedded lionfish needle pinned into the wall/rock
+        ctx.globalAlpha = fade;
+        ctx.translate(Math.round(bubble.anchorX ?? bubble.x), Math.round(bubble.anchorY ?? bubble.y));
+        ctx.rotate(bubble.angle ?? 0);
+        rect(-7, -1, 7, 2, "#3a142d");
+        rect(-6, -1, 3, 2, "#f0dec2");
+        rect(-3, -1, 3, 2, "#c85cff");
+        ctx.restore();
+        continue;
+      }
       if (bubble.kind === "shaman-skull") {
         const x = Math.round(bubble.x);
         const y = Math.round(bubble.y);
@@ -2987,6 +3075,14 @@ export function createRenderer(canvas) {
         const by = Math.round(player.y + 8 + cycle * 14);
         rect(bx, by, 2, 2, "#9c1b29");
         rect(bx, by, 1, 1, "#e34a58");
+      }
+    }
+    if ((player.neurotoxin ?? 0) > 0) {
+      for (let i = 0; i < 3; i++) {
+        const a = (reducedMotion ? 0 : time * 2.4) + (i * Math.PI * 2) / 3;
+        const nx = Math.round(player.x + Math.cos(a) * 8);
+        const ny = Math.round(player.y + 8 + Math.sin(a * 1.5) * 6);
+        rect(nx - 1, ny - 1, 3, 3, i % 2 ? "#b054eb" : "#9bd959");
       }
     }
     for (const bit of particles) {

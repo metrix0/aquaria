@@ -92,13 +92,37 @@ export function playerStatusEffects(player) {
       });
     }
   }
+  if ((player.neurotoxin ?? 0) > 0) {
+    effects.push({
+      id: 'neurotoxin',
+      title: 'Neurotoxin',
+      seconds: Math.ceil(player.neurotoxin),
+      detail: 'Thick venom drastically slows swimming speed.',
+    });
+  }
   return effects;
 }
 
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, hook: null, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
+}
+
+function tryStepUp(world, player, targetDx, remainingX) {
+  const feet = player.y + player.height;
+  const stepFeet = Math.floor((feet - 0.01) / TILE) * TILE;
+  const rise = feet - stepFeet;
+  const stepY = stepFeet - player.height;
+  if (rise <= 0 || rise > TILE + 0.01 || stepY < 0) return false;
+  const stepProbe = Math.sign(targetDx) * Math.max(0.5, Math.abs(remainingX));
+  if (collides(world, player.x, stepY, player.height) ||
+      collides(world, player.x + stepProbe, stepY, player.height)) {
+    return false;
+  }
+  player.y = stepY;
+  moveAxis(world, player, 'x', remainingX);
+  return true;
 }
 
 export function takeDamage(player, damage) {
@@ -203,6 +227,7 @@ export function toggleGodMode(world, player) {
     player.confusedGrace = 0;
     player.bleed = 0;
     player.bleedTick = 0;
+    player.neurotoxin = 0;
     player.inkCooldown = 0;
     player.inkSplats = [];
     return true;
@@ -260,6 +285,8 @@ export function movePlayer(world, player, input, dt) {
     player.confusedStyle = null;
     player.confusedGrace = CONFUSED_GRACE_DURATION;
   }
+  player.bleed = player.bleed ?? 0;
+  player.neurotoxin = Math.max(0, (player.neurotoxin ?? 0) - dt);
   player.inkCooldown = Math.max(0, (player.inkCooldown ?? 0) - dt);
   if (player.inkSplats?.length) {
     for (let i = player.inkSplats.length - 1; i >= 0; i--) {
@@ -342,7 +369,7 @@ export function movePlayer(world, player, input, dt) {
   const horizontal = Number(Boolean(right)) - Number(Boolean(left));
 
   if (horizontal) player.facing = horizontal;
-  const swimMultiplier = FEET_GEAR[player.feet]?.swimMultiplier ?? 1;
+  const swimMultiplier = (FEET_GEAR[player.feet]?.swimMultiplier ?? 1) * ((player.neurotoxin ?? 0) > 0 ? 0.38 : 1);
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
   const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
@@ -384,7 +411,14 @@ export function movePlayer(world, player, input, dt) {
   }
 
   const previousX = player.x;
-  if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
+  const targetDx = player.dx * dt;
+  if (moveAxis(world, player, 'x', targetDx)) {
+    const remainingX = previousX + targetDx - player.x;
+    const canAutoStep = (player.grounded || bodyInWater) && horizontal !== 0 && Math.abs(targetDx) > 0.001;
+    if (!canAutoStep || !tryStepUp(world, player, targetDx, remainingX)) {
+      player.dx = 0;
+    }
+  }
   const previousY = player.y;
   const falling = player.dy >= 0;
   const dy = player.dy * dt;

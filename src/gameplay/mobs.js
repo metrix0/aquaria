@@ -9,6 +9,7 @@ import { updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
 import { KRAKEN_DEATH_DURATION, krakenSpec, stepKraken, stepKrakenDeath } from './enemies/kraken.js';
 import { sharkSpec, stepShark } from './enemies/shark.js';
+import { lionfishSpec, stepLionfish, stepLionfishSpine, stepNeurotoxinCloud } from './enemies/lionfish.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
 import { stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
 import { caveSpiderSpec, stepCaveSpider } from './enemies/cave-spider.js';
@@ -35,6 +36,7 @@ const seaEnemySteps = {
   jellyfish: { spec: jellyfishSpec, step: stepJellyfish },
   squid: { spec: squidSpec, step: stepSquid },
   shark: { spec: sharkSpec, step: stepShark },
+  lionfish: { spec: lionfishSpec, step: stepLionfish },
   kraken: { spec: krakenSpec, step: stepKraken },
 };
 
@@ -123,6 +125,18 @@ function stepProjectiles(world, player, dt, time, effects) {
         continue;
       }
       if (!stepCaveHazard(world, player, projectile, dt, effects)) {
+        world.projectiles.splice(i, 1);
+      }
+      continue;
+    }
+    if (projectile.kind === 'lionfish-spine') {
+      if (!stepLionfishSpine(world, player, projectile, dt, effects)) {
+        world.projectiles.splice(i, 1);
+      }
+      continue;
+    }
+    if (projectile.kind === 'neurotoxin-cloud') {
+      if (!stepNeurotoxinCloud(world, player, projectile, dt)) {
         world.projectiles.splice(i, 1);
       }
       continue;
@@ -250,6 +264,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           dashDy: 0,
           shock: 0,
           shockHit: false,
+          burstCount: 0,
         });
         if (mob.kind === 'kraken') clearKrakenState(mob);
       }
@@ -467,6 +482,7 @@ export function resetHostiles(world) {
         dashDy: 0,
         shock: 0,
         shockHit: false,
+        burstCount: 0,
       });
       if (mob.kind === 'kraken') clearKrakenState(mob);
     }

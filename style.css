@@ -35,6 +35,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .status-effect[data-effect="cursed"] { border-color: #4f9e62; background: #102016ed; }
 .status-effect[data-effect="shock"] { border-color: #4b9ec2; background: #101e26ed; }
 .status-effect[data-effect="inked"] { border-color: #6a768c; background: #141720ed; }
+.status-effect[data-effect="neurotoxin"] { border-color: #9e4be6; background: #1c1026ed; }
 .status-effect[data-effect="confused-grace"] { border-color: #6ab5aa; background: #112224ed; }
 .status-icon { display: block; position: relative; pointer-events: none; }
 .status-icon-bleeding {
@@ -69,6 +70,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .status-icon-inked {
   width: 14px; height: 14px; background: #262e40; border: 2px solid #8a98b3;
   clip-path: polygon(35% 0, 72% 8%, 100% 42%, 82% 86%, 44% 100%, 8% 78%, 0 34%);
+}
+.status-icon-neurotoxin {
+  width: 14px; height: 14px; background: #a84de0; border-radius: 50%;
+  box-shadow: inset 3px 3px #e39cff, inset -3px -3px #591c7d, -5px -4px 0 -4px #9bd959, 5px 4px 0 -4px #9bd959;
 }
 .status-icon-confused-grace {
   width: 13px; height: 15px; background: #8bdfd0;

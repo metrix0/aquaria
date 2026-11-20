@@ -3421,3 +3421,179 @@ test('spike and bear traps inflict 10s bleeding without shock, while spiked pend
     else globalThis.Path2D = prevPath2D;
   }
 });
+
+test('lionfish spawn between 20m and 80m in the normal ocean, telegraph radial starbursts, bloom toxic clouds on rock, and slow swimming via neurotoxin', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    const lionfishList = world.mobs.filter((mob) => mob.kind === 'lionfish');
+    assert.ok(lionfishList.length >= 5);
+
+    for (const mob of lionfishList) {
+      const depth = Math.floor((mob.y - WATER) / TILE);
+      assert.ok(mob.x < (ORIGINAL_COLS + WEST_EXTENSION) * TILE, `${mob.id} must be in normal ocean biome`);
+      assert.ok(depth >= 20 && depth <= 80, `${mob.id} depth ${depth}m must be in 20m..80m`);
+      const tx = Math.floor(mob.x / TILE);
+      const ty = Math.floor(mob.y / TILE);
+      assert.equal(waterTileAt(world, tx, ty), true, `${mob.id} must spawn in open ocean water`);
+      assert.equal(tileAt(world, tx, ty), MATERIAL.air, `${mob.id} must not overlap solid rock`);
+    }
+
+    // Isolate a single lionfish in an open deep-water pocket beside a rock ceiling/wall.
+    const lion = lionfishList[0];
+    world.mobs = [lion];
+    const lx = Math.floor(lion.x / TILE);
+    const ly = Math.floor(lion.y / TILE);
+    for (let x = lx - 8; x <= lx + 8; x++) {
+      for (let y = ly - 5; y <= ly + 5; y++) editTile(world, x, y, MATERIAL.air);
+    }
+    // Place rock wall 3 tiles right of lionfish so the rightward spine impacts rock and blooms a cloud.
+    editTile(world, lx + 3, ly, MATERIAL.stone);
+    editTile(world, lx + 3, ly - 1, MATERIAL.stone);
+    editTile(world, lx + 3, ly + 1, MATERIAL.stone);
+
+    // Move player into a safe radial gap (~22.5 deg = pi/8, between 0° and 45° spines) inside aggro radius!
+    const gapAngle = Math.PI / 8;
+    const gapDist = 66;
+    Object.assign(lion, { x: (lx + 0.5) * TILE, y: (ly + 0.5) * TILE, homeX: (lx + 0.5) * TILE, homeY: (ly + 0.5) * TILE, span: 12, attackTimer: 0, windup: 0, burstCount: 0 });
+    Object.assign(player, {
+      x: lion.x + Math.cos(gapAngle) * gapDist,
+      y: lion.y + Math.sin(gapAngle) * gapDist - 11,
+      dx: 0, dy: 0, hurt: 0, neurotoxin: 0, health: 100, oxygen: 100,
+    });
+
+    // Enters 1.0..1.2s warning windup without chasing the player.
+    stepGame(game, {}, 1 / 60);
+    assert.ok(lion.windup >= 1.0 && lion.windup <= 1.2, `expected 1.0-1.2s windup, got ${lion.windup}`);
+    assert.equal(world.projectiles.length, 0);
+
+    // Step until burst fires (8 radial spines at fixed 45° intervals).
+    let firedSpines = [];
+    for (let i = 0; i < 80; i++) {
+      stepGame(game, {}, 1 / 60);
+      const spines = world.projectiles.filter((p) => p.kind === 'lionfish-spine');
+      if (spines.length && !firedSpines.length) {
+        firedSpines = spines.map((s) => ({ ...s }));
+      }
+    }
+    assert.equal(firedSpines.length, 8, 'first burst should fire 8 radial spines');
+    assert.equal(player.health, 100, 'player positioned in radial gap should thread the needle');
+
+    // Step slightly more so spines either hit rock (blooming neurotoxin-cloud) or dissolve after ~5-6 body lengths.
+    for (let i = 0; i < 90; i++) stepGame(game, {}, 1 / 60);
+    const clouds = world.projectiles.filter((p) => p.kind === 'neurotoxin-cloud');
+    assert.ok(clouds.length >= 1, 'spine hitting rock wall must bloom into lingering neurotoxin cloud');
+    assert.equal(world.projectiles.filter((p) => p.kind === 'lionfish-spine').length, 0, 'all open-water spines must dissolve after max range');
+    const cloud = clouds[0];
+    assert.ok(cloud.life >= 2.5 && cloud.maxLife >= 4 && cloud.maxLife <= 5);
+
+    // Compare normal vs neurotoxin swimming speeds (both horizontal & vertical) in open water.
+    const testGame = createGame();
+    testGame.world.mobs = [];
+    const tp = testGame.player;
+    const swimX = (156 + WEST_EXTENSION) * TILE;
+    const swimY = WATER + 6 * TILE;
+    Object.assign(tp, { x: swimX, y: swimY, dx: 0, dy: 0, neurotoxin: 0, oxygen: 100, health: 100 });
+    for (let i = 0; i < 20; i++) stepGame(testGame, { right: true, down: true }, 1 / 60);
+    const normalDx = tp.dx;
+    const normalDy = tp.dy;
+    assert.ok(normalDx > 40 && normalDy > 40);
+
+    Object.assign(tp, { x: swimX, y: swimY, dx: 0, dy: 0, neurotoxin: 2 });
+    for (let i = 0; i < 20; i++) stepGame(testGame, { right: true, down: true }, 1 / 60);
+    assert.ok(tp.dx < normalDx * 0.55, `neurotoxin must drastically cut horizontal swim speed (${tp.dx} vs ${normalDx})`);
+    assert.ok(tp.dy < normalDy * 0.55, `neurotoxin must drastically cut vertical swim speed (${tp.dy} vs ${normalDy})`);
+    assert.ok(playerStatusEffects(tp).some((e) => e.id === 'neurotoxin' && e.title === 'Neurotoxin'));
+
+    // Next burst alternates to 6 radial spines (60° spacing).
+    world.projectiles.length = 0;
+    lion.attackTimer = 0;
+    lion.windup = 0.02;
+    stepGame(game, {}, 1 / 30);
+    assert.equal(world.projectiles.filter((p) => p.kind === 'lionfish-spine').length, 6);
+
+    // Render lionfish warning glow, flying spines, toxic clouds, and player neurotoxin cleanly.
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop, translate: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill() {}, stroke() {}, createLinearGradient: () => grad, createRadialGradient: () => grad,
+      fillRect() {},
+    });
+    const renderer = createRenderer({
+      width: 640, height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: makeCtx }) },
+      getContext: makeCtx,
+    });
+    lion.windup = 0.5;
+    world.projectiles.push(cloud);
+    player.neurotoxin = 2;
+    renderer.draw({
+      world, player, snorkel: null,
+      camera: { x: lion.x - 160, y: lion.y - 90, width: 320, height: 180 },
+      time: 1.5, elapsed: 1.5, aim: null, mining: null, miningSwing: null,
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: lion,
+      particles: [], reducedMotion: false, conditions: { darkness: 0, rain: 0, night: false },
+      worldTime: 0, weatherSeed: 0, caveShadowsHidden: true, openChestId: null,
+    });
+  } finally {
+    if (prevPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('player automatically steps up 1-tile blocks without jumping while stopping at 2-tile walls and low ceilings', () => {
+  const game = createGame();
+  const { world, player } = game;
+  world.mobs = [];
+  const baseCol = Math.floor(SPAWN.x / TILE);
+  const floorRow = 12;
+
+  // Build flat floor -> 1-tile staircase (+1, +1) -> 2-tile tall wall ahead.
+  for (let x = baseCol - 4; x <= baseCol + 10; x++) {
+    for (let y = 5; y < floorRow; y++) editTile(world, x, y, MATERIAL.air);
+    editTile(world, x, floorRow, MATERIAL.stone);
+  }
+  editTile(world, baseCol + 2, floorRow - 1, MATERIAL.stone);
+  editTile(world, baseCol + 3, floorRow - 1, MATERIAL.stone);
+  editTile(world, baseCol + 3, floorRow - 2, MATERIAL.stone);
+  editTile(world, baseCol + 4, floorRow - 1, MATERIAL.stone);
+  editTile(world, baseCol + 4, floorRow - 2, MATERIAL.stone);
+  // 2-tile obstacle above floorRow - 2 at baseCol + 6 (so floorRow - 3 and floorRow - 4 are solid)
+  editTile(world, baseCol + 6, floorRow - 3, MATERIAL.stone);
+  editTile(world, baseCol + 6, floorRow - 4, MATERIAL.stone);
+  editTile(world, baseCol + 5, floorRow - 1, MATERIAL.stone);
+  editTile(world, baseCol + 5, floorRow - 2, MATERIAL.stone);
+
+  Object.assign(player, {
+    x: (baseCol + 0.5) * TILE,
+    y: floorRow * TILE - player.height,
+    dx: 0, dy: 0, grounded: true, health: 100, oxygen: 100,
+  });
+
+  // Walk right with NO jump/up input -> climbs both 1-tile steps smoothly and stops before the 2-tile wall.
+  for (let i = 0; i < 120; i++) {
+    stepGame(game, { right: true }, 1 / 60);
+  }
+  assert.ok(player.x > (baseCol + 3.5) * TILE && player.x < (baseCol + 6) * TILE, `expected stop on top step before 2-tile wall, got x=${player.x}`);
+  assert.ok(Math.abs(player.y + player.height - (floorRow - 2) * TILE) < 0.02, 'player feet should sit smoothly 2 tiles higher');
+  assert.equal(player.grounded, true);
+
+  // Low ceiling check: place a ceiling 2 tiles above the step base so stepping up 1 tile leaves < player.height clearance.
+  editTile(world, baseCol + 2, floorRow - 3, MATERIAL.stone);
+  Object.assign(player, {
+    x: (baseCol + 0.5) * TILE,
+    y: floorRow * TILE - player.height,
+    dx: 0, dy: 0, grounded: true,
+  });
+  for (let i = 0; i < 60; i++) stepGame(game, { right: true }, 1 / 60);
+  assert.ok(player.x < (baseCol + 2) * TILE, 'must not step up into a low ceiling');
+  assert.ok(Math.abs(player.y + player.height - floorRow * TILE) < 0.02);
+});

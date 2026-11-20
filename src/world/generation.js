@@ -31,6 +31,7 @@ export const MOB_HEALTH = Object.freeze({
   jellyfish: 2,
   squid: 4,
   shark: 7,
+  lionfish: 5,
   kraken: 80,
   ghost: 5,
   spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9, mimic: 8,
@@ -678,9 +679,24 @@ function chamberMobSpot(chamber) {
   return { x: (chamber.x + offset) * TILE, y: (chamber.y - 1) * TILE };
 }
 
+function lionfishChamberSpot(chamber) {
+  const spot = chamberMobSpot(chamber);
+  const minY = (WATER_ROW + 20) * TILE;
+  const maxY = (WATER_ROW + 80) * TILE;
+  // Hover slightly toward chamber ceiling while staying safely inside 20m..80m depth.
+  return { x: spot.x, y: clamp(spot.y - Math.max(2, chamber.ry - 5) * TILE, minY, maxY) };
+}
+
 export function generateMobs() {
   const caveFish = chamberMobSpot(CAVE_SYSTEM.chambers[3]);
   const caveSquid = chamberMobSpot(CAVE_SYSTEM.chambers[8]);
+  const lionWestShelf = { x: -72 * TILE, y: Math.max((WATER_ROW + 24) * TILE, (groundAt(-72 + WEST_EXTENSION) - 5) * TILE) };
+  const lionEastShelf = { x: 158 * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(158 + WEST_EXTENSION) - 5) * TILE) };
+  const lionWestUpper = lionfishChamberSpot(CAVE_SYSTEM.chambers[0]);
+  const lionWestDoor = lionfishChamberSpot(CAVE_SYSTEM.chambers[1]);
+  const lionEastUpper = lionfishChamberSpot(CAVE_SYSTEM.chambers[2]);
+  const lionEastCorridor = lionfishChamberSpot(CAVE_SYSTEM.chambers[4]);
+  const lionDeepWest = lionfishChamberSpot(CAVE_SYSTEM.chambers[5]);
   return [
     { id: 'crab-island-west', kind: 'crab', x: 50 * TILE + 8, span: 48, speed: 22, variant: 0, phase: 0.4 },
     { id: 'crab-west-floor', kind: 'crab', x: 34 * TILE + 8, span: 52, speed: 21, variant: 1, phase: 0.9 },
@@ -701,6 +717,13 @@ export function generateMobs() {
     { id: 'squid-deep', kind: 'squid', x: caveSquid.x, y: caveSquid.y - 4 * TILE, span: 68, speed: 54, phase: 5.1 },
     { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
     { id: 'shark-deep', kind: 'shark', x: 146 * TILE, y: 33 * TILE, span: 104, speed: 66, phase: 2.9 },
+    { id: 'lionfish-west-shelf', kind: 'lionfish', x: lionWestShelf.x, y: lionWestShelf.y, span: 28, speed: 22, phase: 0.5, respawnDelay: 45 },
+    { id: 'lionfish-east-shelf', kind: 'lionfish', x: lionEastShelf.x, y: lionEastShelf.y, span: 30, speed: 22, phase: 1.4, respawnDelay: 45 },
+    { id: 'lionfish-west-cave', kind: 'lionfish', x: lionWestUpper.x, y: lionWestUpper.y, span: 36, speed: 22, phase: 2.3, respawnDelay: 45 },
+    { id: 'lionfish-west-door', kind: 'lionfish', x: lionWestDoor.x, y: lionWestDoor.y, span: 32, speed: 20, phase: 3.1, respawnDelay: 45 },
+    { id: 'lionfish-east-cave', kind: 'lionfish', x: lionEastUpper.x, y: lionEastUpper.y, span: 34, speed: 22, phase: 4.0, respawnDelay: 45 },
+    { id: 'lionfish-east-corridor', kind: 'lionfish', x: lionEastCorridor.x, y: lionEastCorridor.y, span: 36, speed: 22, phase: 4.9, respawnDelay: 45 },
+    { id: 'lionfish-deep-west', kind: 'lionfish', x: lionDeepWest.x, y: lionDeepWest.y, span: 34, speed: 20, phase: 5.7, respawnDelay: 45 },
     ...islandMobs.filter(([, , column, floor]) => !inRootGrove(column, floor - 1)).map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor <= ISLAND_DEEPSTONE_ROW ? Math.round(15 + 28 * clamp((WATER_ROW + 40 - floor) / (WATER_ROW + 40 - ISLAND_CAVE.campFloor), 0, 1)) : respawnDelay, phase: index * .7,
     })),
