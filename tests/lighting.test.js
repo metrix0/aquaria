@@ -140,3 +140,19 @@ test('ore mining requires an open face, including naturally flooded space', () =
   assert.equal(hasOpenFace(game.world, column, row, game.player), true);
   assert.ok(advanceMining(game, target, null, 1).progress >= 1);
 });
+
+
+test('player cave light does not shine through an open-air island into its walls', () => {
+  const world = createWorld();
+  const cave = createCaveLight();
+  const tx = WEST_EXTENSION + 56;
+  const surface = groundAt(tx);
+  const player = {x: (tx + .5) * TILE, y: (surface - 3) * TILE, height: TILE};
+  cave.update(world, player);
+  assert.equal(cave.at(tx, surface), 0);
+  assert.equal(cave.at(tx, surface + 2), 0);
+  player.y = (surface + 5) * TILE;
+  editTile(world, tx, surface + 5, MATERIAL.air);
+  cave.update(world, player);
+  assert.ok(cave.at(tx, surface + 5) > 0);
+});

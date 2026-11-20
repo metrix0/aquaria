@@ -1,4 +1,5 @@
 import { ROOT_GROVE } from './island-cave.js';
+import { hasBackgroundWall } from './atmosphere.js';
 import { hasOpenFace, hasExposedCaveFloor, solidAt, TILE_NEIGHBORS } from '../world.js';
 import { COLS, ROWS, TILE, WEST_EXTENSION, groundAt } from './generation.js';
 
@@ -57,12 +58,21 @@ export function createCaveLight() {
     const seed = (x, y) => {
       lightCell(center + x + y * size, source - Math.round(playerFalloff * (Math.abs(offsetX - x) + Math.abs(offsetY - y))));
     };
-    seed(0, 0);
-    const openX = !isSolid(world, player, center + dx);
-    const openY = !isSolid(world, player, center + dy * size);
-    if (openX) seed(dx, 0);
-    if (openY) seed(0, dy);
-    if ((openX || openY) && !isSolid(world, player, center + dx + dy * size)) seed(dx, dy);
+    // The player's cave illumination only activates behind cave walls or
+    // beneath a physical roof. Outdoors it must not shine through an island,
+    // creating a bright underground stripe during night and storms.
+    const playerTx = Math.floor(px);
+    const playerTy = Math.floor(py);
+    const inShelter = hasBackgroundWall(playerTx, playerTy) ||
+      solidAt(world, playerTx, playerTy - 1, player);
+    if (inShelter) {
+      seed(0, 0);
+      const openX = !isSolid(world, player, center + dx);
+      const openY = !isSolid(world, player, center + dy * size);
+      if (openX) seed(dx, 0);
+      if (openY) seed(0, dy);
+      if ((openX || openY) && !isSolid(world, player, center + dx + dy * size)) seed(dx, dy);
+    }
 
     for (const mushroom of world.caveMushrooms) {
       const x = mushroom.tx - left;

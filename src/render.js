@@ -56,7 +56,7 @@ import {
   createCaveLight,
   createSurfaceLight,
 } from "./world/lighting.js";
-import { createOutdoorExposure } from "./world/atmosphere.js";
+import { atmosphereTint, createOutdoorExposure, hasBackgroundWall } from "./world/atmosphere.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -262,8 +262,8 @@ const ABYSS_CAVE_PAIRS = [
 ];
 
 const DAY_SKIES = {
-  clear: [[0, "#35536a"], [.43, "#62848a"], [.77, "#a9a28e"], [1, "#ebbf8c"]],
-  sunny: [[0, "#307491"], [.43, "#67a6b2"], [.77, "#b0c9b0"], [1, "#f5d19c"]],
+  clear: [[0, "#267799"], [.43, "#69aeba"], [.77, "#b7cfb7"], [1, "#f3cf9c"]],
+  sunny: [[0, "#168bb9"], [.43, "#59bfd1"], [.77, "#bbdfc5"], [1, "#ffe6a7"]],
   cloudy: [[0, "#3b5468"], [.43, "#607781"], [.77, "#8d9692"], [1, "#b9b2a1"]],
   rose: [[0, "#544e7c"], [.43, "#ac7b91"], [.77, "#d39a8c"], [1, "#f4ba83"]],
 };
@@ -1465,7 +1465,8 @@ export function createRenderer(canvas) {
     for (let x = left; x < right; x++) {
       let alpha = (x - left) * 4 + 3;
       for (let y = top; y < bottom; y++, alpha += width * 4) {
-        const light = Math.max(surfaceLight.at(x, y), caveLight.at(x, y));
+        const naturalLight = surfaceLight.at(x, y) * (hasBackgroundWall(x, y) ? .22 : 1);
+        const light = Math.max(naturalLight, caveLight.at(x, y));
         let ambient = 0;
         if (light < 1)
           ambient = overview
@@ -1489,7 +1490,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function shadeAtmosphere(bounds, conditions, camera) {
+  function shadeAtmosphere(bounds, conditions, camera, time) {
     if (!climateCtx?.createImageData || !climateCtx?.putImageData) return;
     const { left, right, top, bottom } = bounds;
     const width = right - left;
@@ -1501,26 +1502,25 @@ export function createRenderer(canvas) {
       climatePixels = climateCtx.createImageData(width, height);
     }
     const data = climatePixels.data;
-    const weather = conditions.darkness * .48 + conditions.rain * .21;
+    const columnTints = [];
+    for (let x = left; x < right; x++)
+      columnTints.push(atmosphereTint(conditions, jungleMixAt((x + .5) * TILE), time));
     let index = 0;
     for (let y = top; y < bottom; y++) {
       for (let x = left; x < right; x++) {
         const exposure = outdoorExposure.at(x, y);
-        const swamp = jungleMixAt((x + .5) * TILE);
-        // Outdoors: blue night/rain grading blends into a swamp-green biome
-        // palette. Behind enclosed cave walls, both disappear completely.
-        const swampHaze = swamp * (.075 + conditions.rain * .065);
-        const alpha = clamp((weather + swampHaze) * exposure, 0, .75);
-        data[index] = 17 - 2 * swamp;
-        data[index + 1] = 25 + 24 * swamp;
-        data[index + 2] = 51 - 23 * swamp;
-        data[index + 3] = Math.round(alpha * 255);
+        const tint = columnTints[x - left];
+        data[index] = tint.r;
+        data[index + 1] = tint.g;
+        data[index + 2] = tint.b;
+        // Never grade an area with a background wall; it has its own cave light.
+        data[index + 3] = Math.round(tint.alpha * exposure * 255);
         index += 4;
       }
     }
     climateCtx.putImageData(climatePixels, 0, 0);
     ctx.save();
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(climateCanvas, left * TILE - Math.round(camera.x), top * TILE - Math.round(camera.y), width * TILE, height * TILE);
     ctx.restore();
   }
@@ -3284,7 +3284,7 @@ export function createRenderer(canvas) {
     if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
     ctx.restore();
 
-    shadeAtmosphere(bounds, conditions, camera);
+    shadeAtmosphere(bounds, conditions, camera, time);
     rain(world, camera, surface, time, conditions);
 
     ctx.save();
