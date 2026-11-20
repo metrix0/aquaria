@@ -1,5 +1,5 @@
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
-import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, inRootGrove, isDryIslandCave, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
+import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
@@ -484,6 +484,33 @@ function writeVein(get, set, bounds, x, y, count, material, flip = 1) {
   }
 }
 
+// Bring existing Underground deposits to the exposed floor without building obstacles.
+// Ore remains flush with the walking surface and continues downward into the rock.
+const undergroundFloorShape = [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [-1, 1], [1, 2]];
+export const exposedUndergroundVeins = (() => {
+  const occupied = new Set();
+  return islandOreVeins.map(([column, row, count]) => {
+    if (row < ISLAND_DEEPSTONE_ROW || row >= 612) return null;
+    for (let distance = 0; distance <= 12; distance++) {
+      for (const side of distance ? [1, -1] : [1]) {
+        const x = column + distance * side;
+        for (const dy of [-1, 0, -2, 1, -3, 2, -4, 3, -5, 4, -6, 5, -7, 6]) {
+          const y = row + dy;
+          const cells = undergroundFloorShape.slice(0, count).map(([dx, depth]) => [x + dx, y + depth]);
+          if (![x, x + 1].every((tx) => isDryIslandCave(tx, y - 1) && isDryIslandCave(tx, y - 2))) continue;
+          if (!cells.every(([tx, ty]) => !isDryIslandCave(tx, ty) &&
+              !isIslandWaterway(tx, ty) && !isDungeonMasonry(tx, ty) && !inRootGrove(tx, ty) &&
+              [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) => !occupied.has(`${tx + dx},${ty + dz}`)))) continue;
+          for (const [tx, ty] of cells) occupied.add(`${tx},${ty}`);
+          return cells;
+        }
+      }
+    }
+    // Deposits with no safe floor nearby keep their original buried position.
+    return null;
+  });
+})();
+
 // The frame relocations leave these three original deposit sizes intact.
 const movedMineVeinSizes = { '-34,112': 6, '29,242': 5, '70,272': 4 };
 
@@ -539,8 +566,18 @@ function applyOres(get, set, bounds) {
       }
     }
   }
-  for (const [x, y, count, material = MATERIAL.iron] of islandOreVeins) {
+  for (const [index, [x, y, count, material = MATERIAL.iron]] of islandOreVeins.entries()) {
+    if (exposedUndergroundVeins[index]) continue;
     if (!inRootGrove(x, y) && y + 1 >= bounds.top && y - 1 <= bounds.bottom) writeVein(get, set, bounds, x + WEST_EXTENSION, y, count, material);
+  }
+  for (const [index, cells] of exposedUndergroundVeins.entries()) {
+    if (!cells) continue;
+    const material = islandOreVeins[index][3] ?? MATERIAL.iron;
+    for (const [column, y] of cells) {
+      const x = column + WEST_EXTENSION;
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom &&
+          get(x, y) === MATERIAL.stone) set(x, y, material);
+    }
   }
   for (const { steps } of mineVeins) {
     for (const [column, y] of steps) {

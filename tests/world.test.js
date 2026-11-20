@@ -19,7 +19,7 @@ import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, c
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
-import { CAVE_SYSTEM, COLS, EAST_EXTENSION, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
+import { CAVE_SYSTEM, COLS, EAST_EXTENSION, exposedUndergroundVeins, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, waterwayAt } from '../src/world/generation.js';
 import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
 import { FROG_PROXIMITY_RANGE } from '../src/gameplay/enemies/frog-cultist.js';
@@ -689,6 +689,34 @@ test('Underground iron occurs in small contiguous veins', () => {
     }
   }
   assert.ok(count >= 20);
+});
+
+test('Underground ore seams show at floor level without protruding into the passages', () => {
+  const world = createWorld();
+  let westIron = 0;
+  let eastIron = 0;
+  const exposed = exposedUndergroundVeins.filter(Boolean);
+  assert.ok(exposed.length >= 25, 'existing underground deposits should reach the cave floors');
+
+  for (const cells of exposed) {
+    const [surfaceX, surfaceY] = cells[0];
+    const material = tileAt(world, surfaceX + WEST_EXTENSION, surfaceY);
+    assert.ok([MATERIAL.iron, MATERIAL.copper, MATERIAL.cobalt].includes(material));
+    assert.equal(isDryIslandCave(surfaceX, surfaceY - 1), true);
+    assert.equal(tileAt(world, surfaceX + WEST_EXTENSION, surfaceY - 1), MATERIAL.air);
+    for (const [x, y] of cells) {
+      assert.ok(y >= surfaceY, 'ore cannot rise above the cave floor');
+      assert.equal(isDryIslandCave(x, y), false, 'ore cannot fill walkable space');
+      assert.equal(tileAt(world, x + WEST_EXTENSION, y), material);
+    }
+    if (material === MATERIAL.iron) {
+      if (surfaceX < ISLAND_CAVE.center) westIron++;
+      else eastIron++;
+    }
+  }
+
+  assert.ok(westIron >= 8, 'iron should be visible on western Underground floors');
+  assert.ok(eastIron >= 8, 'iron should be visible on eastern Underground floors');
 });
 
 test('bear traps can be baited, and both types can be mined and stay broken after reload', () => {
