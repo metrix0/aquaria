@@ -326,7 +326,6 @@ const ui = createUI({
     ui.setFlightSpeed(flightSpeedLevels[flightSpeedIndex], flightSpeedIndex === 0, flightSpeedIndex === last);
   },
   adjustWeather(step) {
-    if (!game.player.flightOrigin) return;
     weatherModeIndex = (weatherModeIndex + step + WEATHER_MODES.length) % WEATHER_MODES.length;
     const mode = WEATHER_MODES[weatherModeIndex];
     ui.setWeather(mode.label);

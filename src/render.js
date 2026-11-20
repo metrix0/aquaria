@@ -55,7 +55,7 @@ import {
   createCaveLight,
   createSurfaceLight,
 } from "./world/lighting.js";
-import { atmosphereTint, hasBackgroundWall } from "./world/atmosphere.js";
+import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -1502,6 +1502,15 @@ export function createRenderer(canvas) {
       ctx.fillRect(left, 0, right - left, camera.height);
     }
     ctx.restore();
+    const nightAlpha = nightShadeAlpha(conditions);
+    if (nightAlpha > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = nightAlpha;
+      ctx.fillStyle = "#040815";
+      ctx.fillRect(0, 0, camera.width, camera.height);
+      ctx.restore();
+    }
   }
 
   function terrain(world, player, camera, time, bounds, openChestId, overview) {

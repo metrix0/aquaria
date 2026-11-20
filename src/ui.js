@@ -219,7 +219,6 @@ export function createUI(actions, version) {
   const flightFaster = byId('flight-faster');
   flightSlower.addEventListener('click', () => actions.adjustFlightSpeed(-1));
   flightFaster.addEventListener('click', () => actions.adjustFlightSpeed(1));
-  const weatherControl = byId('weather-control');
   const weatherValue = byId('weather-value');
   byId('weather-prev').addEventListener('click', () => actions.adjustWeather(-1));
   byId('weather-next').addEventListener('click', () => actions.adjustWeather(1));
@@ -247,7 +246,6 @@ export function createUI(actions, version) {
     godMode(enabled) {
       godMode.setAttribute('aria-pressed', String(enabled));
       flightSpeed.hidden = !enabled;
-      weatherControl.hidden = !enabled;
     },
     setFlightSpeed(multiplier, atMinimum, atMaximum) {
       flightSpeedValue.value = 'Speed ' + multiplier + '×';

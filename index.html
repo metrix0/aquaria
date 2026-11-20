@@ -101,13 +101,15 @@
           <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
           <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
-          <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
-          <div id="flight-speed" class="footer-stepper flight-speed" role="group" aria-label="God mode flight speed" hidden>
-            <button id="flight-slower" type="button" aria-label="Decrease flight speed">−</button>
-            <output id="flight-speed-value" aria-label="Flight speed multiplier">Speed 1×</output>
-            <button id="flight-faster" type="button" aria-label="Increase flight speed">+</button>
+          <div class="god-mode-anchor">
+            <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
+            <div id="flight-speed" class="footer-stepper flight-speed" role="group" aria-label="God mode flight speed" hidden>
+              <button id="flight-slower" type="button" aria-label="Decrease flight speed">−</button>
+              <output id="flight-speed-value" aria-label="Flight speed multiplier">Speed 1×</output>
+              <button id="flight-faster" type="button" aria-label="Increase flight speed">+</button>
+            </div>
           </div>
-          <div id="weather-control" class="footer-stepper weather-control" role="group" aria-label="God mode weather" hidden>
+          <div id="weather-control" class="footer-stepper weather-control" role="group" aria-label="Weather">
             <button id="weather-prev" type="button" aria-label="Previous weather">‹</button>
             <output id="weather-value" aria-label="Weather mode">Auto</output>
             <button id="weather-next" type="button" aria-label="Next weather">›</button>
