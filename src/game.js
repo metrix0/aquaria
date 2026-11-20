@@ -14,6 +14,7 @@ import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
 import { createBrowserSave } from './save.js';
+import { consumeNewGame, createIslandReveal } from './start-flow.js';
 import { createUI } from './ui.js';
 import { version } from './build-info.js';
 import { inWater } from './world.js';
@@ -23,6 +24,8 @@ const canvas = document.getElementById('scene');
 const renderer = createRenderer(canvas);
 const soloSave = createBrowserSave();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const newAppearance = consumeNewGame();
+const arrival = newAppearance ? createIslandReveal(reducedMotion) : null;
 const available = Boolean(config.url && config.publishableKey);
 const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0 };
 const particles = [];
@@ -33,7 +36,13 @@ const flightSpeedLevels = [0.5, 1, 2, 4, 8];
 let zoomIndex = zoomLevels.indexOf(100);
 
 let save = soloSave;
-let game = restore(save);
+let game = newAppearance ? createGame() : restore(save);
+if (newAppearance) {
+  save.clear();
+  game.player.appearance = newAppearance;
+  game.dirty = true;
+  save.write(game);
+}
 let room;
 let busy = false;
 let editPending = false;
@@ -561,7 +570,7 @@ function frame(now) {
     ui.close('craft-panel');
     craftingBench = undefined;
   }
-  const playing = !document.hidden && !ui.activePanel();
+  const playing = !document.hidden && !ui.activePanel() && !arrival?.active;
   if (playing && !room) {
     game.worldTime += elapsed;
     game.dirty = true;
@@ -635,6 +644,7 @@ function frame(now) {
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
   });
+  arrival?.reveal();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

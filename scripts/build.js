@@ -16,7 +16,7 @@ for (const file of await readdir(new URL('src/', root), { recursive: true })) {
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(new URL('vendor/', dist), { recursive: true });
-for (const file of ['index.html', 'style.css', 'src', 'assets', 'manifest.webmanifest']) {
+for (const file of ['index.html', 'style.css', 'src', 'assets', 'manifest.webmanifest', 'start']) {
   await cp(new URL(file, root), new URL(file, dist), { recursive: true });
 }
 await cp(new URL('node_modules/@supabase/supabase-js/dist/umd/supabase.js', root), new URL('vendor/supabase.js', dist));

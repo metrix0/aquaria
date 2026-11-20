@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#081a24">
+  <title>Begin your journey · Aquaria</title>
+  <meta name="description" content="Begin your adventure in Aquaria, an underwater world of forgotten wonders.">
+  <link rel="icon" href="/assets/brand/favicon-64.png" type="image/png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&amp;display=swap">
+  <link rel="stylesheet" href="/start/start.css">
+  <script type="module" src="/start/start.js"></script>
+</head>
+<body>
+  <div class="start-scene" aria-hidden="true">
+    <div class="sun-haze"></div>
+    <div class="cloud cloud-one"></div><div class="cloud cloud-two"></div>
+    <div class="far-island"></div><div class="island"></div>
+    <div class="ocean"></div><div class="ocean-sheen"></div>
+    <div class="sea-floor"></div>
+    <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="bubble b4"></div>
+  </div>
+  <main class="start-menu" id="menu">
+    <div class="menu-content">
+      <p class="eyebrow">AN UNCHARTED WORLD AWAITS</p>
+      <img class="brand-logo" src="/assets/brand/aquaria-logo.png" alt="Aquaria" fetchpriority="high">
+      <p class="tagline">Beneath the waves, a forgotten world is waiting.</p>
+      <nav class="menu-actions" aria-label="Main menu">
+        <button id="start-game" class="menu-button primary" type="button"><span>Start Game</span><span class="action-glyph" aria-hidden="true">›</span></button>
+        <button id="load-game" class="menu-button secondary" type="button"><span>Load Game</span><small>SOON</small></button>
+        <button id="game-options" class="menu-button secondary" type="button"><span>Options</span><small>SOON</small></button>
+      </nav>
+      <p class="menu-message" id="menu-message" role="status" aria-live="polite"></p>
+    </div>
+    <p class="footer-note">EXPLORE · SURVIVE · DISCOVER</p>
+  </main>
+
+  <dialog id="customize-panel" aria-labelledby="customize-title">
+    <div class="customize-layout">
+      <header class="customize-heading">
+        <button id="back-menu" type="button" class="back-menu">‹ <span>Back</span></button>
+        <div class="heading-copy"><p class="eyebrow">BEFORE THE JOURNEY</p><h1 id="customize-title">Create your explorer</h1><p>Make this adventure your own.</p></div>
+        <span class="step-counter">01 / 01</span>
+      </header>
+      <form class="customize-form">
+        <div class="character-customizer">
+          <div class="character-preview-card">
+            <p class="preview-label">YOUR EXPLORER</p>
+            <div class="character-stage"><canvas id="character-preview" width="36" height="33" role="img" aria-label="Preview of your customized explorer"></canvas></div>
+            <button id="preview-walk" type="button" aria-pressed="false">Preview walk</button>
+          </div>
+          <div class="character-fields" aria-label="Character appearance"></div>
+        </div>
+        <div class="customize-footer">
+          <p>You can change your appearance at any time in game.</p>
+          <button type="submit" id="enter-world" class="enter-world">Enter the Island <span aria-hidden="true">›</span></button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+  <div id="page-fade" class="page-fade" aria-hidden="true"></div>
+</body>
+</html>
