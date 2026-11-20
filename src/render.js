@@ -7,7 +7,7 @@ import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, isDryJungleCave, jungleMossProgress,
 import { jungleVillageStructures } from "./world/jungle-village.js";
 import { isTrapIntact, swingHead } from "./gameplay/cave-traps.js";
 import {
-  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, groveGroundGrowth, inRootGrove, isGrovePool,
+  ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveMossDistance, groveGroundGrowth, inRootGrove, isGrovePool,
   isDryIslandCave,
   isDungeonMasonry,
 } from "./world/island-cave.js";
@@ -1108,7 +1108,7 @@ export function createRenderer(canvas) {
     const jungleDeep = jungleCave && ty >= JUNGLE_DEEPSTONE_ROW;
     const pool = wet && isGrovePool(column, ty);
     const moss = !underground && !jungleCave && (!wet || pool) && ty > 36
-      ? Math.max(0, 1 - groveDistance(column, ty) / ROOT_GROVE.wallMossReach) : 0;
+      ? Math.max(0, 1 - groveMossDistance(column, ty) / ROOT_GROVE.wallMossReach) : 0;
     // Broad patches follow the stone grain. Their coverage falls away before the foreground moss does.
     const patch = noise(Math.floor(column / 4), Math.floor(ty / 3), 119) * .7 + detail * .3;
     const tint = moss * (moss > .66 || patch < moss ** 1.5 ? 1 : .18);

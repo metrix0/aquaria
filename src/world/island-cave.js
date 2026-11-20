@@ -13,8 +13,13 @@ export function inRootGrove(column, row) {
   return groveDistance(column, row) <= ROOT_GROVE.radius;
 }
 
+// Only the moss visuals stretch sideways: the protected grove remains circular.
+export function groveMossDistance(column, row) {
+  return Math.hypot((column - ROOT_GROVE.column) * 0.78, (row - ROOT_GROVE.floor + 9) * 1.22);
+}
+
 export function groveGroundGrowth(column, row) {
-  const distance = groveDistance(column, row);
+  const distance = groveMossDistance(column, row);
   const { radius, mossReach } = ROOT_GROVE;
   const remaining = Math.max(0, 1 - distance / mossReach);
   const beyondGrove = Math.max(0, (distance - radius) / (mossReach - radius));
@@ -41,7 +46,7 @@ const westCaves = [
   [[-28, 120, 10], [-22, 128, 11], [-17, 135, 11], [-11, 142, 12], [1, 143, 9]],
   [[-20, 142, 9], [-15, 142, 13], [-7, 142, 15], [1, 143, 15], [7, 148, 13],
     [14, 157, 12], [20, 161, 11], [29, 161, 17], [36, 163, 21], [46, 164, 13]],
-  [[10, 192, 11], [20, 192, 16], [30, 190, 15], [40, 179, 10], [46, 169, 11], [48, 164, 11]],
+  [[10, 192, 11], [20, 192, 16], [30, 190, 15], [40, 179, 12], [46, 169, 11], [48, 164, 11]],
   [[-23, 219, 13], [-16, 219, 19], [-7, 215, 16], [3, 204, 13], [10, 192, 11]],
   [[-33, 219, 9], [-26, 219, 15], [-19, 219, 15], [-13, 223, 10], [-8, 229, 12],
     [-1, 235, 15], [11, 240, 17], [21, 241, 12]],

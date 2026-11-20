@@ -2,7 +2,7 @@ import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
 import { equippedHook, hasHook, useGrapplingHook } from '../src/gameplay/hook.js';
 import { wakeMimic } from '../src/gameplay/enemies/mimic.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
-import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveFloor, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
+import { ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, groveFloor, groveGroundGrowth, groveMossDistance, inRootGrove, isDryIslandCave, isDungeonMasonry, isGrovePool, mineDecks } from '../src/world/island-cave.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
@@ -471,6 +471,17 @@ test('after digging in, the expanded island cave is walkable and the survey cach
   walkUntil(() => player.x >= chamberX(105) && player.grounded, { right: true, climb: true });
   assert.ok(Math.abs(player.y + player.height - 346 * TILE) < 1);
 
+});
+
+test('grove moss spreads sideways while the refuge and water stay unchanged', () => {
+  const { column, floor, wallMossReach } = ROOT_GROVE;
+  const middle = floor - 9;
+  assert.equal(groveDistance(column + 60, middle), 60);
+  assert.ok(groveMossDistance(column + 100, middle) < wallMossReach);
+  assert.ok(groveMossDistance(column, middle + 100) > wallMossReach);
+  assert.ok(groveGroundGrowth(column + 90, middle) > groveGroundGrowth(column, middle + 90));
+  assert.equal(inRootGrove(column + ROOT_GROVE.radius + 1, middle), false);
+  assert.equal(isDryIslandCave(40, 168), true, 'the rising passage has a slightly higher roof');
 });
 
 test('the grove river sits one tile deep between dry banks and the satchel', () => {
