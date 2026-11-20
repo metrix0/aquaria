@@ -1,3 +1,4 @@
+import { placeLedgeClimbs } from './climb-placement.js';
 export const ISLAND_CAVE = { center: 56, camp: 55, campFloor: 33 };
 export const ISLAND_DEEPSTONE_ROW = 330;
 export const ISLAND_BOTTOM = 676;
@@ -235,6 +236,12 @@ for (let column = groveGallery[0][0]; column <= groveGallery.at(-1)[0]; column++
 }
 
 const wetBands = makeBands(wetProfiles);
+// Anchor at the walking ledge, not at a fixed column in the empty chamber.
+export const caveClimbs = placeLedgeClimbs([
+  [-19, 88, 111, 'rope'], [40, 100, 131, 'rope'], [96, 92, 112, 'rope'],
+  [50, 129, 155, 'ladder'], [84, 203, 228, 'rope'], [82, 254, 300, 'rope'],
+  [27, 249, 271, 'ladder'],
+], dryBands);
 const rockShell = new Map();
 const wallThickness = 16;
 for (const [x, rows] of dryBands) {
@@ -380,13 +387,6 @@ const masonryRooms = [
 export function isDungeonMasonry(x, y) {
   return masonryRooms.some(([left, right, top, bottom]) => x >= left && x <= right && y >= top && y < bottom);
 }
-
-// Column and the first/last open rows of each climb.
-export const caveClimbs = [
-  [-19, 88, 111, 'rope'], [40, 100, 131, 'rope'], [96, 92, 112, 'rope'],
-  [50, 129, 155, 'ladder'], [84, 203, 228, 'rope'], [82, 254, 300, 'rope'],
-  [27, 249, 271, 'ladder'],
-];
 
 
 export function isCaveRefuge(column, row) {

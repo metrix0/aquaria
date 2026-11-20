@@ -1,3 +1,4 @@
+import { placeLedgeClimbs } from './climb-placement.js';
 export const JUNGLE_CAVE = Object.freeze({
   center: 364,
   entry: 364,
@@ -112,6 +113,21 @@ for (const [x, row] of falseGroundBridges) {
   dryBands.get(x)?.delete(row);
 }
 
+// Move the long descents to the outer ledges and clear their narrow climbing shafts.
+export const jungleCaveClimbs = placeLedgeClimbs([
+  [341, 66, 135, 'rope'],
+  [388, 62, 131, 'rope'],
+  [336, 133, 197, 'ladder'],
+  [396, 131, 197, 'ladder'],
+  [338, 200, 263, 'rope'],
+  [398, 200, 259, 'rope'],
+  [336, 258, 323, 'ladder'],
+  [398, 254, 321, 'rope'],
+  [337, 318, 391, 'rope'],
+  [396, 316, 391, 'ladder'],
+  [338, 390, 451, 'rope'],
+  [396, 390, 451, 'rope'],
+], dryBands);
 const rockShell = new Map();
 const wallThickness = 14;
 for (const [x, rows] of dryBands) {
@@ -150,21 +166,6 @@ export function carveJungleCave(set, { left, right, top, bottom }, westExtension
     }
   }
 }
-
-export const jungleCaveClimbs = [
-  [341, 66, 135, 'rope'],
-  [388, 62, 131, 'rope'],
-  [336, 133, 197, 'ladder'],
-  [396, 131, 197, 'ladder'],
-  [338, 200, 263, 'rope'],
-  [398, 200, 259, 'rope'],
-  [336, 258, 323, 'ladder'],
-  [398, 254, 321, 'rope'],
-  [337, 318, 391, 'rope'],
-  [396, 316, 391, 'ladder'],
-  [338, 390, 451, 'rope'],
-  [396, 390, 451, 'rope'],
-];
 
 export const jungleCaveTraps = [
   // Rising floor spike traps along ruined crossings & pit landings
