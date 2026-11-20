@@ -7,6 +7,7 @@ import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi } from './inventory-ui.js';
 import { createItemsMenu } from './items-menu.js';
+import { createDropsUI } from './drops-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
@@ -23,6 +24,7 @@ export function createUI(actions, version) {
   const panels = [...document.querySelectorAll('dialog')];
   const craftingUI = createCraftingUi(byId('craft-panel'), actions);
   createItemsMenu(byId('items-panel'), actions.giveItem);
+  createDropsUI(byId('drops-content'));
   createSpawnMenu(byId('spawn-panel'), actions.spawnEnemy);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
@@ -34,6 +36,7 @@ export function createUI(actions, version) {
     getFeet: actions.getFeet,
     getRing: actions.getRing,
     getHands: actions.getHands,
+    getAddon: actions.getAddon,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,
     canMove: actions.canMoveInventory,

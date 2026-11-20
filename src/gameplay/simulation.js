@@ -1,8 +1,8 @@
-import { rollWildChestLoot } from '../world/wild-chest.js';
+import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
 import { GRAPPLING_HOOK, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
@@ -43,6 +43,10 @@ export function createGame(snapshot) {
       snorkel: snapshot?.progress?.snorkel ?? null,
       ring: snapshot?.progress?.ring ?? null,
       hands: snapshot?.progress?.hands ?? null,
+      addons: Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => {
+        const id = snapshot?.progress?.addons?.[slot];
+        return [slot, ADDONS[id]?.addonSlot === slot ? id : null];
+      })),
     },
     dirty: false,
     elapsed: 0,
@@ -70,6 +74,18 @@ export function createGame(snapshot) {
       y: snapshot.world.krakenChest.y,
     });
   }
+  world.placedRopes = [];
+  for (const rope of snapshot?.world.placedRopes ?? []) {
+    if (!Number.isInteger(rope?.tx) || !Number.isInteger(rope?.top) ||
+      !Number.isInteger(rope?.bottom) || rope.bottom - rope.top !== 6 ||
+      rope.tx < 1 || rope.tx >= COLS - 1 || rope.top < 1 || rope.bottom >= ROWS ||
+      world.placedRopes.length >= 50) continue;
+    const placed = { tx: rope.tx, top: rope.top, bottom: rope.bottom, kind: 'rope', placed: true };
+    if (!world.placedRopes.some((other) => other.tx === placed.tx && other.top === placed.top)) {
+      world.placedRopes.push(placed);
+      world.caveClimbs.push(placed);
+    }
+  }
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot, game.weatherSeed);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
@@ -88,6 +104,8 @@ export function createGame(snapshot) {
       if (Number.isFinite(position.oxygen)) player.oxygen = clamp(position.oxygen, 1, oxygenCapacity(game));
     }
   }
+  game.player.addons = game.progress.addons;
+  game.player.glowSeconds = Math.max(0, snapshot?.progress?.glowSeconds ?? 0);
   syncMobs(world, game.player);
   return game;
 }
@@ -104,12 +122,14 @@ export function resetRoomProgress(previous) {
   world.ambientCells?.clear();
   world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
+  const addons = { head: null, chest: null, legs: null, feet: null, hands: null };
+  player.addons = addons;
   syncMobs(world, player);
   return {
     world,
     inventory: new Inventory(),
     chests: restoreChests(world, undefined, undefined, previous.weatherSeed),
-    progress: { snorkel: null, ring: null, hands: null },
+    progress: { snorkel: null, ring: null, hands: null, addons },
     player,
     dirty: true,
     elapsed: 0,
@@ -251,7 +271,10 @@ function stepDroppedChests(game, dt) {
   for (const item of game.world.items) {
     if (item.kind !== 'chest') continue;
     if (!game.chests.has(item.id)) {
-      game.chests.set(item.id, restoreSlots(item.chestType === 'wild' ? rollWildChestLoot(item, game.weatherSeed) : [item.loot], CHEST_SIZE));
+      const newLoot = item.chestType === 'wild'
+        ? rollWildChestGroupLoot(game.world.items.filter((fixture) => fixture.chestType === 'wild'), game.weatherSeed).get(item.id)
+        : [item.loot];
+      game.chests.set(item.id, restoreSlots(newLoot, CHEST_SIZE));
       game.dirty = true;
     }
     if (item.falling) {
@@ -273,9 +296,10 @@ export function stepGame(game, input, dt) {
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
   const fallDamage = movePlayer(world, player, input, dt);
+  if (player.glowSeconds > 0) player.glowSeconds = Math.max(0, player.glowSeconds - dt);
   let fallLoss = 0;
   if (fallDamage) {
-    fallLoss = takeDamage(player, fallDamage);
+    fallLoss = takeDamage(player, Math.max(1, Math.round(fallDamage * (player.addons?.legs === 'padded-leg-wraps' ? 0.85 : 1))));
     player.hurt = Math.max(player.hurt, 0.85);
   }
   const fatalFall = fallLoss > 0 && player.health === 0;
@@ -297,6 +321,8 @@ export function stepGame(game, input, dt) {
   }
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
+    game.player.addons = game.progress.addons;
+    game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.projectiles.length = 0;
     game.rootWave = null;
@@ -327,13 +353,14 @@ function stockWreckLoot(world, item, slots, remaining) {
 
 function restoreChests(world, saved, pendingWreckLoot, worldSeed) {
   const chests = new Map();
+  const wildContents = rollWildChestGroupLoot(world.items.filter((item) => item.chestType === 'wild'), worldSeed);
   world.pendingWreckLoot.clear();
   for (const item of world.items) {
     if (item.kind !== 'chest') continue;
     const savedSlots = saved?.[item.id];
     const hasSavedSlots = Array.isArray(savedSlots);
     const initialLoot = item.chestType === 'wild'
-      ? rollWildChestLoot(item, worldSeed)
+      ? wildContents.get(item.id)
       : world.harvested.has(item.id) ? [] : [item.loot];
     const slots = restoreSlots(hasSavedSlots ? savedSlots : initialLoot, CHEST_SIZE);
     if (item.bonusLoot) {
@@ -363,11 +390,20 @@ export function chestAt(game, x, y) {
   return mimic && { id: mimic.id, kind: 'mimic', name: 'Chest', mob: mimic, x: mimic.x, y: mimic.y - 8 };
 }
 
+export function equippedAddon(game, slot) {
+  return ADDONS[game.progress.addons?.[slot]] ?? null;
+}
+
 const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
   ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
   hands: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK }, get: equippedHook, set: (game, id) => { game.progress.hands = id; } },
+  ...Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => ['addon-' + slot, {
+    items: Object.fromEntries(Object.values(ADDONS).filter((addon) => addon.addonSlot === slot).map((addon) => [addon.id, addon])),
+    get: (game) => equippedAddon(game, slot),
+    set: (game, id) => { game.progress.addons[slot] = id; },
+  }])),
 };
 
 export function moveInventoryStack(game, chestId, from, to) {
@@ -548,6 +584,40 @@ export function grantItem(game, id, count) {
   return true;
 }
 
+export function useUtilityItem(game, slot, target) {
+  const inventory = game.inventory;
+  const held = inventory.hotbar[slot]?.id;
+  if (held === 'glowshroom-torch') {
+    inventory.consume(inventory.hotbar, slot, 1);
+    game.player.glowSeconds = Math.max(game.player.glowSeconds ?? 0, 90);
+    game.dirty = true;
+    return { inventoryChanged: true, message: 'Glowshroom lit — brighter cave light for 90 seconds.' };
+  }
+  if (held !== 'rope-bundle') return null;
+  if (!target?.reachable) return { message: 'Aim near a ledge to hang a six-block rope.' };
+  const { world } = game;
+  const { tx, ty } = target;
+  const pathClear = tx > 0 && tx < COLS - 1 && ty > 0 && ty + 6 < ROWS &&
+    !solidAt(world, tx, ty - 1) &&
+    Array.from({ length: 7 }, (_, offset) => ty + offset)
+      .every((row) => !solidAt(world, tx, row) && !inWater(world, (tx + 0.5) * TILE, (row + 0.5) * TILE));
+  let walls = 0;
+  if (pathClear) {
+    for (let row = ty; row <= ty + 6; row++) {
+      if (solidAt(world, tx - 1, row) || solidAt(world, tx + 1, row)) walls++;
+    }
+  }
+  if (!pathClear || walls < 2 || world.caveClimbs.some((climb) =>
+    climb.tx === tx && climb.top <= ty + 6 && climb.bottom >= ty))
+    return { message: 'Need six clear blocks beside a rock ledge for the rope.' };
+  const rope = { tx, top: ty, bottom: ty + 6, kind: 'rope', placed: true };
+  world.placedRopes.push(rope);
+  world.caveClimbs.push(rope);
+  inventory.consume(inventory.hotbar, slot, 1);
+  game.dirty = true;
+  return { inventoryChanged: true, message: 'Rope secured along the ledge.' };
+}
+
 export function targetTile(game, x, y) {
   const tx = Math.floor(x / TILE);
   const ty = Math.floor(y / TILE);
@@ -608,7 +678,8 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const fixture = action.door ?? action.fixtureId;
   const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
-  const duration = tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand;
+  const duration = (tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand) *
+    (equippedAddon(game, 'hands')?.miningSpeed ? 1 - equippedAddon(game, 'hands').miningSpeed : 1);
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier, tool };
 }
@@ -630,6 +701,8 @@ export function applyTerrain(game, tx, ty, material) {
   if (world.harvested.size !== harvested) game.dirty = true;
   if (material && collides(world, player.x, player.y, player.height)) {
     game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
+    game.player.addons = game.progress.addons;
+    game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.dirty = true;
   }

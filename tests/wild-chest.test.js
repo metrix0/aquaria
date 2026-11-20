@@ -9,11 +9,17 @@ import { isDryIslandCave, firstCaveWildChestSpots } from '../src/world/island-ca
 import { TILE, WEST_EXTENSION } from '../src/world/generation.js';
 import { createWildChest, rollWildChestLoot, WILD_CHEST_LOOT_TABLES } from '../src/world/wild-chest.js';
 
-test('five wild chests occupy exposed ground in the first cave biome', () => {
+test('replaced and new wild chests occupy exposed ground in the first cave biome', () => {
   const world = createWorld();
   const wild = world.items.filter((item) => item.chestType === 'wild');
   assert.equal(wild.length, firstCaveWildChestSpots.length);
-  assert.equal(wild.length, 5);
+  assert.equal(wild.length, 12);
+  assert.ok(world.items.some((item) => item.id === 'island-cave-cache'));
+  assert.ok(world.items.some((item) => item.id === 'island-grove-relics'));
+  for (const oldId of ['island-lift-lockbox', 'island-west-cache', 'island-east-cache',
+    'island-east-provisions', 'island-west-provisions', 'island-deep-provisions', 'central-mine-cache']) {
+    assert.equal(world.items.some((item) => item.id === oldId), false, oldId + ' should be replaced');
+  }
   const ids = new Set();
   for (const chest of wild) {
     assert.equal(chest.kind, 'chest');

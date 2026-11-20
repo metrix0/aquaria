@@ -297,14 +297,7 @@ export function carveIslandCave(set, { left, right, top, bottom }, westExtension
 
 export const islandCaches = [
   ['island-cave-cache', 'Survey cache', 54, 33, 'copper', 2],
-  ['island-west-cache', 'West chamber cache', -31, 112, 'copper', 3],
-  ['island-east-cache', 'East chamber cache', 140, 104, 'wood', 5],
-  ['island-lift-lockbox', 'Lift keeper’s lockbox', 37, 59, 'copper', 4, [{ id: 'kelp-dressing', count: 2 }, { id: 'arrow', count: 12 }]],
-  ['island-east-provisions', 'Expedition supplies', 126, 132, 'wood', 12, [{ id: 'copper', count: 3 }]],
-  ['island-west-provisions', 'Prospector’s chest', -15, 142, 'iron', 3, [{ id: 'kelp-dressing', count: 2 }]],
   ['island-grove-relics', 'Explorer’s satchel', ROOT_GROVE.riverWest - 1, groveFloor(ROOT_GROVE.riverWest - 1), 'root-ring', 1, [{ id: 'explorers-map', count: 1 }]],
-  ['island-deep-provisions', 'Lower mine provisions', 57, 273, 'iron', 4, [{ id: 'arrow', count: 18 }, { id: 'kelp-dressing', count: 3 }]],
-  ['central-mine-cache', 'Mine supply chest', 76, 318, 'wood', 4],
   ['underground-cache', 'Gatehouse cache', 48, 399, 'iron', 3],
   ['underground-vault', 'Underground vault', 122, 560, 'grappling-hook', 1, [{ id: 'iron', count: 4 }]],
 ];
@@ -312,11 +305,19 @@ export const islandCaches = [
 // Reusable wild chests in the first dry cave biome (column, walking floor).
 // Chosen on solid, exposed ground along the explorer's descent toward the grove.
 export const firstCaveWildChestSpots = [
+  // Replaces former generic caches; entrance survey + root-ring chest stay unique.
+  ['wild-island-lift-lockbox', 37, 59],
+  ['wild-island-west-cache', -31, 112],
+  ['wild-island-east-cache', 140, 104],
+  ['wild-island-east-provisions', 126, 132],
+  ['wild-island-west-provisions', -15, 142],
+  ['wild-island-deep-provisions', 57, 273],
+  ['wild-central-mine-cache', 76, 318],
   ['wild-chest-bone-alcove', 18, 80],
   ['wild-chest-upper-gallery', 77, 116],
   ['wild-chest-west-terrace', 13, 156],
   ['wild-chest-east-fork', 97, 185],
-  ['wild-chest-grove-path', -12, 190],
+  ['wild-chest-grove-path', 112, 182],
 ];
 
 export const islandMushrooms = [[-15, 142], [95, 451]];

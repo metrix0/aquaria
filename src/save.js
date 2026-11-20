@@ -1,4 +1,4 @@
-import { ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
 import { GRAPPLING_HOOK, ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
@@ -61,10 +61,21 @@ export function decodeSave(data) {
       x: player?.x + WEST_EXTENSION * TILE, y: player?.y,
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
-    progress: { snorkel, ring: gear.ring === ROOT_RING.id ? gear.ring : null,
+    progress: { snorkel,
+      ...(Object.values(gear.addons ?? {}).some((id) => Object.hasOwn(ADDONS, id)) ? {
+        addons: Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => {
+          const id = gear.addons?.[slot];
+          return [slot, ADDONS[id]?.addonSlot === slot ? id : null];
+        })),
+      } : {}),
+      ...(Number.isFinite(gear.glowSeconds) && gear.glowSeconds > 0
+        ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
+      ring: gear.ring === ROOT_RING.id ? gear.ring : null,
       hands: gear.hands === GRAPPLING_HOOK.id ? gear.hands : null,
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
-    world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot, ...(krakenChest ? { krakenChest } : {}) },
+    world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
+      placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
+      ...(krakenChest ? { krakenChest } : {}) },
   };
 }
 
@@ -86,11 +97,15 @@ export function encodeSave(game, saveTerrain = true) {
     appearance: { ...player.appearance },
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
-    progress: { snorkel: progress.snorkel, ...(progress.ring ? { ring: progress.ring } : {}),
+    progress: { snorkel: progress.snorkel,
+      ...(Object.values(progress.addons ?? {}).some(Boolean) ? { addons: progress.addons } : {}),
+      ...(player.glowSeconds > 0 ? { glowSeconds: player.glowSeconds } : {}),
+      ...(progress.ring ? { ring: progress.ring } : {}),
       ...(progress.hands ? { hands: progress.hands } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
+      placedRopes: world.placedRopes ?? [],
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),
       ...(droppedKrakenChest ? { krakenChest: { x: droppedKrakenChest.x - WEST_EXTENSION * TILE, y: droppedKrakenChest.restY ?? droppedKrakenChest.y } } : {}),
       chests: Object.fromEntries(Array.from(game.chests, ([id, slots]) => [id, slots.map((stack) => stack && { ...stack })])),

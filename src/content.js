@@ -118,6 +118,34 @@ export const COBALT_SPEAR = {
 export const BOW = { id: 'bow', cost: { wood: 3, kelp: 1 }, amount: 1, cooldown: 0.38 };
 export const ARROW = { id: 'arrow', cost: { wood: 1, stone: 1 }, amount: 4, damage: 2, speed: 300, knockback: 115 };
 
+export const ADDONS = Object.freeze({
+  'scrappers-gloves': {
+    id: 'scrappers-gloves', name: "Scrapper's Gloves", addonSlot: 'hands', miningSpeed: 0.08,
+    description: 'Worn mining gloves. Mining is 8% faster.',
+  },
+  'explorers-anklet': {
+    id: 'explorers-anklet', name: "Explorer's Anklet", addonSlot: 'feet', moveSpeed: 0.05,
+    description: 'A tiny silver charm. Ground movement is 5% faster.',
+  },
+  'padded-leg-wraps': {
+    id: 'padded-leg-wraps', name: 'Padded Leg Wraps', addonSlot: 'legs', fallProtection: 0.15,
+    description: 'Cushions hard landings, reducing fall damage by 15%.',
+  },
+  'prospectors-brooch': {
+    id: 'prospectors-brooch', name: "Prospector's Brooch", addonSlot: 'chest', oreSense: 12,
+    description: 'Nearby ore veins glimmer faintly through cave walls.',
+  },
+});
+
+export const SALVAGE_RECIPES = Object.freeze([
+  { id: 'copper', name: 'Recover copper', station: WORKBENCH.id, cost: { 'rusty-metal-scraps': 4 }, amount: 1,
+    description: 'Smelt four rusty pieces of armor into one copper ore.' },
+  { id: 'iron', name: 'Recover iron', station: WORKBENCH.id, cost: { 'broken-gears': 3 }, amount: 1,
+    description: 'Strip three broken gears for one iron ore.' },
+  { id: 'rope-bundle', name: 'Braid rope', cost: { 'torn-cloth': 3 }, amount: 1,
+    description: 'Twist salvaged fabric into a short climbing rope.' },
+]);
+
 export const WALK_CYCLE_DISTANCE = 32;
 
 export const CHARACTER_BODIES = [

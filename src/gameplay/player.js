@@ -408,7 +408,7 @@ export function movePlayer(world, player, input, dt) {
   if (horizontal) player.facing = horizontal;
   const swimMultiplier = (FEET_GEAR[player.feet]?.swimMultiplier ?? 1) * ((player.neurotoxin ?? 0) > 0 ? 0.38 : 1);
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
-  const speed = bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112;
+  const speed = (bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112) * (!bodyInWater ? 1 + (player.addons?.feet === 'explorers-anklet' ? 0.05 : 0) : 1);
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);

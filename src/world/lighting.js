@@ -46,6 +46,7 @@ export function createCaveLight() {
     left = Math.floor(px) - reach;
     top = Math.floor(py) - reach;
     const center = reach * size + reach;
+    const playerFalloff = player.glowSeconds > 0 ? 2 : openFalloff;
     levels.fill(0);
     cells.fill(0);
     queue.length = 0;
@@ -54,7 +55,7 @@ export function createCaveLight() {
     const dx = offsetX < 0 ? -1 : 1;
     const dy = offsetY < 0 ? -1 : 1;
     const seed = (x, y) => {
-      lightCell(center + x + y * size, source - Math.round(openFalloff * (Math.abs(offsetX - x) + Math.abs(offsetY - y))));
+      lightCell(center + x + y * size, source - Math.round(playerFalloff * (Math.abs(offsetX - x) + Math.abs(offsetY - y))));
     };
     seed(0, 0);
     const openX = !isSolid(world, player, center + dx);
@@ -90,7 +91,7 @@ export function createCaveLight() {
       const index = queue[start];
       queued[index] = 0;
       const level = levels[index];
-      if (level <= openFalloff) continue;
+      if (level <= playerFalloff) continue;
       const fromRock = isSolid(world, player, index);
       const x = index % size;
       const y = Math.floor(index / size);
@@ -99,7 +100,7 @@ export function createCaveLight() {
         const neighbor = index + dy * size + dx;
         const intoRock = isSolid(world, player, neighbor);
         // Rock carries a soft glow without lighting a disconnected chamber on its far side.
-        if (!fromRock || intoRock) lightCell(neighbor, level - (intoRock ? rockFalloff : openFalloff));
+        if (!fromRock || intoRock) lightCell(neighbor, level - (intoRock ? rockFalloff : playerFalloff));
       }
     }
   }

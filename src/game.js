@@ -9,7 +9,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -330,6 +330,7 @@ const ui = createUI({
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
   getHands: () => equippedHook(game),
+  getAddon: (slot) => equippedAddon(game, slot),
   customize(appearance) {
     game.player.appearance = appearance;
     game.dirty = true;
@@ -405,6 +406,12 @@ const input = bindInput(canvas, camera, {
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
     if (game.inventory.hotbar[selected]?.id === 'explorers-map') return true;
+    const utility = useUtilityItem(game, selected, aimedTile());
+    if (utility) {
+      if (utility.inventoryChanged) inventoryChanged();
+      ui.notify(utility.message);
+      return true;
+    }
     const dressing = useDressing(game, selected);
     if (dressing) {
       if (dressing.inventoryChanged) inventoryChanged();

@@ -1532,6 +1532,18 @@ export function createRenderer(canvas) {
         if (material) {
           if (overview || !shipwreckArt.timber(world, x, y, material))
             drawTile(world, x, y, material, oreOpacity, overview);
+          if (ore && !overview && player.addons?.chest === 'prospectors-brooch' &&
+              Math.hypot(x + .5 - player.x / TILE,
+                y + .5 - (player.y + player.height / 2) / TILE) <= 12) {
+            const pulse = 0.4 + Math.sin(time * 2 + x * .7 + y * .6) * .15;
+            ctx.save();
+            ctx.globalAlpha = pulse;
+            const glint = material === MATERIAL.copper ? '#ffcf89'
+              : material === MATERIAL.iron ? '#c4f1f4' : '#b2c5ff';
+            rect(x * TILE + 5, y * TILE + 5, 4, 2, glint);
+            rect(x * TILE + 7, y * TILE + 3, 1, 6, glint);
+            ctx.restore();
+          }
           const column = x - WEST_EXTENSION;
           if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < ROOT_GROVE.mossReach &&
               TILE_NEIGHBORS.some(([dx, dy]) => isDryIslandCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
