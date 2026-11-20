@@ -18,7 +18,7 @@ import { createCharacterRenderer } from "./character.js";
 import { MATERIAL, ORE_MATERIALS } from "./content.js";
 import { jellyfishShockRadius } from "./gameplay/enemies/jellyfish.js";
 import { KRAKEN_DEATH_DURATION } from "./gameplay/enemies/kraken.js";
-import { mobSpec } from "./gameplay/mobs.js";
+import { caveEnemySpecs, jungleEnemySpecs, mobSpec } from "./gameplay/mobs.js";
 import { playerHeadInWater, playerInWater } from "./gameplay/player.js";
 import { createHelmetWreckArt } from "./helmet-wreck-art.js";
 import { ITEMS } from "./inventory.js";
@@ -2046,6 +2046,7 @@ export function createRenderer(canvas) {
 
   function mobs(world, camera, time, targetMob, player, reducedMotion) {
     for (const mob of world.mobs ?? []) {
+      const caveEnemy = Boolean(caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]);
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
       const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
@@ -2213,7 +2214,7 @@ export function createRenderer(canvas) {
         rect(5, -2 + bob, 4, 4, red);
         rect(4, -2 + bob, 2, 2, "#ffe066");
         rect(5, -2 + bob, 1, 2, "#191528");
-      } else if (mob.kind !== "kraken" && mob.respawnDelay) {
+      } else if (caveEnemy) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
         const [dark, mid, light, stripe] =
@@ -2802,7 +2803,7 @@ export function createRenderer(canvas) {
             ? -16
             : ghost
               ? -21
-          : mob.respawnDelay
+          : caveEnemy
             ? mob.kind === "spider"
               ? -15
               : mob.kind === "cave-frog" || mob.kind === "mimic"
@@ -2817,7 +2818,7 @@ export function createRenderer(canvas) {
                   : -10;
         const hostile = Boolean(
           ghost ||
-          mob.respawnDelay ||
+          caveEnemy ||
           mob.enemyType ||
           mob.kind === "jellyfish" ||
           mob.kind === "squid" ||

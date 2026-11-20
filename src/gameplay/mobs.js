@@ -64,7 +64,7 @@ export const caveEnemySpecs = Object.fromEntries(
   Object.entries(caveEnemyModules).map(([kind, entry]) => [kind, entry.spec]),
 );
 
-const jungleEnemySpecs = Object.fromEntries(
+export const jungleEnemySpecs = Object.fromEntries(
   Object.entries(jungleEnemyModules).map(([kind, entry]) => [kind, entry.spec]),
 );
 
