@@ -2878,17 +2878,25 @@ test('grappling hook is found deep in the first island caves, equips to hands, p
   const game = createGame();
   const { world, player } = game;
 
-  // Deep cave chest contains the grappling hook and bonus iron ore.
-  const deepChest = world.items.find((item) => item.id === 'underground-cache');
+  // Deep dungeon vault chest contains the grappling hook and bonus iron ore.
+  const gatehouseChest = world.items.find((item) => item.id === 'underground-cache');
+  assert.ok(gatehouseChest);
+  assert.equal(game.chests.get('underground-cache')[0]?.id, 'iron');
+  assert.equal(game.chests.get('underground-cache')[0]?.count, 3);
+
+  const deepChest = world.items.find((item) => item.id === 'underground-vault');
   assert.ok(deepChest);
-  assert.ok(Math.floor(deepChest.y / TILE) >= ISLAND_DEEPSTONE_ROW);
-  const chestSlots = game.chests.get('underground-cache');
+  const deepCol = Math.floor(deepChest.x / TILE) - WEST_EXTENSION;
+  const deepRow = Math.floor(deepChest.y / TILE);
+  assert.ok(deepRow >= 500);
+  assert.equal(isDungeonMasonry(deepCol, deepRow), true);
+  const chestSlots = game.chests.get('underground-vault');
   assert.equal(chestSlots[0]?.id, GRAPPLING_HOOK.id);
   assert.equal(chestSlots[1]?.id, 'iron');
-  assert.equal(chestSlots[1]?.count, 3);
+  assert.equal(chestSlots[1]?.count, 4);
 
   // Move from chest into Hands slot and verify persistence across save/reload.
-  assert.equal(moveInventoryStack(game, 'underground-cache', { group: 'chest', index: 0 }, { group: 'hands', index: 0 }), true);
+  assert.equal(moveInventoryStack(game, 'underground-vault', { group: 'chest', index: 0 }, { group: 'hands', index: 0 }), true);
   assert.equal(equippedHook(game)?.id, GRAPPLING_HOOK.id);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(equippedHook(restored)?.id, GRAPPLING_HOOK.id);
