@@ -149,6 +149,18 @@ export function firstCaveRockVariant(tx, row) {
   return 'stone';
 }
 
+// Broad, restrained deep-rock bands; only visual, and never in the transition.
+export function undergroundRockVariant(tx, row) {
+  const column = tx - WEST_EXTENSION;
+  if (column < -51 || column > 177 ||
+      row < ISLAND_DEEPSTONE_ROW + 30 || row >= ROWS - 2) return null;
+  const grain = valueNoise(column, row * 0.9, 11, 819) * 0.78 +
+    valueNoise(column, row * 0.9, 4, 821) * 0.22;
+  if (grain < 0.28) return 'shale';
+  if (grain > 0.72) return 'strata';
+  return null;
+}
+
 export function caveField(tx, ty, seed = 61) {
   const x = tx - WEST_EXTENSION;
   return valueNoise(x, ty * 1.15, 13, seed + 17) * 0.64 + valueNoise(x, ty * 1.15, 6, seed + 29) * 0.36;
