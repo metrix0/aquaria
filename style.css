@@ -21,36 +21,69 @@ button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 [hidden] { display: none !important; }
 
-.hud-top-right { position: absolute; z-index: 2; top: max(21px, env(safe-area-inset-top)); right: 25px; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; pointer-events: none; }
-.hud-vitals { display: grid; gap: 6px; width: 166px; }
-.vital {
-  --accent: #e18e82;
-  padding: 9px 11px 8px; color: #f1f5ed;
-  border: 1px solid #93b7b14f; border-radius: 8px;
-  background: linear-gradient(120deg, #09202bdc, #08151fc9);
-  box-shadow: 0 4px 17px #03111846;
-  backdrop-filter: blur(8px);
+/* Unframed, pixel-art vitals sit over the world instead of in a floating dashboard. */
+.hud-top-right {
+  position: absolute; z-index: 2; top: max(21px, env(safe-area-inset-top)); right: 25px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px #03111bd9);
 }
-.vital-oxygen { --accent: #81d7df; border-color: #8abfd15c; }
-.vital-heading { display: flex; align-items: center; gap: 7px; font: 700 10px/1.1 var(--mono); letter-spacing: .1em; color: #b8cec9; }
-.vital-heading strong { margin-left: auto; color: #f4f4ed; font: 700 12px/1 var(--mono); letter-spacing: 0; }
-.vital-icon { width: 15px; height: 15px; flex: none; fill: var(--accent); filter: drop-shadow(0 0 4px #091720); }
-.vital-oxygen .vital-icon { fill: none; stroke: var(--accent); stroke-width: 2; }
-.vital-track { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #aec7bf29; }
-.vital-fill { width: 100%; height: 100%; border-radius: inherit; background: var(--accent); transition: width 120ms linear; }
-.vital-fill.low { background: #ff756a; }
-.vital-oxygen .vital-fill.low { background: #f5b46f; }
-.hud-context { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 255px; }
-.hud-depth, .hud-weather {
-  display: flex; align-items: center; gap: 7px; padding: 5px 8px;
-  border: 1px solid #80a9a64a; border-radius: 5px;
-  background: #081823b8; color: #bbd3c9;
-  font: 700 10px/1.2 var(--mono); letter-spacing: .04em;
-  text-shadow: 0 1px 3px #07151d;
-  backdrop-filter: blur(5px);
+.hud-vitals { display: grid; justify-items: end; gap: 9px; }
+.vital-health { display: flex; align-items: center; gap: 9px; padding: 2px 0; }
+.health-hearts { display: flex; gap: 4px; align-items: center; }
+.pixel-heart {
+  --fill: 100%;
+  display: block; position: relative; width: 22px; height: 20px;
+  background: linear-gradient(90deg, #eb8e83 0 var(--fill), #29404a var(--fill) 100%);
+  clip-path: polygon(0 20%, 12% 20%, 12% 10%, 36% 10%, 50% 25%, 64% 10%, 88% 10%, 88% 20%, 100% 20%, 100% 60%, 88% 60%, 88% 70%, 75% 70%, 75% 80%, 63% 80%, 63% 90%, 50% 100%, 37% 90%, 37% 80%, 25% 80%, 25% 70%, 12% 70%, 12% 60%, 0 60%);
 }
-.hud-depth { color: #8cd5db; }
-.hud-depth strong { color: #e5f5f1; letter-spacing: 0; }
+.pixel-heart::after {
+  content: ""; position: absolute; top: 5px; left: 5px; width: 6px; height: 2px;
+  background: #ffddd28c; pointer-events: none;
+}
+.health-number { font: 700 11px/1 var(--mono); color: #ffd2ba; text-shadow: 0 1px 4px #031018; }
+.health-hearts.low .pixel-heart { animation: heart-warning 1.1s ease-in-out infinite; }
+.vital-oxygen { display: flex; align-items: center; gap: 9px; padding: 2px 0; }
+.air-bubbles { width: 24px; height: 24px; position: relative; }
+.air-bubbles i {
+  position: absolute; border: 2px solid #a4e8eb; border-radius: 50%;
+  background: #67c9d42c; box-shadow: inset 0 0 3px #b9ffff66, 0 0 7px #67d6e744;
+  animation: breath-rise 2.8s ease-in-out infinite;
+}
+.air-bubbles i:nth-child(1) { left: 1px; top: 12px; width: 12px; height: 12px; }
+.air-bubbles i:nth-child(2) { left: 12px; top: 2px; width: 9px; height: 9px; animation-delay: -.8s; }
+.air-bubbles i:nth-child(3) { left: 16px; top: 16px; width: 5px; height: 5px; border-width: 1px; animation-delay: -1.6s; }
+.air-details { width: 126px; }
+.air-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 700 10px/1.2 var(--mono); letter-spacing: .12em; color: #a6dadb; }
+.air-heading strong { color: #e2f8f1; font-size: 12px; letter-spacing: 0; }
+.breath-track {
+  width: 100%; height: 7px; margin-top: 5px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, #204a53b0 0 8px, transparent 8px 11px);
+}
+#air-fill {
+  height: 100%; width: 100%;
+  background: repeating-linear-gradient(90deg, #81e0e5 0 8px, transparent 8px 11px);
+  transition: width 120ms linear;
+}
+#air-fill.low {
+  background: repeating-linear-gradient(90deg, #f4b36d 0 8px, transparent 8px 11px);
+  animation: breath-warning .9s ease-in-out infinite;
+}
+.hud-context { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 15px; max-width: 260px; }
+.hud-depth { display: flex; align-items: center; gap: 8px; }
+.depth-ruler { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-around; width: 12px; height: 25px; border-left: 1px solid #9dcac5; }
+.depth-ruler i { display: block; width: 6px; height: 1px; background: #9dcac5; }
+.depth-ruler i:nth-child(2) { width: 10px; }
+.depth-info { display: grid; gap: 1px; }
+.depth-info span { font: 700 9px/1.1 var(--mono); letter-spacing: .1em; color: #9cc6bd; }
+.depth-info strong { font: 700 14px/1.1 var(--mono); color: #e3f5ef; }
+.hud-weather { font: 700 10px/1.2 var(--mono); letter-spacing: .1em; color: #b6d3c9; text-transform: uppercase; }
+@keyframes heart-warning { 50% { opacity: .55; } }
+@keyframes breath-rise { 50% { transform: translateY(-3px); opacity: .6; } }
+@keyframes breath-warning { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) {
+  .health-hearts.low .pixel-heart, .air-bubbles i, #air-fill.low { animation: none; }
+}
 .status-effects { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; pointer-events: auto; }
 .status-effects:empty { display: none; }
 .status-effect {
@@ -376,11 +409,12 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 }
 @media (max-width: 670px) {
   .hud-top-right { top: max(10px, env(safe-area-inset-top)); right: 10px; }
-  .hud-vitals { width: 148px; }
-  .vital { padding: 8px 9px 7px; }
+  .pixel-heart { width: 19px; height: 17px; }
+  .health-hearts { gap: 3px; }
+  .air-details { width: 115px; }
   .status-effect { width: 36px; height: 36px; }
-  .vital-heading { font-size: 9px; }
-  .hud-depth, .hud-weather { font-size: 9px; }
+  .air-heading, .hud-weather { font-size: 9px; }
+  .depth-info strong { font-size: 13px; }
   footer { padding-left: 10px; padding-right: 10px; flex-wrap: wrap; gap: 6px; }
   .controls { gap: 5px 9px; }
   .footer-actions { margin-left: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }

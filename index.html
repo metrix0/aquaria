@@ -34,24 +34,32 @@
 
     <aside class="hud-top-right" aria-label="Status HUD">
       <div class="hud-vitals" aria-label="Diver vitals">
-        <div class="vital vital-health">
-          <div class="vital-heading">
-            <svg class="vital-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-9-5.8-9-12.1C3 3.7 9 2.3 12 6.5 15 2.3 21 3.7 21 8.9 21 15.2 12 21 12 21Z"/></svg>
-            <span>HEALTH</span><strong id="health-label">100%</strong>
+        <div class="vital-health" aria-label="Health">
+          <div class="health-hearts" id="health-hearts" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
+            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
+            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
+            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
+            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
           </div>
-          <div class="vital-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="vital-fill" id="health-fill"></div></div>
+          <strong id="health-label" class="health-number" hidden>100%</strong>
         </div>
-        <div class="vital vital-oxygen" id="oxygen-meter" hidden>
-          <div class="vital-heading">
-            <svg class="vital-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="14" r="5"/><circle cx="17" cy="7" r="3"/><circle cx="18" cy="17" r="2"/></svg>
-            <span>OXYGEN</span><strong id="air-label">100%</strong>
+        <div class="vital-oxygen" id="oxygen-meter" aria-label="Breath remaining" hidden>
+          <span class="air-bubbles" aria-hidden="true"><i></i><i></i><i></i></span>
+          <div class="air-details">
+            <div class="air-heading"><span>BREATH</span><strong id="air-label">100%</strong></div>
+            <div class="breath-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+              <div id="air-fill"></div>
+            </div>
           </div>
-          <div class="vital-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="vital-fill" id="air-fill"></div></div>
         </div>
       </div>
       <div class="hud-context" aria-label="Environment">
-        <div class="hud-depth" id="depth-meter" hidden><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></div>
-        <div class="hud-weather" id="world-conditions">Day · Clear</div>
+        <div class="hud-depth" id="depth-meter" hidden>
+          <span class="depth-ruler" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="depth-info"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></span>
+        </div>
+        <div class="hud-weather" id="world-conditions" hidden>Night</div>
       </div>
       <div id="status-effects" class="status-effects" aria-label="Active status effects"></div>
       <div id="status-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><em></em></div>

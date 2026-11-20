@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MIN_DEPTH_METERS, hudVisibility } from '../src/hud-state.js';
+import { MIN_DEPTH_METERS, heartFillPercent, hudVisibility } from '../src/hud-state.js';
 
 test('full oxygen stays hidden while health remains independent', () => {
   assert.deepEqual(hudVisibility(100, 100, 0), { oxygenPercent: 100, showOxygen: false, showDepth: false });
@@ -17,4 +17,11 @@ test('depth only appears after descending sufficiently', () => {
   assert.equal(hudVisibility(100, 100, MIN_DEPTH_METERS - 1).showDepth, false);
   assert.equal(hudVisibility(100, 100, MIN_DEPTH_METERS).showDepth, true);
   assert.equal(hudVisibility(100, 100, MIN_DEPTH_METERS + 50).showDepth, true);
+});
+
+test('hearts show partial damage and full recovery', () => {
+  assert.deepEqual([0,1,2,3,4].map(i => heartFillPercent(100,100,i)), [100,100,100,100,100]);
+  assert.deepEqual([0,1,2,3,4].map(i => heartFillPercent(54,100,i)), [100,100,70,0,0]);
+  assert.deepEqual([0,1,2,3,4].map(i => heartFillPercent(0,100,i)), [0,0,0,0,0]);
+  assert.equal(heartFillPercent(25,100,1),25);
 });
