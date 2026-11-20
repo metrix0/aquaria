@@ -113,7 +113,7 @@ for (const [x, row] of falseGroundBridges) {
   dryBands.get(x)?.delete(row);
 }
 
-// Move the long descents to the outer ledges and clear their narrow climbing shafts.
+// Follow naturally exposed cliff edges without digging vertical holes.
 export const jungleCaveClimbs = placeLedgeClimbs([
   [341, 66, 135, 'rope'],
   [388, 62, 131, 'rope'],

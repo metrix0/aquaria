@@ -252,7 +252,7 @@ const wetBands = makeBands(wetProfiles);
 // Anchor at the walking ledge, not at a fixed column in the empty chamber.
 export const caveClimbs = placeLedgeClimbs([
   [-19, 88, 111, 'rope'], [40, 100, 131, 'rope'], [96, 92, 112, 'rope'],
-  [50, 129, 155, 'ladder'], [84, 203, 228, 'rope'], [82, 254, 300, 'rope'],
+  [52, 131, 155, 'ladder'], [84, 203, 228, 'rope'], [82, 254, 300, 'rope'],
   [27, 249, 271, 'ladder'],
 ], dryBands);
 const rockShell = new Map();
