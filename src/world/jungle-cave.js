@@ -5,7 +5,7 @@ export const JUNGLE_CAVE = Object.freeze({
   deepstoneRow: 195,
   sanctuaryCenter: 368,
   sanctuaryFloor: 282,
-  idolColumn: 385,
+  idolColumn: 368,
   mossStartRow: 62,
   scriptureStartRow: 82,
 });
@@ -39,7 +39,7 @@ const statueTier = [
 const cultSanctuaryTier = [
   // Direct descent from the first statue hall straight into the frog cult chamber
   [[346, 214, 13], [339, 232, 15], [334, 252, 16], [336, 270, 17], [344, 282, 18]],
-  [[334, 282, 16], [346, 282, 24], [360, 282, 29], [374, 282, 30], [386, 282, 30], [396, 282, 24], [402, 282, 14]],
+  [[334, 282, 16], [344, 282, 24], [356, 282, 29], [368, 282, 31], [380, 282, 29], [392, 282, 24], [402, 282, 16]],
 ];
 
 function makeBands(profiles) {
@@ -133,11 +133,12 @@ export const jungleCaveStructures = [
   // Tier 4 (first columns & Lovecraftian tentacle statues appear)
   ['temple-column', 348, 214], ['scripture', 355, 214], ['tentacle-statue', 364, 216],
   ['native-torch', 371, 217], ['temple-column', 377, 218], ['tentacle-statue', 384, 218], ['native-torch', 391, 218],
-  // Final Cult Sanctuary immediately below the statue hall (floor = 282)
-  ['temple-column', 346, 282], ['native-torch', 350, 282], ['scripture', 355, 282],
-  ['tentacle-statue', 363, 282], ['temple-column', 370, 282], ['scripture', 375, 282],
-  ['native-torch', 380, 282], ['cult-idol', 385, 282], ['native-torch', 390, 282],
-  ['temple-column', 395, 282],
+  // Final Cult Sanctuary immediately below the statue hall (idol centered at 368, floor = 282)
+  ['native-torch', 340, 282], ['temple-column', 342, 282], ['tentacle-statue', 348, 282],
+  ['scripture', 353, 282], ['temple-column', 358, 282], ['native-torch', 364, 282],
+  ['cult-idol', 368, 282],
+  ['native-torch', 372, 282], ['temple-column', 378, 282], ['scripture', 383, 282],
+  ['tentacle-statue', 388, 282], ['temple-column', 394, 282], ['native-torch', 396, 282],
 ];
 
 export const jungleCaveCaches = [
@@ -149,10 +150,10 @@ export const jungleCaveCaches = [
 export const jungleCaveMobs = [
   ['jungle-worm-mid', 'worm', 370, 114, 55],
   ['jungle-worm-deep', 'worm', 368, 226, 55],
-  ['jungle-frog-cultist-1', 'frog', 352, 282, 60],
-  ['jungle-frog-cultist-2', 'frog', 358, 282, 60],
-  ['jungle-frog-cultist-3', 'frog', 365, 282, 60],
-  ['jungle-frog-cultist-4', 'frog', 372, 282, 60],
-  ['jungle-frog-cultist-5', 'frog', 378, 282, 60],
-  ['jungle-frog-cultist-6', 'frog', 392, 282, 60],
+  ['jungle-frog-cultist-1', 'frog', 350, 282, 60],
+  ['jungle-frog-cultist-2', 'frog', 356, 282, 60],
+  ['jungle-frog-cultist-3', 'frog', 362, 282, 60],
+  ['jungle-frog-cultist-4', 'frog', 374, 282, 60],
+  ['jungle-frog-cultist-5', 'frog', 380, 282, 60],
+  ['jungle-frog-cultist-6', 'frog', 386, 282, 60],
 ];

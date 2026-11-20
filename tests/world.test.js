@@ -2601,13 +2601,17 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
 test('frog cultists pray aligned toward the idol and all aggro to bite and slash on proximity or attack', () => {
   // 1. Aligned prayer at distance & group aggro when one is attacked.
   const game = createGame();
-  const frogs = game.world.mobs.filter((mob) => mob.kind === 'frog');
-  assert.ok(frogs.length >= 5);
+  const frogs = game.world.mobs.filter((mob) => mob.kind === 'frog').sort((a, b) => a.x - b.x);
+  assert.equal(JUNGLE_CAVE.idolColumn, JUNGLE_CAVE.sanctuaryCenter);
+  assert.equal(frogs.length, 6);
   const idolX = (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE;
   for (const frog of frogs) {
     assert.equal(frog.praying, true);
     assert.equal(frog.facing, frog.x <= idolX ? 1 : -1);
   }
+  const westOffsets = frogs.filter((f) => f.x < idolX).map((f) => Math.round(idolX - f.x)).sort((a, b) => a - b);
+  const eastOffsets = frogs.filter((f) => f.x > idolX).map((f) => Math.round(f.x - idolX)).sort((a, b) => a - b);
+  assert.deepEqual(westOffsets, eastOffsets);
 
   // Player standing beyond proximity stays safe and frogs keep praying.
   const westernmost = frogs.reduce((best, mob) => (mob.x < best.x ? mob : best));
