@@ -53,6 +53,7 @@ import {
   createCaveLight,
   createSurfaceLight,
 } from "./world/lighting.js";
+import { createOutdoorExposure } from "./world/atmosphere.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -237,6 +238,20 @@ const ABYSS_CAVE_PAIRS = [
   colorPair("#313553", "#293e37"),
 ];
 
+const DAY_SKIES = {
+  clear: [[0, "#35536a"], [.43, "#62848a"], [.77, "#a9a28e"], [1, "#ebbf8c"]],
+  sunny: [[0, "#307491"], [.43, "#67a6b2"], [.77, "#b0c9b0"], [1, "#f5d19c"]],
+  cloudy: [[0, "#3b5468"], [.43, "#607781"], [.77, "#8d9692"], [1, "#b9b2a1"]],
+  rose: [[0, "#544e7c"], [.43, "#ac7b91"], [.77, "#d39a8c"], [1, "#f4ba83"]],
+};
+const NIGHT_SKIES = {
+  moonlit: [[0, "#10182e"], [.6, "#202f4b"], [1, "#455675"]],
+  starry: [[0, "#0a142c"], [.6, "#1a3154"], [1, "#354e72"]],
+  deep: [[0, "#080d1f"], [.6, "#141e37"], [1, "#283350"]],
+  aurora: [[0, "#071b2d"], [.6, "#163a48"], [1, "#2f5360"]],
+  meteors: [[0, "#0b1833"], [.6, "#202f58"], [1, "#344864"]],
+};
+
 export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d", { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
@@ -245,6 +260,10 @@ export function createRenderer(canvas) {
   const glowCoral = makeGlowCoral();
   const caveLight = createCaveLight();
   const surfaceLight = createSurfaceLight();
+  const outdoorExposure = createOutdoorExposure();
+  const climateCanvas = canvas.ownerDocument.createElement("canvas");
+  const climateCtx = climateCanvas.getContext("2d");
+  let climatePixels;
   const lightCanvas = canvas.ownerDocument.createElement("canvas");
   const lightCtx = lightCanvas.getContext("2d");
   const tileCanvas = canvas.ownerDocument.createElement("canvas");
@@ -289,7 +308,7 @@ export function createRenderer(canvas) {
     ctx.fillRect(x, y, w, h);
   }
 
-  function sky(camera, surface, time, { darkness, night, skyProgress, rain }) {
+  function sky(camera, surface, time, { darkness, night, skyProgress, rain, atmosphere, dayAtmosphere, sunIntensity = 1 }) {
     if (surface <= 0) return;
     const { width } = camera;
     const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
@@ -300,12 +319,7 @@ export function createRenderer(canvas) {
       0,
       width,
       surface,
-      [
-        [0, "#30485e"],
-        [0.43, "#4d6d7a"],
-        [0.77, "#788783"],
-        [1, "#b0a387"],
-      ],
+      DAY_SKIES[dayAtmosphere] ?? DAY_SKIES.clear,
       -camera.y,
       surface,
     );
@@ -337,15 +351,13 @@ export function createRenderer(canvas) {
         0,
         width,
         surface,
-        [
-          [0, "#10182e"],
-          [0.6, "#202f4b"],
-          [1, "#455675"],
-        ],
+        NIGHT_SKIES[atmosphere] ?? NIGHT_SKIES.moonlit,
         -camera.y,
         surface,
       );
-      for (let i = 0; i < 75; i++) {
+      const stars = atmosphere === "starry" || atmosphere === "meteors" ? 160
+        : atmosphere === "deep" ? 36 : 75;
+      for (let i = 0; i < stars; i++) {
         const span = width + 12;
         const offset = noise(i, 312) * span - horizontalOffset * 0.12;
         const x = (((offset % span) + span) % span) - 6;
@@ -353,12 +365,35 @@ export function createRenderer(canvas) {
         const size = i % 9 === 0 ? 2 : 1;
         rect(x, y, size, size, i % 4 === 0 ? "#e0e9dd" : "#9baed5ad");
       }
+      if (atmosphere === "aurora") {
+        // Layered, slow-moving curtains stay anchored to the sky as the camera pans.
+        const ribbons = ["#6cf3a64c", "#7be8cf44", "#a08df13c", "#65d9a935"];
+        ctx.globalAlpha = darkness * (1 - rain * .7);
+        for (let band = 0; band < ribbons.length; band++) {
+          for (let x = -12; x < width + 12; x += 6) {
+            const wave = Math.sin((x + horizontalOffset * .12) * .012 + time * .23 + band * 1.4);
+            const ripple = Math.sin(x * .032 - time * .13 + band * 2) * 6;
+            const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y * .1;
+            const tail = 34 + band * 9 + Math.sin(x * .021 + time * .25) * 9;
+            gradient(x, y, 6, tail, [[0, ribbons[band]], [1, "#65d9a900"]], y, y + tail);
+          }
+        }
+      } else if (atmosphere === "meteors") {
+        ctx.globalAlpha = darkness * (1 - rain * .7);
+        for (let i = 0; i < 5; i++) {
+          const span = width + 300;
+          const x = (((noise(i, 847) * span + time * (28 + i * 8)) % span) + span) % span - 150;
+          const y = 24 + noise(i, 848) * 110 + (x * .17) % 60 - camera.y * .1;
+          polygon([[x, y], [x - 33, y - 12], [x - 24, y - 6], [x + 3, y + 2]], "#c6e8ff72");
+          rect(x, y, 3, 2, "#ffffff");
+        }
+      }
     }
 
     const bodyX = Math.round(width * (0.86 - 0.72 * skyProgress));
     if (night) {
       const moonY = Math.round(surface + 12 - 159 * altitude);
-      ctx.globalAlpha = darkness * (1 - rain * 0.58);
+      ctx.globalAlpha = darkness * (1 - rain * 0.58) * (atmosphere === "deep" ? .25 : 1);
       for (let row = -12; row < 12; row++) {
         const radius = Math.floor(Math.sqrt(144 - row * row));
         rect(
@@ -373,29 +408,30 @@ export function createRenderer(canvas) {
       rect(bodyX + 3, moonY + 3, 4, 3, "#b3c3c5");
     } else {
       const sunY = Math.round(surface + 20 - 178 * altitude);
-      ctx.globalAlpha = 1 - rain * 0.66;
-      const glow = ctx.createRadialGradient(bodyX, sunY, 5, bodyX, sunY, 94);
+      ctx.globalAlpha = (1 - rain * 0.66) * (1 - darkness * .85);
+      ctx.globalAlpha *= clamp(.65 + sunIntensity * .35, .55, 1.15);
+      const glow = ctx.createRadialGradient(bodyX, sunY, 5, bodyX, sunY, 130 * sunIntensity);
       for (const [position, color] of [
-        [0, "#f6cf9299"],
-        [0.34, "#eeb87c3c"],
-        [1, "#eeb87c00"],
+        [0, "#ffdea4aa"],
+        [0.31, "#ffcb8e36"],
+        [1, "#ffca8600"],
       ])
         glow.addColorStop(position, color);
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, width, surface);
-      for (let row = -20; row < 20; row += 2) {
-        const radius = Math.floor(Math.sqrt(400 - row * row));
+      for (let row = -24; row < 24; row += 2) {
+        const radius = Math.floor(Math.sqrt(24 * 24 - row * row));
         rect(
           bodyX - radius,
           sunY + row,
           radius * 2,
           2,
-          row < 6 ? "#f5d5a3" : "#e8bb8d",
+          row < 6 ? "#f8dca5" : "#efc692",
         );
       }
     }
 
-    ctx.globalAlpha = 1 - darkness * 0.65;
+    ctx.globalAlpha = (1 - darkness * 0.65) * (atmosphere === "sunny" ? .35 : atmosphere === "cloudy" ? 1.3 : .85);
     for (let i = -2; i < 18; i++) {
       const span = Math.max(960, width + 260);
       const raw =
@@ -1383,6 +1419,42 @@ export function createRenderer(canvas) {
       width * TILE,
       height * TILE,
     );
+    ctx.restore();
+  }
+
+  function shadeAtmosphere(bounds, conditions, camera) {
+    if (!climateCtx?.createImageData || !climateCtx?.putImageData) return;
+    const { left, right, top, bottom } = bounds;
+    const width = right - left;
+    const height = bottom - top;
+    if (!width || !height) return;
+    if (!climatePixels || climatePixels.width !== width || climatePixels.height !== height) {
+      climateCanvas.width = width;
+      climateCanvas.height = height;
+      climatePixels = climateCtx.createImageData(width, height);
+    }
+    const data = climatePixels.data;
+    const weather = conditions.darkness * .48 + conditions.rain * .21;
+    let index = 0;
+    for (let y = top; y < bottom; y++) {
+      for (let x = left; x < right; x++) {
+        const exposure = outdoorExposure.at(x, y);
+        const swamp = jungleMixAt((x + .5) * TILE);
+        // Outdoors: blue night/rain grading blends into a swamp-green biome
+        // palette. Behind enclosed cave walls, both disappear completely.
+        const swampHaze = swamp * (.075 + conditions.rain * .065);
+        const alpha = clamp((weather + swampHaze) * exposure, 0, .75);
+        data[index] = 17 - 2 * swamp;
+        data[index + 1] = 25 + 24 * swamp;
+        data[index + 2] = 51 - 23 * swamp;
+        data[index + 3] = Math.round(alpha * 255);
+        index += 4;
+      }
+    }
+    climateCtx.putImageData(climatePixels, 0, 0);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(climateCanvas, left * TILE - Math.round(camera.x), top * TILE - Math.round(camera.y), width * TILE, height * TILE);
     ctx.restore();
   }
 
@@ -3002,6 +3074,7 @@ export function createRenderer(canvas) {
     const bounds = tileBounds(camera);
     caveLight.update(world, player);
     surfaceLight.update(world, player, bounds);
+    outdoorExposure.update(world, bounds);
     rect(-32, -32, camera.width + 64, camera.height + 64, "#101f33");
     ctx.save();
     ctx.translate(shake.x, shake.y);
@@ -3114,13 +3187,7 @@ export function createRenderer(canvas) {
     if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview);
     ctx.restore();
 
-    const shade = conditions.darkness * 0.48 + conditions.rain * 0.21;
-    if (shade > 0) {
-      ctx.save();
-      ctx.globalAlpha = shade;
-      rect(0, 0, camera.width, camera.height, "#111933");
-      ctx.restore();
-    }
+    shadeAtmosphere(bounds, conditions, camera);
     rain(world, camera, surface, time, conditions);
 
     ctx.save();

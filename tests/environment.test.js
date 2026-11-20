@@ -42,14 +42,14 @@ test('weather mode presets override natural cycle cleanly while auto preserves d
   assert.deepEqual(worldConditions(150, 7, 'auto'), worldConditions(150, 7));
 
   const day = worldConditions(900, 7, 'day');
-  assert.deepEqual(day, { night: false, skyProgress: .5, darkness: 0, rain: 0, rainSlope: 0 });
+  assert.deepEqual(day, { night: false, skyProgress: .5, darkness: 0, rain: 0, rainSlope: 0, atmosphere: 'clear', dayAtmosphere: 'clear', sunIntensity: 1 });
 
   const dusk = worldConditions(100, 7, 'dusk');
   assert.equal(dusk.night, false);
   assert.ok(dusk.darkness > 0 && dusk.darkness < 1 && dusk.skyProgress > .9);
 
   const night = worldConditions(100, 7, 'night');
-  assert.deepEqual(night, { night: true, skyProgress: .5, darkness: 1, rain: 0, rainSlope: 0 });
+  assert.deepEqual(night, { night: true, skyProgress: .5, darkness: 1, rain: 0, rainSlope: 0, atmosphere: 'moonlit', dayAtmosphere: 'clear', sunIntensity: 1 });
 
   const dawn = worldConditions(900, 7, 'dawn');
   assert.equal(dawn.night, false);
@@ -68,4 +68,35 @@ test('weather mode presets override natural cycle cleanly while auto preserves d
 
   assert.equal(WEATHER_MODES[0].id, 'auto');
   assert.ok(WEATHER_MODES.length >= 6);
+});
+
+
+test('the weather slider offers distinct sunny, overcast, rose, and night sky variants', () => {
+  const modes = ['sunny', 'cloudy', 'rose', 'starry', 'deep-night', 'aurora', 'meteors'];
+  for (const mode of modes) {
+    assert.ok(WEATHER_MODES.some((entry) => entry.id === mode), mode);
+    const conditions = worldConditions(225, 31, mode);
+    assert.ok(conditions.atmosphere);
+    assert.ok(conditions.sunIntensity > 0);
+    assert.equal(conditions.rain, 0);
+  }
+  assert.ok(worldConditions(225, 31, 'sunny').sunIntensity > worldConditions(225, 31, 'cloudy').sunIntensity);
+  assert.equal(worldConditions(225, 31, 'aurora').night, true);
+});
+
+test('automatic atmospheres vary across days while remaining stable per world seed', () => {
+  const days = new Set();
+  const nights = new Set();
+  for (let i = 0; i < 48; i++) {
+    const day = worldConditions(i * 1200 + 300, 81);
+    const night = worldConditions(i * 1200 + 900, 81);
+    assert.equal(day.night, false);
+    assert.equal(night.night, true);
+    assert.deepEqual(worldConditions(i * 1200 + 300, 81), day);
+    days.add(day.atmosphere);
+    nights.add(night.atmosphere);
+    assert.equal(night.dayAtmosphere, worldConditions((i + 1) * 1200 + 20, 81).dayAtmosphere);
+  }
+  assert.ok(days.size >= 3);
+  assert.ok(nights.size >= 4);
 });
