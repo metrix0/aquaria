@@ -1,4 +1,4 @@
-import { ringCooldown, useRootRing } from '../src/gameplay/root-ring.js';
+import { ringCooldown, stepRootWave, useRootRing } from '../src/gameplay/root-ring.js';
 import { equippedHook, hasHook, useGrapplingHook } from '../src/gameplay/hook.js';
 import { wakeMimic } from '../src/gameplay/enemies/mimic.js';
 import { isTrapIntact, stepCaveTraps, swingHead } from '../src/gameplay/cave-traps.js';
@@ -637,7 +637,7 @@ test('the root wave stops at rock and damages the first enemy only after lifting
   assert.equal(mob.rooted, 0);
 });
 
-test('the root wave follows the character facing direction, ignoring cursor coordinates', () => {
+test('the root wave travels toward the mouse pointer even when the character faces away', () => {
   const game = createGame();
   const { player, world } = game;
   game.progress.ring = 'root-ring';
@@ -650,15 +650,55 @@ test('the root wave follows the character facing direction, ignoring cursor coor
   const westHp = westMob.health;
   const eastHp = eastMob.health;
 
-  // Deliberately provide a westward cursor target: casting must still go east.
+  // Player faces east (+1), aim pointer diagonally up-left toward westMob.
   assert.equal(useRootRing(game, westMob.x, westMob.y - 12), true);
-  assert.equal(game.rootWave.facing, 1);
-  assert.equal(game.rootWave.dirX, undefined);
+  assert.equal(game.rootWave.facing, -1);
+  assert.ok(game.rootWave.dirX < -0.9);
   for (let i = 0; i < 60; i++) stepGame(game, {}, 1 / 60);
 
-  assert.equal(westMob.health, westHp);
-  assert.equal(eastMob.health, eastHp - 3);
+  assert.equal(westMob.health, westHp - 3);
+  assert.equal(eastMob.health, eastHp);
   assert.equal(player.facing, 1);
+});
+
+test('Root Ring hits high and low targets on its aimed path rather than its launch row', () => {
+  for (const vertical of [-1, 1]) {
+    const game = createGame();
+    const { player, world } = game;
+    game.progress.ring = 'root-ring';
+    Object.assign(player, { x: (WEST_EXTENSION + 56.5) * TILE, y: 33 * TILE - player.height, facing: -1 });
+    const mob = world.mobs.find(({ kind }) => kind === 'miner');
+    const launchY = player.y + player.height * .66;
+    const targetX = player.x + 5 * TILE;
+    const targetY = launchY + vertical * 4 * TILE;
+    Object.assign(mob, { x: targetX, y: targetY - caveEnemySpecs.miner.centerY, hurt: 0 });
+    world.mobs = [mob];
+
+    // Clear a narrow test corridor; the ray must pass the enemy on its actual y.
+    for (let tx = Math.floor((player.x - TILE) / TILE); tx <= Math.ceil((targetX + TILE) / TILE); tx++) {
+      for (let ty = Math.floor((Math.min(launchY, targetY) - TILE) / TILE);
+        ty <= Math.ceil((Math.max(launchY, targetY) + TILE) / TILE); ty++) {
+        editTile(world, tx, ty, MATERIAL.air);
+      }
+    }
+
+    const health = mob.health;
+    assert.equal(useRootRing(game, targetX, targetY), true);
+    assert.equal(Math.sign(game.rootWave.dirY), vertical);
+    for (let frame = 0; frame < 90 && !game.rootWave.finished; frame++) {
+      stepRootWave(game, 1 / 60);
+    }
+    assert.equal(game.rootWave?.target, mob, 'diagonal cast must bind the target');
+    assert.ok(mob.rooted > 0);
+    assert.equal(mob.health, health, 'root lift starts before damage');
+
+    // Simulate a completed lift, then check delayed damage.
+    mob.rootLift = 0;
+    for (let frame = 0; frame < 20; frame++) stepRootWave(game, 1 / 60);
+    assert.equal(mob.health, health);
+    for (let frame = 0; frame < 15; frame++) stepRootWave(game, 1 / 60);
+    assert.equal(mob.health, health - 3);
+  }
 });
 
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
