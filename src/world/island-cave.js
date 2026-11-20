@@ -309,6 +309,16 @@ export const islandCaches = [
   ['underground-vault', 'Underground vault', 122, 560, 'grappling-hook', 1, [{ id: 'iron', count: 4 }]],
 ];
 
+// Reusable wild chests in the first dry cave biome (column, walking floor).
+// Chosen on solid, exposed ground along the explorer's descent toward the grove.
+export const firstCaveWildChestSpots = [
+  ['wild-chest-bone-alcove', 18, 80],
+  ['wild-chest-upper-gallery', 77, 116],
+  ['wild-chest-west-terrace', 13, 156],
+  ['wild-chest-east-fork', 97, 185],
+  ['wild-chest-grove-path', -12, 190],
+];
+
 export const islandMushrooms = [[-15, 142], [95, 451]];
 
 export const caveStructures = [

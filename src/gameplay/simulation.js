@@ -1,3 +1,4 @@
+import { rollWildChestLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
@@ -69,7 +70,7 @@ export function createGame(snapshot) {
       y: snapshot.world.krakenChest.y,
     });
   }
-  game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot);
+  game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot, game.weatherSeed);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
     Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null,
@@ -106,7 +107,7 @@ export function resetRoomProgress(previous) {
   return {
     world,
     inventory: new Inventory(),
-    chests: restoreChests(world),
+    chests: restoreChests(world, undefined, undefined, previous.weatherSeed),
     progress: { snorkel: null, ring: null, hands: null },
     player,
     dirty: true,
@@ -249,7 +250,7 @@ function stepDroppedChests(game, dt) {
   for (const item of game.world.items) {
     if (item.kind !== 'chest') continue;
     if (!game.chests.has(item.id)) {
-      game.chests.set(item.id, restoreSlots([item.loot], CHEST_SIZE));
+      game.chests.set(item.id, restoreSlots(item.chestType === 'wild' ? rollWildChestLoot(item, game.weatherSeed) : [item.loot], CHEST_SIZE));
       game.dirty = true;
     }
     if (item.falling) {
@@ -323,14 +324,17 @@ function stockWreckLoot(world, item, slots, remaining) {
   else world.pendingWreckLoot.delete(item.id);
 }
 
-function restoreChests(world, saved, pendingWreckLoot) {
+function restoreChests(world, saved, pendingWreckLoot, worldSeed) {
   const chests = new Map();
   world.pendingWreckLoot.clear();
   for (const item of world.items) {
     if (item.kind !== 'chest') continue;
     const savedSlots = saved?.[item.id];
     const hasSavedSlots = Array.isArray(savedSlots);
-    const slots = restoreSlots(hasSavedSlots ? savedSlots : world.harvested.has(item.id) ? [] : [item.loot], CHEST_SIZE);
+    const initialLoot = item.chestType === 'wild'
+      ? rollWildChestLoot(item, worldSeed)
+      : world.harvested.has(item.id) ? [] : [item.loot];
+    const slots = restoreSlots(hasSavedSlots ? savedSlots : initialLoot, CHEST_SIZE);
     if (item.bonusLoot) {
       const savedCount = pendingWreckLoot?.[item.id];
       const remaining = !pendingWreckLoot || !hasSavedSlots ? item.bonusLoot.length

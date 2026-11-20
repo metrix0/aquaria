@@ -194,6 +194,7 @@ export function createUI(actions, version) {
   byId('customize').addEventListener('click', () => open('customize-panel'));
   byId('craft').addEventListener('click', () => open('craft-panel'));
   byId('items').addEventListener('click', () => open('items-panel'));
+  byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());

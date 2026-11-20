@@ -82,6 +82,7 @@
             <button id="weather-next" type="button" aria-label="Next weather">›</button>
           </div>
           <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
+          <button id="drops" class="drops" type="button" aria-haspopup="dialog" aria-controls="drops-panel">Drops</button>
           <div class="footer-stepper" role="group" aria-label="Camera zoom">
             <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
             <output id="camera-zoom" aria-label="Zoom level">100%</output>
@@ -186,6 +187,11 @@
       <div class="items-grid" id="items-grid"></div>
       <p id="items-empty" hidden>No matching items.</p>
       <p id="items-status" role="status"></p>
+    </dialog>
+
+    <dialog id="drops-panel" aria-labelledby="drops-title">
+      <div class="dialog-head"><h2 id="drops-title">Drops</h2><button type="button" data-close aria-label="Close drops" autofocus>×</button></div>
+      <section id="drops-content" aria-label="Chest drops by biome"></section>
     </dialog>
 
     <dialog id="pause-panel" aria-labelledby="pause-title">

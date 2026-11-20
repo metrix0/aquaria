@@ -1,8 +1,9 @@
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
-import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
+import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
+import { createWildChest } from './wild-chest.js';
 
 export { ISLAND_CAVE, JUNGLE_CAVE, JUNGLE_ISLAND };
 
@@ -666,6 +667,10 @@ export function generateFixtures() {
     id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
   }));
+  items.push(...firstCaveWildChestSpots.map(([id, column, floor]) => createWildChest({
+    id, x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
+    lootTable: 'first-cave',
+  })));
   items.push({
     id: SNORKEL_CHEST_ID, name: 'Wreck chest', kind: 'chest',
     loot: { id: COPPER_SNORKEL.id, count: 1 },

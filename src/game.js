@@ -234,6 +234,7 @@ function switchView() {
   ui.close('backpack-panel');
   ui.close('craft-panel');
   ui.close('items-panel');
+  ui.close('drops-panel');
   craftingBench = undefined;
   input.clear();
   input.pointer.active = false;
