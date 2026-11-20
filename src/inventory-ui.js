@@ -1,6 +1,7 @@
 import { ARROW, BOW, CHEST_SIZE, KELP_DRESSING } from './content.js';
 import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
+import { ITEM_ICON_IDS } from './art/items/manifest.js';
 
 function createSlots(container, group, size) {
   return Array.from({ length: size }, (_, index) => {
@@ -26,10 +27,15 @@ function createSlots(container, group, size) {
 }
 
 export function setItemIcon(icon, id) {
-  const item = ITEMS[id];
-  icon.className = id ? 'item item-' + (item?.icon ?? id) : '';
+  const item = ITEMS[id] ?? EQUIPMENT_ITEMS[id];
+  const appearance = item?.icon ?? id;
+  const sprite = Boolean(appearance && ITEM_ICON_IDS.has(appearance));
+  icon.className = id ? 'item item-' + appearance : '';
   if (item?.pickaxe) icon.classList.add('item-pickaxe');
-  icon.style.backgroundImage = item?.pickaxe ? pickaxeIcon(item.pickaxe) : '';
+  if (sprite) icon.classList.add('item-sprite');
+  icon.style.backgroundImage = sprite
+    ? 'url("' + new URL('./art/items/' + appearance + '.png', import.meta.url).href + '")'
+    : item?.pickaxe ? pickaxeIcon(item.pickaxe) : '';
 }
 
 function drawStack(button, stack) {

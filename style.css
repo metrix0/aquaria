@@ -187,6 +187,16 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-padded-leg-wraps { width: 14px; height: 20px; background: repeating-linear-gradient(160deg,#d7c8a4 0 4px,#82775f 4px 7px); transform: rotate(-15deg); }
 .item-prospectors-brooch { background: #bb996a; clip-path: polygon(50% 0, 100% 35%, 70% 100%, 30% 100%, 0 35%); box-shadow: inset 4px 3px #f3d7a4, inset -3px -3px #6c5849; }
 .item-kelp-dressing { width: 19px; height: 12px; border-radius: 3px; transform: rotate(-24deg); background: #79b28b; box-shadow: inset 6px 0 #b6c899, inset -6px 0 #b6c899, inset 0 -2px #316e64; }
+/* Real transparent pixel sprites replace the old abstract CSS-only item shapes.
+   Keep the legacy rules as fallbacks and preserve the procedural pickaxes. */
+.item.item-sprite {
+  width: 24px; height: 24px; margin: 0; padding: 0;
+  display: block; background-color: transparent;
+  background-position: center; background-size: contain; background-repeat: no-repeat;
+  border: 0; border-radius: 0; box-shadow: none;
+  clip-path: none; transform: none; image-rendering: pixelated;
+}
+.item.item-sprite::before, .item.item-sprite::after { content: none; display: none; }
 footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px solid #4864646b; display: flex; justify-content: space-between; align-items: center; padding: 8px 25px max(8px, env(safe-area-inset-bottom)); }
 .footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .footer-deploy { display: flex; align-items: center; gap: 8px; }
