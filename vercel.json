@@ -4,5 +4,15 @@
   "outputDirectory": "dist",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/start",
+      "destination": "/start/index.html"
+    },
+    {
+      "source": "/start/",
+      "destination": "/start/index.html"
+    }
+  ]
 }

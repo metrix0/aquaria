@@ -14,6 +14,13 @@ try {
     page.on('pageerror', (error) => errors.push(error.message));
     const response = await page.goto(base + '/start', { waitUntil: 'domcontentloaded' });
     assert.equal(response?.status(), 200, device.name + ': /start response');
+    assert.equal(await page.locator('#game, #scene, .bottom, .footer-actions, .hud-top-right').count(), 0,
+      device.name + ': /start must not show gameplay UI');
+    const slashResponse = await page.goto(base + '/start/', { waitUntil: 'domcontentloaded' });
+    assert.equal(slashResponse?.status(), 200, device.name + ': /start/ response');
+    assert.equal(await page.locator('#game, #scene, .bottom, .footer-actions, .hud-top-right').count(), 0,
+      device.name + ': /start/ must not show gameplay UI');
+    assert.equal(await page.locator('.menu-actions').count(), 1);
     await page.getByRole('button', { name: 'Load Game' }).click();
     await page.getByText('Save selection is coming soon.').waitFor();
     assert.equal(await page.locator('.brand-logo').evaluate((img) => img.complete && img.naturalWidth > 0), true);
