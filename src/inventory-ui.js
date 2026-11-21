@@ -352,7 +352,6 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
         collectAll.disabled = occupied === 0;
       }
       renderTooltip();
-      document.getElementById('selected').textContent = ITEMS[hotbar[selected]?.id]?.name ?? 'Empty slot';
     },
   };
 }
