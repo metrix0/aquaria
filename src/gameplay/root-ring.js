@@ -46,8 +46,8 @@ function reachedEnemy(world, wave, x, y) {
   const dirX = wave.dirX ?? wave.facing;
   const dirY = wave.dirY ?? 0;
   return world.mobs.find((mob) => {
-    if (mob.health <= 0 || mob.respawn > 0 ||
-        (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) return false;
+    // Every living mob can be bound: no passive, hostile, or species exceptions.
+    if (mob.health <= 0 || mob.respawn > 0) return false;
     const spec = mobSpec(mob);
     if (!spec) return false;
     const points = mob.segments?.length
@@ -96,12 +96,10 @@ export function stepRootWave(game, dt) {
     wave.length = distance;
     const mob = reachedEnemy(game.world, wave, x, y);
     if (!mob) continue;
-    if (mob.kind !== 'kraken') {
-      mob.rooted = ROOT_BIND_DURATION;
-      mob.rootLift = ROOT_LIFT;
-      mob.rootBaseY = mob.y;
-      mob.grounded = false;
-    }
+    mob.rooted = ROOT_BIND_DURATION;
+    mob.rootLift = ROOT_LIFT;
+    mob.rootBaseY = mob.y;
+    mob.grounded = false;
     wave.target = mob;
     wave.squeezeAt = wave.age + ROOT_SQUEEZE_TIME;
     wave.finished = true;
