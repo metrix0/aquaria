@@ -1,4 +1,15 @@
-import { COLS, WATER_ROW, groundAt, clamp } from './generation.js';
+import { COLS, TILE, WEST_EXTENSION, WATER_ROW, groundAt, clamp } from './generation.js';
+
+// World-based aurora projections. Camera movement shifts the visible sky
+// instead of dragging the light along with the character.
+export function auroraWorldX(screenX, cameraX) {
+  return screenX + cameraX - WEST_EXTENSION * TILE;
+}
+
+export function auroraBloomWorldX(index, time) {
+  return index * 420 + Math.sin(time * .05 + index * 1.8) * 24;
+}
+
 
 // Cave lighting still distinguishes actual background walls; the full-screen
 // atmospheric grade ignores them completely.

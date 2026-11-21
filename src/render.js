@@ -55,7 +55,7 @@ import {
   createCaveLight,
   createSurfaceLight,
 } from "./world/lighting.js";
-import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
+import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
 import { lightningAt, lightningAnchor } from "./lightning.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
@@ -375,6 +375,34 @@ export function createRenderer(canvas) {
         -camera.y,
         surface,
       );
+      if (atmosphere === "aurora") {
+        // Four world-anchored sky washes in overlay blend mode, behind terrain.
+        const colors = [
+          ["rgba(116,174,255,.78)", "rgba(116,174,255,0)"], // blue
+          ["rgba(197,146,255,.80)", "rgba(197,146,255,0)"], // violet
+          ["rgba(107,225,238,.77)", "rgba(107,225,238,0)"], // cyan
+          ["rgba(145,219,171,.52)", "rgba(145,219,171,0)"], // soft green
+        ];
+        const worldStart = auroraWorldX(0, camera.x);
+        const spacing = 420;
+        const radius = 330;
+        const y = 95 - camera.y;
+        ctx.save();
+        ctx.globalCompositeOperation = "overlay";
+        ctx.globalAlpha = darkness * (1 - rain * .7) * .64;
+        const first = Math.floor((worldStart - radius) / spacing);
+        const last = Math.ceil((worldStart + width + radius) / spacing);
+        for (let i = first; i <= last; i++) {
+          const x = i * spacing - worldStart;
+          const [inner, outer] = colors[((i % colors.length) + colors.length) % colors.length];
+          const tint = ctx.createRadialGradient(x, y, 0, x, y, radius);
+          tint.addColorStop(0, inner);
+          tint.addColorStop(1, outer);
+          ctx.fillStyle = tint;
+          ctx.fillRect(x - radius, 0, radius * 2, surface);
+        }
+        ctx.restore();
+      }
       const stars = atmosphere === "starry" ? 320
         : atmosphere === "meteors" ? 160
         : atmosphere === "deep" ? 36 : 75;
@@ -405,10 +433,11 @@ export function createRenderer(canvas) {
         ctx.globalAlpha = darkness * (1 - rain * .7);
         for (let band = 0; band < ribbons.length; band++) {
           for (let x = -12; x < width + 12; x += 6) {
-            const wave = Math.sin((x + horizontalOffset * .12) * .012 + time * .075 + band * 1.4);
-            const ripple = Math.sin(x * .032 - time * .045 + band * 2) * 6;
-            const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y * .1;
-            const tail = 62 + band * 12 + Math.sin(x * .021 + time * .08) * 12;
+            const worldX = auroraWorldX(x, camera.x);
+            const wave = Math.sin(worldX * .012 + time * .075 + band * 1.4);
+            const ripple = Math.sin(worldX * .032 - time * .045 + band * 2) * 6;
+            const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y;
+            const tail = 62 + band * 12 + Math.sin(worldX * .021 + time * .08) * 12;
             gradient(x, y, 6, tail,
               [[0, ribbons[band][0]], [.2, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
           }
@@ -1584,24 +1613,30 @@ export function createRenderer(canvas) {
     ctx.globalCompositeOperation = "screen";
     ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .7)
       * (.70 + Math.sin(time * .07) * .06);
-    // Discrete cool-colored blooms, not a green full-scene wash. The aurora
-    // still lights the nearby surface, but the night stays recognizably dark.
-    const glows = [
-      ["rgba(112,210,210,.25)", "rgba(92,180,216,.08)", "rgba(87,174,224,0)"],
-      ["rgba(178,151,255,.26)", "rgba(150,138,239,.09)", "rgba(134,119,234,0)"],
+    const colors = [
       ["rgba(117,180,250,.24)", "rgba(104,170,237,.08)", "rgba(103,161,231,0)"],
+      ["rgba(178,151,255,.26)", "rgba(150,138,239,.09)", "rgba(134,119,234,0)"],
+      ["rgba(112,210,210,.25)", "rgba(92,180,216,.08)", "rgba(87,174,224,0)"],
+      ["rgba(125,213,167,.12)", "rgba(107,187,159,.04)", "rgba(98,178,149,0)"],
     ];
-    for (let i = 0; i < glows.length; i++) {
-      const x = width * (.18 + i * .32) + Math.sin(time * .05 + i * 1.8) * width * .06;
-      const y = Math.max(5, Math.min(surface * .35, height * .3));
-      const radius = Math.max(140, width * .27);
+    const worldStart = auroraWorldX(0, camera.x);
+    const spacing = 420;
+    const radius = 260;
+    const y = 95 - camera.y;
+    const first = Math.floor((worldStart - radius - 24) / spacing);
+    const last = Math.ceil((worldStart + width + radius + 24) / spacing);
+    for (let i = first; i <= last; i++) {
+      const x = auroraBloomWorldX(i, time) - worldStart;
+      const left = Math.max(0, x - radius);
+      const right = Math.min(width, x + radius);
+      if (right <= left) continue;
+      const [inner, middle, outer] = colors[((i % colors.length) + colors.length) % colors.length];
       const bloom = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      bloom.addColorStop(0, glows[i][0]);
-      bloom.addColorStop(.46, glows[i][1]);
-      bloom.addColorStop(1, glows[i][2]);
+      bloom.addColorStop(0, inner);
+      bloom.addColorStop(.46, middle);
+      bloom.addColorStop(1, outer);
       ctx.fillStyle = bloom;
-      ctx.fillRect(Math.max(0, x - radius), 0,
-        Math.min(width, x + radius) - Math.max(0, x - radius), reach);
+      ctx.fillRect(left, 0, right - left, reach);
     }
     ctx.restore();
   }

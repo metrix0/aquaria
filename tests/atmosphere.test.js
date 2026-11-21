@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
+import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
 import { lightningAt, lightningAnchor, stormBurstAt } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
@@ -119,4 +119,19 @@ test('lightning remains fixed in world coordinates while the camera moves or zoo
   assert.ok(anchor.worldBottom > anchor.worldTop);
   assert.equal(anchor.worldBottom < 256, true);
   assert.notEqual(lightningAnchor({ event: 40, flash: 1 }, seed, movingCamera, anchor), anchor);
+});
+
+test('aurora remains in the world as the camera pans', () => {
+  const cameraA = 1400;
+  const cameraB = 1710;
+  const screenA = 250;
+  const screenB = screenA - (cameraB - cameraA);
+  assert.equal(auroraWorldX(screenA, cameraA), auroraWorldX(screenB, cameraB));
+  const worldBloom = auroraBloomWorldX(4, 55);
+  assert.equal(
+    (worldBloom - auroraWorldX(0, cameraB)) - (worldBloom - auroraWorldX(0, cameraA)),
+    -(cameraB - cameraA),
+  );
+  assert.equal(auroraBloomWorldX(4, 55), worldBloom);
+  assert.notEqual(auroraBloomWorldX(4, 58), worldBloom);
 });
