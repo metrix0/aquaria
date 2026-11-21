@@ -1495,7 +1495,7 @@ export function createRenderer(canvas) {
 
   function shadeAtmosphere(camera, conditions, time, flash = 0) {
     // Release the entire scene from its storm grade and darkness during a flash.
-    const gradeStrength = 1 - clamp(flash, 0, 1);
+    const gradeStrength = 1 - clamp(flash, 0, 1) * .46;
     if (gradeStrength <= 0) return;
     // One full-height pass over every pixel, including sky, terrain, water,
     // caves and their background tiles. Overlay preserves the base art.
@@ -1596,70 +1596,71 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawStormLightning(camera, strike, seed) {
-    if (!strike || strike.flash <= 0) return;
+  // Lightning belongs to the distant sky layer, behind terrain and people.
+  function drawStormLightning(camera, surface, strike, seed) {
+    if (!strike?.flash) return;
     const { width, height } = camera;
-    const x = width * (.23 + noise(strike.event, 861, seed) * .54);
-    const impactX = camera.x + x;
-    const groundY = groundAt(Math.floor(impactX / TILE)) * TILE - camera.y;
-    const endY = Math.min(height + 30, groundY - 3);
+    const skyHeight = Math.min(height, Math.max(0, surface));
+    if (skyHeight < 65) return;
+    const span = Math.max(900, width * 1.45);
+    const cloudX = noise(strike.event, 861, seed) * span - camera.x * .11;
+    const x = ((cloudX % span + span) % span) - span * .09;
+    const top = -20 + noise(strike.event, 862, seed) * Math.min(70, skyHeight * .15);
+    const bottom = Math.min(skyHeight * .68,
+      top + 70 + noise(strike.event, 863, seed) * Math.min(130, skyHeight * .25));
+    if (bottom - top < 45) return;
 
     ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, skyHeight);
+    ctx.clip();
     ctx.globalCompositeOperation = "screen";
-    // Blue-white illumination washes across the whole scene, not just the sky.
-    ctx.globalAlpha = strike.flash * .68;
-    ctx.fillStyle = "#e8f4ff";
-    ctx.fillRect(0, 0, width, height);
-    const glowX = x + (noise(strike.event, 862, seed) - .5) * 60;
-    const glowY = Math.max(0, Math.min(height, endY * .42));
-    const bloom = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, Math.max(220, width * .67));
-    bloom.addColorStop(0, "rgba(255,255,255,.9)");
-    bloom.addColorStop(.23, "rgba(195,224,255,.47)");
-    bloom.addColorStop(1, "rgba(175,210,255,0)");
-    ctx.globalAlpha = strike.flash * .9;
-    ctx.fillStyle = bloom;
-    ctx.fillRect(0, 0, width, height);
-
-    if (strike.bolt <= 0 || endY < 40) {
+    const centerY = clamp((top + bottom) * .52, 0, skyHeight);
+    const radius = Math.max(120, Math.min(340, skyHeight * .56));
+    const glow = ctx.createRadialGradient(x, centerY, 2, x, centerY, radius);
+    glow.addColorStop(0, "rgba(236,246,255,.78)");
+    glow.addColorStop(.32, "rgba(145,188,236,.30)");
+    glow.addColorStop(1, "rgba(117,160,218,0)");
+    ctx.globalAlpha = strike.flash * .77 * strike.distance;
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, centerY - radius, radius * 2, radius * 2);
+    if (strike.bolt <= 0) {
       ctx.restore();
       return;
     }
-    const startY = Math.min(-24, endY - Math.max(180, height * .6));
     const points = [];
-    const drift = (noise(strike.event, 863, seed) - .5) * Math.min(120, width * .13);
-    for (let i = 0; i <= 14; i++) {
-      const progress = i / 14;
-      const jag = (noise(strike.event * 47 + i, 864, seed) - .5) * Math.min(75, width * .105);
-      points.push([x + drift * progress + jag * Math.sin(Math.PI * progress), startY + (endY - startY) * progress]);
+    const drift = (noise(strike.event, 864, seed) - .5) * 34;
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      const jag = (noise(strike.event * 47 + i, 865, seed) - .5) * 24;
+      points.push([x + drift * t + jag * Math.sin(Math.PI * t),
+        top + (bottom - top) * t]);
     }
-    const trace = (path, lineWidth, color, blur) => {
+    const trace = (path, width, color, blur) => {
       ctx.beginPath();
-      ctx.moveTo(path[0][0], path[0][1]);
-      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
-      ctx.lineWidth = lineWidth;
+      ctx.moveTo(...path[0]);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(...path[i]);
+      ctx.lineWidth = width;
       ctx.strokeStyle = color;
-      ctx.shadowColor = "#add8ff";
+      ctx.shadowColor = "#a9cfff";
       ctx.shadowBlur = blur;
       ctx.stroke();
     };
-    ctx.globalCompositeOperation = "lighter";
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.globalAlpha = strike.bolt;
-    trace(points, 15, "rgba(101,168,255,.18)", 35);
-    trace(points, 7, "rgba(153,207,255,.72)", 18);
-    trace(points, 2.3, "#ffffff", 7);
-    for (const [start, direction] of [[3, -1], [6, 1], [9, -1], [11, 1]]) {
+    ctx.globalAlpha = strike.bolt * strike.distance;
+    trace(points, 7, "rgba(103,159,229,.22)", 14);
+    trace(points, 2.8, "rgba(171,215,255,.68)", 8);
+    trace(points, 1.15, "#f3faff", 3);
+    for (const [start, direction] of [[3, -1], [6, 1], [9, -1]]) {
       const fork = [points[start]];
-      for (let j = 1; j <= 4; j++) {
-        const p = points[start + j] ?? points[14];
-        fork.push([
-          p[0] + direction * j * (10 + noise(strike.event + start + j, 865, seed) * 10),
-          p[1] - j * 3,
-        ]);
+      for (let i = 1; i <= 3; i++) {
+        const p = points[start + i];
+        fork.push([p[0] + direction * i *
+          (6 + noise(strike.event + start + i, 866, seed) * 7), p[1] - i * 3]);
       }
-      trace(fork, 5, "rgba(137,193,255,.45)", 12);
-      trace(fork, 1.4, "#e9f7ff", 5);
+      trace(fork, 1.8, "rgba(153,204,255,.46)", 5);
+      trace(fork, .7, "#dcefff", 2);
     }
     ctx.restore();
   }
@@ -3307,6 +3308,8 @@ export function createRenderer(canvas) {
     sky(camera, surface, time, conditions, reducedMotion);
     // Keep star halos behind every world layer so they cannot shine through blocks.
     starlight(camera, surface, time, conditions, reducedMotion);
+    const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
+    drawStormLightning(camera, surface, lightning, weatherSeed);
     if (
       !reducedMotion &&
       surface > 0 &&
@@ -3415,10 +3418,8 @@ export function createRenderer(canvas) {
     ctx.restore();
 
     rain(world, camera, surface, time, conditions);
-    const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
     shadeAtmosphere(camera, conditions, time, lightning?.flash ?? 0);
     auroraLight(camera, surface, time, conditions);
-    drawStormLightning(camera, lightning, weatherSeed);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
-import { lightningAt } from '../src/lightning.js';
+import { lightningAt, stormBurstAt } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 
 test('full-scene weather tint ignores background-wall presence', () => {
@@ -61,22 +61,40 @@ test('all weather presets produce a grade without losing biome transitions', () 
   }
 });
 
-test('storm lightning strobes twice, has a cooldown, and respects reduced motion', () => {
+test('storm bursts vary between zero and four strokes, with unpredictable spacing', () => {
+  const counts = new Set();
+  const gaps = new Set();
+  for (let w = 0; w < 240; w++) {
+    const times = stormBurstAt(w, 17);
+    assert.deepEqual(times, stormBurstAt(w, 17));
+    counts.add(times.length);
+    for (const t of times) assert.ok(t >= w * 25 && t < (w + 1) * 25);
+    for (let i = 1; i < times.length; i++) {
+      const gap = times[i] - times[i - 1];
+      assert.ok(gap >= .85 && gap <= 2.11);
+      gaps.add(gap.toFixed(2));
+    }
+  }
+  assert.deepEqual([...counts].sort(), [0, 1, 2, 3, 4]);
+  assert.ok(gaps.size > 12);
+});
+
+test('storm flashes remain seeded, weather-gated and reduced-motion friendly', () => {
   const seed = 17;
-  const event = 2;
-  const strike = event * 10 + 1.2 + noise(event, 817, seed) * 5.6;
-  const storm = worldConditions(strike, seed, 'storm');
-  const rain = worldConditions(strike, seed, 'rain');
-  assert.equal(lightningAt(strike + .01, seed, rain), null);
-  assert.equal(lightningAt(strike - .01, seed, storm), null);
-  assert.equal(lightningAt(strike + 1, seed, storm), null);
-  const first = lightningAt(strike + .01, seed, storm);
-  const pause = lightningAt(strike + .12, seed, storm);
-  const second = lightningAt(strike + .21, seed, storm);
-  assert.equal(first.flash, 1);
-  assert.equal(pause.bolt, 0);
-  assert.ok(pause.flash < first.flash);
-  assert.ok(second.flash > .9 && second.bolt > 0);
-  assert.deepEqual(lightningAt(strike + .21, seed, storm), second);
-  assert.ok(lightningAt(strike + .01, seed, storm, true).flash <= .35);
+  const w = Array.from({ length: 50 }, (_, i) => i)
+    .find(i => stormBurstAt(i, seed).length);
+  const t = stormBurstAt(w, seed)[0];
+  const storm = worldConditions(t, seed, 'storm');
+  const rain = worldConditions(t, seed, 'rain');
+  assert.equal(lightningAt(t + .01, seed, rain), null);
+  assert.equal(lightningAt(t - .01, seed, storm), null);
+  assert.equal(lightningAt(t + .47, seed, storm), null);
+  const first = lightningAt(t + .01, seed, storm);
+  const lull = lightningAt(t + .10, seed, storm);
+  assert.ok(first.flash > .7 && first.bolt > 0);
+  assert.ok(lull.flash < first.flash && lull.bolt === 0);
+  assert.ok(first.distance >= .55 && first.distance <= .9);
+  assert.deepEqual(lightningAt(t + .01, seed, storm), first);
+  const reduced = lightningAt(t + .01, seed, storm, true);
+  assert.ok(reduced.flash < first.flash && reduced.bolt < first.bolt);
 });
