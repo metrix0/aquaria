@@ -31,3 +31,12 @@ test('placeable terrain cubes keep the original block icons instead of PNG sprit
   assert.ok(ITEM_ICON_IDS.has('workbench'), 'placeable workbench is not a cube');
   assert.ok(ITEM_ICON_IDS.has('copper'), 'ores are resources, not placeable cubes');
 });
+
+test('off-hand E action renders the same grappling-hook sprite as inventory', () => {
+  const ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="use-hook"[^>]*[\\s\\S]*?<span class="item item-grappling-hook"/);
+  assert.match(ui, /import \\{ createInventoryUi, setItemIcon \\} from '\\.\\/inventory-ui\\.js';/);
+  assert.match(ui, /setItemIcon\\(hookSlot\\.querySelector\\('span'\\), GRAPPLING_HOOK\\.id\\);/);
+  assert.ok(ITEM_ICON_IDS.has('grappling-hook'));
+});

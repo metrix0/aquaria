@@ -5,7 +5,8 @@ import { TILE, WEST_EXTENSION } from './world/generation.js';
 import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
-import { createInventoryUi } from './inventory-ui.js';
+import { createInventoryUi, setItemIcon } from './inventory-ui.js';
+import { GRAPPLING_HOOK } from './inventory.js';
 import { createItemsMenu } from './items-menu.js';
 import { createDropsUI } from './drops-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
@@ -49,6 +50,8 @@ export function createUI(actions, version) {
   const ringSlot = byId('cast-ring');
   const ringTimer = ringSlot.querySelector('b');
   const hookSlot = byId('use-hook');
+  // Reuse the inventory's actual grappling-hook sprite instead of the obsolete CSS glyph.
+  setItemIcon(hookSlot.querySelector('span'), GRAPPLING_HOOK.id);
   const statusEffects = byId('status-effects');
   const statusTooltip = byId('status-tooltip');
   const statusTitle = statusTooltip?.querySelector('strong');
