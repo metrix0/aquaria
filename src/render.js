@@ -374,27 +374,33 @@ export function createRenderer(canvas) {
         -camera.y,
         surface,
       );
-      const stars = atmosphere === "starry" || atmosphere === "meteors" ? 160
+      const stars = atmosphere === "starry" ? 320
+        : atmosphere === "meteors" ? 160
         : atmosphere === "deep" ? 36 : 75;
       for (let i = 0; i < stars; i++) {
         const span = width + 12;
         const offset = noise(i, 312) * span - horizontalOffset * 0.12;
         const x = (((offset % span) + span) % span) - 6;
         const y = noise(i, 313) * (WATER - 35) - camera.y;
-        const size = i % 9 === 0 ? 2 : 1;
-        rect(x, y, size, size, i % 4 === 0 ? "#e0e9dd" : "#9baed5ad");
+        const bright = atmosphere === "starry" && i % 11 === 0;
+        const twinkle = atmosphere === "starry"
+          ? .76 + .24 * Math.sin(time * (1 + noise(i, 314) * 1.5) + noise(i, 315) * Math.PI * 2)
+          : 1;
+        ctx.globalAlpha = darkness * (1 - rain * .65) * (bright ? 1 : .83) * twinkle;
+        const size = bright || i % 9 === 0 ? 2 : 1;
+        rect(x, y, size, size, bright ? "#ffffff" : i % 4 === 0 ? "#eaf4ff" : "#c0d5f0");
       }
       if (atmosphere === "aurora") {
         // Layered, slow-moving curtains stay anchored to the sky as the camera pans.
-        const ribbons = ["#6cf3a64c", "#7be8cf44", "#a08df13c", "#65d9a935"];
+        const ribbons = ["#71f7b5ac", "#86fbe3a0", "#bb9cf38e", "#6fe6b29c"];
         ctx.globalAlpha = darkness * (1 - rain * .7);
         for (let band = 0; band < ribbons.length; band++) {
           for (let x = -12; x < width + 12; x += 6) {
             const wave = Math.sin((x + horizontalOffset * .12) * .012 + time * .23 + band * 1.4);
             const ripple = Math.sin(x * .032 - time * .13 + band * 2) * 6;
             const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y * .1;
-            const tail = 34 + band * 9 + Math.sin(x * .021 + time * .25) * 9;
-            gradient(x, y, 6, tail, [[0, ribbons[band]], [1, "#65d9a900"]], y, y + tail);
+            const tail = 62 + band * 12 + Math.sin(x * .021 + time * .25) * 12;
+            gradient(x, y, 6, tail, [[0, ribbons[band]], [.25, ribbons[band]], [1, "#65d9a900"]], y, y + tail);
           }
         }
       } else if (atmosphere === "meteors") {
@@ -1517,6 +1523,75 @@ export function createRenderer(canvas) {
     }
   }
 
+
+  // These highlights sit above the full-scene night shade, so the brightest
+  // stars actually sparkle rather than being muted by the darkness pass.
+  function starlight(camera, surface, time, conditions, reducedMotion) {
+    if (conditions.atmosphere !== "starry" || conditions.darkness <= 0 || surface <= 0) return;
+    const { width, height } = camera;
+    const span = width + 12;
+    const horizontalOffset = camera.x - WEST_EXTENSION * TILE;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, Math.min(surface, height));
+    ctx.clip();
+    ctx.globalCompositeOperation = "screen";
+    for (let i = 0; i < 320; i += 11) {
+      const offset = noise(i, 312) * span - horizontalOffset * .12;
+      const x = (((offset % span) + span) % span) - 6;
+      const y = noise(i, 313) * (WATER - 35) - camera.y;
+      if (y < -14 || y > Math.min(surface, height) + 14) continue;
+      const pulse = reducedMotion ? .83
+        : .72 + .28 * Math.sin(time * (1 + noise(i, 314) * 1.5) + noise(i, 315) * Math.PI * 2);
+      ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .65) * pulse;
+      const radius = i % 33 === 0 ? 12 : 8;
+      const halo = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      halo.addColorStop(0, "#ffffffcc");
+      halo.addColorStop(.22, "#d4eaff86");
+      halo.addColorStop(1, "#9bbfff00");
+      ctx.fillStyle = halo;
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      rect(x - 3, y, 7, 1, "#e4f2ff");
+      rect(x, y - 3, 1, 7, "#e4f2ff");
+      rect(x, y, 1, 1, "#ffffff");
+    }
+    ctx.restore();
+  }
+
+  // Aurora illumination is composited after night shading, reaching nearby
+  // surface terrain and the player without brightening deep underground caves.
+  function auroraLight(camera, surface, time, conditions) {
+    if (conditions.atmosphere !== "aurora" || conditions.darkness <= 0 || surface < -60) return;
+    const { width, height } = camera;
+    const reach = Math.min(height, surface + 135);
+    if (reach <= 0) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, reach);
+    ctx.clip();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .7)
+      * (.88 + Math.sin(time * .22) * .08);
+    const wash = ctx.createLinearGradient(0, 0, 0, reach);
+    wash.addColorStop(0, "rgba(97,250,183,.40)");
+    wash.addColorStop(.42, "rgba(77,229,196,.27)");
+    wash.addColorStop(.78, "rgba(63,202,166,.15)");
+    wash.addColorStop(1, "rgba(63,202,166,0)");
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, width, reach);
+    for (let i = 0; i < 3; i++) {
+      const x = width * (.18 + i * .32) + Math.sin(time * .16 + i * 1.8) * width * .08;
+      const y = Math.max(5, Math.min(surface * .35, height * .3));
+      const radius = Math.max(180, width * .42);
+      const bloom = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      bloom.addColorStop(0, i === 1 ? "rgba(165,155,255,.30)" : "rgba(131,255,193,.38)");
+      bloom.addColorStop(.45, i === 1 ? "rgba(151,131,255,.13)" : "rgba(87,242,185,.18)");
+      bloom.addColorStop(1, "rgba(69,218,157,0)");
+      ctx.fillStyle = bloom;
+      ctx.fillRect(Math.max(0, x - radius), 0, Math.min(width, x + radius) - Math.max(0, x - radius), reach);
+    }
+    ctx.restore();
+  }
 
   function drawStormLightning(camera, strike, seed) {
     if (!strike || strike.flash <= 0) return;
@@ -3337,6 +3412,8 @@ export function createRenderer(canvas) {
     rain(world, camera, surface, time, conditions);
     const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
     shadeAtmosphere(camera, conditions, time, lightning?.flash ?? 0);
+    starlight(camera, surface, time, conditions, reducedMotion);
+    auroraLight(camera, surface, time, conditions);
     drawStormLightning(camera, lightning, weatherSeed);
 
     ctx.save();
