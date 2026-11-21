@@ -56,7 +56,7 @@ import {
   createSurfaceLight,
 } from "./world/lighting.js";
 import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
-import { lightningAt } from "./lightning.js";
+import { lightningAt, lightningAnchor } from "./lightning.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -303,6 +303,7 @@ export function createRenderer(canvas) {
     return { dx, dy, fade, bit: 1 << index };
   });
   let lightPixels;
+  let activeLightningAnchor = null;
 
   function rect(x, y, w, h, color, context = ctx) {
     context.fillStyle = color;
@@ -1606,17 +1607,15 @@ export function createRenderer(canvas) {
   }
 
   // Lightning belongs to the distant sky layer, behind terrain and people.
-  function drawStormLightning(camera, surface, strike, seed) {
-    if (!strike?.flash) return;
+  function drawStormLightning(camera, surface, strike, anchor, seed) {
+    if (!strike?.flash || !anchor) return;
     const { width, height } = camera;
     const skyHeight = Math.min(height, Math.max(0, surface));
     if (skyHeight < 65) return;
-    const span = Math.max(900, width * 1.45);
-    const cloudX = noise(strike.event, 861, seed) * span - camera.x * .11;
-    const x = ((cloudX % span + span) % span) - span * .09;
-    const top = -20 + noise(strike.event, 862, seed) * Math.min(70, skyHeight * .15);
-    const bottom = Math.min(skyHeight * .68,
-      top + 70 + noise(strike.event, 863, seed) * Math.min(130, skyHeight * .25));
+    // The strike is fixed in world space. Only project it into the camera.
+    const x = anchor.worldX - camera.x;
+    const top = anchor.worldTop - camera.y;
+    const bottom = anchor.worldBottom - camera.y;
     if (bottom - top < 45) return;
 
     ctx.save();
@@ -3318,7 +3317,10 @@ export function createRenderer(canvas) {
     // Keep star halos behind every world layer so they cannot shine through blocks.
     starlight(camera, surface, time, conditions, reducedMotion);
     const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
-    drawStormLightning(camera, surface, lightning, weatherSeed);
+    if (lightning) {
+      activeLightningAnchor = lightningAnchor(lightning, weatherSeed, camera, activeLightningAnchor);
+    }
+    drawStormLightning(camera, surface, lightning, activeLightningAnchor, weatherSeed);
     if (
       !reducedMotion &&
       surface > 0 &&

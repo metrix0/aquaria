@@ -40,3 +40,19 @@ export function lightningAt(seconds, seed, conditions, reducedMotion = false) {
   }
   return null;
 }
+
+/**
+ * Capture the bolt's location when it first appears, in world coordinates.
+ * Camera movement and zoom change only its screen projection, not its location.
+ * Keep one anchor for both flashes in a strike.
+ */
+export function lightningAnchor(strike, seed, camera, existing = null) {
+  if (existing?.event === strike.event) return existing;
+  const top = -20 + noise(strike.event, 862, seed) * 55;
+  return {
+    event: strike.event,
+    worldX: camera.x + camera.width * (.16 + noise(strike.event, 861, seed) * .68),
+    worldTop: top,
+    worldBottom: Math.min(230, top + 85 + noise(strike.event, 863, seed) * 105),
+  };
+}

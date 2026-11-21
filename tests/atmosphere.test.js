@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
-import { lightningAt, stormBurstAt } from '../src/lightning.js';
+import { lightningAt, lightningAnchor, stormBurstAt } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 
 test('full-scene weather tint ignores background-wall presence', () => {
@@ -97,4 +97,26 @@ test('storm flashes remain seeded, weather-gated and reduced-motion friendly', (
   assert.deepEqual(lightningAt(t + .01, seed, storm), first);
   const reduced = lightningAt(t + .01, seed, storm, true);
   assert.ok(reduced.flash < first.flash && reduced.bolt < first.bolt);
+});
+
+test('lightning remains fixed in world coordinates while the camera moves or zooms', () => {
+  const seed = 17;
+  const firstCamera = { x: 1400, y: 0, width: 640, height: 380 };
+  const movingCamera = { x: 1535, y: 28, width: 640, height: 380 };
+  const zoomedCamera = { x: 1650, y: 0, width: 950, height: 420 };
+  const strike = { event: 39, flash: 1 };
+  const anchor = lightningAnchor(strike, seed, firstCamera);
+  assert.equal(lightningAnchor(strike, seed, movingCamera, anchor), anchor);
+  assert.equal(lightningAnchor(strike, seed, zoomedCamera, anchor), anchor);
+  assert.equal(
+    (anchor.worldX - movingCamera.x) - (anchor.worldX - firstCamera.x),
+    -(movingCamera.x - firstCamera.x),
+  );
+  assert.equal(
+    (anchor.worldTop - movingCamera.y) - (anchor.worldTop - firstCamera.y),
+    -(movingCamera.y - firstCamera.y),
+  );
+  assert.ok(anchor.worldBottom > anchor.worldTop);
+  assert.equal(anchor.worldBottom < 256, true);
+  assert.notEqual(lightningAnchor({ event: 40, flash: 1 }, seed, movingCamera, anchor), anchor);
 });
