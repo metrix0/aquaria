@@ -405,10 +405,10 @@ export function createRenderer(canvas) {
         ctx.globalAlpha = darkness * (1 - rain * .7);
         for (let band = 0; band < ribbons.length; band++) {
           for (let x = -12; x < width + 12; x += 6) {
-            const wave = Math.sin((x + horizontalOffset * .12) * .012 + time * .23 + band * 1.4);
-            const ripple = Math.sin(x * .032 - time * .13 + band * 2) * 6;
+            const wave = Math.sin((x + horizontalOffset * .12) * .012 + time * .075 + band * 1.4);
+            const ripple = Math.sin(x * .032 - time * .045 + band * 2) * 6;
             const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y * .1;
-            const tail = 62 + band * 12 + Math.sin(x * .021 + time * .25) * 12;
+            const tail = 62 + band * 12 + Math.sin(x * .021 + time * .08) * 12;
             gradient(x, y, 6, tail,
               [[0, ribbons[band][0]], [.2, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
           }
@@ -1583,7 +1583,7 @@ export function createRenderer(canvas) {
     ctx.clip();
     ctx.globalCompositeOperation = "screen";
     ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .7)
-      * (.70 + Math.sin(time * .22) * .06);
+      * (.70 + Math.sin(time * .07) * .06);
     // Discrete cool-colored blooms, not a green full-scene wash. The aurora
     // still lights the nearby surface, but the night stays recognizably dark.
     const glows = [
@@ -1592,7 +1592,7 @@ export function createRenderer(canvas) {
       ["rgba(117,180,250,.24)", "rgba(104,170,237,.08)", "rgba(103,161,231,0)"],
     ];
     for (let i = 0; i < glows.length; i++) {
-      const x = width * (.18 + i * .32) + Math.sin(time * .16 + i * 1.8) * width * .06;
+      const x = width * (.18 + i * .32) + Math.sin(time * .05 + i * 1.8) * width * .06;
       const y = Math.max(5, Math.min(surface * .35, height * .3));
       const radius = Math.max(140, width * .27);
       const bloom = ctx.createRadialGradient(x, y, 0, x, y, radius);
