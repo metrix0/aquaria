@@ -1,4 +1,4 @@
-import { clamp, noise } from './world/generation.js';
+import { clamp, noise, TILE, WATER, groundAt } from './world/generation.js';
 
 // Variable but deterministic storm bursts, synced across reloads and players.
 const BURST_SECONDS = 25;
@@ -42,17 +42,42 @@ export function lightningAt(seconds, seed, conditions, reducedMotion = false) {
 }
 
 /**
- * Capture the bolt's location when it first appears, in world coordinates.
- * Camera movement and zoom change only its screen projection, not its location.
- * Keep one anchor for both flashes in a strike.
+ * Pick a visible, distant location on the left or right side of the camera.
+ * Once a strike begins the world coordinates are frozen until its last echo.
  */
 export function lightningAnchor(strike, seed, camera, existing = null) {
   if (existing?.event === strike.event) return existing;
-  const top = -20 + noise(strike.event, 862, seed) * 55;
+  const side = noise(strike.event, 860, seed) < .5;
+  const portion = side
+    ? .12 + noise(strike.event, 861, seed) * .16
+    : .72 + noise(strike.event, 861, seed) * .16;
+  const worldX = camera.x + camera.width * portion;
+  const horizon = Math.min(WATER, groundAt(Math.floor(worldX / TILE)) * TILE);
+  const visibleSky = Math.max(0, Math.min(camera.height, horizon - camera.y));
   return {
     event: strike.event,
-    worldX: camera.x + camera.width * (.16 + noise(strike.event, 861, seed) * .68),
-    worldTop: top,
-    worldBottom: Math.min(230, top + 85 + noise(strike.event, 863, seed) * 105),
+    worldX,
+    worldTop: camera.y + 12 + noise(strike.event, 862, seed) * 16,
+    worldBottom: camera.y + Math.max(56, visibleSky * (.65 + noise(strike.event, 863, seed) * .12)),
   };
+}
+
+// Distant sheet lightning is a separate random process: no visible bolt.
+export function distantThunderAt(seconds, seed, conditions, reducedMotion = false) {
+  if ((conditions?.rain ?? 0) < .82 || (conditions?.darkness ?? 0) < .72) return null;
+  const window = Math.floor(seconds / 19);
+  const roll = noise(window, 1130, seed);
+  const count = roll < .16 ? 0 : roll < .73 ? 1 : 2;
+  let start = window * 19 + 1 + noise(window, 1131, seed) * 10;
+  for (let i = 0; i < count; i++) {
+    if (i) start += 1.05 + noise(window * 3 + i, 1132, seed) * 1.75;
+    const age = seconds - start;
+    if (age < 0 || age >= .78) continue;
+    const event = window * 2 + i;
+    const pulse = age < .16 ? .88 : age < .30 ? .30
+      : age < .49 ? .63 : .63 * Math.exp(-(age - .49) * 7);
+    const strength = .24 + noise(event, 1133, seed) * .20;
+    return { event, flash: pulse * strength * (reducedMotion ? .45 : 1) };
+  }
+  return null;
 }

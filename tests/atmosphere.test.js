@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
-import { lightningAt, lightningAnchor, stormBurstAt } from '../src/lightning.js';
+import { lightningAt, lightningAnchor, distantThunderAt, stormBurstAt } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 
 test('full-scene weather tint ignores background-wall presence', () => {
@@ -134,4 +134,47 @@ test('aurora remains in the world as the camera pans', () => {
   );
   assert.equal(auroraBloomWorldX(4, 55), worldBloom);
   assert.notEqual(auroraBloomWorldX(4, 58), worldBloom);
+});
+
+test('world-anchored lightning is inside visible sky at its first frame', () => {
+  for (const camera of [
+    { x: 1400, y: 0, width: 640, height: 380 },
+    { x: 1800, y: 12, width: 300, height: 480 },
+    { x: 2600, y: 0, width: 920, height: 380 },
+  ]) {
+    for (let event = 0; event < 40; event++) {
+      const strike = { event, flash: 1 };
+      const anchor = lightningAnchor(strike, 17, camera);
+      const projectedX = anchor.worldX - camera.x;
+      const projectedTop = anchor.worldTop - camera.y;
+      assert.ok(projectedX >= camera.width * .1 && projectedX <= camera.width * .9);
+      assert.ok(projectedTop > 0);
+      assert.ok(anchor.worldBottom > anchor.worldTop + 45);
+      assert.equal(lightningAnchor(strike, 17,
+        { ...camera, x: camera.x + 100, y: camera.y + 20 }, anchor), anchor);
+    }
+  }
+});
+
+test('distant lightning is independently scheduled, bolt-free and faint', () => {
+  const seed = 22;
+  const storm = worldConditions(400, seed, 'storm');
+  const rain = worldConditions(400, seed, 'rain');
+  const far = [];
+  const near = [];
+  for (let i = 0; i < 2400; i++) {
+    const time = i / 10;
+    const distant = distantThunderAt(time, seed, storm);
+    const bolt = lightningAt(time, seed, storm);
+    if (distant?.flash) {
+      far.push([time, distant]);
+      assert.ok(distant.flash <= .44 && distant.flash > 0);
+      assert.equal(distantThunderAt(time, seed, rain), null);
+      assert.ok(distantThunderAt(time, seed, storm, true).flash <= distant.flash);
+    }
+    if (bolt?.bolt) near.push(time);
+  }
+  assert.ok(far.length > 20 && near.length > 0);
+  assert.ok(far.some(([time]) => !lightningAt(time, seed, storm)?.bolt));
+  assert.ok(near.some(time => !distantThunderAt(time, seed, storm)?.flash));
 });

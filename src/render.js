@@ -56,7 +56,7 @@ import {
   createSurfaceLight,
 } from "./world/lighting.js";
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
-import { lightningAt, lightningAnchor } from "./lightning.js";
+import { lightningAt, lightningAnchor, distantThunderAt } from "./lightning.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -304,6 +304,7 @@ export function createRenderer(canvas) {
   });
   let lightPixels;
   let activeLightningAnchor = null;
+  let activeDistantAnchor = null;
 
   function rect(x, y, w, h, color, context = ctx) {
     context.fillStyle = color;
@@ -1641,69 +1642,98 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  // Lightning belongs to the distant sky layer, behind terrain and people.
-  function drawStormLightning(camera, surface, strike, anchor, seed) {
-    if (!strike?.flash || !anchor) return;
-    const { width, height } = camera;
-    const skyHeight = Math.min(height, Math.max(0, surface));
-    if (skyHeight < 65) return;
-    // The strike is fixed in world space. Only project it into the camera.
+  // Clip post-darkness lightning to the actual sky silhouette. This keeps
+  // the bolt brilliant without painting through islands, players or sea.
+  function clipStormSky(camera) {
+    const left = Math.floor(camera.x / TILE) - 1;
+    const right = Math.ceil((camera.x + camera.width) / TILE) + 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(camera.width, 0);
+    for (let tx = right; tx >= left; tx--) {
+      const y = clamp(Math.min(WATER, groundAt(tx) * TILE) - camera.y, 0, camera.height);
+      ctx.lineTo((tx + 1) * TILE - camera.x, y);
+      ctx.lineTo(tx * TILE - camera.x, y);
+    }
+    ctx.closePath();
+    ctx.clip();
+  }
+
+  // Distant sheet lightning: an independent, dim blue flash with no bolt.
+  function drawDistantThunder(camera, distant, anchor) {
+    if (!distant?.flash || !anchor || WATER - camera.y < 60) return;
+    const x = anchor.worldX - camera.x;
+    const y = clamp(anchor.worldTop + 40 - camera.y, 0, camera.height);
+    const radius = Math.max(170, Math.min(440, camera.width * .53));
+    ctx.save();
+    clipStormSky(camera);
+    ctx.globalCompositeOperation = "screen";
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    glow.addColorStop(0, "rgba(193,219,255,.67)");
+    glow.addColorStop(.34, "rgba(143,177,228,.37)");
+    glow.addColorStop(1, "rgba(103,135,192,0)");
+    ctx.globalAlpha = distant.flash;
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    ctx.restore();
+  }
+
+  // Visible strokes are rendered AFTER night grading but masked to open sky.
+  // Their anchor remains in world coordinates even when the camera moves.
+  function drawStormLightning(camera, strike, anchor, seed) {
+    if (!strike?.flash || !anchor || WATER - camera.y < 60) return;
     const x = anchor.worldX - camera.x;
     const top = anchor.worldTop - camera.y;
     const bottom = anchor.worldBottom - camera.y;
     if (bottom - top < 45) return;
-
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, width, skyHeight);
-    ctx.clip();
+    clipStormSky(camera);
     ctx.globalCompositeOperation = "screen";
-    const centerY = clamp((top + bottom) * .52, 0, skyHeight);
-    const radius = Math.max(120, Math.min(340, skyHeight * .56));
-    const glow = ctx.createRadialGradient(x, centerY, 2, x, centerY, radius);
-    glow.addColorStop(0, "rgba(236,246,255,.78)");
-    glow.addColorStop(.32, "rgba(145,188,236,.30)");
-    glow.addColorStop(1, "rgba(117,160,218,0)");
-    ctx.globalAlpha = strike.flash * .77 * strike.distance;
+    const centerY = clamp((top + bottom) * .5, 0, camera.height);
+    const radius = Math.max(115, Math.min(270, camera.width * .32));
+    const glow = ctx.createRadialGradient(x, centerY, 0, x, centerY, radius);
+    glow.addColorStop(0, "rgba(225,242,255,.79)");
+    glow.addColorStop(.28, "rgba(145,192,245,.35)");
+    glow.addColorStop(1, "rgba(99,158,225,0)");
+    ctx.globalAlpha = strike.flash * (.7 + strike.distance * .22);
     ctx.fillStyle = glow;
     ctx.fillRect(x - radius, centerY - radius, radius * 2, radius * 2);
-    if (strike.bolt <= 0) {
-      ctx.restore();
-      return;
-    }
-    const points = [];
-    const drift = (noise(strike.event, 864, seed) - .5) * 34;
-    for (let i = 0; i <= 12; i++) {
-      const t = i / 12;
-      const jag = (noise(strike.event * 47 + i, 865, seed) - .5) * 24;
-      points.push([x + drift * t + jag * Math.sin(Math.PI * t),
-        top + (bottom - top) * t]);
-    }
-    const trace = (path, width, color, blur) => {
-      ctx.beginPath();
-      ctx.moveTo(...path[0]);
-      for (let i = 1; i < path.length; i++) ctx.lineTo(...path[i]);
-      ctx.lineWidth = width;
-      ctx.strokeStyle = color;
-      ctx.shadowColor = "#a9cfff";
-      ctx.shadowBlur = blur;
-      ctx.stroke();
-    };
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.globalAlpha = strike.bolt * strike.distance;
-    trace(points, 7, "rgba(103,159,229,.22)", 14);
-    trace(points, 2.8, "rgba(171,215,255,.68)", 8);
-    trace(points, 1.15, "#f3faff", 3);
-    for (const [start, direction] of [[3, -1], [6, 1], [9, -1]]) {
-      const fork = [points[start]];
-      for (let i = 1; i <= 3; i++) {
-        const p = points[start + i];
-        fork.push([p[0] + direction * i *
-          (6 + noise(strike.event + start + i, 866, seed) * 7), p[1] - i * 3]);
+
+    if (strike.bolt > 0) {
+      const points = [];
+      const drift = (noise(strike.event, 864, seed) - .5) * 35;
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12;
+        const jag = (noise(strike.event * 47 + i, 865, seed) - .5) * 26;
+        points.push([x + drift * t + jag * Math.sin(Math.PI * t),
+          top + (bottom - top) * t]);
       }
-      trace(fork, 1.8, "rgba(153,204,255,.46)", 5);
-      trace(fork, .7, "#dcefff", 2);
+      const trace = (path, width, color, blur) => {
+        ctx.beginPath();
+        ctx.moveTo(...path[0]);
+        for (let i = 1; i < path.length; i++) ctx.lineTo(...path[i]);
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        ctx.shadowColor = "#9dcfff";
+        ctx.shadowBlur = blur;
+        ctx.stroke();
+      };
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.globalAlpha = strike.bolt * (.85 + strike.distance * .15);
+      trace(points, 10, "rgba(98,164,240,.29)", 20);
+      trace(points, 4.4, "rgba(167,216,255,.9)", 11);
+      trace(points, 2, "#ffffff", 5);
+      for (const [start, direction] of [[3, -1], [6, 1], [9, -1]]) {
+        const fork = [points[start]];
+        for (let i = 1; i <= 3; i++) {
+          const p = points[start + i];
+          fork.push([p[0] + direction * i *
+            (6 + noise(strike.event + start + i, 866, seed) * 7), p[1] - i * 3]);
+        }
+        trace(fork, 2.1, "rgba(173,214,255,.72)", 6);
+        trace(fork, 1, "#e9f6ff", 3);
+      }
     }
     ctx.restore();
   }
@@ -3352,10 +3382,16 @@ export function createRenderer(canvas) {
     // Keep star halos behind every world layer so they cannot shine through blocks.
     starlight(camera, surface, time, conditions, reducedMotion);
     const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
+    const distantThunder = distantThunderAt(worldTime, weatherSeed, conditions, reducedMotion);
     if (lightning) {
       activeLightningAnchor = lightningAnchor(lightning, weatherSeed, camera, activeLightningAnchor);
     }
-    drawStormLightning(camera, surface, lightning, activeLightningAnchor, weatherSeed);
+    if (distantThunder) {
+      // Keep the separate far-off glow fixed to the landscape too.
+      activeDistantAnchor = lightningAnchor(
+        { event: distantThunder.event + 100000 }, weatherSeed, camera, activeDistantAnchor,
+      );
+    }
     if (
       !reducedMotion &&
       surface > 0 &&
@@ -3464,8 +3500,11 @@ export function createRenderer(canvas) {
     ctx.restore();
 
     rain(world, camera, surface, time, conditions);
-    shadeAtmosphere(camera, conditions, time, lightning?.flash ?? 0);
+    shadeAtmosphere(camera, conditions, time,
+      (lightning?.flash ?? 0) + (distantThunder?.flash ?? 0) * .3);
     auroraLight(camera, surface, time, conditions);
+    drawDistantThunder(camera, distantThunder, activeDistantAnchor);
+    drawStormLightning(camera, lightning, activeLightningAnchor, weatherSeed);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
