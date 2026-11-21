@@ -271,7 +271,7 @@ const NIGHT_SKIES = {
   moonlit: [[0, "#10182e"], [.6, "#202f4b"], [1, "#455675"]],
   starry: [[0, "#0a142c"], [.6, "#1a3154"], [1, "#354e72"]],
   deep: [[0, "#080d1f"], [.6, "#141e37"], [1, "#283350"]],
-  aurora: [[0, "#071b2d"], [.6, "#163a48"], [1, "#2f5360"]],
+  aurora: [[0, "#0b1730"], [.6, "#202c4d"], [1, "#334563"]],
   meteors: [[0, "#0b1833"], [.6, "#202f58"], [1, "#344864"]],
 };
 
@@ -393,7 +393,14 @@ export function createRenderer(canvas) {
       }
       if (atmosphere === "aurora") {
         // Layered, slow-moving curtains stay anchored to the sky as the camera pans.
-        const ribbons = ["#71f7b586", "#86fbe380", "#bb9cf370", "#6fe6b27b"];
+        // Give each curtain its own hue all the way to transparency; a
+        // shared green end-stop made even violet/blue curtains turn green.
+        const ribbons = [
+          ["#7cdcc779", "#7cdcc700"], // a single restrained seafoam curtain
+          ["#85b8f584", "#85b8f500"],
+          ["#c1a2f48b", "#c1a2f400"],
+          ["#80c9e478", "#80c9e400"],
+        ];
         ctx.globalAlpha = darkness * (1 - rain * .7);
         for (let band = 0; band < ribbons.length; band++) {
           for (let x = -12; x < width + 12; x += 6) {
@@ -401,7 +408,8 @@ export function createRenderer(canvas) {
             const ripple = Math.sin(x * .032 - time * .13 + band * 2) * 6;
             const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y * .1;
             const tail = 62 + band * 12 + Math.sin(x * .021 + time * .25) * 12;
-            gradient(x, y, 6, tail, [[0, ribbons[band]], [.25, ribbons[band]], [1, "#65d9a900"]], y, y + tail);
+            gradient(x, y, 6, tail,
+              [[0, ribbons[band][0]], [.2, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
           }
         }
       } else if (atmosphere === "meteors") {
@@ -1574,24 +1582,25 @@ export function createRenderer(canvas) {
     ctx.clip();
     ctx.globalCompositeOperation = "screen";
     ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .7)
-      * (.72 + Math.sin(time * .22) * .06);
-    const wash = ctx.createLinearGradient(0, 0, 0, reach);
-    wash.addColorStop(0, "rgba(97,250,183,.19)");
-    wash.addColorStop(.42, "rgba(77,229,196,.13)");
-    wash.addColorStop(.78, "rgba(63,202,166,.07)");
-    wash.addColorStop(1, "rgba(63,202,166,0)");
-    ctx.fillStyle = wash;
-    ctx.fillRect(0, 0, width, reach);
-    for (let i = 0; i < 3; i++) {
-      const x = width * (.18 + i * .32) + Math.sin(time * .16 + i * 1.8) * width * .08;
+      * (.70 + Math.sin(time * .22) * .06);
+    // Discrete cool-colored blooms, not a green full-scene wash. The aurora
+    // still lights the nearby surface, but the night stays recognizably dark.
+    const glows = [
+      ["rgba(112,210,210,.25)", "rgba(92,180,216,.08)", "rgba(87,174,224,0)"],
+      ["rgba(178,151,255,.26)", "rgba(150,138,239,.09)", "rgba(134,119,234,0)"],
+      ["rgba(117,180,250,.24)", "rgba(104,170,237,.08)", "rgba(103,161,231,0)"],
+    ];
+    for (let i = 0; i < glows.length; i++) {
+      const x = width * (.18 + i * .32) + Math.sin(time * .16 + i * 1.8) * width * .06;
       const y = Math.max(5, Math.min(surface * .35, height * .3));
-      const radius = Math.max(140, width * .30);
+      const radius = Math.max(140, width * .27);
       const bloom = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      bloom.addColorStop(0, i === 1 ? "rgba(165,155,255,.18)" : "rgba(131,255,193,.25)");
-      bloom.addColorStop(.45, i === 1 ? "rgba(151,131,255,.08)" : "rgba(87,242,185,.10)");
-      bloom.addColorStop(1, "rgba(69,218,157,0)");
+      bloom.addColorStop(0, glows[i][0]);
+      bloom.addColorStop(.46, glows[i][1]);
+      bloom.addColorStop(1, glows[i][2]);
       ctx.fillStyle = bloom;
-      ctx.fillRect(Math.max(0, x - radius), 0, Math.min(width, x + radius) - Math.max(0, x - radius), reach);
+      ctx.fillRect(Math.max(0, x - radius), 0,
+        Math.min(width, x + radius) - Math.max(0, x - radius), reach);
     }
     ctx.restore();
   }
