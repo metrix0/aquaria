@@ -56,6 +56,7 @@ import {
   createSurfaceLight,
 } from "./world/lighting.js";
 import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
+import { lightningAt } from "./lightning.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -1485,7 +1486,10 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function shadeAtmosphere(camera, conditions, time) {
+  function shadeAtmosphere(camera, conditions, time, flash = 0) {
+    // Release the entire scene from its storm grade and darkness during a flash.
+    const gradeStrength = 1 - clamp(flash, 0, 1);
+    if (gradeStrength <= 0) return;
     // One full-height pass over every pixel, including sky, terrain, water,
     // caves and their background tiles. Overlay preserves the base art.
     ctx.save();
@@ -1497,12 +1501,12 @@ export function createRenderer(canvas) {
       if (tint.alpha <= 0) continue;
       const left = Math.round(tx * TILE - camera.x);
       const right = Math.round((tx + 1) * TILE - camera.x);
-      ctx.globalAlpha = tint.alpha;
+      ctx.globalAlpha = tint.alpha * gradeStrength;
       ctx.fillStyle = "rgb(" + tint.r + ", " + tint.g + ", " + tint.b + ")";
       ctx.fillRect(left, 0, right - left, camera.height);
     }
     ctx.restore();
-    const nightAlpha = nightShadeAlpha(conditions);
+    const nightAlpha = nightShadeAlpha(conditions) * gradeStrength;
     if (nightAlpha > 0) {
       ctx.save();
       ctx.globalCompositeOperation = "source-over";
@@ -1511,6 +1515,75 @@ export function createRenderer(canvas) {
       ctx.fillRect(0, 0, camera.width, camera.height);
       ctx.restore();
     }
+  }
+
+
+  function drawStormLightning(camera, strike, seed) {
+    if (!strike || strike.flash <= 0) return;
+    const { width, height } = camera;
+    const x = width * (.23 + noise(strike.event, 861, seed) * .54);
+    const impactX = camera.x + x;
+    const groundY = groundAt(Math.floor(impactX / TILE)) * TILE - camera.y;
+    const endY = Math.min(height + 30, groundY - 3);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    // Blue-white illumination washes across the whole scene, not just the sky.
+    ctx.globalAlpha = strike.flash * .68;
+    ctx.fillStyle = "#e8f4ff";
+    ctx.fillRect(0, 0, width, height);
+    const glowX = x + (noise(strike.event, 862, seed) - .5) * 60;
+    const glowY = Math.max(0, Math.min(height, endY * .42));
+    const bloom = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, Math.max(220, width * .67));
+    bloom.addColorStop(0, "rgba(255,255,255,.9)");
+    bloom.addColorStop(.23, "rgba(195,224,255,.47)");
+    bloom.addColorStop(1, "rgba(175,210,255,0)");
+    ctx.globalAlpha = strike.flash * .9;
+    ctx.fillStyle = bloom;
+    ctx.fillRect(0, 0, width, height);
+
+    if (strike.bolt <= 0 || endY < 40) {
+      ctx.restore();
+      return;
+    }
+    const startY = Math.min(-24, endY - Math.max(180, height * .6));
+    const points = [];
+    const drift = (noise(strike.event, 863, seed) - .5) * Math.min(120, width * .13);
+    for (let i = 0; i <= 14; i++) {
+      const progress = i / 14;
+      const jag = (noise(strike.event * 47 + i, 864, seed) - .5) * Math.min(75, width * .105);
+      points.push([x + drift * progress + jag * Math.sin(Math.PI * progress), startY + (endY - startY) * progress]);
+    }
+    const trace = (path, lineWidth, color, blur) => {
+      ctx.beginPath();
+      ctx.moveTo(path[0][0], path[0][1]);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = "#add8ff";
+      ctx.shadowBlur = blur;
+      ctx.stroke();
+    };
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.globalAlpha = strike.bolt;
+    trace(points, 15, "rgba(101,168,255,.18)", 35);
+    trace(points, 7, "rgba(153,207,255,.72)", 18);
+    trace(points, 2.3, "#ffffff", 7);
+    for (const [start, direction] of [[3, -1], [6, 1], [9, -1], [11, 1]]) {
+      const fork = [points[start]];
+      for (let j = 1; j <= 4; j++) {
+        const p = points[start + j] ?? points[14];
+        fork.push([
+          p[0] + direction * j * (10 + noise(strike.event + start + j, 865, seed) * 10),
+          p[1] - j * 3,
+        ]);
+      }
+      trace(fork, 5, "rgba(137,193,255,.45)", 12);
+      trace(fork, 1.4, "#e9f7ff", 5);
+    }
+    ctx.restore();
   }
 
   function terrain(world, player, camera, time, bounds, openChestId, overview) {
@@ -3262,7 +3335,9 @@ export function createRenderer(canvas) {
     ctx.restore();
 
     rain(world, camera, surface, time, conditions);
-    shadeAtmosphere(camera, conditions, time);
+    const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
+    shadeAtmosphere(camera, conditions, time, lightning?.flash ?? 0);
+    drawStormLightning(camera, lightning, weatherSeed);
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atmosphereTint, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
+import { lightningAt } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 
 test('full-scene weather tint ignores background-wall presence', () => {
@@ -58,4 +59,24 @@ test('all weather presets produce a grade without losing biome transitions', () 
     assert.ok(dark >= 0 && dark <= .76, entry.id);
     assert.ok(swamp.alpha > grade.alpha || swamp.alpha === .70, entry.id);
   }
+});
+
+test('storm lightning strobes twice, has a cooldown, and respects reduced motion', () => {
+  const seed = 17;
+  const event = 2;
+  const strike = event * 10 + 1.2 + noise(event, 817, seed) * 5.6;
+  const storm = worldConditions(strike, seed, 'storm');
+  const rain = worldConditions(strike, seed, 'rain');
+  assert.equal(lightningAt(strike + .01, seed, rain), null);
+  assert.equal(lightningAt(strike - .01, seed, storm), null);
+  assert.equal(lightningAt(strike + 1, seed, storm), null);
+  const first = lightningAt(strike + .01, seed, storm);
+  const pause = lightningAt(strike + .12, seed, storm);
+  const second = lightningAt(strike + .21, seed, storm);
+  assert.equal(first.flash, 1);
+  assert.equal(pause.bolt, 0);
+  assert.ok(pause.flash < first.flash);
+  assert.ok(second.flash > .9 && second.bolt > 0);
+  assert.deepEqual(lightningAt(strike + .21, seed, storm), second);
+  assert.ok(lightningAt(strike + .01, seed, storm, true).flash <= .35);
 });
