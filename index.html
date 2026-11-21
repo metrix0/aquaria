@@ -32,39 +32,6 @@
   <main id="game">
     <canvas id="scene" aria-label="Aquaria side-scrolling game world"></canvas>
 
-    <aside class="hud-top-right" aria-label="Status HUD">
-      <div class="hud-vitals" aria-label="Diver vitals">
-        <div class="vital-health" aria-label="Health">
-          <div class="health-hearts" id="health-hearts" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
-            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
-            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
-            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
-            <span class="pixel-heart" style="--fill: 100%" aria-hidden="true"></span>
-          </div>
-          <strong id="health-label" class="health-number" hidden>100%</strong>
-        </div>
-        <div class="vital-oxygen" id="oxygen-meter" aria-label="Breath remaining" hidden>
-          <span class="air-bubbles" aria-hidden="true"><i></i><i></i><i></i></span>
-          <div class="air-details">
-            <div class="air-heading"><span>BREATH</span><strong id="air-label">100%</strong></div>
-            <div class="breath-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-              <div id="air-fill"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="hud-context" aria-label="Environment">
-        <div class="hud-depth" id="depth-meter" hidden>
-          <span class="depth-ruler" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="depth-info"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></span>
-        </div>
-        <div class="hud-weather" id="world-conditions" hidden>Night</div>
-      </div>
-      <div id="status-effects" class="status-effects" aria-label="Active status effects"></div>
-      <div id="status-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><em></em></div>
-    </aside>
-
     <div class="feedback" aria-live="polite" id="feedback" hidden></div>
     <div class="interact" id="interact" hidden><kbd>E</kbd><span></span></div>
 
@@ -76,6 +43,30 @@
     <div class="bottom">
       <section class="inventory" aria-label="Hotbar">
         <div class="inventory-title" id="selected">Broken Pickaxe</div>
+      <div class="hud-above-hotbar" aria-label="Player status">
+        <div id="status-effects" class="status-effects" aria-label="Active status effects"></div>
+        <div class="hud-context" id="hud-context" aria-label="Environment" hidden>
+          <div class="vital-oxygen" id="oxygen-meter" aria-label="Breath remaining" hidden>
+            <span class="air-bubbles" aria-hidden="true"><i></i><i></i><i></i></span>
+            <div class="air-details">
+              <div class="air-heading"><span>BREATH</span><strong id="air-label">100%</strong></div>
+              <div class="breath-track" role="meter" aria-label="Oxygen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="air-fill"></div></div>
+            </div>
+          </div>
+          <div class="hud-depth" id="depth-meter" hidden>
+            <span class="depth-ruler" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="depth-info"><span id="depth-label">DEPTH</span><strong id="depth">0 m</strong></span>
+          </div>
+        </div>
+        <div class="vital-health" aria-label="Health">
+          <svg class="health-crest" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6v2h3V5h3v-2h5v2h2v9h-2v3h-3v2h-3v2h-4v-2H7v-2H4v-3H2V7h1Z"/></svg>
+          <div class="health-track" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <div id="health-fill"></div>
+          </div>
+          <strong id="health-label" class="health-number">100</strong>
+        </div>
+        <div id="status-tooltip" role="tooltip" hidden><strong aria-hidden="true"></strong><em></em></div>
+      </div>
         <div class="hotbar-row">
           <div id="hotbar-slots" class="slots"></div>
           <button id="cast-ring" class="slot ring-skill" type="button" aria-label="Cast Root Ring" aria-keyshortcuts="F" hidden>

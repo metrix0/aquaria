@@ -1,7 +1,7 @@
 import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
-export const HOTBAR_SIZE = 4;
+export const HOTBAR_SIZE = 6;
 export const BACKPACK_SIZE = 24;
 
 export const ROOT_RING = { id: 'root-ring', name: 'Root ring', cooldown: 18, description: 'A living knot from the grove. It remembers what trespassers sound like.' };

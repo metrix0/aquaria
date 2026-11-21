@@ -65,7 +65,7 @@ export function bindInput(canvas, camera, actions) {
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
-    if (/^Digit[1-4]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
+    if (/^Digit[1-6]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
   });
   window.addEventListener('keyup', ({ code }) => keys.delete(code));
   window.addEventListener('blur', clear);

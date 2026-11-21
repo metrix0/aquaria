@@ -12,13 +12,13 @@ import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
-import { heartFillPercent, hudVisibility } from './hud-state.js';
+import { hudVisibility } from './hud-state.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
-    'depth', 'depth-label', 'depth-meter', 'health-label', 'health-hearts', 'air-label', 'world-conditions', 'air-fill', 'oxygen-meter',
+    'depth', 'depth-label', 'depth-meter', 'health-label', 'health-fill', 'hud-context', 'air-label', 'air-fill', 'oxygen-meter',
     'interact', 'feedback', 'backpack-chest-label', 'room-status', 'room-invitation', 'room-create', 'room-join', 'room-copy',
     'room-leave', 'room-join-form', 'multiplayer',
   ].map((id) => [id, byId(id)]));
@@ -310,11 +310,7 @@ export function createUI(actions, version) {
       updateRing(game);
       updateHook(game);
       updateStatusEffects(game);
-      const weather = fields['world-conditions'];
-      const raining = conditions.rain > 0.08;
-      weather.hidden = !conditions.night && !raining;
-      if (!weather.hidden) setText('world-conditions', conditions.night ? (raining ? 'Night · Rain' : 'Night') : 'Rain');
-      const health = Math.round(game.player.health / MAX_HEALTH * 100);
+       const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';
       const depth = areaDepth(game);
       const { oxygenPercent: air, showOxygen, showDepth } =
@@ -322,6 +318,7 @@ export function createUI(actions, version) {
       const airValue = air + '%';
       fields['oxygen-meter'].hidden = !showOxygen;
       fields['depth-meter'].hidden = !showDepth;
+      fields['hud-context'].hidden = !showOxygen && !showDepth;
       if (showDepth) setText('depth', depth + ' m');
       const row = Math.floor((game.player.y + game.player.height / 2) / TILE);
       const column = Math.floor(game.player.x / TILE) - WEST_EXTENSION;
@@ -331,15 +328,12 @@ export function createUI(actions, version) {
           ? (row >= 412 ? 'SANCTUM' : row >= JUNGLE_CAVE.deepstoneRow ? 'TEMPLE' : 'JUNGLE CAVE')
           : 'DEPTH';
       setText('depth-label', zone);
-      setText('health-label', healthValue);
-      fields['health-label'].hidden = health === 100;
-      const hearts = fields['health-hearts'];
-      if (hearts.getAttribute('aria-valuenow') !== String(health)) {
-        hearts.setAttribute('aria-valuenow', String(health));
-        hearts.classList.toggle('low', health <= 25);
-        for (const [index, heart] of [...hearts.children].entries()) {
-          heart.style.setProperty('--fill', heartFillPercent(health, MAX_HEALTH, index) + '%');
-        }
+      setText('health-label', String(health));
+      const healthTrack = fields['health-fill'].parentElement;
+      if (healthTrack.getAttribute('aria-valuenow') !== String(health)) {
+        healthTrack.setAttribute('aria-valuenow', String(health));
+        fields['health-fill'].style.width = healthValue;
+        fields['health-fill'].classList.toggle('low', health <= 25);
       }
       setText('air-label', airValue);
       const fill = fields['air-fill'];

@@ -304,7 +304,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     else if (group === 'hotbar' && index === HOTBAR_SIZE - 1 && event.code === 'ArrowRight') headSlot.focus();
     else if (group === 'backpack' && index % columns === columns - 1 && event.code === 'ArrowRight') (index >= 12 ? feetSlot : headSlot).focus();
     else if (group === 'hotbar' && event.code === 'ArrowDown') backpackSlots[index].focus();
-    else if (group === 'hotbar' && event.code === 'ArrowUp' && chestId) chestSlots[index + 4].focus();
+    else if (group === 'hotbar' && event.code === 'ArrowUp' && chestId) chestSlots[Math.min(index, 3) + 4].focus();
     else if (group === 'backpack' && index < 6 && event.code === 'ArrowUp') panelHotbar[Math.min(index, HOTBAR_SIZE - 1)].focus();
     else if (group === 'chest' && index >= 4 && event.code === 'ArrowDown') panelHotbar[index - 4].focus();
     else groups[group][index + direction]?.focus();

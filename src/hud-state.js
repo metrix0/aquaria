@@ -8,10 +8,3 @@ export function hudVisibility(oxygen, capacity, depth) {
   const oxygenPercent = Math.max(0, Math.min(showOxygen ? 99 : 100, Math.floor(remaining / max * 100)));
   return { oxygenPercent, showOxygen, showDepth: depth >= MIN_DEPTH_METERS };
 }
-
-/** Each of five pixel hearts represents one fifth of max health. */
-export function heartFillPercent(health, maxHealth, index) {
-  if (!Number.isFinite(maxHealth) || maxHealth <= 0 || !Number.isFinite(health)) return 0;
-  const hearts = health / maxHealth * 5 - index;
-  return Math.round(Math.max(0, Math.min(1, hearts)) * 100);
-}
