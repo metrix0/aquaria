@@ -458,7 +458,7 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .chest-storage:not([hidden]) ~ .backpack-layout .backpack-slots { grid-template-columns: repeat(6, minmax(0, 42px)); }
 }
 @media (max-height: 480px) {
-  .inventory { --hotbar-slot-width: min(39px, 9.7vw); }
+  .inventory { --hotbar-slot-width: min(39px, 8vw); }
   .hud-above-hotbar { gap: 4px; margin-bottom: 5px; }
   .inventory { padding-bottom: 5px; }
   .slot { width: 39px; height: 32px; }
@@ -499,11 +499,18 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 }
 #explorers-map figcaption { color: #f3e5c8; font-size: 12px; text-shadow: 0 1px 4px #000; }
 #game:has(dialog[open]) #explorers-map { visibility: hidden; }
-.hotbar-row { display: flex; align-items: center; justify-content: center; gap: 7px; max-width: 100%; }
+/* The six regular slots define the centered hotbar; optional abilities sit outside its layout. */
+.hotbar-row { position: relative; width: max-content; max-width: 100%; margin-inline: auto; }
+.hotbar-abilities {
+  position: absolute; top: 50%; left: calc(100% + 7px); transform: translateY(-50%);
+  display: flex; align-items: center; gap: 7px;
+}
 @media (max-width: 670px) {
-  .hotbar-row { gap: 5px; }
+  .inventory { --hotbar-slot-width: clamp(25px, 8vw, 44px); }
   .inventory .slots { padding: 4px; }
   .inventory .slot { height: clamp(35px, 11vw, 44px); }
+  .hotbar-abilities { left: calc(100% + 4px); gap: 4px; }
+  .inventory .hotbar-abilities .slot { width: clamp(29px, 8.8vw, 44px); }
 }
 .hook-skill { border-color: #6b8896; background: #1c313b; }
 .item-grappling-hook {
