@@ -43,7 +43,7 @@ export function createGame(snapshot) {
     progress: {
       snorkel: snapshot?.progress?.snorkel ?? null,
       ring: snapshot?.progress?.ring ?? null,
-      hands: snapshot?.progress?.hands ?? null,
+      offhand: snapshot?.progress?.offhand ?? snapshot?.progress?.hands ?? null,
       addons: Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => {
         const id = snapshot?.progress?.addons?.[slot];
         return [slot, ADDONS[id]?.addonSlot === slot ? id : null];
@@ -130,7 +130,7 @@ export function resetRoomProgress(previous) {
     world,
     inventory: new Inventory(),
     chests: restoreChests(world, undefined, undefined, previous.weatherSeed),
-    progress: { snorkel: null, ring: null, hands: null, addons },
+    progress: { snorkel: null, ring: null, offhand: null, addons },
     player,
     dirty: true,
     elapsed: 0,
@@ -399,7 +399,7 @@ const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
   ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
-  hands: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK }, get: equippedHook, set: (game, id) => { game.progress.hands = id; } },
+  offhand: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK }, get: equippedHook, set: (game, id) => { game.progress.offhand = id; } },
   ...Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => ['addon-' + slot, {
     items: Object.fromEntries(Object.values(ADDONS).filter((addon) => addon.addonSlot === slot).map((addon) => [addon.id, addon])),
     get: (game) => equippedAddon(game, slot),
@@ -577,8 +577,8 @@ export function grantItem(game, id, count) {
   if (!Number.isSafeInteger(count) || count < 1) return false;
   if (Object.hasOwn(ARMOR, id)) {
     game.player.armor = id;
-  } else if (id === GRAPPLING_HOOK.id && !game.progress.hands) {
-    game.progress.hands = GRAPPLING_HOOK.id;
+  } else if (id === GRAPPLING_HOOK.id && !game.progress.offhand) {
+    game.progress.offhand = GRAPPLING_HOOK.id;
     if (count > 1 && !game.inventory.add(id, count - 1, { preferHotbar: true })) return false;
   } else if (!game.inventory.add(id, count, { preferHotbar: true })) return false;
   game.dirty = true;

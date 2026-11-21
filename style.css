@@ -336,6 +336,11 @@ dialog p { font-size: 13px; color: var(--muted); }
 #backpack-panel button.slot[data-filled] { background: #172e39; cursor: grab; }
 #backpack-panel button.slot[aria-pressed="true"] { border-color: var(--gold); }
 #backpack-panel button.slot[data-picked], #backpack-panel button.slot[data-drop-target] { border-color: var(--mint); box-shadow: inset 0 0 0 1px var(--mint); }
+#backpack-panel button.slot[data-compatible] {
+  background: #315e58; border-color: #c7ffe4;
+  box-shadow: inset 0 0 0 1px #bdffe8, 0 0 12px #79fbc17a;
+}
+#backpack-panel button.slot[data-compatible] .item { filter: brightness(1.25); }
 #backpack-panel button.slot[data-picked] .item { opacity: .6; }
 .gear-slots { display: grid; gap: 5px; list-style: none; margin: 0; padding: 0; }
 .gear-slots li { display: grid; grid-template-columns: 35px minmax(0, 1fr); gap: 7px; overflow-wrap: anywhere; align-items: center; color: var(--muted); font-size: 12px; }
@@ -500,14 +505,17 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 /* The six regular slots define the centered hotbar; optional abilities sit outside its layout. */
 .hotbar-row { position: relative; width: max-content; max-width: 100%; margin-inline: auto; }
 .hotbar-abilities {
-  position: absolute; top: 50%; left: calc(100% + 7px); transform: translateY(-50%);
+  position: absolute; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; gap: 7px;
 }
+.hotbar-abilities--ring { right: calc(100% + 7px); }
+.hotbar-abilities--offhand { left: calc(100% + 7px); }
 @media (max-width: 670px) {
   .inventory { --hotbar-slot-width: clamp(25px, 8vw, 44px); }
   .inventory .slots { padding: 4px; }
   .inventory .slot { height: clamp(35px, 11vw, 44px); }
-  .hotbar-abilities { left: calc(100% + 4px); gap: 4px; }
+  .hotbar-abilities--ring { right: calc(100% + 4px); }
+  .hotbar-abilities--offhand { left: calc(100% + 4px); }
   .inventory .hotbar-abilities .slot { width: clamp(29px, 8.8vw, 44px); }
 }
 .hook-skill { border-color: #6b8896; background: #1c313b; }

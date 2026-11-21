@@ -339,7 +339,7 @@ const ui = createUI({
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
-  getHands: () => equippedHook(game),
+  getOffhand: () => equippedHook(game),
   getAddon: (slot) => equippedAddon(game, slot),
   customize(appearance) {
     game.player.appearance = appearance;

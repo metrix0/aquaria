@@ -71,7 +71,7 @@ export function decodeSave(data) {
       ...(Number.isFinite(gear.glowSeconds) && gear.glowSeconds > 0
         ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
       ring: gear.ring === ROOT_RING.id ? gear.ring : null,
-      hands: gear.hands === GRAPPLING_HOOK.id ? gear.hands : null,
+      offhand: (gear.offhand ?? gear.hands) === GRAPPLING_HOOK.id ? GRAPPLING_HOOK.id : null,
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
@@ -101,7 +101,7 @@ export function encodeSave(game, saveTerrain = true) {
       ...(Object.values(progress.addons ?? {}).some(Boolean) ? { addons: progress.addons } : {}),
       ...(player.glowSeconds > 0 ? { glowSeconds: player.glowSeconds } : {}),
       ...(progress.ring ? { ring: progress.ring } : {}),
-      ...(progress.hands ? { hands: progress.hands } : {}),
+      ...(progress.offhand ? { offhand: progress.offhand } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),

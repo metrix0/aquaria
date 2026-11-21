@@ -36,7 +36,7 @@ export function createUI(actions, version) {
     getSnorkel: actions.getSnorkel,
     getFeet: actions.getFeet,
     getRing: actions.getRing,
-    getHands: actions.getHands,
+    getOffhand: actions.getOffhand,
     getAddon: actions.getAddon,
     onMove: actions.inventoryChanged,
     onSelect: actions.select,

@@ -9,19 +9,19 @@ const HOOK_STEP_SIZE = 4;
 const HOOK_ARRIVAL_DISTANCE = 2;
 
 /**
- * Returns the equipped Hands grappling hook item if present.
+ * Returns the equipped off-hand grappling hook item if present.
  * @param {object} game
  */
 export function equippedHook(game) {
-  return game.progress?.hands === GRAPPLING_HOOK.id ? GRAPPLING_HOOK : null;
+  return (game.progress?.offhand ?? game.progress?.hands) === GRAPPLING_HOOK.id ? GRAPPLING_HOOK : null;
 }
 
 /**
- * Returns the active grappling hook item from Hands slot or inventory.
+ * Returns the grappling hook equipped in the off-hand slot.
  * @param {object} game
  */
 export function hasHook(game) {
-  return equippedHook(game) ?? (game.inventory?.count(GRAPPLING_HOOK.id) > 0 ? GRAPPLING_HOOK : null);
+  return equippedHook(game);
 }
 
 /**
