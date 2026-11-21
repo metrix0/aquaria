@@ -46,7 +46,7 @@ function reachedEnemy(world, wave, x, y) {
   const dirX = wave.dirX ?? wave.facing;
   const dirY = wave.dirY ?? 0;
   return world.mobs.find((mob) => {
-    if (mob.health <= 0 || mob.respawn > 0 || mob.kind === 'crab' ||
+    if (mob.health <= 0 || mob.respawn > 0 ||
         (mob.kind === 'fish' && !mob.enemyType && !mob.krakenMinion)) return false;
     const spec = mobSpec(mob);
     if (!spec) return false;
