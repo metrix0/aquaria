@@ -50,11 +50,12 @@ import {
 import { createShipwreckArt } from "./shipwreck-art.js";
 import { birdFlightAt } from "./world/birds.js";
 import { HELMET_WRECK_COLUMN } from "./world/shipwreck.js";
+import { createSurfaceLight } from "./world/lighting.js";
 import {
-  caveAmbientAt,
-  createCaveLight,
-  createSurfaceLight,
-} from "./world/lighting.js";
+  caveStructureLight,
+  createUndergroundLight as createCaveLight,
+  undergroundAmbientAt,
+} from "./world/underground-lighting.js";
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
 import { lightningAt, lightningAnchor, distantThunderAt } from "./lightning.js";
 
@@ -285,6 +286,8 @@ export function createRenderer(canvas) {
   const surfaceLight = createSurfaceLight();
   const lightCanvas = canvas.ownerDocument.createElement("canvas");
   const lightCtx = lightCanvas.getContext("2d");
+  const colorLightCanvas = canvas.ownerDocument.createElement("canvas");
+  const colorLightCtx = colorLightCanvas.getContext("2d");
   const tileCanvas = canvas.ownerDocument.createElement("canvas");
   tileCanvas.width = tileCanvas.height = TILE;
   const tileCtx = tileCanvas.getContext("2d");
@@ -303,6 +306,7 @@ export function createRenderer(canvas) {
     return { dx, dy, fade, bit: 1 << index };
   });
   let lightPixels;
+  let colorLightPixels;
   let activeLightningAnchor = null;
   let activeDistantAnchor = null;
 
@@ -1486,7 +1490,7 @@ export function createRenderer(canvas) {
     return clamp((caveLight.at(tx, ty) - 0.1) / 0.45, 0, 1);
   }
 
-  function shadeCaves(world, player, { left, right, top, bottom }, overview, darkness = 0) {
+  function shadeUnderground(world, player, { left, right, top, bottom }, overview, darkness = 0) {
     const width = right - left;
     const height = bottom - top;
     if (
@@ -1497,16 +1501,19 @@ export function createRenderer(canvas) {
       lightCanvas.width = width;
       lightCanvas.height = height;
       lightPixels = lightCtx.createImageData(width, height);
+      colorLightCanvas.width = width;
+      colorLightCanvas.height = height;
+      colorLightPixels = colorLightCtx.createImageData(width, height);
       const { data } = lightPixels;
       for (let i = 0; i < data.length; i += 4) {
-        data[i] = 9;
-        data[i + 1] = 16;
-        data[i + 2] = 27;
+        data[i] = 7;
+        data[i + 1] = 12;
+        data[i + 2] = 22;
       }
     }
     for (let x = left; x < right; x++) {
-      let alpha = (x - left) * 4 + 3;
-      for (let y = top; y < bottom; y++, alpha += width * 4) {
+      let pixel = (x - left) * 4;
+      for (let y = top; y < bottom; y++, pixel += width * 4) {
         const naturalLight = surfaceLight.at(x, y) * (hasBackgroundWall(x, y) ? .22 : 1) * (tileAt(world, x, y) ? 1 - clamp(darkness, 0, 1) * .68 : 1);
         const light = Math.max(naturalLight, caveLight.at(x, y));
         let ambient = 0;
@@ -1515,11 +1522,21 @@ export function createRenderer(canvas) {
             ? tileAt(world, x, y)
               ? 0
               : 0.34
-            : caveAmbientAt(world, player, x, y);
-        lightPixels.data[alpha] = (1 - light) * (1 - ambient) * 210;
+            : undergroundAmbientAt(world, player, x, y);
+        const color = caveLight.colorAt(x, y);
+        const shadowTint = color.strength * 0.45;
+        lightPixels.data[pixel] = Math.round(7 + (color.r - 7) * shadowTint);
+        lightPixels.data[pixel + 1] = Math.round(12 + (color.g - 12) * shadowTint);
+        lightPixels.data[pixel + 2] = Math.round(22 + (color.b - 22) * shadowTint);
+        lightPixels.data[pixel + 3] = (1 - light) * (1 - ambient) * 218;
+        colorLightPixels.data[pixel] = color.r;
+        colorLightPixels.data[pixel + 1] = color.g;
+        colorLightPixels.data[pixel + 2] = color.b;
+        colorLightPixels.data[pixel + 3] = Math.round(color.strength * 135);
       }
     }
     lightCtx.putImageData(lightPixels, 0, 0);
+    colorLightCtx.putImageData(colorLightPixels, 0, 0);
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(
@@ -1529,38 +1546,122 @@ export function createRenderer(canvas) {
       width * TILE,
       height * TILE,
     );
+    ctx.globalCompositeOperation = "screen";
+    ctx.drawImage(
+      colorLightCanvas,
+      left * TILE,
+      top * TILE,
+      width * TILE,
+      height * TILE,
+    );
     ctx.restore();
+  }
+
+  function drawCaveStructureLights(world, { left, right, top, bottom }, time, overview, reducedMotion) {
+    const structures = world.caveStructures;
+    if (!structures?.length) return;
+    const margin = 8;
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    for (const structure of structures) {
+      const emitter = caveStructureLight(structure, overview || reducedMotion ? 0 : time);
+      if (!emitter) continue;
+      const { tx, floor } = structure;
+      if (
+        tx < left - margin ||
+        tx >= right + margin ||
+        floor < top - margin ||
+        floor > bottom + margin ||
+        !hasExposedCaveFloor(world, structure)
+      ) {
+        continue;
+      }
+      const cx = (tx + 0.5) * TILE + emitter.offsetX;
+      const cy = floor * TILE + emitter.offsetY;
+      const flicker = overview || reducedMotion
+        ? 1
+        : 0.94 + Math.sin(time * 8.3 + tx * 1.7 + floor * 0.9) * 0.06;
+      const radius = emitter.radius * flicker;
+      const inBfsGrid =
+        caveLight.colorAt(tx, Math.max(0, floor - 2)).strength > 0 ||
+        caveLight.colorAt(tx, Math.max(0, floor - 1)).strength > 0;
+      const reachTiles = Math.ceil(radius / TILE);
+      ctx.save();
+      ctx.beginPath();
+      for (let sx = tx - reachTiles; sx <= tx + reachTiles; sx++) {
+        if (sx < 0 || sx >= COLS) continue;
+        for (let sy = floor - reachTiles - 2; sy <= floor + reachTiles - 1; sy++) {
+          if (sy < 0 || sy >= ROWS) continue;
+          if (tileAt(world, sx, sy) && !hasOpenFace(world, sx, sy)) continue;
+          if (inBfsGrid && caveLight.colorAt(sx, sy).strength <= 0) continue;
+          ctx.rect(sx * TILE, sy * TILE, TILE, TILE);
+        }
+      }
+      ctx.clip();
+      const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, radius);
+      glow.addColorStop(0, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, ${(emitter.alpha * flicker).toFixed(3)})`);
+      glow.addColorStop(0.35, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, ${(emitter.alpha * 0.45 * flicker).toFixed(3)})`);
+      glow.addColorStop(1, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, 0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function fillAtmosphereBand(left, width, fadeTop, fadeBottom, height, r, g, b, alpha) {
+    if (alpha <= 0 || fadeBottom <= 0) return;
+    if (fadeTop >= height) {
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.fillRect(left, 0, width, height);
+      return;
+    }
+    if (fadeTop > 0) {
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.fillRect(left, 0, width, fadeTop);
+    }
+    const start = Math.max(0, fadeTop);
+    const end = Math.min(height, fadeBottom);
+    if (end > start) {
+      const grad = ctx.createLinearGradient(0, fadeTop, 0, fadeBottom);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+      grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(left, start, width, end - start);
+    }
   }
 
   function shadeAtmosphere(camera, conditions, time, flash = 0) {
     // Release the entire scene from its storm grade and darkness during a flash.
     const gradeStrength = 1 - clamp(flash, 0, 1) * .46;
     if (gradeStrength <= 0) return;
-    // One full-height pass over every pixel, including sky, terrain, water,
-    // caves and their background tiles. Overlay preserves the base art.
-    ctx.save();
-    ctx.globalCompositeOperation = "overlay";
     const first = Math.floor(camera.x / TILE);
     const last = Math.ceil((camera.x + camera.width) / TILE);
+    const nightAlpha = nightShadeAlpha(conditions) * gradeStrength;
+    // Grade open sky, surface terrain, and water while fading out at the underground wall boundary
+    // so deep caves and caveStructureLight stay consistent across day, night, storm, and thunder.
+    ctx.save();
     for (let tx = first; tx <= last; tx++) {
-      const tint = atmosphereTint(conditions, jungleMixAt((tx + .5) * TILE), time);
-      if (tint.alpha <= 0) continue;
+      const ground = groundAt(clamp(tx, 0, COLS - 1));
+      const wallStartRow = ground + (ground < WATER_ROW ? 1 : 0);
+      const fadeTop = Math.round(wallStartRow * TILE - camera.y);
+      const fadeBottom = fadeTop + TILE * 2;
+      if (fadeBottom <= 0) continue;
       const left = Math.round(tx * TILE - camera.x);
-      const right = Math.round((tx + 1) * TILE - camera.x);
-      ctx.globalAlpha = tint.alpha * gradeStrength;
-      ctx.fillStyle = "rgb(" + tint.r + ", " + tint.g + ", " + tint.b + ")";
-      ctx.fillRect(left, 0, right - left, camera.height);
+      const width = Math.round((tx + 1) * TILE - camera.x) - left;
+      const tint = atmosphereTint(conditions, jungleMixAt((tx + .5) * TILE), time);
+      if (tint.alpha > 0) {
+        ctx.globalCompositeOperation = "overlay";
+        fillAtmosphereBand(left, width, fadeTop, fadeBottom, camera.height, tint.r, tint.g, tint.b, tint.alpha * gradeStrength);
+      }
+      if (nightAlpha > 0) {
+        ctx.globalCompositeOperation = "source-over";
+        fillAtmosphereBand(left, width, fadeTop, fadeBottom, camera.height, 4, 8, 21, nightAlpha);
+      }
     }
     ctx.restore();
-    const nightAlpha = nightShadeAlpha(conditions) * gradeStrength;
-    if (nightAlpha > 0) {
-      ctx.save();
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = nightAlpha;
-      ctx.fillStyle = "#040815";
-      ctx.fillRect(0, 0, camera.width, camera.height);
-      ctx.restore();
-    }
   }
 
 
@@ -3373,7 +3474,7 @@ export function createRenderer(canvas) {
     const surface = WATER - Math.round(camera.y);
     const { water, shore, backdrop } = waterClips(world, camera, overview);
     const bounds = tileBounds(camera);
-    caveLight.update(world, player);
+    caveLight.update(world, player, bounds, overview || reducedMotion ? 0 : time);
     surfaceLight.update(world, player, bounds);
     rect(-32, -32, camera.width + 64, camera.height + 64, "#101f33");
     ctx.save();
@@ -3496,7 +3597,7 @@ export function createRenderer(canvas) {
     for (const bit of particles) {
       if (bit.bubbleRadius) breathBubble(bit);
     }
-    if (!caveShadowsHidden) shadeCaves(world, player, bounds, overview, conditions.darkness);
+    if (!caveShadowsHidden) shadeUnderground(world, player, bounds, overview, conditions.darkness);
     ctx.restore();
 
     rain(world, camera, surface, time, conditions);
@@ -3508,6 +3609,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    drawCaveStructureLights(world, bounds, time, overview, reducedMotion);
     if (aim?.reachable && (mining || !ITEMS[held]?.weapon)) {
       ctx.strokeStyle = "#f4d4a5ad";
       ctx.lineWidth = Math.max(1, 0.75 / scale);

@@ -4,7 +4,15 @@ import { MATERIAL } from '../src/content.js';
 import { advanceMining, createGame, targetTile } from '../src/gameplay/simulation.js';
 import { createWorld, editTile, hasOpenFace, tileAt, waterTileAt } from '../src/world.js';
 import { groundAt, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
-import { caveAmbientAt, createCaveLight, createSurfaceLight } from '../src/world/lighting.js';
+import { JUNGLE_CAVE } from '../src/world/jungle-cave.js';
+import {
+  caveAmbientAt,
+  caveStructureLight,
+  createCaveLight,
+  createSurfaceLight,
+  createUndergroundLight,
+  undergroundAmbientAt,
+} from '../src/world/lighting.js';
 
 test('cave light follows open passages and reacts to terrain edits', () => {
   const world = createWorld();
@@ -19,7 +27,7 @@ test('cave light follows open passages and reacts to terrain edits', () => {
   editTile(world, column + 4, row, MATERIAL.iron);
 
   light.update(world, player);
-  assert.equal(light.at(column, row), 1);
+  assert.ok(light.at(column, row) > 0.4 && light.at(column, row) < 0.7);
   assert.ok(light.at(column + 1, row) > 0);
   assert.equal(light.at(column + 2, row), 0);
   const shadowedOre = light.at(column + 4, row);
@@ -54,11 +62,11 @@ test('light fades over several rock tiles and follows the player within a tile',
   }
   editTile(world, column, row, MATERIAL.air);
   light.update(world, player);
-  for (let dx = 1; dx <= 7; dx++) {
+  for (let dx = 1; dx <= 3; dx++) {
     const brightness = light.at(column + dx, row);
     assert.ok(brightness > 0 && brightness < light.at(column + dx - 1, row));
   }
-  assert.equal(light.at(column + 8, row), 0);
+  assert.equal(light.at(column + 4, row), 0);
 
   for (let dx = 1; dx <= 24; dx++) editTile(world, column + dx, row, MATERIAL.air);
   light.update(world, player);
@@ -66,7 +74,8 @@ test('light fades over several rock tiles and follows the player within a tile',
   player.x += TILE / 4;
   light.update(world, player);
   assert.ok(light.at(column + 7, row) > before);
-  assert.ok(light.at(column + 21, row) > 0);
+  assert.ok(light.at(column + 9, row) > 0);
+  assert.equal(light.at(column + 13, row), 0);
 });
 
 test('glowing mushrooms light the lower island cave while exposed', () => {
@@ -155,4 +164,132 @@ test('player cave light does not shine through an open-air island into its walls
   editTile(world, tx, surface + 5, MATERIAL.air);
   cave.update(world, player);
   assert.ok(cave.at(tx, surface + 5) > 0);
+});
+
+test('cave structure light colors match island lamps and orange/green jungle torches', () => {
+  const lampLight = caveStructureLight({ kind: 'lamp', tx: 40, floor: 50 });
+  const orangeTorch = caveStructureLight({ kind: 'native-torch', tx: 350, floor: 70 });
+  const greenTorch = caveStructureLight({ kind: 'native-torch', tx: 364, floor: JUNGLE_CAVE.sanctuaryFloor });
+
+  assert.equal(lampLight.color, '#f0b269');
+  assert.ok(lampLight.r > lampLight.g && lampLight.g > lampLight.b);
+  assert.equal(orangeTorch.color, '#e88d3a');
+  assert.ok(orangeTorch.r > orangeTorch.g && orangeTorch.g > orangeTorch.b);
+  assert.equal(greenTorch.color, '#62d996');
+  assert.ok(greenTorch.g > greenTorch.r && greenTorch.g > greenTorch.b);
+});
+
+test('cave colored light fills open passages and stops behind closed rock walls until opened', () => {
+  const world = createWorld();
+  const cave = createCaveLight();
+  const column = 95;
+  const floor = 26;
+  const player = { x: (column + 0.5) * TILE, y: (floor - 2) * TILE, height: TILE };
+
+  for (let x = column - 4; x <= column + 7; x++) {
+    for (let y = floor - 4; y <= floor + 1; y++) {
+      editTile(world, x, y, MATERIAL.stone);
+    }
+  }
+  // Open left chamber with a warm island lamp and a separated right air pocket across a 1-tile stone wall.
+  for (let x = column - 2; x <= column + 2; x++) {
+    editTile(world, x, floor - 2, MATERIAL.air);
+    editTile(world, x, floor - 1, MATERIAL.air);
+  }
+  editTile(world, column + 4, floor - 2, MATERIAL.air);
+  editTile(world, column + 4, floor - 1, MATERIAL.air);
+  world.caveStructures = [{ kind: 'lamp', tx: column, floor }];
+
+  cave.update(world, player);
+  const atLamp = cave.colorAt(column, floor - 2);
+  const nextToLamp = cave.colorAt(column + 2, floor - 2);
+  const behindWall = cave.colorAt(column + 4, floor - 2);
+  assert.ok(atLamp.strength > 0.5);
+  assert.equal(atLamp.r, 240);
+  assert.equal(atLamp.g, 178);
+  assert.equal(atLamp.b, 105);
+  assert.ok(nextToLamp.strength > 0 && nextToLamp.strength < atLamp.strength);
+  assert.equal(behindWall.strength, 0);
+
+  // Mining the separating rock tile lets the lamp color spill into the adjacent chamber.
+  editTile(world, column + 3, floor - 2, MATERIAL.air);
+  cave.update(world, player);
+  const afterBreach = cave.colorAt(column + 4, floor - 2);
+  assert.ok(afterBreach.strength > 0);
+  assert.equal(afterBreach.r, 240);
+
+  // Sanctuary green torch switches emitted color to green.
+  world.caveStructures = [{ kind: 'native-torch', tx: column, floor: JUNGLE_CAVE.sanctuaryFloor }];
+  player.y = (JUNGLE_CAVE.sanctuaryFloor - 2) * TILE;
+  for (let x = column - 2; x <= column + 2; x++) {
+    editTile(world, x, JUNGLE_CAVE.sanctuaryFloor - 2, MATERIAL.air);
+    editTile(world, x, JUNGLE_CAVE.sanctuaryFloor - 1, MATERIAL.air);
+  }
+  editTile(world, column, JUNGLE_CAVE.sanctuaryFloor, MATERIAL.stone);
+  cave.update(world, player);
+  const green = cave.colorAt(column, JUNGLE_CAVE.sanctuaryFloor - 2);
+  assert.ok(green.strength > 0.5);
+  assert.equal(green.r, 98);
+  assert.equal(green.g, 217);
+  assert.equal(green.b, 150);
+});
+
+test('cave light covers lamps near the left edge of camera bounds even when the player is far to the right', () => {
+  const world = createWorld();
+  const cave = createCaveLight();
+  const column = 95;
+  const floor = 26;
+  for (let x = column - 6; x <= column + 36; x++) {
+    for (let y = floor - 4; y <= floor + 1; y++) {
+      editTile(world, x, y, y === floor ? MATERIAL.stone : MATERIAL.air);
+    }
+  }
+  world.caveStructures = [{ kind: 'lamp', tx: column, floor }];
+  const player = { x: (column + 28.5) * TILE, y: (floor - 2) * TILE, height: TILE };
+  const bounds = { left: column - 1, right: column + 42, top: floor - 14, bottom: floor + 12 };
+
+  cave.update(world, player, bounds);
+  assert.ok(cave.at(column - 3, floor - 2) > 0, 'left side of lamp must stay lit');
+  assert.ok(cave.colorAt(column - 3, floor - 2).strength > 0, 'left side of lamp color must not be clipped');
+});
+
+test('underground light system emits mushroom cyan, glowshroom torch cyan, and deepens ambient by depth', () => {
+  const world = createWorld();
+  const underground = createUndergroundLight();
+  const column = 75;
+  const shallowRow = 30;
+  const deepRow = 260;
+
+  for (const row of [shallowRow, deepRow]) {
+    for (let x = column - 3; x <= column + 3; x++) {
+      for (let y = row - 1; y <= row + 1; y++) {
+        editTile(world, x, y, y === row - 1 || y === row + 1 ? MATERIAL.stone : MATERIAL.air);
+      }
+    }
+  }
+
+  // Ambient is clearer in upper caves and noticeably darker in deep underground caverns.
+  const player = { x: (column + 0.5) * TILE, y: shallowRow * TILE, height: TILE, glowSeconds: 0 };
+  assert.equal(undergroundAmbientAt(world, player, column, shallowRow), 0.34);
+  assert.ok(undergroundAmbientAt(world, player, column, deepRow) < 0.2);
+
+  // Cave mushrooms emit cyan colored light in the underground light system.
+  world.caveStructures = [];
+  world.caveMushrooms = [{ tx: column + 2, floor: shallowRow + 1 }];
+  underground.update(world, player);
+  const mushroomGlow = underground.colorAt(column + 2, shallowRow);
+  assert.ok(mushroomGlow.strength > 0.4);
+  assert.equal(mushroomGlow.r, 83);
+  assert.equal(mushroomGlow.g, 185);
+  assert.equal(mushroomGlow.b, 188);
+
+  // Activating glowshroom-torch emits cyan-teal light from the player underground.
+  world.caveMushrooms = [];
+  player.glowSeconds = 30;
+  underground.update(world, player);
+  const torchGlow = underground.colorAt(column, shallowRow);
+  assert.ok(torchGlow.strength > 0.5);
+  assert.equal(torchGlow.r, 107);
+  assert.equal(torchGlow.g, 227);
+  assert.equal(torchGlow.b, 220);
 });

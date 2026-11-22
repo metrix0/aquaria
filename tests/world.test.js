@@ -1280,9 +1280,17 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(craftItem(game, ARROW), true);
   assert.equal(game.inventory.count(ARROW.id), 4);
 
-  const bowSlot = game.inventory.backpack.findIndex((stack) => stack?.id === BOW.id);
-  assert.ok(bowSlot >= 0);
-  assert.ok(game.inventory.move({ group: 'backpack', index: bowSlot }, { group: 'hotbar', index: 2 }));
+  const findItemSlot = (id) => {
+    const hotbarIndex = game.inventory.hotbar.findIndex((stack) => stack?.id === id);
+    if (hotbarIndex >= 0) return { group: 'hotbar', index: hotbarIndex };
+    const backpackIndex = game.inventory.backpack.findIndex((stack) => stack?.id === id);
+    return backpackIndex >= 0 ? { group: 'backpack', index: backpackIndex } : null;
+  };
+  const bowSlot = findItemSlot(BOW.id);
+  assert.ok(bowSlot);
+  if (bowSlot.group !== 'hotbar' || bowSlot.index !== 2) {
+    assert.ok(game.inventory.move(bowSlot, { group: 'hotbar', index: 2 }));
+  }
   assert.equal(game.inventory.hotbar[1].id, SPEAR.id);
   assert.equal(game.inventory.hotbar[2].id, BOW.id);
 
@@ -1314,8 +1322,9 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(game.projectiles.length, 0);
   assert.equal(shark.health, 3);
 
-  const copperSpearSlot = game.inventory.backpack.findIndex((stack) => stack?.id === COPPER_SPEAR.id);
-  assert.ok(game.inventory.move({ group: 'backpack', index: copperSpearSlot }, { group: 'hotbar', index: 1 }));
+  const copperSpearSlot = findItemSlot(COPPER_SPEAR.id);
+  assert.ok(copperSpearSlot);
+  assert.ok(game.inventory.move(copperSpearSlot, { group: 'hotbar', index: 1 }));
   shark.x = game.player.x + 40;
   shark.y = game.player.y + 11;
   useWeapon(game, 1, shark.x, shark.y);
@@ -1496,8 +1505,9 @@ test('crafting prefers an empty hotbar slot and falls back to backpack stacks', 
   assert.equal(game.inventory.hotbar[1].count, 2);
 
   assert.equal(game.inventory.move({ group: 'hotbar', index: 1 }, { group: 'backpack', index: 0 }), true);
-  game.inventory.add('sand', 1);
-  game.inventory.add('stone', 1);
+  for (const filler of ['sand', 'stone', 'copper', 'iron', 'cobalt']) {
+    if (game.inventory.hotbar.some((stack) => !stack)) game.inventory.add(filler, 1, { preferHotbar: true });
+  }
   assert.equal(craftItem(game, WOODEN_DOOR), true);
   assert.equal(game.inventory.backpack[0].count, 5);
   assert.ok(game.inventory.hotbar.every((stack) => stack && stack.id !== WOODEN_DOOR.id));
@@ -3063,8 +3073,8 @@ test('grappling hook is found deep in the first island caves, equips to hands, p
   assert.equal(chestSlots[1]?.id, 'iron');
   assert.equal(chestSlots[1]?.count, 4);
 
-  // Move from chest into Hands slot and verify persistence across save/reload.
-  assert.equal(moveInventoryStack(game, 'underground-vault', { group: 'chest', index: 0 }, { group: 'hands', index: 0 }), true);
+  // Move from chest into off-hand slot and verify persistence across save/reload.
+  assert.equal(moveInventoryStack(game, 'underground-vault', { group: 'chest', index: 0 }, { group: 'offhand', index: 0 }), true);
   assert.equal(equippedHook(game)?.id, GRAPPLING_HOOK.id);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(equippedHook(restored)?.id, GRAPPLING_HOOK.id);
@@ -3764,4 +3774,153 @@ test('player automatically steps up 1-tile blocks without jumping while stopping
   for (let i = 0; i < 60; i++) stepGame(game, { right: true }, 1 / 60);
   assert.ok(player.x < (baseCol + 2) * TILE, 'must not step up into a low ceiling');
   assert.ok(Math.abs(player.y + player.height - floorRow * TILE) < 0.02);
+});
+
+test('renderer emits colored light gradients for cave lamps and orange/green jungle torches', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const noop = () => {};
+    const stops = [];
+    const makeGrad = () => ({
+      addColorStop(_offset, color) { stops.push(color); },
+    });
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fillRect: noop, fill: noop, stroke: noop, translate: noop,
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: makeGrad,
+    });
+    const canvas = {
+      width: 640,
+      height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) },
+      getContext: () => makeCtx(),
+    };
+    const renderer = createRenderer(canvas);
+    const game = createGame();
+
+    const lamp = game.world.caveStructures.find((s) => s.kind === 'lamp');
+    const orangeTorch = game.world.caveStructures.find((s) => s.kind === 'native-torch' && s.floor < 120);
+    const greenTorch = game.world.caveStructures.find((s) => s.kind === 'native-torch' && s.floor >= 442);
+    assert.ok(lamp && orangeTorch && greenTorch);
+
+    const drawAround = (structure) => {
+      stops.length = 0;
+      game.player.x = (structure.tx + 0.5) * TILE;
+      game.player.y = (structure.floor - 2) * TILE;
+      renderer.draw({
+        world: game.world,
+        player: game.player,
+        snorkel: null,
+        camera: { x: (structure.tx + 0.5) * TILE - 160, y: structure.floor * TILE - 90, width: 320, height: 180 },
+        time: 1,
+        elapsed: 1,
+        aim: null,
+        mining: null,
+        miningSwing: null,
+        held: null,
+        attack: null,
+        hasArrow: false,
+        playerArrows: [],
+        targetMob: null,
+        particles: [],
+        reducedMotion: false,
+        conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0,
+        weatherSeed: 0,
+        caveShadowsHidden: true,
+        openChestId: null,
+      });
+    };
+
+    drawAround(lamp);
+    assert.ok(stops.some((c) => c.startsWith('rgba(240, 178, 105,')));
+
+    drawAround(orangeTorch);
+    assert.ok(stops.some((c) => c.startsWith('rgba(232, 141, 58,')));
+
+    drawAround(greenTorch);
+    assert.ok(stops.some((c) => c.startsWith('rgba(98, 217, 150,')));
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('deep cave lighting and caveStructureLight stay consistent across Clear Day, Storm, and Thunder', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const noop = () => {};
+    const gradStops = [];
+    const fillRectCalls = [];
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill: noop, stroke: noop, translate: noop,
+      fillRect(x, y, w, h) { fillRectCalls.push({ x, y, w, h, fillStyle: this.fillStyle }); },
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop(_offset, color) { gradStops.push(color); } }),
+    });
+    const canvas = {
+      width: 640,
+      height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) },
+      getContext: () => makeCtx(),
+    };
+    const renderer = createRenderer(canvas);
+    const game = createGame();
+    const lamp = game.world.caveStructures.find((s) => s.kind === 'lamp' && s.floor >= 40);
+    assert.ok(lamp);
+
+    const drawWithConditions = (conditions, lightning = null) => {
+      gradStops.length = 0;
+      fillRectCalls.length = 0;
+      game.player.x = (lamp.tx + 0.5) * TILE;
+      game.player.y = (lamp.floor - 2) * TILE;
+      renderer.draw({
+        world: game.world,
+        player: game.player,
+        snorkel: null,
+        camera: { x: (lamp.tx + 0.5) * TILE - 160, y: lamp.floor * TILE - 90, width: 320, height: 180 },
+        time: 1,
+        elapsed: 1,
+        aim: null,
+        mining: null,
+        miningSwing: null,
+        held: null,
+        attack: null,
+        hasArrow: false,
+        playerArrows: [],
+        targetMob: null,
+        particles: [],
+        reducedMotion: false,
+        conditions,
+        lightning,
+        worldTime: 0,
+        weatherSeed: 0,
+        caveShadowsHidden: true,
+        openChestId: null,
+      });
+      return {
+        lampStops: gradStops.filter((c) => c.startsWith('rgba(240, 178, 105,')),
+        nightCaveFills: fillRectCalls.filter((c) => typeof c.fillStyle === 'string' && c.fillStyle.startsWith('rgba(4, 8, 21,')),
+      };
+    };
+
+    const clearDay = drawWithConditions({ darkness: 0, rain: 0, night: false, atmosphere: 'clear', dayAtmosphere: 'clear' });
+    const storm = drawWithConditions({ darkness: 1, rain: 1, night: true, atmosphere: 'deep', dayAtmosphere: 'cloudy' });
+    const thunder = drawWithConditions({ darkness: 1, rain: 1, night: true, atmosphere: 'deep', dayAtmosphere: 'cloudy' }, { flash: 1 });
+
+    assert.ok(clearDay.lampStops.length > 0);
+    assert.deepEqual(storm.lampStops, clearDay.lampStops);
+    assert.deepEqual(thunder.lampStops, clearDay.lampStops);
+    assert.equal(storm.nightCaveFills.length, 0);
+    assert.equal(thunder.nightCaveFills.length, 0);
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
 });
