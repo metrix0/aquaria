@@ -1,4 +1,4 @@
-export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12, workbench: 13 });
+export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12, workbench: 13, fireplace: 14 });
 export const MATERIAL_IDS = Object.freeze(Object.fromEntries(Object.entries(MATERIAL).map(([id, code]) => [code, id])));
 export const ORE_MATERIALS = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 export const DROPS = Object.freeze({
@@ -9,6 +9,7 @@ export const DROPS = Object.freeze({
   [MATERIAL.reef]: 'stone',
   [MATERIAL.wood]: 'wood',
   [MATERIAL.workbench]: 'workbench',
+  [MATERIAL.fireplace]: 'fireplace',
   [MATERIAL.copper]: 'copper',
   [MATERIAL.iron]: 'iron',
   [MATERIAL.cobalt]: 'cobalt',
@@ -21,6 +22,7 @@ export const MINING_RULES = {
   [MATERIAL.soil]: { hand: 0.55, pickaxe: 0.4 },
   [MATERIAL.wood]: WOOD_MINING_RULE,
   [MATERIAL.workbench]: WOOD_MINING_RULE,
+  [MATERIAL.fireplace]: { hand: 0.9, pickaxe: 0.45 },
   [MATERIAL.reef]: { hand: 2.7, pickaxe: 0.6 },
   [MATERIAL.stone]: { hand: 3.6, pickaxe: 0.7 },
   [MATERIAL.copper]: { name: 'Copper ore', tier: 1, pickaxe: 0.85 },
@@ -35,6 +37,7 @@ export const INTERACTION_RANGE = 35;
 export const BREATH_SECONDS = 18;
 
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
+export const FIREPLACE = { id: 'fireplace', cost: { stone: 4, wood: 4 } };
 
 export const SNORKEL_CHEST_ID = 'wreck-chest';
 export const KRAKEN_CHEST_ID = 'kraken-chest';
@@ -102,6 +105,25 @@ export const BROKEN_PICKAXE = { id: 'broken-pickaxe' };
 export const COPPER_PICKAXE = { id: 'copper-pickaxe', station: WORKBENCH.id, cost: { copper: 3, wood: 2 } };
 export const IRON_PICKAXE = { id: 'iron-pickaxe', station: WORKBENCH.id, cost: { iron: 4, wood: 2 }, miningTime: 0.7 };
 export const KELP_DRESSING = { id: 'kelp-dressing', cost: { kelp: 3 }, heal: 30 };
+export const RAW_FISH = {
+  id: 'raw-fish', name: 'Raw fish',
+  oxygen: 5, poisonChance: 0.1, poisonDuration: 5,
+};
+export const COOKED_FISH = {
+  id: 'cooked-fish', name: 'Cooked fish', station: FIREPLACE.id,
+  cost: { [RAW_FISH.id]: 1 }, oxygen: 15,
+};
+export const RAW_CRAB = {
+  id: 'raw-crab', name: 'Raw crab',
+  heal: 5, poisonChance: 0.1, poisonDuration: 5,
+};
+export const COOKED_CRAB = {
+  id: 'cooked-crab', name: 'Cooked crab', station: FIREPLACE.id,
+  cost: { [RAW_CRAB.id]: 1 }, heal: 15,
+};
+export const FOODS = Object.freeze(
+  Object.fromEntries([RAW_FISH, COOKED_FISH, RAW_CRAB, COOKED_CRAB].map((food) => [food.id, food])),
+);
 export const SPEAR = { id: 'spear', station: WORKBENCH.id, cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
 export const COPPER_SPEAR = { id: 'copper-spear', station: WORKBENCH.id, cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
 export const IRON_SWORD = {

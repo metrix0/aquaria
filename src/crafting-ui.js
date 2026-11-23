@@ -1,4 +1,4 @@
-import { ARMOR, SALVAGE_RECIPES, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
+import { ARMOR, SALVAGE_RECIPES, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, craftMaterialCount, equipmentCraftStatus } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
@@ -9,6 +9,9 @@ const recipes = [
     recipe, description: 'Lets you stay underwater for ' + (BREATH_SECONDS + recipe.bonusSeconds) + ' seconds.',
   })),
   { recipe: WORKBENCH, description: 'Place it from your hotbar to craft advanced gear. Press E, right-click it, or tap Use nearby to open it.' },
+  { recipe: FIREPLACE, description: 'Place it from your hotbar to cook raw fish and crab. Press E, right-click it, or tap Use nearby to cook.' },
+  { recipe: COOKED_FISH, description: 'Cooked over the fire. Restores ' + COOKED_FISH.oxygen + ' seconds of oxygen with no poison risk.' },
+  { recipe: COOKED_CRAB, description: 'Roasted crab meat. Restores up to ' + COOKED_CRAB.heal + ' health with no poison risk.' },
   { recipe: SPEAR, description: 'Thrust at nearby creatures to damage them and drive them back.' },
   { recipe: COPPER_SPEAR, description: 'A sturdier spear that deals ' + COPPER_SPEAR.damage + ' damage.' },
   { recipe: IRON_SWORD, description: 'A sweeping blade that deals ' + IRON_SWORD.damage + ' damage.' },
@@ -38,7 +41,9 @@ export function createCraftingUi(panel, { makeItem }) {
   let game;
   let station;
 
-  const availableAt = (recipe) => !recipe.station || recipe.station === station;
+  const availableAt = (recipe) => station === FIREPLACE.id
+    ? recipe.station === FIREPLACE.id
+    : !recipe.station || recipe.station === station;
 
   const cards = recipes.map(({ recipe, name = recipe.name ?? ITEMS[recipe.id].name, icon = recipe.id, description }, index) => {
     const button = document.createElement('button');
@@ -63,8 +68,10 @@ export function createCraftingUi(panel, { makeItem }) {
   function render(state, activeStation) {
     game = state;
     station = activeStation;
-    heading.textContent = station === WORKBENCH.id ? ITEMS[WORKBENCH.id].name : 'Crafting';
-    if (!availableAt(cards[selected].recipe)) selected = 0;
+    heading.textContent = station ? ITEMS[station].name : 'Crafting';
+    if (!availableAt(cards[selected].recipe)) {
+      selected = Math.max(0, cards.findIndex(({ recipe }) => availableAt(recipe)));
+    }
     const { recipe, name, icon: itemIcon, description: detail } = cards[selected];
     const equipmentStatus = recipe.equipment ? equipmentCraftStatus(game, recipe) : null;
     const equipped = equipmentStatus === 'Equipped' || equipmentStatus === 'Already upgraded';
@@ -101,19 +108,25 @@ export function createCraftingUi(panel, { makeItem }) {
 
     const missing = cost.some(([id, count]) => craftMaterialCount(game, recipe, id) < count);
     craft.disabled = !ready[selected];
+    const cooking = recipe.station === FIREPLACE.id;
+    const actionName = cooking ? name.replace(/^Cooked /i, '').toLowerCase() : name.toLowerCase();
+    const verb = cooking ? 'Cook ' : 'Craft ';
     craft.textContent = equipmentStatus ?? (equipped ? 'Equipped'
       : missing ? 'Missing materials'
       : craft.disabled ? 'Inventory full'
-      : 'Craft ' + ((recipe.amount ?? 1) > 1 ? recipe.amount + ' ' : '') + name.toLowerCase());
+      : verb + ((recipe.amount ?? 1) > 1 ? recipe.amount + ' ' : '') + actionName);
   }
 
   craft.addEventListener('click', () => {
     const { recipe, name } = cards[selected];
     if (makeItem(recipe)) {
+      const cooking = recipe.station === FIREPLACE.id;
+      const actionName = cooking ? name.replace(/^Cooked /i, '').toLowerCase() : name.toLowerCase();
       const amount = (recipe.amount ?? 1) > 1 ? recipe.amount + ' ' : '';
+      const past = cooking ? 'Cooked ' : 'Crafted ';
       status.textContent = recipe.equipment
         ? name + ' equipped.'
-        : 'Crafted ' + amount + name.toLowerCase() + '.';
+        : past + amount + actionName + '.';
     }
   });
   panel.addEventListener('close', () => { status.textContent = ''; });

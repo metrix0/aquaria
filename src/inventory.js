@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
 export const HOTBAR_SIZE = 6;
@@ -42,6 +42,11 @@ export const ITEMS = {
   wood: { name: 'Wood', description: 'The grain curls like a tiny chart of the sea.', block: MATERIAL.wood, hotbar: 3 },
   door: { name: 'Wooden door', description: 'A good door makes even a rented cave feel like a castle.' },
   [WORKBENCH.id]: { name: 'Workbench', description: 'Its legs are uneven. Its claim to have built a kingdom is unproven.', block: MATERIAL.workbench },
+  [FIREPLACE.id]: { name: 'Fireplace', description: 'A stone hearth for cooking raw catch into safe, hearty meals.', block: MATERIAL.fireplace },
+  [RAW_FISH.id]: { ...RAW_FISH, description: 'Fresh from the reef. Restores 5 seconds of oxygen, with a 10% chance of poison.' },
+  [COOKED_FISH.id]: { ...COOKED_FISH, description: 'Seared over open coals. Safely restores 15 seconds of oxygen.' },
+  [RAW_CRAB.id]: { ...RAW_CRAB, description: 'Pinchy shore catch. Restores 5 health, with a 10% chance of poison.' },
+  [COOKED_CRAB.id]: { ...COOKED_CRAB, description: 'Roasted crisp and sweet. Safely restores 15 health.' },
   ...SNORKELS,
   ...FEET_GEAR,
   ...ADDONS,

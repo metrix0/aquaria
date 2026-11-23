@@ -30,7 +30,7 @@ export function setItemIcon(icon, id) {
   const item = ITEMS[id] ?? EQUIPMENT_ITEMS[id];
   const appearance = item?.icon ?? id;
   // Placeable terrain cubes use their original block icon, not a loose-resource sprite.
-  const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench);
+  const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench && item.block !== MATERIAL.fireplace);
   const sprite = Boolean(!cubeBlock && appearance && ITEM_ICON_IDS.has(appearance));
   icon.className = id ? 'item item-' + appearance : '';
   if (item?.pickaxe) icon.classList.add('item-pickaxe');
@@ -74,6 +74,12 @@ function itemStats(id, item) {
   if (id === ARROW.id) return ARROW.damage + ' damage';
   if (id === BOW.id) return ARROW.damage + ' damage per arrow';
   if (id === KELP_DRESSING.id) return 'Restores up to ' + KELP_DRESSING.heal + ' health';
+  if (item.oxygen) {
+    return 'Restores ' + item.oxygen + ' s oxygen' + (item.poisonChance ? ' · ' + Math.round(item.poisonChance * 100) + '% poison risk' : '');
+  }
+  if (item.heal) {
+    return 'Restores up to ' + item.heal + ' health' + (item.poisonChance ? ' · ' + Math.round(item.poisonChance * 100) + '% poison risk' : '');
+  }
   if (item.bonusSeconds) return '+' + item.bonusSeconds + ' s underwater';
   if (item.swimMultiplier) return item.swimMultiplier + '× swim speed';
   if (item.protection) return Math.round(item.protection * 100) + '% damage reduction';

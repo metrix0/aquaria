@@ -68,6 +68,7 @@ const palettes = {
   [MATERIAL.reef]: ["#436b6e", "#608781", "#315563", "#8eb096"],
   [MATERIAL.wood]: woodPalette,
   [MATERIAL.workbench]: woodPalette,
+  [MATERIAL.fireplace]: ["#414f55", "#627379", "#2b363b", "#f09c46"],
   [MATERIAL.bedrock]: ["#192b3e", "#24374a", "#111d2f", "#35485a"],
   [MATERIAL.copper]: ["#35464d", "#bc7659", "#704d4b", "#efae7c"],
   [MATERIAL.iron]: ["#38484f", "#9baaa4", "#586970", "#dde3c9"],
@@ -940,9 +941,21 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawTile(world, tx, ty, material, oreOpacity, overview) {
+  function drawTile(world, tx, ty, material, oreOpacity, overview, time = 0) {
     const x = tx * TILE;
     const y = ty * TILE;
+    if (material === MATERIAL.fireplace) {
+      rect(x + 1, y + 12, 14, 4, "#2b363b");
+      rect(x + 2, y + 11, 12, 3, "#414f55");
+      rect(x + 3, y + 11, 10, 1, "#627379");
+      rect(x + 3, y + 9, 10, 2, "#4d3324");
+      rect(x + 4, y + 8, 8, 2, "#734b34");
+      const flicker = Math.round(Math.sin(time * 13 + x) * 1.5);
+      rect(x + 4, y + 4 - Math.max(0, flicker), 8, 6 + Math.max(0, flicker), "#d95c48");
+      rect(x + 5, y + 2 + Math.min(0, flicker), 6, 7, "#f09c46");
+      rect(x + 6, y + 5, 4, 4, "#ffe17d");
+      return;
+    }
     if (material === MATERIAL.workbench) {
       const [wood, rim, shadow, highlight] = woodPalette;
       rect(x + 2, y + 7, 3, 9, shadow);
@@ -1847,7 +1860,7 @@ export function createRenderer(canvas) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         const ore = ORE_MATERIALS.has(material);
-        if (overview && material && !ore && material !== MATERIAL.workbench) {
+        if (overview && material && !ore && material !== MATERIAL.workbench && material !== MATERIAL.fireplace) {
           // At this scale each tile is only a few pixels wide. Paint continuous rock in one pass.
           const start = y;
           while (y + 1 < bottom && tileAt(world, x, y + 1) === material) y++;
@@ -1863,7 +1876,7 @@ export function createRenderer(canvas) {
         const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
           if (overview || !shipwreckArt.timber(world, x, y, material))
-            drawTile(world, x, y, material, oreOpacity, overview);
+            drawTile(world, x, y, material, oreOpacity, overview, time);
           if (ore && !overview && player.addons?.chest === 'prospectors-brooch' &&
               Math.hypot(x + .5 - player.x / TILE,
                 y + .5 - (player.y + player.height / 2) / TILE) <= 12) {

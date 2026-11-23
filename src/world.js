@@ -32,6 +32,7 @@ export function createWorld() {
   return {
     items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(),
     mobs: generateMobs(),
+    krakenDefeated: false,
     jungleCultAggro: false,
     caveTraps: [...islandTraps, ...jungleCaveTraps].map(([kind, column, ty], index) => ({
       kind, tx: column + WEST_EXTENSION, ty, phase: index * .76, timer: 0, state: 'armed',

@@ -8,7 +8,7 @@ import { ITEM_ICON_IDS } from '../src/art/items/manifest.js';
 test('every non-block, non-pickaxe item and equipment piece has a unique transparent 24px PNG sprite', () => {
   const all = { ...ITEMS, ...EQUIPMENT_ITEMS };
   const required = Object.entries(all)
-    .filter(([, item]) => !item.pickaxe && (!item.block || item.block === MATERIAL.workbench))
+    .filter(([, item]) => !item.pickaxe && (!item.block || item.block === MATERIAL.workbench || item.block === MATERIAL.fireplace))
     .map(([id, item]) => item.icon ?? id);
   assert.equal(ITEM_ICON_IDS.size, required.length);
   for (const id of required) {

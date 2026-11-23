@@ -1,5 +1,5 @@
 import { Inventory, ITEMS } from './inventory.js';
-import { ARROW, WORKBENCH } from './content.js';
+import { ARROW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
 import { wakeMimic } from './gameplay/enemies/mimic.js';
@@ -9,7 +9,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -117,7 +117,9 @@ function showTileEffect({ tx, ty, before, amount, item }) {
 }
 
 function craftingStation() {
-  if (craftingBench && workbenchAt(game, craftingBench.tx, craftingBench.ty)) return WORKBENCH.id;
+  if (!craftingBench) return;
+  if (craftingBench.kind === WORKBENCH.id && workbenchAt(game, craftingBench.tx, craftingBench.ty)) return WORKBENCH.id;
+  if (craftingBench.kind === FIREPLACE.id && fireplaceAt(game, craftingBench.tx, craftingBench.ty)) return FIREPLACE.id;
 }
 
 function inventoryChanged() {
@@ -370,10 +372,13 @@ const input = bindInput(canvas, camera, {
   interact() {
     if (editPending) return;
     const item = nearestItem(game);
-    if (item?.kind === WORKBENCH.id) ui.open('craft-panel', item);
+    if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id) ui.open('craft-panel', item);
     else if (item?.kind === 'mimic') {
       if (wakeMimic(game.world, item.mob, game.player, game.effects)) {
-        for (const effect of game.effects) emitEffect(effect);
+        for (const effect of game.effects) {
+        emitEffect(effect);
+        if (effect.inventoryChanged) inventoryChanged();
+      }
         game.effects.length = 0;
       }
     } else if (item) ui.open('backpack-panel', item);
@@ -394,7 +399,10 @@ const input = bindInput(canvas, camera, {
     if (chest.kind === 'mimic') {
       if (editPending) return true;
       if (wakeMimic(game.world, chest.mob, game.player, game.effects)) {
-        for (const effect of game.effects) emitEffect(effect);
+        for (const effect of game.effects) {
+        emitEffect(effect);
+        if (effect.inventoryChanged) inventoryChanged();
+      }
         game.effects.length = 0;
       }
       return !ITEMS[game.inventory.hotbar[selected]?.id]?.weapon;
@@ -428,6 +436,12 @@ const input = bindInput(canvas, camera, {
       ui.notify(dressing.message);
       return true;
     }
+    const food = useFood(game, selected);
+    if (food) {
+      if (food.inventoryChanged) inventoryChanged();
+      ui.notify(food.message);
+      return true;
+    }
     if (!aimedMob()) {
       const next = mineAtPointer(null, 0);
       if (next) {
@@ -447,7 +461,7 @@ const input = bindInput(canvas, camera, {
   place() {
     const target = aimedTile();
     if (!target || editPending) return;
-    const bench = workbenchAt(game, target.tx, target.ty);
+    const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty);
     if (bench) ui.open('craft-panel', bench);
     else void editTile(planTileAction(game, target, true, selected));
   },
@@ -590,7 +604,10 @@ function frame(now) {
         night: conditions.night,
         flightSpeedMultiplier: flightSpeedLevels[flightSpeedIndex],
       }, timestep);
-      for (const effect of game.effects) emitEffect(effect);
+      for (const effect of game.effects) {
+        emitEffect(effect);
+        if (effect.inventoryChanged) inventoryChanged();
+      }
       game.effects.length = 0;
       if (game.player !== previousPlayer) {
         input.stopMining();
@@ -641,7 +658,7 @@ function frame(now) {
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
-    hasArrow: game.inventory.count(ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
+    hasArrow: game.inventory.count(ARROW.id) > 0 || game.inventory.count(POISON_ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
   });

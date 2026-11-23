@@ -3,11 +3,12 @@ import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
-import { COLS, ROWS, TILE, WATER, clamp, generateMobs } from '../world/generation.js';
+import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
+import { jungleVillageStructures } from '../world/jungle-village.js';
 import { GRAPPLING_HOOK, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, takeDamage, updateOxygen } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
@@ -87,6 +88,10 @@ export function createGame(snapshot) {
       world.caveClimbs.push(placed);
     }
   }
+  if (snapshot?.world.krakenDefeated) {
+    world.krakenDefeated = true;
+    world.mobs = world.mobs.filter((mob) => mob.kind !== 'kraken' || mob.testSpawn);
+  }
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot, game.weatherSeed);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
@@ -120,6 +125,7 @@ export function resetRoomProgress(previous) {
   }
   world.items = world.items.filter((item) => world.fixtureIds.has(item.id));
   world.mobs = generateMobs();
+  world.krakenDefeated = false;
   world.ambientCells?.clear();
   world.projectiles = [];
   const player = spawn(world, BREATH_SECONDS);
@@ -202,6 +208,45 @@ export function useDressing(game, slot) {
   player.health += healed;
   game.dirty = true;
   return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
+}
+
+export function useFood(game, slot, random = Math.random) {
+  const { player, inventory } = game;
+  const id = inventory.hotbar[slot]?.id;
+  const food = FOODS[id];
+  if (!food) return;
+
+  let restored;
+  let unit;
+  if (food.heal) {
+    const missing = MAX_HEALTH - player.health;
+    if (missing <= 0) return { message: 'Health is already full.' };
+    restored = Math.min(food.heal, missing);
+    player.health += restored;
+    unit = 'health';
+  } else if (food.oxygen) {
+    const capacity = oxygenCapacity(game);
+    const missing = capacity - player.oxygen;
+    if (missing <= 0) return { message: 'Oxygen is already full.' };
+    restored = Math.min(food.oxygen, missing);
+    player.oxygen += restored;
+    unit = 'seconds of oxygen';
+  } else {
+    return;
+  }
+
+  inventory.consume(inventory.hotbar, slot, 1);
+  const poisoned = Boolean(food.poisonChance && random() < food.poisonChance);
+  if (poisoned) {
+    player.poison = Math.max(player.poison ?? 0, food.poisonDuration ?? 5);
+  }
+  game.dirty = true;
+  const amountText = Number.isInteger(restored) ? String(restored) : restored.toFixed(1).replace(/\.0$/, '');
+  return {
+    inventoryChanged: true,
+    poisoned,
+    message: food.name + ' restored ' + amountText + ' ' + unit + (poisoned ? ' — poisoned for ' + (food.poisonDuration ?? 5) + 's!' : '.'),
+  };
 }
 
 export function useWeapon(game, slot, wx, wy) {
@@ -313,8 +358,23 @@ export function stepGame(game, input, dt) {
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
     damageMob(world, mob, 4, mob.x >= x ? 0 : Math.PI, 65, game.effects);
   });
+  for (const effect of game.effects) {
+    if (!effect.drop || effect.collected) continue;
+    effect.collected = true;
+    const added = game.inventory.add(effect.drop.id, effect.drop.count);
+    const itemName = ITEMS[effect.drop.id]?.name ?? effect.drop.id;
+    if (added) {
+      game.dirty = true;
+      effect.inventoryChanged = true;
+      effect.message = `${effect.message} Got ${itemName.toLowerCase()}.`;
+    } else {
+      effect.message = `${effect.message} Inventory full!`;
+    }
+  }
   stepBleed(player, dt, game.effects);
+  stepPoison(player, dt, game.effects);
   const fatalBleed = (player.bleed ?? 0) > 0 && player.health === 0;
+  const fatalPoison = (player.poison ?? 0) > 0 && player.health === 0;
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
     takeDamage(player, hit.healthLoss ?? 10);
@@ -333,7 +393,9 @@ export function stepGame(game, input, dt) {
       ? 'Fatal fall. You woke up back on the island.'
       : fatalBleed
         ? 'You bled out. You woke up back on the island.'
-        : 'You washed back up on the island.';
+        : fatalPoison
+          ? 'You succumbed to poison. You woke up back on the island.'
+          : 'You washed back up on the island.';
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
@@ -472,10 +534,27 @@ export function collectChest(game, chestId) {
   return collected;
 }
 
-export function workbenchAt(game, tx, ty) {
-  if (tileAt(game.world, tx, ty) !== MATERIAL.workbench) return;
-  const item = { kind: WORKBENCH.id, name: ITEMS[WORKBENCH.id].name, tx, ty, x: (tx + .5) * TILE, y: (ty + .5) * TILE };
+function stationAt(game, tx, ty, material, kind) {
+  if (tileAt(game.world, tx, ty) !== material) return;
+  const item = { kind, name: ITEMS[kind].name, tx, ty, x: (tx + .5) * TILE, y: (ty + .5) * TILE };
   if (itemDistance(game.player, item) < INTERACTION_RANGE) return item;
+}
+
+export function workbenchAt(game, tx, ty) {
+  return stationAt(game, tx, ty, MATERIAL.workbench, WORKBENCH.id);
+}
+
+export function fireplaceAt(game, tx, ty) {
+  const placed = stationAt(game, tx, ty, MATERIAL.fireplace, FIREPLACE.id);
+  if (placed) return placed;
+  const villageCampfire = jungleVillageStructures.find(([, kind]) => kind === 'campfire');
+  if (!villageCampfire) return;
+  const [, , column, floor] = villageCampfire;
+  const vtx = column + WEST_EXTENSION;
+  if (tx === vtx && ty === floor - 1 && tileAt(game.world, vtx, floor)) {
+    const item = { kind: FIREPLACE.id, name: ITEMS[FIREPLACE.id].name, tx: vtx, ty: floor - 1, x: (vtx + .5) * TILE, y: (floor - 0.5) * TILE };
+    if (itemDistance(game.player, item) < INTERACTION_RANGE) return item;
+  }
 }
 
 export function nearestItem(game) {
@@ -506,12 +585,12 @@ export function nearestItem(game) {
   const bottom = Math.floor((row + distance) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      const bench = workbenchAt(game, tx, ty);
-      if (!bench) continue;
-      const difference = itemDistance(player, bench);
+      const station = workbenchAt(game, tx, ty) ?? fireplaceAt(game, tx, ty);
+      if (!station) continue;
+      const difference = itemDistance(player, station);
       if (difference < distance) {
         distance = difference;
-        result = bench;
+        result = station;
       }
     }
   }

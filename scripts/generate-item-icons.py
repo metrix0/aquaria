@@ -319,6 +319,49 @@ def sprite(name):
             p.rect(a,b,a+1,b+1,'#ecffe2')
         p.rect(10,14,13,17,'#d5d9a5')
         p.rect(11,16,12,16,'#738d73')
+    elif name=='fireplace':
+        p.poly([(2,19),(5,15),(19,15),(22,19),(19,22),(5,22)],'#414f55')
+        p.poly([(4,18),(7,16),(17,16),(20,18),(17,20),(7,20)],'#627379',None)
+        p.line([(5,17),(19,13)],WOOD_DARK,3)
+        p.line([(5,13),(19,17)],WOOD,3)
+        p.poly([(6,14),(8,8),(12,2),(16,8),(18,14),(12,16)],'#d95c48')
+        p.poly([(8,14),(10,8),(12,5),(15,9),(15,14)],'#f09c46',None)
+        p.poly([(10,14),(11,10),(12,8),(14,11),(13,14)],'#ffe17d',None)
+    elif name=='raw-fish':
+        p.poly([(16,12),(22,6),(21,12),(22,18)],'#588ba8')
+        p.poly([(2,12),(6,7),(13,6),(18,10),(18,14),(13,18),(6,17)],'#6fa7c4')
+        p.poly([(4,11),(9,8),(15,8),(16,12),(8,12)],'#a7dbec',None)
+        p.poly([(8,6),(12,2),(15,6)],'#588ba8')
+        p.rect(5,10,7,12,INK)
+        p.rect(5,10,6,11,'#e6f5f5')
+        p.line([(12,9),(12,15)],'#426d88')
+    elif name=='cooked-fish':
+        p.poly([(16,12),(22,6),(21,12),(22,18)],'#965632')
+        p.poly([(2,12),(6,7),(13,6),(18,10),(18,14),(13,18),(6,17)],'#c97e42')
+        p.poly([(4,11),(9,8),(15,8),(16,12),(8,12)],'#f0b56d',None)
+        p.poly([(8,6),(12,2),(15,6)],'#965632')
+        p.rect(5,10,7,12,'#5e3422')
+        p.line([(9,8),(11,16)],'#6e3a20')
+        p.line([(13,8),(15,16)],'#6e3a20')
+    elif name=='raw-crab':
+        for lx,rx,ly in [(3,18,13),(2,19,16),(4,17,19)]:
+            p.line([(6,ly),(lx,ly+2)],'#b84e3d',2)
+            p.line([(17,ly),(rx,ly+2)],'#b84e3d',2)
+        p.poly([(4,10),(2,5),(5,2),(8,5),(7,9)],'#d96c52')
+        p.poly([(19,10),(21,5),(18,2),(15,5),(16,9)],'#d96c52')
+        p.oval(5,8,19,19,'#d4694f',INK,1)
+        p.oval(7,10,16,15,'#f39e7a',None)
+        p.rect(8,9,9,10,INK)
+        p.rect(14,9,15,10,INK)
+    elif name=='cooked-crab':
+        for lx,rx,ly in [(3,18,13),(2,19,16),(4,17,19)]:
+            p.line([(6,ly),(lx,ly+2)],'#a63426',2)
+            p.line([(17,ly),(rx,ly+2)],'#a63426',2)
+        p.poly([(4,10),(2,5),(5,2),(8,5),(7,9)],'#de4c33')
+        p.poly([(19,10),(21,5),(18,2),(15,5),(16,9)],'#de4c33')
+        p.oval(5,8,19,19,'#d9462f',INK,1)
+        p.oval(7,10,16,15,'#ff9452',None)
+        p.rect(9,11,14,12,'#ffd285')
     elif name=='rope-bundle':
         p.oval(2,3,21,21,'#8b633f',INK,1)
         p.oval(4,5,19,19,None,'#d4aa72',3)
@@ -334,7 +377,7 @@ def sprite(name):
 ITEMS = [
  'root-ring','grappling-hook','explorers-map','kelp-dressing',
  'captains-cutlass','iron-sword','cobalt-spear','spear','copper-spear','bow','arrow',
- 'door','workbench','copper-snorkel','iron-snorkel','cobalt-snorkel',
+ 'door','workbench','fireplace','raw-fish','cooked-fish','raw-crab','cooked-crab','copper-snorkel','iron-snorkel','cobalt-snorkel',
  'diving-fin','scrappers-gloves','explorers-anklet','padded-leg-wraps','prospectors-brooch',
  'rusty-metal-scraps','torn-cloth','broken-gears','ancient-coins','glowshroom-torch','rope-bundle',
  'kelp','copper','iron','cobalt','copper-breastplate','iron-breastplate','cobalt-breastplate'

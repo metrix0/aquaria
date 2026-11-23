@@ -50,6 +50,7 @@ export function decodeSave(data) {
   const krakenChest = Number.isFinite(world.krakenChest?.x) && Number.isFinite(world.krakenChest?.y)
     ? { x: world.krakenChest.x + WEST_EXTENSION * TILE, y: world.krakenChest.y }
     : null;
+  const krakenDefeated = world.krakenDefeated === true || Boolean(krakenChest);
   return {
     inventory: data.inventory,
     appearance: data.appearance,
@@ -75,7 +76,8 @@ export function decodeSave(data) {
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
-      ...(krakenChest ? { krakenChest } : {}) },
+      ...(krakenChest ? { krakenChest } : {}),
+      ...(krakenDefeated ? { krakenDefeated: true } : {}) },
   };
 }
 
@@ -108,6 +110,7 @@ export function encodeSave(game, saveTerrain = true) {
       placedRopes: world.placedRopes ?? [],
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),
       ...(droppedKrakenChest ? { krakenChest: { x: droppedKrakenChest.x - WEST_EXTENSION * TILE, y: droppedKrakenChest.restY ?? droppedKrakenChest.y } } : {}),
+      ...(world.krakenDefeated ? { krakenDefeated: true } : {}),
       chests: Object.fromEntries(Array.from(game.chests, ([id, slots]) => [id, slots.map((stack) => stack && { ...stack })])),
     },
   };

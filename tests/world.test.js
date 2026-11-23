@@ -6,16 +6,16 @@ import { GROVE_FLOOR_GAP, ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, grove
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, RAW_CRAB, RAW_FISH, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
-import { caveEnemySpecs, damageMob, jellyfishShockRadius, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
+import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
 import { GRAPPLING_HOOK, Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useFood, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
@@ -3923,4 +3923,169 @@ test('deep cave lighting and caveStructureLight stay consistent across Clear Day
   } finally {
     globalThis.Path2D = prevPath2D;
   }
+});
+
+test('defeated kraken boss never respawns over time, on player death, or after save and reload', () => {
+  const game = createGame();
+  const { world } = game;
+  const kraken = world.mobs.find((mob) => mob.kind === 'kraken');
+  assert.ok(kraken);
+
+  damageMob(world, kraken, kraken.maxHealth, 0, 0, game.effects);
+  assert.equal(world.krakenDefeated, true);
+  assert.equal(kraken.respawn, 0);
+
+  // Step through full death animation and well past the old 120s respawnDelay.
+  for (let i = 0; i < 120; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(world.mobs.some((mob) => mob.kind === 'kraken'), false);
+
+  for (let i = 0; i < 150; i++) stepMobs(world, game.player, 1, game.elapsed + i, false, false, game.enemies, game.effects);
+  assert.equal(world.mobs.some((mob) => mob.kind === 'kraken'), false);
+
+  // Player death / hostiles reset must not revive the kraken.
+  resetHostiles(world);
+  assert.equal(world.mobs.some((mob) => mob.kind === 'kraken'), false);
+
+  // Save & reload preserves krakenDefeated and keeps the boss absent.
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.equal(reloaded.world.krakenDefeated, true);
+  assert.equal(reloaded.world.mobs.some((mob) => mob.kind === 'kraken'), false);
+
+  // Room reset restores the boss for a new session.
+  const reset = resetRoomProgress(reloaded);
+  assert.equal(reset.world.krakenDefeated, false);
+  assert.equal(reset.world.mobs.some((mob) => mob.kind === 'kraken'), true);
+});
+
+test('fish and crabs drop raw food that can be eaten with poison risk or cooked safely in a fireplace', () => {
+  const game = createGame();
+  const { world, player } = game;
+  toggleGodMode(world, player);
+
+  // Killing a fish grants raw-fish; killing a crab grants raw-crab.
+  const fish = world.mobs.find((mob) => mob.kind === 'fish');
+  const crab = world.mobs.find((mob) => mob.kind === 'crab');
+  assert.ok(fish && crab);
+  fish.x = player.x + 22;
+  fish.y = player.y + 11;
+  crab.x = player.x - 22;
+  crab.y = player.y + 15;
+  world.mobs = [fish, crab];
+
+  game.inventory.hotbar[1] = { id: COBALT_SPEAR.id, count: 1 };
+  useWeapon(game, 1, fish.x, fish.y);
+  for (let i = 0; i < 40; i++) {
+    fish.x = player.x + 22;
+    fish.y = player.y + 11;
+    stepGame(game, {}, 1 / 60);
+  }
+  useWeapon(game, 1, crab.x, crab.y);
+  for (let i = 0; i < 40; i++) {
+    crab.x = player.x - 22;
+    crab.y = player.y + 15;
+    stepGame(game, {}, 1 / 60);
+  }
+  assert.equal(game.inventory.count(RAW_FISH.id), 1);
+  assert.equal(game.inventory.count(RAW_CRAB.id), 1);
+
+  // Move raw drops from backpack to hotbar and verify eating behavior.
+  const bpFish = game.inventory.backpack.findIndex((s) => s?.id === RAW_FISH.id);
+  const bpCrab = game.inventory.backpack.findIndex((s) => s?.id === RAW_CRAB.id);
+  assert.ok(bpFish >= 0 && bpCrab >= 0);
+  assert.equal(moveInventoryStack(game, null, { group: 'backpack', index: bpFish }, { group: 'hotbar', index: 2 }), true);
+  assert.equal(moveInventoryStack(game, null, { group: 'backpack', index: bpCrab }, { group: 'hotbar', index: 4 }), true);
+
+  // Raw fish gives 5 oxygen and 10% chance of 5s poison.
+  toggleGodMode(world, player);
+  const rawFishSlot = 2;
+  player.oxygen = 18;
+  assert.equal(useFood(game, rawFishSlot, () => 0.05).message, 'Oxygen is already full.');
+  assert.equal(game.inventory.count(RAW_FISH.id), 1);
+
+  player.oxygen = 6;
+  const safeFish = useFood(game, rawFishSlot, () => 0.5);
+  assert.ok(safeFish.inventoryChanged && !safeFish.poisoned);
+  assert.equal(player.oxygen, 11);
+  assert.equal(player.poison, 0);
+
+  grantItem(game, RAW_FISH.id, 1);
+  const poisonFishSlot = game.inventory.hotbar.findIndex((s) => s?.id === RAW_FISH.id);
+  const badFish = useFood(game, poisonFishSlot, () => 0.05);
+  assert.equal(badFish.poisoned, true);
+  assert.equal(player.oxygen, 16);
+  assert.equal(player.poison, 5);
+  player.poison = 0;
+
+  // Raw crab gives 5 health and 10% chance of 5s poison.
+  const rawCrabSlot = 4;
+  player.health = 100;
+  assert.equal(useFood(game, rawCrabSlot, () => 0.05).message, 'Health is already full.');
+  assert.equal(game.inventory.count(RAW_CRAB.id), 1);
+
+  player.health = 50;
+  const safeCrab = useFood(game, rawCrabSlot, () => 0.5);
+  assert.ok(safeCrab.inventoryChanged && !safeCrab.poisoned);
+  assert.equal(player.health, 55);
+  assert.equal(player.poison, 0);
+
+  grantItem(game, RAW_CRAB.id, 1);
+  const poisonCrabSlot = game.inventory.hotbar.findIndex((s) => s?.id === RAW_CRAB.id);
+  const badCrab = useFood(game, poisonCrabSlot, () => 0.05);
+  assert.equal(badCrab.poisoned, true);
+  assert.equal(player.health, 60);
+  assert.equal(player.poison, 5);
+  player.poison = 0;
+
+  // Cooking requires a fireplace (crafted/placed or village campfire) and transforms raw -> cooked safely.
+  grantItem(game, RAW_FISH.id, 1);
+  grantItem(game, RAW_CRAB.id, 1);
+  assert.equal(canCraftItem(game, COOKED_FISH), false);
+  assert.equal(craftItem(game, COOKED_FISH), false);
+  assert.equal(canCraftItem(game, COOKED_CRAB), false);
+
+  for (const [id, count] of Object.entries(FIREPLACE.cost)) grantItem(game, id, count);
+  assert.equal(craftItem(game, FIREPLACE), true);
+  const fpSlot = game.inventory.hotbar.findIndex((s) => s?.id === FIREPLACE.id);
+  const tx = Math.floor(player.x / TILE) + 2;
+  const ty = Math.floor((player.y + player.height) / TILE) - 1;
+  editTile(world, tx, ty, MATERIAL.air);
+  editTile(world, tx, ty + 1, MATERIAL.sand);
+  const placePlan = planTileAction(game, targetTile(game, (tx + 0.5) * TILE, (ty + 0.5) * TILE), true, fpSlot);
+  assert.equal(placePlan?.after, MATERIAL.fireplace);
+  commitTileAction(game, placePlan);
+  assert.equal(fireplaceAt(game, tx, ty)?.kind, FIREPLACE.id);
+  assert.equal(nearestItem(game)?.kind, FIREPLACE.id);
+
+  assert.equal(craftItem(game, COOKED_FISH, FIREPLACE.id), true);
+  assert.equal(craftItem(game, COOKED_CRAB, FIREPLACE.id), true);
+  assert.equal(game.inventory.count(RAW_FISH.id), 0);
+  assert.equal(game.inventory.count(RAW_CRAB.id), 0);
+  assert.equal(game.inventory.count(COOKED_FISH.id), 1);
+  assert.equal(game.inventory.count(COOKED_CRAB.id), 1);
+
+  // Cooked fish gives 15 oxygen with no poison; cooked crab gives 15 health with no poison.
+  player.oxygen = 2;
+  const cookedFishSlot = game.inventory.hotbar.findIndex((s) => s?.id === COOKED_FISH.id);
+  const ateFish = useFood(game, cookedFishSlot, () => 0);
+  assert.equal(ateFish.poisoned, false);
+  assert.equal(player.oxygen, 17);
+  assert.equal(player.poison, 0);
+
+  player.health = 60;
+  const cookedCrabSlot = game.inventory.hotbar.findIndex((s) => s?.id === COOKED_CRAB.id);
+  const ateCrab = useFood(game, cookedCrabSlot, () => 0);
+  assert.equal(ateCrab.poisoned, false);
+  assert.equal(player.health, 75);
+  assert.equal(player.poison, 0);
+
+  // Placed fireplace survives save/reload, and jungle village campfire also works as a fireplace station.
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.equal(tileAt(reloaded.world, tx, ty), MATERIAL.fireplace);
+  assert.equal(fireplaceAt(reloaded, tx, ty)?.kind, FIREPLACE.id);
+
+  const [, , vCol, vFloor] = jungleVillageStructures.find(([, kind]) => kind === 'campfire');
+  const vtx = vCol + WEST_EXTENSION;
+  reloaded.player.x = (vtx + 0.5) * TILE;
+  reloaded.player.y = vFloor * TILE - reloaded.player.height;
+  assert.equal(fireplaceAt(reloaded, vtx, vFloor - 1)?.kind, FIREPLACE.id);
 });

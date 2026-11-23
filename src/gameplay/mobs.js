@@ -1,3 +1,4 @@
+import { RAW_CRAB, RAW_FISH } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
 import { ambientMobSpecs, stepAmbientMob } from './ambient-fauna.js';
@@ -152,6 +153,7 @@ function stepProjectiles(world, player, dt, time, effects) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
+    if (mob.kind === 'kraken' && (mob.health <= 0 || world.krakenDefeated)) continue;
     if (ambientMobSpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
@@ -229,7 +231,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
     if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
       stepKrakenDeath(world, mob, dt, effects);
-      if (mob.testSpawn && mob.deathTime === 0) {
+      if (mob.deathTime === 0) {
         world.mobs.splice(world.mobs.indexOf(mob), 1);
         continue;
       }
@@ -397,7 +399,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     if (mob.enemyType || mob.krakenMinion || (mob.testSpawn && mob.kind !== 'kraken')) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
-    } else if (mob.kind !== 'ghost' || mob.resident) {
+    } else if (mob.kind !== 'kraken' && (mob.kind !== 'ghost' || mob.resident)) {
       mob.respawn = mob.respawnDelay ?? 45;
     }
     if (mob.kind === 'kraken') {
@@ -405,8 +407,10 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       mob.windup = 0;
       mob.deathTime = KRAKEN_DEATH_DURATION;
       mob.deathImploded = false;
+      if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
+    const dropId = mob.kind === 'fish' ? RAW_FISH.id : mob.kind === 'crab' ? RAW_CRAB.id : null;
     effect = {
       x: mob.x,
       y: cy,
@@ -415,6 +419,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       count: ambientMobSpecs[mob.kind] ? 4 : 14,
       spread: ambientMobSpecs[mob.kind] ? 22 : 72,
       message: 'Defeated ' + label + '!',
+      ...(dropId ? { drop: { id: dropId, count: 1 } } : {}),
     };
   } else {
     effect = {

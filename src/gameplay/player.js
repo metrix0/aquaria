@@ -100,13 +100,21 @@ export function playerStatusEffects(player) {
       detail: 'Thick venom drastically slows swimming speed.',
     });
   }
+  if ((player.poison ?? 0) > 0) {
+    effects.push({
+      id: 'poisoned',
+      title: 'Poisoned',
+      seconds: Math.ceil(player.poison),
+      detail: 'Venom or raw food toxin drains health over time.',
+    });
+  }
   return effects;
 }
 
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
 function tryStepUp(world, player, targetDx, remainingX) {
@@ -227,6 +235,8 @@ export function toggleGodMode(world, player) {
     player.confusedGrace = 0;
     player.bleed = 0;
     player.bleedTick = 0;
+    player.poison = 0;
+    player.poisonTick = 0;
     player.neurotoxin = 0;
     player.inkCooldown = 0;
     player.inkSplats = [];
@@ -443,29 +453,37 @@ export function movePlayer(world, player, input, dt) {
   }
 }
 
-export function stepBleed(player, dt, effects) {
-  if (player.flightOrigin || !(player.bleed > 0)) {
-    if (player.bleed) player.bleed = 0;
-    player.bleedTick = 0;
+function stepOverTimeDebuff(player, dt, effects, key, tickKey, color) {
+  if (player.flightOrigin || !(player[key] > 0)) {
+    if (player[key]) player[key] = 0;
+    player[tickKey] = 0;
     return 0;
   }
-  player.bleed = Math.max(0, player.bleed - dt);
-  player.bleedTick = (player.bleedTick ?? 1) - dt;
+  player[key] = Math.max(0, player[key] - dt);
+  player[tickKey] = (player[tickKey] ?? 1) - dt;
   let lost = 0;
-  while (player.bleedTick <= 0 && player.bleed > 0 && player.health > 0) {
-    player.bleedTick += 1;
+  while (player[tickKey] <= 0 && player[key] > 0 && player.health > 0) {
+    player[tickKey] += 1;
     player.health = Math.max(0, player.health - 1);
     lost += 1;
     effects?.push({
       x: player.x + (Math.random() - 0.5) * 8,
       y: player.y + 8 + Math.random() * 10,
-      color: '#c4313d',
+      color,
       count: 4,
       spread: 36,
     });
   }
-  if (player.bleed === 0) player.bleedTick = 0;
+  if (player[key] === 0) player[tickKey] = 0;
   return lost;
+}
+
+export function stepBleed(player, dt, effects) {
+  return stepOverTimeDebuff(player, dt, effects, 'bleed', 'bleedTick', '#c4313d');
+}
+
+export function stepPoison(player, dt, effects) {
+  return stepOverTimeDebuff(player, dt, effects, 'poison', 'poisonTick', '#79d956');
 }
 
 export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
