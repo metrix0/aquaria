@@ -1,4 +1,5 @@
 import { START_WORLD_TIME } from '../environment.js';
+import { absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
 import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
@@ -24,7 +25,7 @@ export function equippedRing(game) {
 }
 
 export function oxygenCapacity(game) {
-  return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0);
+  return BREATH_SECONDS + (equippedSnorkel(game)?.bonusSeconds ?? 0) + skillBonuses(game.classes).oxygen;
 }
 
 function setSnorkel(game, id) {
@@ -39,6 +40,7 @@ function setFeet(game, id) {
 export function createGame(snapshot) {
   const game = {
     world: createWorld(),
+    classes: createClassProgress(snapshot?.progress?.classes),
     inventory: new Inventory(snapshot?.inventory),
     progress: {
       snorkel: snapshot?.progress?.snorkel ?? null,
@@ -106,6 +108,8 @@ export function createGame(snapshot) {
     }
   }
   game.player.addons = game.progress.addons;
+  game.player.skillBonuses = skillBonuses(game.classes);
+  game.world.soulRewards = snapshot?.world?.soulRewards ?? [];
   game.player.glowSeconds = Math.max(0, snapshot?.progress?.glowSeconds ?? 0);
   syncMobs(world, game.player);
   return game;
@@ -114,6 +118,7 @@ export function createGame(snapshot) {
 export function resetRoomProgress(previous) {
   const world = previous.world;
   world.harvested.clear();
+  world.soulRewards = [];
   for (const [tx, ty, material] of editedTiles(world)) {
     const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
     if (uprooted) world.harvested.add(uprooted.id);
@@ -131,6 +136,7 @@ export function resetRoomProgress(previous) {
     inventory: new Inventory(),
     chests: restoreChests(world, undefined, undefined, previous.weatherSeed),
     progress: { snorkel: null, ring: null, offhand: null, addons },
+    classes: createClassProgress(),
     player,
     dirty: true,
     elapsed: 0,
@@ -219,7 +225,7 @@ export function useWeapon(game, slot, wx, wy) {
     game.player.facing = facing;
     game.attack = {
       kind: weapon?.id ?? 'melee', angle, facing, timer: duration, duration,
-      tier: item?.pickaxe, damage: weapon?.damage ?? 1, knockback: weapon?.knockback, hitMobs: new Set(),
+      tier: item?.pickaxe, damage: (weapon?.damage ?? 1) + (game.player.skillBonuses?.attack ?? 0), knockback: weapon?.knockback, hitMobs: new Set(),
     };
     return { handled: true };
   }
@@ -238,7 +244,7 @@ export function useWeapon(game, slot, wx, wy) {
     y: oy + dirY * 10,
     dx: dirX * ARROW.speed,
     dy: dirY * ARROW.speed,
-    damage: ARROW.damage,
+    damage: ARROW.damage + (game.player.skillBonuses?.attack ?? 0),
     knockback: ARROW.knockback,
     life: 2.5,
   });
@@ -300,7 +306,7 @@ export function stepGame(game, input, dt) {
   if (player.glowSeconds > 0) player.glowSeconds = Math.max(0, player.glowSeconds - dt);
   let fallLoss = 0;
   if (fallDamage) {
-    fallLoss = takeDamage(player, Math.max(1, Math.round(fallDamage * (player.addons?.legs === 'padded-leg-wraps' ? 0.85 : 1))));
+    fallLoss = takeDamage(player, Math.max(0, Math.round(fallDamage * (player.addons?.legs === 'padded-leg-wraps' ? 0.85 : 1) * (1 - (player.skillBonuses?.fall ?? 0)))));
     player.hurt = Math.max(player.hurt, 0.85);
   }
   const fatalFall = fallLoss > 0 && player.health === 0;
@@ -309,11 +315,25 @@ export function stepGame(game, input, dt) {
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
   stepRootWave(game, dt);
   stepDroppedChests(game, dt);
+  let soulMessage = null;
+  for (const reward of [...(world.soulRewards ?? [])]) {
+    if (game.classes.claimed.includes(reward.id)) {
+      world.soulRewards.splice(world.soulRewards.indexOf(reward), 1);
+      continue;
+    }
+    const soulItem = SOUL_ITEMS[reward.type];
+    if (!game.inventory.add(soulItem, 1)) continue;
+    game.classes.claimed.push(reward.id);
+    world.soulRewards.splice(world.soulRewards.indexOf(reward), 1);
+    game.dirty = true;
+    soulMessage = 'A ' + (reward.type === 'greater' ? 'Greater' : 'Lesser') + ' Soul entered your backpack.';
+  }
   stepProjectiles(game, dt);
   stepCaveTraps(world, player, game.elapsed, dt, game.effects, (mob, x) => {
     damageMob(world, mob, 4, mob.x >= x ? 0 : Math.PI, 65, game.effects);
   });
   stepBleed(player, dt, game.effects);
+  if (player.health > 0) player.health = Math.min(MAX_HEALTH, player.health + (player.skillBonuses?.regen ?? 0) * dt);
   const fatalBleed = (player.bleed ?? 0) > 0 && player.health === 0;
   if (hit) {
     player.hurt = Math.max(player.hurt ?? 0, 0.85);
@@ -323,6 +343,7 @@ export function stepGame(game, input, dt) {
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
+    game.player.skillBonuses = skillBonuses(game.classes);
     game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.projectiles.length = 0;
@@ -337,6 +358,7 @@ export function stepGame(game, input, dt) {
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
+  if (soulMessage) return soulMessage;
   if (fallLoss) return `Hard landing. −${fallLoss} health`;
 }
 
@@ -588,6 +610,11 @@ export function grantItem(game, id, count) {
 export function useUtilityItem(game, slot, target) {
   const inventory = game.inventory;
   const held = inventory.hotbar[slot]?.id;
+  if (held === SOUL_ITEMS.lesser || held === SOUL_ITEMS.greater) {
+    const type = held === SOUL_ITEMS.lesser ? 'lesser' : 'greater';
+    const error = absorbSouls(game, type, 1);
+    return { inventoryChanged: !error, message: error ?? 'Soul attuned. Open Skill Tree to spend its power.' };
+  }
   if (held === 'glowshroom-torch') {
     inventory.consume(inventory.hotbar, slot, 1);
     game.player.glowSeconds = Math.max(game.player.glowSeconds ?? 0, 90);
@@ -680,7 +707,8 @@ export function advanceMining(game, target, current, dt, slot = 0) {
   const same = current?.action && current.tier === tier && fixture === (current.action.door ?? current.action.fixtureId) &&
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
   const duration = (tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand) *
-    (equippedAddon(game, 'hands')?.miningSpeed ? 1 - equippedAddon(game, 'hands').miningSpeed : 1);
+    (equippedAddon(game, 'hands')?.miningSpeed ? 1 - equippedAddon(game, 'hands').miningSpeed : 1) *
+    (1 - (game.player.skillBonuses?.mine ?? 0));
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier, tool };
 }

@@ -127,7 +127,7 @@ function tryStepUp(world, player, targetDx, remainingX) {
 
 export function takeDamage(player, damage) {
   const protection = ARMOR[player.armor]?.protection ?? 0;
-  const loss = Math.max(1, Math.round(damage * (1 - protection)));
+  const loss = Math.max(0, Math.round(damage * (1 - protection) * (1 - (player.skillBonuses?.resist ?? 0))));
   player.health = Math.max(0, player.health - loss);
   return loss;
 }
@@ -371,9 +371,9 @@ export function movePlayer(world, player, input, dt) {
   const horizontal = Number(Boolean(right)) - Number(Boolean(left));
 
   if (horizontal) player.facing = horizontal;
-  const swimMultiplier = (FEET_GEAR[player.feet]?.swimMultiplier ?? 1) * ((player.neurotoxin ?? 0) > 0 ? 0.38 : 1);
+  const swimMultiplier = (FEET_GEAR[player.feet]?.swimMultiplier ?? 1) * ((player.neurotoxin ?? 0) > 0 ? 0.38 : 1) * (1 + (player.skillBonuses?.swim ?? 0));
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
-  const speed = (bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112) * (!bodyInWater ? 1 + (player.addons?.feet === 'explorers-anklet' ? 0.05 : 0) : 1);
+  const speed = (bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112) * (!bodyInWater ? 1 + (player.addons?.feet === 'explorers-anklet' ? 0.05 : 0) + (player.skillBonuses?.move ?? 0) : 1);
   player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);

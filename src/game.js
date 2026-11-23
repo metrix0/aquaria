@@ -1,4 +1,5 @@
 import { Inventory, ITEMS } from './inventory.js';
+import { activateClass, unlockSkill as purchaseSkill, absorbSouls } from './classes.js';
 import { ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
@@ -302,6 +303,22 @@ const ui = createUI({
     storeProgress();
   },
   select, enterRoom, leaveRoom, copyRoom, restart, inventoryChanged,
+  getGame: () => game,
+  chooseClass(id) {
+    const error = activateClass(game, id);
+    if (!error) storeProgress();
+    return error;
+  },
+  unlockSkill(id) {
+    const error = purchaseSkill(game, id);
+    if (!error) storeProgress();
+    return error;
+  },
+  absorbSoul(type, quantity) {
+    const error = absorbSouls(game, type, quantity);
+    if (!error) inventoryChanged();
+    return error;
+  },
   zoomBy(delta) {
     zoomIndex = clamp(zoomIndex + delta, 0, zoomLevels.length - 1);
     updateViewport();

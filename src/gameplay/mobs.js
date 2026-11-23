@@ -400,6 +400,12 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     } else if (mob.kind !== 'ghost' || mob.resident) {
       mob.respawn = mob.respawnDelay ?? 45;
     }
+    const rewardType = mob.kind === 'kraken' ? 'greater'
+      : ['mimic', 'hammer', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
+    if (rewardType && !mob.krakenMinion) {
+      world.soulRewards ??= [];
+      world.soulRewards.push({ id: mob.id ?? mob.kind + ':' + Math.floor(mob.homeX || mob.x), type: rewardType });
+    }
     if (mob.kind === 'kraken') {
       clearKrakenState(mob);
       mob.windup = 0;
