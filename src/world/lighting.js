@@ -2,10 +2,12 @@ import { solidAt, TILE_NEIGHBORS } from "../world.js";
 import { COLS, ROWS, groundAt } from "./generation.js";
 
 export {
+  FIREPLACE_LIGHT,
   caveAmbientAt,
   caveStructureLight,
   createUndergroundLight,
   createUndergroundLight as createCaveLight,
+  fireplaceLightSources,
   undergroundAmbientAt,
 } from "./underground-lighting.js";
 

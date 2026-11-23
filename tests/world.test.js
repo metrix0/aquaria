@@ -3844,6 +3844,40 @@ test('renderer emits colored light gradients for cave lamps and orange/green jun
 
     drawAround(greenTorch);
     assert.ok(stops.some((c) => c.startsWith('rgba(98, 217, 150,')));
+
+    const fireTx = 95;
+    const fireTy = 23;
+    editTile(game.world, fireTx, fireTy + 1, MATERIAL.stone);
+    editTile(game.world, fireTx, fireTy - 1, MATERIAL.air);
+    editTile(game.world, fireTx, fireTy, MATERIAL.fireplace);
+    game.world.caveStructures = [];
+    stops.length = 0;
+    game.player.x = (fireTx + 0.5) * TILE;
+    game.player.y = (fireTy - 1) * TILE;
+    renderer.draw({
+      world: game.world,
+      player: game.player,
+      snorkel: null,
+      camera: { x: (fireTx + 0.5) * TILE - 160, y: fireTy * TILE - 90, width: 320, height: 180 },
+      time: 1.5,
+      elapsed: 1.5,
+      aim: null,
+      mining: null,
+      miningSwing: null,
+      held: null,
+      attack: null,
+      hasArrow: false,
+      playerArrows: [],
+      targetMob: null,
+      particles: [],
+      reducedMotion: false,
+      conditions: { darkness: 1, rain: 0, night: true },
+      worldTime: 0.75,
+      weatherSeed: 0,
+      caveShadowsHidden: true,
+      openChestId: null,
+    });
+    assert.ok(stops.some((c) => c.startsWith('rgba(244, 156, 68,')));
   } finally {
     globalThis.Path2D = prevPath2D;
   }

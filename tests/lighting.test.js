@@ -4,13 +4,17 @@ import { MATERIAL } from '../src/content.js';
 import { advanceMining, createGame, targetTile } from '../src/gameplay/simulation.js';
 import { createWorld, editTile, hasOpenFace, tileAt, waterTileAt } from '../src/world.js';
 import { groundAt, TILE, WATER_ROW, WEST_EXTENSION } from '../src/world/generation.js';
+import { decodeSave, encodeSave } from '../src/save.js';
+import { JUNGLE_ISLAND } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE } from '../src/world/jungle-cave.js';
 import {
+  FIREPLACE_LIGHT,
   caveAmbientAt,
   caveStructureLight,
   createCaveLight,
   createSurfaceLight,
   createUndergroundLight,
+  fireplaceLightSources,
   undergroundAmbientAt,
 } from '../src/world/lighting.js';
 
@@ -292,4 +296,73 @@ test('underground light system emits mushroom cyan, glowshroom torch cyan, and d
   assert.equal(torchGlow.r, 107);
   assert.equal(torchGlow.g, 227);
   assert.equal(torchGlow.b, 220);
+});
+
+test('placed fireplace illuminates dark caves and chambers, respects solid walls, removes light when mined, and persists across saves', () => {
+  const game = createGame();
+  const { world } = game;
+  const underground = createUndergroundLight();
+  const column = 95;
+  const row = 56;
+  // Carve two sealed chambers separated by a 1-tile stone wall.
+  for (let x = column - 4; x <= column + 6; x++) {
+    for (let y = row - 2; y <= row + 2; y++) {
+      editTile(world, x, y, MATERIAL.stone);
+    }
+  }
+  for (let x = column - 2; x <= column + 2; x++) {
+    editTile(world, x, row, MATERIAL.air);
+    editTile(world, x, row - 1, MATERIAL.air);
+  }
+  for (let x = column + 4; x <= column + 5; x++) {
+    editTile(world, x, row, MATERIAL.air);
+    editTile(world, x, row - 1, MATERIAL.air);
+  }
+  world.caveStructures = [];
+  world.caveMushrooms = [];
+
+  // Place player far to the left so chamber brightness only comes from the fireplace.
+  const farPlayer = { x: (column - 25) * TILE, y: row * TILE, height: TILE, glowSeconds: 0 };
+  const bounds = { left: column - 28, right: column + 10, top: row - 6, bottom: row + 6 };
+  underground.update(world, farPlayer, bounds, 1.2);
+  assert.equal(underground.at(column, row), 0);
+  assert.equal(underground.colorAt(column, row).strength, 0);
+
+  // Place fireplace inside the left chamber: spills warm orange firelight around it without leaking through the stone wall.
+  editTile(world, column, row, MATERIAL.fireplace);
+  underground.update(world, farPlayer, bounds, 1.2);
+  assert.ok(underground.at(column - 1, row) > 0.4, 'open chamber tile beside fireplace is lit');
+  assert.ok(underground.at(column, row - 1) > 0.4, 'open air above fireplace is lit');
+  const warm = underground.colorAt(column - 1, row);
+  assert.ok(warm.strength > 0.5);
+  assert.equal(warm.r, FIREPLACE_LIGHT.r);
+  assert.equal(warm.g, FIREPLACE_LIGHT.g);
+  assert.equal(warm.b, FIREPLACE_LIGHT.b);
+  assert.equal(underground.at(column + 4, row), 0, 'solid stone wall blocks fireplace light from sealed chamber');
+  assert.equal(underground.colorAt(column + 4, row).strength, 0);
+
+  // Mining the wall lets light spill into the newly connected passage.
+  editTile(world, column + 3, row, MATERIAL.air);
+  underground.update(world, farPlayer, bounds, 1.2);
+  assert.ok(underground.at(column + 4, row) > 0, 'opening the wall admits fireplace light');
+
+  // Jungle village campfire also counts as a warm flickering fireplace light source.
+  const campfire = fireplaceLightSources(world, 2.5).find(
+    (source) => source.tx === 368 + WEST_EXTENSION && source.floor === JUNGLE_ISLAND.floor,
+  );
+  assert.ok(campfire, 'jungle village campfire emits fireplace light');
+  assert.equal(campfire.emitter.color, FIREPLACE_LIGHT.color);
+
+  // Save/reload preserves placed fireplace and its light emission.
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.equal(tileAt(reloaded.world, column, row), MATERIAL.fireplace);
+  underground.update(reloaded.world, farPlayer, bounds, 1.2);
+  assert.ok(underground.at(column - 1, row) > 0.4);
+  assert.equal(underground.colorAt(column - 1, row).r, FIREPLACE_LIGHT.r);
+
+  // Mining the fireplace removes the light source.
+  editTile(reloaded.world, column, row, MATERIAL.air);
+  underground.update(reloaded.world, farPlayer, bounds, 1.2);
+  assert.equal(underground.at(column - 1, row), 0);
+  assert.equal(underground.colorAt(column - 1, row).strength, 0);
 });

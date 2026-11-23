@@ -1,10 +1,14 @@
+import { MATERIAL } from "../content.js";
 import { ROOT_GROVE } from "./island-cave.js";
 import { JUNGLE_CAVE } from "./jungle-cave.js";
 import { hasBackgroundWall } from "./atmosphere.js";
+import { jungleVillageStructures } from "./jungle-village.js";
 import {
+  editedTiles,
   hasOpenFace,
   hasExposedCaveFloor,
   solidAt,
+  tileAt,
   TILE_NEIGHBORS,
 } from "../world.js";
 import { COLS, ROWS, TILE, WEST_EXTENSION, clamp } from "./generation.js";
@@ -102,6 +106,18 @@ function withTorchFlicker(base, structure, time) {
   };
 }
 
+export const FIREPLACE_LIGHT = Object.freeze({
+  level: 56,
+  r: 244,
+  g: 156,
+  b: 68,
+  color: "#f49c44",
+  offsetX: 0,
+  offsetY: -8,
+  radius: TILE * 6,
+  alpha: 0.3,
+});
+
 /** Describe emitted cave light color and halo metadata for a cave structure. */
 export function caveStructureLight(structure, time = 0) {
   if (!structure) return null;
@@ -115,6 +131,34 @@ export function caveStructureLight(structure, time = 0) {
   }
   if (structure.kind === "cult-idol") return CULT_IDOL_LIGHT;
   return null;
+}
+
+/** Enumerate flickering warm firelight emitters for placed fireplaces and village campfires. */
+export function fireplaceLightSources(world, time = 0) {
+  if (!world) return [];
+  const sources = [];
+  for (const [tx, ty, material] of editedTiles(world)) {
+    if (material !== MATERIAL.fireplace) continue;
+    sources.push({
+      tx,
+      ty,
+      floor: ty + 1,
+      emitter: withTorchFlicker(FIREPLACE_LIGHT, { tx, floor: ty + 1 }, time),
+    });
+  }
+  for (const [, kind, column, floor] of jungleVillageStructures) {
+    if (kind !== "campfire") continue;
+    const tx = column + WEST_EXTENSION;
+    const ty = floor - 1;
+    if (!tileAt(world, tx, floor) || tileAt(world, tx, ty)) continue;
+    sources.push({
+      tx,
+      ty,
+      floor,
+      emitter: withTorchFlicker(FIREPLACE_LIGHT, { tx, floor }, time),
+    });
+  }
+  return sources;
 }
 
 export function caveAmbientAt(world, player, tx, ty) {
@@ -186,7 +230,13 @@ export function createUndergroundLight() {
     }
   }
 
-  function propagateColoredLight(world, player, startIndex, emitter) {
+  function propagateColoredLight(
+    world,
+    player,
+    startIndex,
+    emitter,
+    allowFromOrigin = false,
+  ) {
     stamp += 1;
     if (stamp >= 65535) {
       emitterStamp.fill(0);
@@ -213,7 +263,7 @@ export function createUndergroundLight() {
           continue;
         const neighbor = index + dy * width + dx;
         const intoRock = isSolid(world, player, neighbor);
-        if (fromRock && !intoRock) continue;
+        if ((head > 0 || !allowFromOrigin) && fromRock && !intoRock) continue;
         const next = level - (intoRock ? colorRockFalloff : colorOpenFalloff);
         if (next <= 0) continue;
         if (emitterStamp[neighbor] !== stamp) {
@@ -363,6 +413,24 @@ export function createUndergroundLight() {
       const startIndex = y * width + x;
       lightCell(startIndex, emitter.level);
       propagateColoredLight(world, player, startIndex, emitter);
+    }
+
+    for (const fire of fireplaceLightSources(world, time)) {
+      const x = fire.tx - left;
+      const y = fire.ty - top;
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const startIndex = y * width + x;
+      lightCell(startIndex, fire.emitter.level);
+      for (const [dx, dy] of TILE_NEIGHBORS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+        const neighbor = ny * width + nx;
+        if (!isSolid(world, player, neighbor)) {
+          lightCell(neighbor, fire.emitter.level - playerFalloff);
+        }
+      }
+      propagateColoredLight(world, player, startIndex, fire.emitter, true);
     }
 
     for (const [dx, rise] of [

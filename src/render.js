@@ -54,6 +54,7 @@ import { createSurfaceLight } from "./world/lighting.js";
 import {
   caveStructureLight,
   createUndergroundLight as createCaveLight,
+  fireplaceLightSources,
   undergroundAmbientAt,
 } from "./world/underground-lighting.js";
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
@@ -1571,23 +1572,19 @@ export function createRenderer(canvas) {
   }
 
   function drawCaveStructureLights(world, { left, right, top, bottom }, time, overview, reducedMotion) {
-    const structures = world.caveStructures;
-    if (!structures?.length) return;
+    const lightTime = overview || reducedMotion ? 0 : time;
+    const structures = world.caveStructures ?? [];
+    const fireplaces = fireplaceLightSources(world, lightTime);
+    if (!structures.length && !fireplaces.length) return;
     const margin = 8;
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    for (const structure of structures) {
-      const emitter = caveStructureLight(structure, overview || reducedMotion ? 0 : time);
-      if (!emitter) continue;
-      const { tx, floor } = structure;
+    const drawStructureGlow = (tx, floor, emitter) => {
       if (
         tx < left - margin ||
         tx >= right + margin ||
         floor < top - margin ||
-        floor > bottom + margin ||
-        !hasExposedCaveFloor(world, structure)
+        floor > bottom + margin
       ) {
-        continue;
+        return;
       }
       const cx = (tx + 0.5) * TILE + emitter.offsetX;
       const cy = floor * TILE + emitter.offsetY;
@@ -1620,6 +1617,16 @@ export function createRenderer(canvas) {
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    };
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    for (const structure of structures) {
+      const emitter = caveStructureLight(structure, lightTime);
+      if (!emitter || !hasExposedCaveFloor(world, structure)) continue;
+      drawStructureGlow(structure.tx, structure.floor, emitter);
+    }
+    for (const fire of fireplaces) {
+      drawStructureGlow(fire.tx, fire.floor, fire.emitter);
     }
     ctx.restore();
   }
