@@ -63,6 +63,7 @@ export function decodeSave(data) {
       health: player?.health, oxygen: player?.oxygen, crawling: player?.crawling === true,
     },
     progress: { snorkel,
+      classes: gear.classes,
       ...(Object.values(gear.addons ?? {}).some((id) => Object.hasOwn(ADDONS, id)) ? {
         addons: Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => {
           const id = gear.addons?.[slot];
@@ -76,6 +77,9 @@ export function decodeSave(data) {
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
+      soulRewards: Array.isArray(world.soulRewards) ? world.soulRewards.filter((reward) =>
+        typeof reward?.id === 'string' && reward.id.length <= 120 &&
+        (reward.type === 'lesser' || reward.type === 'greater')).slice(0, 100) : [],
       ...(krakenChest ? { krakenChest } : {}),
       ...(krakenDefeated ? { krakenDefeated: true } : {}) },
   };
@@ -100,6 +104,7 @@ export function encodeSave(game, saveTerrain = true) {
     player: position,
     inventory: Object.fromEntries(['hotbar', 'backpack'].map((group) => [group, inventory[group].map((stack) => stack && { ...stack })])),
     progress: { snorkel: progress.snorkel,
+      classes: game.classes,
       ...(Object.values(progress.addons ?? {}).some(Boolean) ? { addons: progress.addons } : {}),
       ...(player.glowSeconds > 0 ? { glowSeconds: player.glowSeconds } : {}),
       ...(progress.ring ? { ring: progress.ring } : {}),
@@ -108,6 +113,7 @@ export function encodeSave(game, saveTerrain = true) {
     world: {
       generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
       placedRopes: world.placedRopes ?? [],
+      ...(world.soulRewards?.length ? { soulRewards: world.soulRewards } : {}),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),
       ...(droppedKrakenChest ? { krakenChest: { x: droppedKrakenChest.x - WEST_EXTENSION * TILE, y: droppedKrakenChest.restY ?? droppedKrakenChest.y } } : {}),
       ...(world.krakenDefeated ? { krakenDefeated: true } : {}),

@@ -166,7 +166,28 @@ def sprite(name):
     if name in ('copper-snorkel','iron-snorkel','cobalt-snorkel'):
         return snorkel({'copper-snorkel':COPPER,'iron-snorkel':IRON,'cobalt-snorkel':COBALT}[name])
     p=Sprite()
-    if name=='root-ring':
+    if name in ('lesser-soul','greater-soul'):
+        greater=name=='greater-soul'
+        outer='#5e4b7e' if greater else '#376280'
+        core='#f8d593' if greater else '#a3e7ff'
+        glow='#dba968' if greater else '#73baf2'
+        # Faceted soul flame, outlined to read clearly on both light and dark backgrounds.
+        p.poly([(12,2),(16,7),(20,9),(19,15),(12,22),(5,15),(4,9),(8,7)],outer)
+        p.poly([(12,3),(15,9),(17,12),(12,19),(7,12),(9,9)],glow,None)
+        p.poly([(12,5),(14,10),(16,12),(12,17),(8,12),(10,10)],core,None)
+        p.poly([(12,5),(14,10),(12,12),(10,10)],'#fff8da' if greater else '#f3ffff',None)
+        if greater:
+            p.oval(1,1,22,22,None,'#dcb780')
+            p.rect(11,0,12,2,'#fff4c1')
+            p.rect(2,11,3,12,'#efd398')
+            p.rect(20,11,21,12,'#efd398')
+            p.rect(11,21,12,23,'#fff4c1')
+            p.rect(18,3,19,4,'#fff0bb')
+        else:
+            p.rect(11,0,12,2,'#d3f6ff')
+            p.rect(2,10,3,11,'#96d5ff')
+            p.rect(20,16,21,17,'#c3edff')
+    elif name=='root-ring':
         p.oval(4,5,20,22,'#5f432e',INK,2)
         p.oval(8,9,16,18,(0,0,0,0),INK,1)
         p.line([(7,9),(6,14),(8,19),(12,21)],'#b28051',2)
@@ -402,7 +423,7 @@ def sprite(name):
     return p
 
 ITEMS = [
- 'root-ring','grappling-hook','explorers-map','kelp-dressing',
+ 'root-ring','lesser-soul','greater-soul','grappling-hook','explorers-map','kelp-dressing',
  'captains-cutlass','iron-sword','cobalt-spear','spear','copper-spear','bow','arrow','poison-arrow','poison-needle',
  'door','workbench','fireplace','raw-fish','cooked-fish','raw-crab','cooked-crab','copper-snorkel','iron-snorkel','cobalt-snorkel',
  'diving-fin','scrappers-gloves','explorers-anklet','padded-leg-wraps','prospectors-brooch',

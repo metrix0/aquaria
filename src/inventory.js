@@ -25,6 +25,8 @@ export const ITEMS = {
     name: 'Iron pickaxe', description: 'Miners say you can hear it grinning in the dark.', pickaxe: 3, miningTime: IRON_PICKAXE.miningTime,
   },
   [ROOT_RING.id]: ROOT_RING,
+  'lesser-soul': { name: 'Lesser Soul', description: 'A small ember of a fallen champion. Attune it at a class skill tree to awaken lesser stars.' },
+  'greater-soul': { name: 'Greater Soul', description: 'The radiant soul of a fallen boss. Awaken major stars with this and two Lesser Souls.' },
   [GRAPPLING_HOOK.id]: GRAPPLING_HOOK,
   'explorers-map': { name: 'Weathered explorer’s map', description: 'The ink survived the sea. The warnings in the margins nearly didn’t.' },
   [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },

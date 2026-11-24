@@ -301,10 +301,10 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .controls { display: flex; gap: 15px; flex-wrap: wrap; color: #b8cbc1; font-size: 11px; }
 .controls span { white-space: nowrap; }
 .controls kbd, .footer-actions kbd, .interact kbd { display: inline-block; border: 1px solid #aac5be54; border-radius: 3px; background: #182e37; padding: 3px 5px; color: #dde7db; font: 10px var(--mono); }
-.craft, .backpack, .customize, .shadows, .god-mode, .deploy, .items, .spawn, .drops { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
+.craft, .backpack, .customize, .shadows, .god-mode, .deploy, .items, .spawn, .drops, #classes, #skilltree { border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; white-space: nowrap; font-size: 12px; }
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
 .backpack, .customize { color: var(--mint); background: #152730; }
-.shadows, .god-mode, .deploy, .items, .spawn, .drops { color: #cbdad0; background: #152730; }
+.shadows, .god-mode, .deploy, .items, .spawn, .drops, #classes, #skilltree { color: #cbdad0; background: #152730; }
 .god-mode-anchor { position: relative; display: flex; flex: none; }
 .god-mode-anchor .flight-speed { position: absolute; bottom: calc(100% + 7px); right: 0; z-index: 7; white-space: nowrap; box-shadow: 0 5px 16px #02080b9c; }
 .god-mode-anchor .flight-speed[hidden] { display: none; }

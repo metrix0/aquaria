@@ -1884,9 +1884,9 @@ export function createRenderer(canvas) {
         if (material) {
           if (overview || !shipwreckArt.timber(world, x, y, material))
             drawTile(world, x, y, material, oreOpacity, overview, time);
-          if (ore && !overview && player.addons?.chest === 'prospectors-brooch' &&
+          if (ore && !overview && (player.addons?.chest === 'prospectors-brooch' || (player.skillBonuses?.ore ?? 0) > 0) &&
               Math.hypot(x + .5 - player.x / TILE,
-                y + .5 - (player.y + player.height / 2) / TILE) <= 12) {
+                y + .5 - (player.y + player.height / 2) / TILE) <= Math.max(player.addons?.chest === 'prospectors-brooch' ? 12 : 0, player.skillBonuses?.ore ?? 0)) {
             const pulse = 0.4 + Math.sin(time * 2 + x * .7 + y * .6) * .15;
             ctx.save();
             ctx.globalAlpha = pulse;

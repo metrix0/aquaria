@@ -944,7 +944,7 @@ test('legacy progress and edits on both sides of a chunk boundary migrate', () =
   assert.equal(saved.format, 3);
   assert.deepEqual(saved.world.edits, [[19, 32, 'wood'], [20, 32, 'air']]);
   assert.deepEqual(saved.world.harvested, ['wreck-cache']);
-  assert.deepEqual(saved.progress, { snorkel: null });
+  assert.deepEqual(saved.progress, { snorkel: null, classes: game.classes });
   assert.equal(saved.player.oxygen, 18);
   assert.equal(new Inventory(saved.inventory).count('wood'), 11);
   assert.deepEqual(encodeSave(createGame(decodeSave(saved))), saved);
@@ -1591,7 +1591,7 @@ test('old helmet and snorkel IDs migrate to the new tiers without re-equipping r
     old.player.oxygen = 70;
     const migrated = createGame(decodeSave(old));
     assert.equal(migrated.player.oxygen, capacity);
-    assert.deepEqual(encodeSave(migrated).progress, { snorkel: snorkel.id });
+    assert.deepEqual(encodeSave(migrated).progress, { snorkel: snorkel.id, classes: migrated.classes });
   }
   old.world.harvested.push(SNORKEL_CHEST_ID);
   old.progress = { snorkel: null };
@@ -2071,7 +2071,8 @@ test('defeating the kraken drops a chest with a blue diving fin that equips in f
     assert.equal(chestAt(game, bossChest.x, bossChest.y), bossChest);
 
     const chestSlot = { group: 'chest', index: 0 };
-    const backpackSlot = { group: 'backpack', index: 0 };
+    // The boss's Greater Soul may already occupy backpack slot 0.
+    const backpackSlot = { group: 'backpack', index: game.inventory.backpack.findIndex((stack) => stack === null) };
     const feetSlot = { group: 'feet', index: 0 };
     const headSlot = { group: 'head', index: 0 };
     assert.equal(moveInventoryStack(game, KRAKEN_CHEST_ID, { group: 'hotbar', index: 3 }, feetSlot), false);

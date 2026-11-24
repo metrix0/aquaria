@@ -9,6 +9,7 @@ import { createInventoryUi, setItemIcon } from './inventory-ui.js';
 import { GRAPPLING_HOOK } from './inventory.js';
 import { createItemsMenu } from './items-menu.js';
 import { createDropsUI } from './drops-ui.js';
+import { createClassesUI } from './classes-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
@@ -27,6 +28,9 @@ export function createUI(actions, version) {
   const craftingUI = createCraftingUi(byId('craft-panel'), actions);
   const itemsMenu = createItemsMenu(byId('items-panel'), actions.giveItem);
   createDropsUI(byId('drops-content'));
+  const classesUI = createClassesUI(byId('classes-panel'), byId('skilltree-panel'), {
+    ...actions, notify: (message) => notify(message), openClasses: () => open('classes-panel'),
+  });
   createSpawnMenu(byId('spawn-panel'), actions.spawnEnemy);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
   const inventoryUI = createInventoryUi(byId('backpack-panel'), {
@@ -196,6 +200,8 @@ export function createUI(actions, version) {
     if (id === 'backpack-panel') inventoryUI.showChest(source);
     if (id === 'items-panel') itemsMenu.selectTab('all');
     actions.beforePanel(id, source);
+    if (id === 'classes-panel') classesUI.renderClasses();
+    if (id === 'skilltree-panel') classesUI.renderTree();
     panel.showModal();
   }
 
@@ -206,6 +212,8 @@ export function createUI(actions, version) {
   byId('items').addEventListener('click', () => open('items-panel'));
   byId('spawn').addEventListener('click', () => open('spawn-panel'));
   byId('drops').addEventListener('click', () => open('drops-panel'));
+  byId('classes').addEventListener('click', () => open('classes-panel'));
+  byId('skilltree').addEventListener('click', () => open('skilltree-panel'));
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());

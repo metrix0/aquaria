@@ -26,6 +26,7 @@
   <meta name="twitter:image" content="https://aquaria.johnvitor.com/assets/brand/og-aquaria.jpg">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&amp;display=swap">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./src/classes.css">
   <script type="module" src="./src/game.js"></script>
 </head>
 <body>
@@ -119,6 +120,8 @@
           <button id="items" class="items" type="button" aria-haspopup="dialog" aria-controls="items-panel">Items</button>
           <button id="spawn" class="spawn" type="button" aria-haspopup="dialog" aria-controls="spawn-panel">Spawn</button>
           <button id="drops" class="drops" type="button" aria-haspopup="dialog" aria-controls="drops-panel">Drops</button>
+          <button id="classes" type="button" aria-haspopup="dialog" aria-controls="classes-panel">Classes</button>
+          <button id="skilltree" type="button" aria-haspopup="dialog" aria-controls="skilltree-panel">Skill Tree</button>
           <div class="footer-stepper" role="group" aria-label="Camera zoom">
             <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
             <output id="camera-zoom" aria-label="Zoom level">100%</output>
@@ -248,6 +251,16 @@
       <section id="drops-content" aria-label="Chest drops by biome"></section>
     </dialog>
 
+    <dialog id="classes-panel" aria-labelledby="classes-title">
+      <div class="dialog-head"><h2 id="classes-title">Ancient Callings</h2><button type="button" data-close aria-label="Close classes">×</button></div>
+      <div class="class-intro"><span class="class-kicker">✧ THE THREE FORGOTTEN OATHS ✧</span><h3>Choose your calling</h3>
+        <p id="class-summary">Discover the powers that dwell beneath the surface.</p></div>
+      <div class="calling-cards" id="class-selection"></div>
+    </dialog>
+    <dialog id="skilltree-panel" aria-labelledby="skilltree-title">
+      <div class="dialog-head"><h2 id="skilltree-title">The Soul Constellations</h2><button type="button" data-close aria-label="Close skill tree">×</button></div>
+      <div id="skilltree-content"></div>
+    </dialog>
     <dialog id="pause-panel" aria-labelledby="pause-title">
       <div class="dialog-head"><h2 id="pause-title">Paused</h2><button data-close aria-label="Close pause menu">×</button></div>
       <p>Your progress is saved in this browser.</p>
