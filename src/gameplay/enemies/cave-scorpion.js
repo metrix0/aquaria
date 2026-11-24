@@ -4,6 +4,7 @@ export const caveScorpionSpec = makeCaveEnemySpec('scorpion', 'cave scorpion', 2
 
 export function stepCaveScorpion(world, player, mob, dt, effects) {
   stepCaveEnemyBase(world, player, mob, caveScorpionSpec, dt, effects, {
+    jumpSpeed: 210,
     stepActive: stepCaveDasherActive,
     onWindupComplete() {
       mob.dash = .55;

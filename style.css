@@ -107,6 +107,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 }
 .status-effect b { position: absolute; right: 4px; bottom: 2px; font: 700 10px/1 var(--mono); color: #e9f4e9; text-shadow: 0 1px 2px #000; pointer-events: none; }
 .status-effect[data-effect="bleeding"] { border-color: #a63d4a; background: #1e1116ed; }
+.status-effect[data-effect="blindness"] { border-color: #7d2532; background: #0e080bed; }
 .status-effect[data-effect="confusion"] { border-color: #b59247; background: #1b1a11ed; }
 .status-effect[data-effect="cursed"] { border-color: #4f9e62; background: #102016ed; }
 .status-effect[data-effect="shock"] { border-color: #4b9ec2; background: #101e26ed; }
@@ -119,6 +120,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
   width: 12px; height: 15px; background: #d93848;
   box-shadow: inset 3px 4px #ff8a93, inset -3px -3px #851824;
   clip-path: polygon(50% 0, 88% 45%, 100% 72%, 82% 100%, 18% 100%, 0 72%, 12% 45%);
+}
+.status-icon-blindness {
+  width: 16px; height: 11px; background: #140b0e; border: 2px solid #b53a4a; border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #050203;
+}
+.status-icon-blindness::after {
+  content: ""; position: absolute; left: 5px; top: 2px; width: 3px; height: 3px; border-radius: 50%;
+  background: #ff4d5a;
 }
 .status-icon-confusion { width: 16px; height: 14px; }
 .status-icon-confusion::before, .status-icon-confusion::after {
@@ -209,6 +218,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-
 .item-arrow { position: relative; width: 2px; height: 19px; background: #bc8b62; box-shadow: inset 1px 0 #e3ae72; transform: rotate(42deg); }
 .item-arrow::before { content: ""; position: absolute; width: 6px; height: 6px; top: -3px; left: -2px; background: #b5c6bd; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .item-arrow::after { content: ""; position: absolute; width: 6px; height: 5px; bottom: 0; left: -2px; background: #8eb096; clip-path: polygon(50% 0, 100% 45%, 100% 100%, 50% 65%, 0 100%, 0 45%); }
+.item-poison-arrow { position: relative; width: 2px; height: 19px; background: #bc8b62; box-shadow: inset 1px 0 #e3ae72; transform: rotate(42deg); }
+.item-poison-arrow::before { content: ""; position: absolute; width: 6px; height: 6px; top: -3px; left: -2px; background: #79d956; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.item-poison-arrow::after { content: ""; position: absolute; width: 6px; height: 5px; bottom: 0; left: -2px; background: #64b85e; clip-path: polygon(50% 0, 100% 45%, 100% 100%, 50% 65%, 0 100%, 0 45%); }
+.item-poison-needle { position: relative; width: 4px; height: 18px; background: linear-gradient(180deg, #9be667 0%, #c85cff 55%, #6a227a 100%); clip-path: polygon(50% 0, 100% 65%, 70% 100%, 30% 100%, 0 65%); transform: rotate(42deg); }
 .item-kelp { background: #62b887; box-shadow: inset 3px 2px #9cd29b, inset -3px -2px #316e64; clip-path: polygon(43% 45%, 6% 32%, 0 7%, 30% 16%, 47% 44%, 67% 10%, 100% 0, 90% 33%, 65% 50%, 56% 100%, 39% 100%); }
 .item-copper, .item-iron, .item-cobalt { clip-path: polygon(29% 0, 76% 10%, 100% 49%, 69% 100%, 20% 87%, 0 45%); }
 .item-copper { background: #bd785b; box-shadow: inset 4px 3px #f2b17e, inset -5px -4px #8b4f4b; }
@@ -393,6 +406,15 @@ dialog p { font-size: 13px; color: var(--muted); }
 .items-filters { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
 .items-filters label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
 .items-filters input { width: 100%; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid #42606b; border-radius: 4px; background: #08171f; color: inherit; font: inherit; }
+.items-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.items-tabs button {
+  padding: 5px 9px; border: 1px solid #42606b; border-radius: 4px; background: #0d202a;
+  color: var(--muted); font-size: 12px; font-weight: 600;
+}
+.items-tabs button:hover { background: #19323d; color: #eef3e7; }
+.items-tabs button[aria-selected="true"] {
+  border-color: var(--gold); background: #203943; color: var(--gold);
+}
 .items-help { margin: 10px 0; }
 .items-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: min(52dvh, 328px); overflow-y: auto; }
 .items-grid button { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 6px; min-height: 42px; padding: 5px 8px; border: 1px solid #42606b; border-radius: 4px; background: #132934; text-align: left; font-size: 13px; }

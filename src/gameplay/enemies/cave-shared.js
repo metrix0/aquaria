@@ -138,14 +138,17 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
 
   mob.dx = moveSpeed;
   const nextX = mob.x + moveSpeed * dt;
-  if (mob.grounded && hooks.jumpSpeed && mob.flee <= 0 && moveSpeed !== 0 && mob.jumpCooldown === 0) {
+  const leadingX = nextX + Math.sign(moveSpeed) * (spec.width / 2 - .01);
+  const jumpSpeed = hooks.jumpSpeed ?? 210;
+  if (mob.grounded && jumpSpeed > 0 && mob.flee <= 0 && moveSpeed !== 0 && mob.jumpCooldown === 0) {
     const blockedAhead = !canStand(world, nextX, mob.y, spec);
-    const hasStep = blockedAhead && canStand(world, nextX, mob.y - TILE, spec) && onFloor(world, nextX, mob.y - TILE);
+    const hasStep = blockedAhead && canStand(world, nextX, mob.y - TILE, spec) && onFloor(world, nextX, mob.y - TILE, spec);
     const canJumpObstacle = blockedAhead && !hasStep
       && canStand(world, mob.x, mob.y - 2 * TILE, spec)
       && canStand(world, nextX, mob.y - 2 * TILE, spec);
     const gapAhead = !blockedAhead
       && !onFloor(world, nextX, mob.y)
+      && !onFloor(world, leadingX, mob.y)
       && !(canStand(world, nextX, mob.y + TILE, spec) && onFloor(world, nextX, mob.y + TILE))
       && [1, 2, 3].some((step) => {
         const landX = mob.x + mob.facing * step * TILE;
@@ -158,18 +161,20 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
       && (onFloor(world, mob.x + mob.facing * TILE, mob.y) || onFloor(world, mob.x + mob.facing * TILE, mob.y + TILE));
 
     if (canJumpObstacle || gapAhead || playerAbove || battleHop) {
-      mob.dy = -(canJumpObstacle || gapAhead || playerAbove ? hooks.jumpSpeed : hooks.hopSpeed ?? hooks.jumpSpeed);
+      mob.dy = -(canJumpObstacle || gapAhead || playerAbove ? jumpSpeed : hooks.hopSpeed ?? jumpSpeed);
       mob.grounded = false;
       mob.jumpCooldown = canJumpObstacle || gapAhead ? 0.55 : 1.35 + (mob.phase % 0.8);
     }
   }
 
   if (canStand(world, nextX, mob.y, spec)) {
-    if (onFloor(world, nextX, mob.y) || (!mob.grounded && !hasWaterBelow(world, nextX, mob.y)) ||
+    if (onFloor(world, nextX, mob.y) ||
+        (onFloor(world, leadingX, mob.y) && !hasWaterBelow(world, nextX, mob.y)) ||
+        (!mob.grounded && !hasWaterBelow(world, nextX, mob.y)) ||
         (canStand(world, nextX, mob.y + TILE, spec) && onFloor(world, nextX, mob.y + TILE))) {
       mob.x = nextX;
     }
-  } else if (!mob.dash && mob.grounded && canStand(world, nextX, mob.y - TILE, spec) && onFloor(world, nextX, mob.y - TILE)) {
+  } else if (mob.grounded && canStand(world, nextX, mob.y - TILE, spec) && onFloor(world, nextX, mob.y - TILE, spec)) {
     mob.x = nextX;
     mob.y -= TILE;
   }

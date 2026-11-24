@@ -2249,15 +2249,16 @@ export function createRenderer(canvas) {
       ctx.rotate(Math.atan2(arrow.dy, arrow.dx));
       rect(-6, -1, 10, 2, "#85604c");
       rect(-5, -1, 8, 1, "#d29c65");
-      rect(-7, -2, 3, 1, "#bed8ba");
-      rect(-7, 1, 3, 1, "#7ebcb0");
+      const poisoned = (arrow.poisonDuration ?? 0) > 0;
+      rect(-7, -2, 3, 1, poisoned ? "#9be667" : "#bed8ba");
+      rect(-7, 1, 3, 1, poisoned ? "#59ab46" : "#7ebcb0");
       polygon(
         [
           [3, -3],
           [8, 0],
           [3, 3],
         ],
-        "#6e888a",
+        poisoned ? "#3f8c30" : "#6e888a",
       );
       polygon(
         [
@@ -2265,7 +2266,7 @@ export function createRenderer(canvas) {
           [7, 0],
           [4, 1],
         ],
-        "#d9e1cf",
+        poisoned ? "#9be667" : "#d9e1cf",
       );
       ctx.restore();
     }
@@ -2416,8 +2417,11 @@ export function createRenderer(canvas) {
       if (roots) ctx.scale(1 - roots.grip * .17, 1);
       if (mob.hurt > 0 && Math.floor(mob.hurt * 18) % 2 === 0)
         ctx.globalAlpha = 0.6;
+      if ((mob.poison ?? 0) > 0 && mob.kind !== "kraken" && "filter" in ctx) {
+        ctx.filter = "sepia(1) hue-rotate(68deg) saturate(2.6) brightness(0.95)";
+      }
 
-      if (mob.kind === 'ambient-ant' || mob.kind === 'ambient-spider' || mob.kind === 'ambient-bat') {
+      if (mob.kind === 'ambient-ant' || mob.kind === 'ambient-spider' || mob.kind === 'ambient-bat' || mob.kind === 'blood-bat') {
         drawCaveAmbienceMob(ctx, mob, time, reducedMotion);
       } else if (mob.kind === "ghost") {
         ctx.scale(mob.facing, 1);
@@ -2568,6 +2572,74 @@ export function createRenderer(canvas) {
         rect(5, -2 + bob, 4, 4, red);
         rect(4, -2 + bob, 2, 2, "#ffe066");
         rect(5, -2 + bob, 1, 2, "#191528");
+      } else if (mob.kind === "pufferfish") {
+        const state = mob.pufferState ?? "idle";
+        const scale = mob.inflateScale ?? 1;
+        const jitter = state === "windup" ? Math.round(Math.sin(time * 28) * 0.7) : 0;
+        const bob = state === "idle" ? Math.round(Math.sin(time * 3.1 + mob.phase) * 1) : 0;
+        const wag = Math.round(Math.sin(time * (state === "deflating" ? 16 : 6.5) + mob.phase) * 1.4);
+        ctx.scale(mob.facing, 1);
+        ctx.translate(jitter, bob);
+        // Radiating sharp spines when inflated
+        if (scale > 1.35) {
+          const spineCount = 12;
+          const innerR = 5.2 * scale;
+          const outerR = 7.4 * scale;
+          for (let i = 0; i < spineCount; i++) {
+            const a = (i / spineCount) * Math.PI * 2;
+            const c = Math.cos(a);
+            const s = Math.sin(a);
+            const pX = -s * 1.4;
+            const pY = c * 1.4;
+            polygon(
+              [
+                [c * innerR + pX, s * innerR + pY],
+                [c * outerR, s * outerR],
+                [c * innerR - pX, s * innerR - pY],
+              ],
+              "#e8d79b",
+            );
+            rect(c * outerR - 1, s * outerR - 1, 2, 2, "#9bd959");
+          }
+        }
+        ctx.save();
+        ctx.scale(scale, scale);
+        // Tail fin
+        polygon([[-5, -1], [-9, -3 + wag], [-8, 0], [-9, 3 + wag], [-5, 1]], "#8a6128");
+        rect(-8, -2 + wag, 2, 1, "#e8cd82");
+        rect(-8, 1 + wag, 2, 1, "#e8cd82");
+        // Rounded spotted body
+        rect(-5, -4, 10, 8, "#8a6128");
+        rect(-4, -3, 8, 6, "#c99c4c");
+        rect(-4, 0, 8, 3, "#f2e2b8");
+        rect(4, -2, 2, 4, "#c99c4c");
+        rect(4, 0, 2, 2, "#f2e2b8");
+        // Spots & top fin
+        rect(-3, -3, 2, 1, "#5c3f18");
+        rect(0, -2, 2, 1, "#5c3f18");
+        rect(-2, -1, 1, 1, "#5c3f18");
+        rect(-1, -5, 3, 1, "#8a6128");
+        // Pectoral fin
+        rect(-2, Math.trunc(wag * 0.4), 3, 2, "#e8cd82");
+        if (state === "windup") {
+          // Widened startled eye & inhaling mouth
+          rect(1, -3, 4, 4, "#fffdf0");
+          rect(3, -2, 1, 2, "#192b3e");
+          rect(5, 0, 2, 2, "#5c3f18");
+          rect(8 + Math.round(Math.sin(time * 22)), 0, 1, 1, "#a8e6ff");
+        } else if (state === "inflated") {
+          rect(1, -2, 3, 3, "#fffdf0");
+          rect(2, -1, 1, 2, "#192b3e");
+          rect(5, 0, 1, 1, "#5c3f18");
+        } else if (state === "deflating") {
+          rect(1, -1, 3, 1, "#192b3e");
+          rect(5, -1, 2, 2, "#7ec8e3");
+          rect(7, -1, 4, 2, "#a8e6ff");
+        } else {
+          rect(2, -2, 2, 2, "#fffdf0");
+          rect(3, -2, 1, 1, "#192b3e");
+        }
+        ctx.restore();
       } else if (caveEnemy) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
       } else if (mob.kind === "fish") {
@@ -3073,6 +3145,10 @@ export function createRenderer(canvas) {
         }
 
         // Larger pixel-art Kraken mantle & head matching Aquaria cephalopod style.
+        ctx.save();
+        if ((mob.poison ?? 0) > 0 && "filter" in ctx) {
+          ctx.filter = "sepia(1) hue-rotate(68deg) saturate(2.6) brightness(0.95)";
+        }
         polygon([[-32, -38], [-22, -96 + breathe], [2, -118 + breathe], [34, -114 + breathe], [48, -74 + breathe], [44, 24], [-40, 28]], "#192b3e");
         polygon([[24, -108 + breathe], [54, -92 + breathe], [44, -64 + breathe]], "#491f3d");
         polygon([[28, -102 + breathe], [48, -90 + breathe], [42, -70 + breathe]], "#7e4268");
@@ -3112,6 +3188,7 @@ export function createRenderer(canvas) {
         rect(-44, 6, 14, 14, "#2d1429");
         rect(-42, 8, 10, 10, "#491f3d");
         rect(-40, 10, 6, 6, "#7e4268");
+        ctx.restore();
         if ((mob.sonarTime ?? 0) > 0) {
           const elapsed = 1.2 - mob.sonarTime;
           const headY = -58 + breathe;
@@ -3142,34 +3219,35 @@ export function createRenderer(canvas) {
       ctx.restore();
 
       if (roots) drawRootBind(polygon, roots, true);
-      if (
+      const barY = mob.kind === "kraken"
+        ? -128
+        : mob.kind === "worm" || mob.kind === "lionfish"
+          ? -16
+          : mob.kind === "pufferfish"
+            ? Math.round(-12 * (mob.inflateScale ?? 1)) - 4
+            : mob.kind === "ghost"
+              ? -21
+              : caveEnemy
+                ? mob.kind === "spider"
+                  ? -15
+                  : mob.kind === "cave-frog" || mob.kind === "mimic"
+                    ? -24
+                    : -31
+                : mob.kind === "crab" || mob.kind === "jellyfish"
+                  ? -13
+                  : mob.kind === "shark"
+                    ? -14
+                    : -10;
+      const showHealthBar = Boolean(
         !dyingKraken &&
         !(mob.kind === "mimic" && !mob.awakened) &&
         mob.maxHealth &&
-        (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob)
-      ) {
+        (mob.health < mob.maxHealth || mob.hurt > 0 || mob === targetMob),
+      );
+      if (showHealthBar) {
         const barWidth = mob.kind === "kraken" ? 64 : mob.maxHealth >= 7 ? 20 : mob.maxHealth >= 4 ? 14 : 10;
         const barX = -Math.floor(barWidth / 2);
         const ghost = mob.kind === "ghost";
-        const barY = mob.kind === "kraken"
-          ? -128
-          : mob.kind === "worm" || mob.kind === "lionfish"
-            ? -16
-            : ghost
-              ? -21
-          : caveEnemy
-            ? mob.kind === "spider"
-              ? -15
-              : mob.kind === "cave-frog" || mob.kind === "mimic"
-                ? -24
-                : -31
-            : mob.kind === "crab"
-              ? -13
-              : mob.kind === "jellyfish"
-                ? -13
-                : mob.kind === "shark"
-                  ? -14
-                  : -10;
         const hostile = Boolean(
           ghost ||
           caveEnemy ||
@@ -3178,6 +3256,7 @@ export function createRenderer(canvas) {
           mob.kind === "squid" ||
           mob.kind === "shark" ||
           mob.kind === "lionfish" ||
+          mob.kind === "pufferfish" ||
           mob.kind === "kraken",
         );
         rect(barX - 1, barY - 1, barWidth + 2, 4, "#111d2f");
@@ -3189,6 +3268,18 @@ export function createRenderer(canvas) {
           2,
           hostile ? "#e57866" : "#efc27e",
         );
+      }
+      if (!dyingKraken && (mob.poison ?? 0) > 0) {
+        const bob = reducedMotion ? 0 : Math.round(Math.sin(time * 5 + (mob.phase ?? 0)) * 1);
+        const iy = barY - (showHealthBar ? 7 : 3) + bob;
+        // Poison droplet icon above enemy head
+        rect(-2, iy - 3, 5, 5, "#264d1c");
+        rect(-1, iy - 4, 3, 1, "#264d1c");
+        rect(-1, iy - 2, 3, 3, "#66cc4b");
+        rect(0, iy - 3, 1, 1, "#b8ff9c");
+        rect(-1, iy - 2, 1, 1, "#b8ff9c");
+        rect(-3, iy - 5 + (bob ? 0 : -1), 1, 1, "#a8f078");
+        rect(3, iy - 4, 1, 1, "#79d956");
       }
 
       ctx.restore();
@@ -3434,6 +3525,24 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function blindnessOverlay(camera, player) {
+    const remaining = player?.blindness ?? 0;
+    if (!(remaining > 0) || player?.flightOrigin) return;
+    const px = player.x - camera.x;
+    const py = player.y + player.height / 2 - camera.y;
+    const fade = Math.min(1, remaining / 0.6);
+    const shade = ctx.createRadialGradient(px, py, 24, px, py, 68);
+    shade.addColorStop(0, "rgba(0, 0, 0, 0)");
+    shade.addColorStop(0.55, "rgba(0, 0, 0, 0.6)");
+    shade.addColorStop(0.85, "rgba(0, 0, 0, 0.95)");
+    shade.addColorStop(1, "rgba(0, 0, 0, 1)");
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, camera.width, camera.height);
+    ctx.restore();
+  }
+
   function breathBubble({ x, y, bubbleRadius: r, life }) {
     ctx.save();
     ctx.globalAlpha = Math.min(1, life * 4);
@@ -3651,6 +3760,7 @@ export function createRenderer(canvas) {
 
     tintWater(camera, surface, water);
     inkOverlay(camera, player);
+    blindnessOverlay(camera, player);
     if ((player.confused ?? 0) > 0) {
       ctx.save();
       ctx.globalAlpha = player.confusedStyle === "stars"

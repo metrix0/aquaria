@@ -1,4 +1,4 @@
-import { ARMOR, SALVAGE_RECIPES, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
+import { ARMOR, SALVAGE_RECIPES, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, POISON_ARROW, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, craftMaterialCount, equipmentCraftStatus } from './gameplay/simulation.js';
 import { ITEMS } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
@@ -18,6 +18,7 @@ const recipes = [
   { recipe: COBALT_SPEAR, description: 'A long thrust that deals ' + COBALT_SPEAR.damage + ' damage and knocks enemies back.' },
   { recipe: BOW, description: 'Fires arrows toward your cursor through air and water.' },
   { recipe: ARROW, name: 'Arrows', description: 'A bundle of four arrows for the bow.' },
+  { recipe: POISON_ARROW, name: 'Poison arrows', description: 'Coats four arrows with a lionfish needle, poisoning hit enemies.' },
   ...Object.values(ARMOR).map((recipe) => ({
     recipe, description: 'Reduces incoming health damage by ' + Math.round(recipe.protection * 100) + '%.',
   })),

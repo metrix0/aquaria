@@ -216,6 +216,23 @@ def sprite(name):
             p.poly([(13+sx,7+sy),(16+sx,0+sy),(20+sx,3+sy),(19+sx,8+sy)],IRON[0])
             p.line([(16+sx,2+sy),(17+sx,6+sy)],IRON[1])
             p.poly([(4+sx,18+sy),(1+sx,16+sy),(3+sx,22+sy),(7+sx,22+sy),(7+sx,18+sy)],GREEN)
+    elif name=='poison-arrow':
+        for sx,sy in [(0,1),(4,-2)]:
+            p.line([(4+sx,21+sy),(15+sx,6+sy)],WOOD_DARK,3)
+            p.line([(5+sx,20+sy),(16+sx,5+sy)],WOOD_HI,1)
+            p.poly([(13+sx,7+sy),(16+sx,0+sy),(20+sx,3+sy),(19+sx,8+sy)],'#539c44')
+            p.line([(16+sx,2+sy),(17+sx,6+sy)],'#a4ea6b')
+            p.poly([(4+sx,18+sy),(1+sx,16+sy),(3+sx,22+sy),(7+sx,22+sy),(7+sx,18+sy)],'#3b7844')
+        p.rect(19,6,20,8,'#a4ea6b')
+        p.rect(16,9,17,11,'#6cc452')
+    elif name=='poison-needle':
+        # Lionfish venomous fin spine with glowing toxic tip
+        p.line([(5,19),(17,7)],'#2a5738',4)
+        p.line([(5,19),(16,8)],'#58a84a',2)
+        p.poly([(13,9),(20,2),(21,4),(15,11)],'#92e663',INK)
+        p.line([(16,7),(19,4)],'#d6ffa3',1)
+        p.rect(4,18,6,20,'#a65b4a')
+        p.rect(18,8,19,10,'#92e663')
     elif name=='kelp':
         p.line([(11,22),(11,9)],'#275749',3)
         p.line([(11,11),(5,5)],'#3e865c',2)
@@ -362,6 +379,16 @@ def sprite(name):
         p.oval(5,8,19,19,'#d9462f',INK,1)
         p.oval(7,10,16,15,'#ff9452',None)
         p.rect(9,11,14,12,'#ffd285')
+    elif name=='string':
+        # Coiled cave-spider silk skein with trailing thread
+        p.oval(5,6,18,18,'#cfd5dd',INK,1)
+        p.oval(6,7,17,17,None,'#eef2f7',2)
+        p.oval(8,9,15,15,None,'#aab3c0',2)
+        p.oval(10,11,13,13,(0,0,0,0),INK,1)
+        p.line([(16,14),(19,17),(21,16),(22,19)],'#eef2f7',2)
+        p.rect(8,7,8,7,'#ffffff')
+        p.rect(10,6,10,6,'#ffffff')
+        p.rect(15,8,15,8,'#ffffff')
     elif name=='rope-bundle':
         p.oval(2,3,21,21,'#8b633f',INK,1)
         p.oval(4,5,19,19,None,'#d4aa72',3)
@@ -376,10 +403,10 @@ def sprite(name):
 
 ITEMS = [
  'root-ring','grappling-hook','explorers-map','kelp-dressing',
- 'captains-cutlass','iron-sword','cobalt-spear','spear','copper-spear','bow','arrow',
+ 'captains-cutlass','iron-sword','cobalt-spear','spear','copper-spear','bow','arrow','poison-arrow','poison-needle',
  'door','workbench','fireplace','raw-fish','cooked-fish','raw-crab','cooked-crab','copper-snorkel','iron-snorkel','cobalt-snorkel',
  'diving-fin','scrappers-gloves','explorers-anklet','padded-leg-wraps','prospectors-brooch',
- 'rusty-metal-scraps','torn-cloth','broken-gears','ancient-coins','glowshroom-torch','rope-bundle',
+ 'rusty-metal-scraps','torn-cloth','broken-gears','ancient-coins','glowshroom-torch','rope-bundle','string',
  'kelp','copper','iron','cobalt','copper-breastplate','iron-breastplate','cobalt-breastplate'
 ]
 for name in ITEMS:

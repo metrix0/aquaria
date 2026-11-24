@@ -68,6 +68,34 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
       });
       return;
     }
+    if (y >= WATER + 10 * TILE && Math.random() < 0.28) {
+      mobs.push({
+        kind: 'pufferfish',
+        enemyType: { name: 'Pufferfish' },
+        x,
+        y,
+        facing,
+        dx: 0,
+        dy: 0,
+        flee: 0,
+        cooldown: 0,
+        pufferState: 'idle',
+        pufferTimer: 0,
+        inflateScale: 1,
+        exhausted: 0,
+        homeX: x,
+        homeY: y,
+        span: 28,
+        speed: 18,
+        phase: Math.random() * Math.PI * 2,
+        remainingLife: 40 + Math.random() * 20,
+        maxHealth: MOB_HEALTH.pufferfish,
+        health: MOB_HEALTH.pufferfish,
+        hurt: 0,
+        respawn: 0,
+      });
+      return;
+    }
     const enemyType = pickEnemyType(night, Math.random());
     mobs.push({
       kind: 'fish', enemyType, x, y, facing, dx: 0, dy: 0, flee: 0,

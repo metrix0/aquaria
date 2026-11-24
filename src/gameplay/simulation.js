@@ -3,7 +3,7 @@ import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
@@ -186,9 +186,13 @@ function stepProjectiles(game, dt) {
         if (!spec) continue;
         const hit = mob.segments?.length
           ? mob.segments.some((seg) => Math.hypot(arrow.x - seg.x, arrow.y - seg.y) <= seg.radius + 4)
-          : Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius + 4;
+          : Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius * (mob.inflateScale ?? 1) + 4;
         if (hit) {
           damageMob(world, mob, arrow.damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects);
+          if (arrow.poisonDuration > 0 && mob.health > 0) {
+            mob.poison = Math.max(mob.poison ?? 0, arrow.poisonDuration);
+            mob.poisonTick = mob.poisonTick ?? 1;
+          }
           removed = true;
           break;
         }
@@ -272,19 +276,25 @@ export function useWeapon(game, slot, wx, wy) {
   const dirX = Math.cos(angle);
   const dirY = Math.sin(angle);
   game.player.facing = dirX < 0 ? -1 : 1;
-  if (game.inventory.count(ARROW.id) < 1) {
+  const ammo = game.inventory.count(POISON_ARROW.id) > 0
+    ? POISON_ARROW
+    : game.inventory.count(ARROW.id) > 0
+      ? ARROW
+      : null;
+  if (!ammo) {
     return { handled: true, message: 'Out of arrows. Craft more in Crafting.' };
   }
-  game.inventory.spend(ARROW.id, 1);
+  game.inventory.spend(ammo.id, 1);
   game.dirty = true;
   game.attack = { kind: BOW.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
   game.projectiles.push({
     x: ox + dirX * 10,
     y: oy + dirY * 10,
-    dx: dirX * ARROW.speed,
-    dy: dirY * ARROW.speed,
-    damage: ARROW.damage,
-    knockback: ARROW.knockback,
+    dx: dirX * ammo.speed,
+    dy: dirY * ammo.speed,
+    damage: ammo.damage,
+    knockback: ammo.knockback,
+    poisonDuration: ammo.poisonDuration ?? 0,
     life: 2.5,
   });
   return { handled: true, inventoryChanged: true };
@@ -308,7 +318,7 @@ function stepAttack(game, dt) {
     const spec = mobSpec(mob);
     if (spec && overlapsMob(hitbox, mob, spec)) {
       attack.hitMobs.add(mob);
-      damageMob(world, mob, attack.damage, angle, attack.knockback, effects);
+      damageMob(world, mob, attack.damage, angle, attack.knockback, effects, { melee: true, attacker: player });
     }
   }
 }
@@ -394,7 +404,7 @@ export function stepGame(game, input, dt) {
       : fatalBleed
         ? 'You bled out. You woke up back on the island.'
         : fatalPoison
-          ? 'You succumbed to poison. You woke up back on the island.'
+          ? 'You succumbed to pufferfish poison. You woke up back on the island.'
           : 'You washed back up on the island.';
   }
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;

@@ -1,5 +1,6 @@
 import { overlapsMob, toolHitbox } from '../melee.js';
 import { hurtPlayer, makeCaveEnemySpec, stepCaveEnemyBase } from './cave-shared.js';
+import { parabolicArrowVelocity } from './skeleton-archer.js';
 
 const SPEAR_THRUST_DURATION = 0.4;
 
@@ -63,14 +64,14 @@ export function stepCannibalBow(world, player, mob, dt, effects) {
     attackCooldown: 1.65,
     onWindupComplete({ active, distance, deltaX, deltaY }) {
       if (active && distance <= cannibalBowSpec.reach) {
-        const len = distance || 1;
+        const { dx, dy } = parabolicArrowVelocity(deltaX, deltaY, 230);
         world.projectiles.push({
           kind: 'cave-arrow',
           x: mob.x + mob.facing * 6,
           y: mob.y + cannibalBowSpec.centerY,
-          dx: (deltaX / len) * 210,
-          dy: (deltaY / len) * 210,
-          life: 1.3,
+          dx,
+          dy,
+          life: 1.8,
           damage: cannibalBowSpec.damage,
           message: 'Hit by a cannibal arrow!',
           color: '#d95c48',

@@ -8,13 +8,14 @@ import { pickEnemyType } from './enemies/enemy-fish.js';
 export const SPAWN_CATEGORIES = Object.freeze([
   { name: 'Ocean', entries: [
     ['jellyfish', 'Jellyfish'], ['squid', 'Squid'], ['shark', 'Shark'],
-    ['lionfish', 'Lionfish'], ['reef-snapper', 'Reef snapper'],
+    ['lionfish', 'Lionfish'], ['pufferfish', 'Pufferfish'], ['reef-snapper', 'Reef snapper'],
     ['lanternfish', 'Lanternfish'], ['kraken', 'Kraken'],
   ] },
   { name: 'Island caves', entries: [
     ['spider', 'Cave spider'], ['archer', 'Skeleton archer'],
     ['miner', 'Skeletal miner'], ['scorpion', 'Scorpion'],
     ['hammer', 'Hammer skeleton'], ['mimic', 'Mimic'],
+    ['blood-bat', 'Blood bat'],
   ] },
   { name: 'Jungle', entries: [
     ['cannibal-spear', 'Spear cannibal'], ['cannibal-bow', 'Bow cannibal'],
@@ -34,7 +35,7 @@ const groundedKinds = new Set([
   'ambient-ant', 'ambient-spider',
 ]);
 const waterKinds = new Set([
-  'jellyfish', 'squid', 'shark', 'lionfish', 'kraken', 'reef-snapper', 'lanternfish',
+  'jellyfish', 'squid', 'shark', 'lionfish', 'pufferfish', 'kraken', 'reef-snapper', 'lanternfish',
 ]);
 
 function clearSpace(world, x, y, spec, ground = false) {

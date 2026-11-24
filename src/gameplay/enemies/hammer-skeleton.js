@@ -4,6 +4,7 @@ export const hammerSkeletonSpec = makeCaveEnemySpec('hammer', 'hammer skeleton',
 
 export function stepHammerSkeleton(world, player, mob, dt, effects) {
   stepCaveEnemyBase(world, player, mob, hammerSkeletonSpec, dt, effects, {
+    jumpSpeed: 215,
     windupDuration: .65,
     attackCooldown: 2,
   });

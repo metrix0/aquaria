@@ -220,6 +220,14 @@
         <label for="item-search">Search items<input id="item-search" type="search" placeholder="Search by name" autocomplete="off"></label>
         <label for="item-quantity">Quantity<input id="item-quantity" type="number" min="1" step="1" value="1" required></label>
       </div>
+      <div class="items-tabs" id="items-tabs" role="tablist" aria-label="Item categories">
+        <button type="button" role="tab" data-tab="all" aria-selected="true">All</button>
+        <button type="button" role="tab" data-tab="weapons" aria-selected="false">Weapons</button>
+        <button type="button" role="tab" data-tab="gear" aria-selected="false">Tools &amp; Gear</button>
+        <button type="button" role="tab" data-tab="consumables" aria-selected="false">Consumables</button>
+        <button type="button" role="tab" data-tab="blocks" aria-selected="false">Blocks</button>
+        <button type="button" role="tab" data-tab="materials" aria-selected="false">Materials</button>
+      </div>
       <p class="items-help">Select an item to add it. Equipment goes straight into its slot.</p>
       <div class="items-grid" id="items-grid"></div>
       <p id="items-empty" hidden>No matching items.</p>

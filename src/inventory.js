@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
 export const HOTBAR_SIZE = 6;
@@ -35,8 +35,11 @@ export const ITEMS = {
   [COBALT_SPEAR.id]: { name: 'Cobalt spear', description: 'A blue glint is often the last thing a cave beast sees.', weapon: COBALT_SPEAR },
   [SPEAR.id]: { name: 'Spear', description: 'A stone tooth on a shaft. Every village’s first answer to a monster.', weapon: SPEAR },
   [COPPER_SPEAR.id]: { name: 'Copper spear', description: 'Shore guards polish the tip so trouble can see itself coming.', weapon: COPPER_SPEAR },
-  [BOW.id]: { name: 'Bow', description: 'Driftwood bent low and strung with kelp. It sings on the release.', weapon: BOW },
+  [BOW.id]: { name: 'Bow', description: 'Driftwood bent low and strung with spider silk. It sings on the release.', weapon: BOW },
+  [STRING.id]: { name: 'String', description: 'Tough silk spun by cave spiders. Used to string bows.' },
   [ARROW.id]: { name: 'Arrow', description: 'Stone-tipped and straight enough for a smuggler’s oath.' },
+  [POISON_NEEDLE.id]: { name: 'Poison needle', description: 'A venomous spine taken from a lionfish.' },
+  [POISON_ARROW.id]: { name: 'Poison arrow', description: 'Tipped with lionfish venom. Poisons enemies on hit.' },
   sand: { name: 'Sand', description: 'A handful of beach that will outlive every attempt to shake it out.', block: MATERIAL.sand, hotbar: 1 },
   stone: { name: 'Stone', description: 'Cold and stubborn. Dwarves have been accused of worse.', block: MATERIAL.stone, hotbar: 2 },
   wood: { name: 'Wood', description: 'The grain curls like a tiny chart of the sea.', block: MATERIAL.wood, hotbar: 3 },

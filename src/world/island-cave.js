@@ -398,6 +398,11 @@ export const islandMobs = [
   ['mimic-gatehouse', 'mimic', 89, 396, 60],
   ['mimic-mid-hall', 'mimic', 98, 451, 60],
   ['mimic-lower-hall', 'mimic', 36, 520, 60],
+  ['bat-east-gallery', 'blood-bat', 118, 342, 48],
+  ['bat-gatehouse', 'blood-bat', 40, 395, 48],
+  ['bat-mid-hall', 'blood-bat', 91, 447, 48],
+  ['bat-lower-hall', 'blood-bat', 33, 515, 48],
+  ['bat-vault', 'blood-bat', 120, 555, 55],
 ];
 
 const masonryRooms = [

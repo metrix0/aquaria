@@ -137,8 +137,11 @@ export const CAPTAINS_CUTLASS = {
 export const COBALT_SPEAR = {
   id: 'cobalt-spear', station: WORKBENCH.id, cost: { cobalt: 4, iron: 1, wood: 2 }, damage: 6, cooldown: 0.4, knockback: 250, reach: 6,
 };
-export const BOW = { id: 'bow', cost: { wood: 3, kelp: 1 }, amount: 1, cooldown: 0.38 };
+export const STRING = { id: 'string' };
+export const BOW = { id: 'bow', cost: { wood: 3, [STRING.id]: 2 }, amount: 1, cooldown: 0.38 };
 export const ARROW = { id: 'arrow', cost: { wood: 1, stone: 1 }, amount: 4, damage: 2, speed: 300, knockback: 115 };
+export const POISON_NEEDLE = { id: 'poison-needle' };
+export const POISON_ARROW = { id: 'poison-arrow', cost: { [ARROW.id]: 4, [POISON_NEEDLE.id]: 1 }, amount: 4, damage: 2, speed: 300, knockback: 115, poisonDuration: 5 };
 
 export const ADDONS = Object.freeze({
   'scrappers-gloves': {

@@ -5,6 +5,7 @@ export const skeletalMinerSpec = makeCaveEnemySpec('miner', 'skeletal miner', 14
 
 export function stepSkeletalMiner(world, player, mob, dt, effects) {
   stepCaveEnemyBase(world, player, mob, skeletalMinerSpec, dt, effects, {
+    jumpSpeed: 210,
     stepActive({ active }) {
       if (mob.minerSwing == null) return undefined;
       mob.minerSwing += dt;

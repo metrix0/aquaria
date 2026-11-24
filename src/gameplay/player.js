@@ -48,6 +48,14 @@ export function playerStatusEffects(player) {
       detail: 'Losing health over time.',
     });
   }
+  if ((player.blindness ?? 0) > 0) {
+    effects.push({
+      id: 'blindness',
+      title: 'Blindness',
+      seconds: Math.ceil(player.blindness),
+      detail: 'Vision is reduced to a small circle around you.',
+    });
+  }
   if ((player.stun ?? 0) > 0) {
     effects.push({
       id: 'shock',
@@ -114,7 +122,7 @@ export function playerStatusEffects(player) {
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   let y = SPAWN.y;
   while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
+  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
 function tryStepUp(world, player, targetDx, remainingX) {
@@ -235,6 +243,7 @@ export function toggleGodMode(world, player) {
     player.confusedGrace = 0;
     player.bleed = 0;
     player.bleedTick = 0;
+    player.blindness = 0;
     player.poison = 0;
     player.poisonTick = 0;
     player.neurotoxin = 0;
@@ -296,6 +305,7 @@ export function movePlayer(world, player, input, dt) {
     player.confusedGrace = CONFUSED_GRACE_DURATION;
   }
   player.bleed = player.bleed ?? 0;
+  player.blindness = Math.max(0, (player.blindness ?? 0) - dt);
   player.neurotoxin = Math.max(0, (player.neurotoxin ?? 0) - dt);
   player.inkCooldown = Math.max(0, (player.inkCooldown ?? 0) - dt);
   if (player.inkSplats?.length) {
@@ -486,22 +496,16 @@ export function stepPoison(player, dt, effects) {
   return stepOverTimeDebuff(player, dt, effects, 'poison', 'poisonTick', '#79d956');
 }
 
-export function updateOxygen(world, player, dt, maxOxygen, outOfCombat = true) {
+export function updateOxygen(world, player, dt, maxOxygen) {
   if (player.flightOrigin) return false;
   const headInWater = playerHeadInWater(world, player);
   const atVent = headInWater && world.vents.some(({ x, y }) => Math.hypot(player.x - x, player.y + 5 - (y - TILE)) < 30);
-  const canRegen = player.hurt <= 0 && !(player.bleed > 0);
   if (atVent) {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 18 * dt);
-    if (canRegen) player.health = Math.min(MAX_HEALTH, player.health + 6 * dt);
   } else if (headInWater) {
     player.oxygen = Math.max(0, player.oxygen - dt);
-    if (canRegen && outOfCombat && player.oxygen > 0) {
-      player.health = Math.min(MAX_HEALTH, player.health + 1.5 * dt);
-    }
   } else {
     player.oxygen = Math.min(maxOxygen, player.oxygen + 14 * dt);
-    if (canRegen) player.health = Math.min(MAX_HEALTH, player.health + 8 * dt);
   }
   return player.oxygen === 0 || player.health === 0;
 }

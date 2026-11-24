@@ -6,16 +6,17 @@ import { GROVE_FLOOR_GAP, ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, grove
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, RAW_CRAB, RAW_FISH, SNORKEL_CHEST_ID, SPEAR, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKEL_CHEST_ID, SPEAR, STRING, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
-import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode } from '../src/gameplay/player.js';
-import { GRAPPLING_HOOK, Inventory } from '../src/inventory.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useFood, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
+import { EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, ITEMS } from '../src/inventory.js';
+import { createItemsMenu, itemCategory } from '../src/items-menu.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
@@ -704,12 +705,12 @@ test('Root Ring hits high and low targets on its aimed path rather than its laun
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
   const { player, world } = createGame();
   const foes = world.mobs.filter((mob) => caveEnemySpecs[mob.kind]);
-  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 6);
+  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 7);
   for (const mob of foes) {
     const x = Math.floor(mob.x / TILE);
     const feet = mob.y / TILE;
     const spec = caveEnemySpecs[mob.kind];
-    assert.ok(tileAt(world, x, feet), mob.id);
+    if (mob.kind !== 'blood-bat') assert.ok(tileAt(world, x, feet), mob.id);
     for (let y = feet - Math.ceil(spec.height / TILE); y < feet; y++) {
       assert.equal(tileAt(world, x, y), MATERIAL.air, mob.id);
       assert.equal(waterTileAt(world, x, y), false, mob.id);
@@ -1276,6 +1277,8 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
 
   assert.equal(craftItem(game, SPEAR, WORKBENCH.id), true);
   assert.equal(craftItem(game, COPPER_SPEAR, WORKBENCH.id), true);
+  assert.equal(craftItem(game, BOW), false, 'bow should no longer craft with kelp alone');
+  game.inventory.add(STRING.id, 2);
   assert.equal(craftItem(game, BOW), true);
   assert.equal(craftItem(game, ARROW), true);
   assert.equal(game.inventory.count(ARROW.id), 4);
@@ -3959,6 +3962,482 @@ test('deep cave lighting and caveStructureLight stay consistent across Clear Day
   }
 });
 
+test('pufferfish patrols idly, telegraphs inhale, inflates with melee bounce, poison, buoyancy, and jet-deflates', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const puffer = world.mobs.find((mob) => mob.kind === 'pufferfish');
+  assert.ok(puffer, 'pufferfish should spawn in ocean');
+  world.mobs = [puffer];
+
+  // Clear open water pocket around pufferfish so ceiling/wall collisions don't interfere.
+  const baseCol = Math.floor(puffer.x / TILE);
+  const baseRow = Math.floor(puffer.y / TILE);
+  for (let x = baseCol - 8; x <= baseCol + 8; x++) {
+    for (let y = baseRow - 8; y <= baseRow + 6; y++) {
+      editTile(world, x, y, MATERIAL.air);
+    }
+  }
+  puffer.homeX = puffer.x;
+  puffer.homeY = puffer.y;
+
+  // Idle patrol far from player: stays uninflated and drifts.
+  player.x = puffer.x - 160;
+  player.y = puffer.y - 11;
+  player.health = 100;
+  player.oxygen = 100;
+  const startX = puffer.x;
+  const stepPuffer = (t) => stepMobs(world, player, 1 / 60, t, game.effects, { night: false }, game.enemies);
+  for (let i = 0; i < 30; i++) stepPuffer(i / 60);
+  assert.equal(puffer.pufferState, 'idle');
+  assert.equal(puffer.inflateScale, 1);
+  assert.notEqual(puffer.x, startX);
+
+  // Proximity triggers wind-up telegraph.
+  player.x = puffer.x - 36;
+  player.y = puffer.y - 11;
+  stepPuffer(1);
+  assert.equal(puffer.pufferState, 'windup');
+
+  // After ~0.75s wind-up, expands to 2.8x size (2.5x-3x), becomes buoyant, and bounces melee attacks.
+  for (let i = 0; i < 55; i++) stepPuffer(1 + i / 60);
+  assert.equal(puffer.pufferState, 'inflated');
+  assert.ok(puffer.inflateScale >= 2.5 && puffer.inflateScale <= 3.0);
+  assert.ok(puffer.dy < 0, 'inflated pufferfish should be buoyant and float upward');
+
+  // Melee bounces off without reducing pufferfish health.
+  const hpBeforeMelee = puffer.health;
+  player.hurt = 0;
+  const bounce = damageMob(world, puffer, 3, 0, 100, game.effects, { melee: true, attacker: player });
+  assert.equal(bounce?.bounced, true);
+  assert.equal(puffer.health, hpBeforeMelee);
+  assert.ok(player.dx < -100, 'melee bounce pushes player backward');
+
+  // Ranged/piercing attack still damages inflated pufferfish.
+  damageMob(world, puffer, 1, 0, 50, game.effects);
+  assert.equal(puffer.health, hpBeforeMelee - 1);
+
+  // Contact while inflated deals heavy knockback, contact damage, and applies Poisoned status.
+  player.hurt = 0;
+  puffer.cooldown = 0;
+  player.x = puffer.x - 14;
+  player.y = puffer.y - 11;
+  const hpBeforeContact = player.health;
+  stepPuffer(2);
+  assert.ok(player.health < hpBeforeContact);
+  assert.ok(Math.abs(player.dx) > 150);
+  assert.ok(player.poison > 0);
+  assert.ok(playerStatusEffects(player).some((e) => e.id === 'poisoned'));
+
+  // Move player away and advance through remaining ~3.5s inflated state into deflation jet dash & exhaustion.
+  player.x = puffer.x - 200;
+  for (let i = 0; i < 230; i++) {
+    stepPuffer(2 + i / 60);
+    if (puffer.pufferState === 'deflating') break;
+  }
+  assert.equal(puffer.pufferState, 'deflating');
+  assert.ok(Math.abs(puffer.dx) > 80, 'deflation fires a jet propulsion dash');
+
+  for (let i = 0; i < 60; i++) stepPuffer(6 + i / 60);
+  assert.equal(puffer.pufferState, 'idle');
+  assert.equal(puffer.inflateScale, 1);
+  assert.ok(puffer.exhausted > 0, 'enters brief exhaustion window after deflating');
+});
+
+test('lionfish drops poison needles, crafts into poison arrows, poisons enemies green with overhead icon', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const lionfish = world.mobs.find((mob) => mob.kind === 'lionfish');
+  assert.ok(lionfish);
+
+  // Killing lionfish drops poison needles.
+  const killEffect = damageMob(world, lionfish, lionfish.health, 0, 0, game.effects);
+  assert.deepEqual(killEffect?.drop, { id: POISON_NEEDLE.id, count: 2 });
+  game.inventory.add(killEffect.drop.id, killEffect.drop.count);
+
+  // Crafting poison arrows consumes arrows + poison needle.
+  game.inventory.add(ARROW.id, 4);
+  game.inventory.add(BOW.id, 1);
+  assert.equal(craftItem(game, POISON_ARROW), true);
+  assert.equal(game.inventory.count(POISON_ARROW.id), 4);
+  assert.equal(game.inventory.count(POISON_NEEDLE.id), 1);
+
+  // Shooting a shark with a poison arrow applies mob.poison and ticks poison damage over time.
+  const shark = world.mobs.find((mob) => mob.kind === 'shark');
+  assert.ok(shark);
+  world.mobs = [shark];
+  player.x = shark.x - 30;
+  player.y = shark.y - 11;
+  let bowSlot = game.inventory.hotbar.findIndex((s) => s?.id === BOW.id);
+  if (bowSlot < 0) {
+    const bp = game.inventory.backpack.findIndex((s) => s?.id === BOW.id);
+    assert.ok(bp >= 0);
+    assert.equal(game.inventory.move({ group: 'backpack', index: bp }, { group: 'hotbar', index: 4 }), true);
+    bowSlot = 4;
+  }
+  useWeapon(game, bowSlot, shark.x, shark.y);
+  assert.ok(game.projectiles[0]?.poisonDuration > 0);
+
+  const hpAfterHit = shark.health;
+  for (let i = 0; i < 180; i++) {
+    stepGame(game, {}, 1 / 60);
+    if (shark.poison > 0) break;
+  }
+  assert.ok(shark.poison > 0, 'poison arrow should poison enemy');
+  const hpOnPoisonStart = shark.health;
+  assert.ok(hpOnPoisonStart <= hpAfterHit);
+
+  for (let i = 0; i < 80; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(shark.health < hpOnPoisonStart, 'poison should tick damage over time on poisoned enemy');
+
+  // Renderer applies green filter and draws poison droplet icon above poisoned enemy head.
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const noop = () => {};
+    const filters = [];
+    const fillColors = [];
+    const makeCtx = () => {
+      const stack = [];
+      return {
+        save() { stack.push(this.filter); },
+        restore() { this.filter = stack.pop() ?? 'none'; },
+        scale: noop, rotate: noop, setTransform: noop,
+        beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+        quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+        fill: noop, stroke: noop, translate: noop,
+        createLinearGradient: () => ({ addColorStop: noop }),
+        createRadialGradient: () => ({ addColorStop: noop }),
+        fillRect() {
+          if (this.filter && this.filter !== 'none') filters.push(this.filter);
+          fillColors.push(this.fillStyle);
+        },
+        filter: 'none',
+      };
+    };
+    const canvas = {
+      width: 640,
+      height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) },
+      getContext: () => makeCtx(),
+    };
+    const renderer = createRenderer(canvas);
+    renderer.draw({
+      world,
+      player,
+      snorkel: null,
+      camera: { x: shark.x - 160, y: shark.y - 90, width: 320, height: 180 },
+      time: 1,
+      elapsed: 1,
+      aim: null,
+      mining: null,
+      miningSwing: null,
+      held: null,
+      attack: null,
+      hasArrow: true,
+      playerArrows: [],
+      targetMob: null,
+      particles: [],
+      reducedMotion: false,
+      conditions: { darkness: 0, rain: 0, night: false, skyProgress: 0.5, atmosphere: 'clear' },
+      worldTime: 0,
+      weatherSeed: 0,
+      caveShadowsHidden: true,
+      openChestId: null,
+    });
+    assert.ok(filters.some((f) => f.includes('hue-rotate(68deg)')), 'poisoned enemy renders green');
+    assert.ok(fillColors.includes('#66cc4b') && fillColors.includes('#b8ff9c'), 'poison icon renders above poisoned enemy');
+
+    // Poisoned Kraken only tints its head/mantle green, not its tentacles.
+    const krakenGame = createGame();
+    const kraken = krakenGame.world.mobs.find((m) => m.kind === 'kraken');
+    assert.ok(kraken);
+    kraken.poison = 4;
+    filters.length = 0;
+    fillColors.length = 0;
+    renderer.draw({
+      world: krakenGame.world,
+      player: krakenGame.player,
+      snorkel: null,
+      camera: { x: kraken.x - 160, y: kraken.y - 140, width: 320, height: 240 },
+      time: 1,
+      elapsed: 1,
+      aim: null,
+      mining: null,
+      miningSwing: null,
+      held: null,
+      attack: null,
+      hasArrow: false,
+      playerArrows: [],
+      targetMob: null,
+      particles: [],
+      reducedMotion: false,
+      conditions: { darkness: 0, rain: 0, night: false, skyProgress: 0.5, atmosphere: 'clear' },
+      worldTime: 0,
+      weatherSeed: 0,
+      caveShadowsHidden: true,
+      openChestId: null,
+    });
+    assert.ok(filters.length > 0 && filters.length < 40, `only Kraken head should be tinted, got ${filters.length} filtered rects`);
+    assert.ok(fillColors.includes('#66cc4b'), 'poison icon renders above Kraken head');
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
+});
+
+test('items menu divides items into tabs and opens on the All tab by default', () => {
+  const prevDocument = globalThis.document;
+  const makeEl = (tag, attrs = {}) => {
+    const listeners = new Map();
+    const children = [];
+    const el = {
+      tagName: tag.toUpperCase(),
+      dataset: { ...attrs },
+      attributes: new Map(),
+      className: '',
+      classList: { add() {} },
+      style: {},
+      hidden: false,
+      value: '',
+      valueAsNumber: 1,
+      textContent: '',
+      children,
+      append(...nodes) { children.push(...nodes); },
+      setAttribute(k, v) { this.attributes.set(k, String(v)); },
+      getAttribute(k) { return this.attributes.get(k) ?? null; },
+      addEventListener(type, fn) {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(fn);
+      },
+      dispatch(type) { for (const fn of listeners.get(type) ?? []) fn(); },
+      reportValidity: () => true,
+      getContext: () => ({ fillRect() {} }),
+      toDataURL: () => '',
+    };
+    return el;
+  };
+  globalThis.document = { createElement: (tag) => makeEl(tag) };
+  try {
+    const catalog = { ...ITEMS, ...EQUIPMENT_ITEMS };
+    const counts = { weapons: 0, gear: 0, consumables: 0, blocks: 0, materials: 0 };
+    for (const [id, item] of Object.entries(catalog)) {
+      const cat = itemCategory(id, item);
+      assert.ok(Object.hasOwn(counts, cat), `unexpected category ${cat} for ${id}`);
+      counts[cat]++;
+    }
+    for (const [cat, count] of Object.entries(counts)) {
+      assert.ok(count > 0, `expected non-empty category ${cat}`);
+    }
+
+    const grid = makeEl('div');
+    const search = makeEl('input');
+    const quantity = makeEl('input');
+    const empty = makeEl('p');
+    const status = makeEl('p');
+    const tabButtons = ['all', 'weapons', 'gear', 'consumables', 'blocks', 'materials'].map((tab) => {
+      const btn = makeEl('button', { tab });
+      btn.setAttribute('aria-selected', tab === 'all' ? 'true' : 'false');
+      return btn;
+    });
+    const panel = makeEl('dialog');
+    panel.querySelector = (sel) => ({
+      '#items-grid': grid,
+      '#item-search': search,
+      '#item-quantity': quantity,
+      '#items-empty': empty,
+      '#items-status': status,
+    }[sel] ?? null);
+    panel.querySelectorAll = (sel) => (sel === '#items-tabs [role="tab"]' ? tabButtons : []);
+
+    const menu = createItemsMenu(panel, () => null);
+    assert.equal(tabButtons[0].getAttribute('aria-selected'), 'true');
+    assert.equal(grid.children.filter((b) => !b.hidden).length, Object.keys(catalog).length);
+
+    tabButtons[1].dispatch('click');
+    assert.equal(tabButtons[0].getAttribute('aria-selected'), 'false');
+    assert.equal(tabButtons[1].getAttribute('aria-selected'), 'true');
+    assert.equal(grid.children.filter((b) => !b.hidden).length, counts.weapons);
+
+    panel.dispatch('close');
+    assert.equal(tabButtons[0].getAttribute('aria-selected'), 'true');
+    assert.equal(grid.children.filter((b) => !b.hidden).length, Object.keys(catalog).length);
+
+    menu.selectTab('blocks');
+    assert.equal(grid.children.filter((b) => !b.hidden).length, counts.blocks);
+  } finally {
+    globalThis.document = prevDocument;
+  }
+});
+
+test('player does not naturally regenerate health on land, underwater, or at air vents', () => {
+  const game = createGame();
+  const { world, player } = game;
+  world.mobs = [];
+  player.health = 55;
+  player.hurt = 0;
+  player.bleed = 0;
+  player.poison = 0;
+
+  // On island surface (in air) for 3 seconds: oxygen fills, health stays 55.
+  for (let i = 0; i < 180; i++) stepGame(game, {}, 1 / 60);
+  assert.equal(player.health, 55);
+
+  // Underwater (out of combat): oxygen drains, health stays 55.
+  Object.assign(player, { x: (WEST_EXTENSION + 95) * TILE, y: (WATER_ROW + 4) * TILE, oxygen: 80 });
+  for (let i = 0; i < 60; i++) updateOxygen(world, player, 1 / 60, 100);
+  assert.equal(player.health, 55);
+
+  // At an underwater air vent: oxygen fills, health stays 55.
+  const [vent] = world.vents;
+  Object.assign(player, { x: vent.x, y: vent.y - TILE - 5, oxygen: 40 });
+  for (let i = 0; i < 60; i++) updateOxygen(world, player, 1 / 60, 100);
+  assert.ok(player.oxygen > 40);
+  assert.equal(player.health, 55);
+
+  // Explicit healing item (kelp dressing) still heals cleanly.
+  grantItem(game, KELP_DRESSING.id, 1);
+  const slot = game.inventory.hotbar.findIndex((s) => s?.id === KELP_DRESSING.id);
+  const healed = useDressing(game, slot);
+  assert.ok(healed && player.health === 55 + KELP_DRESSING.heal);
+});
+
+test('cave and dungeon enemies step up 1-block heights and jump across gaps and 2-block walls', () => {
+  const buildCaveLane = (world, baseCol, floorRow) => {
+    for (let x = baseCol - 3; x <= baseCol + 14; x++) {
+      for (let y = floorRow - 7; y < floorRow; y++) editTile(world, x, y, MATERIAL.air);
+      editTile(world, x, floorRow, MATERIAL.deepstone);
+    }
+  };
+
+  const baseCol = Math.floor(SPAWN.x / TILE) + 2;
+  const floorRow = 12;
+
+  // 1. Wide and narrow cave/dungeon enemies climb a 1-block staircase without getting stuck.
+  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer']) {
+    const game = createGame();
+    const { world, player } = game;
+    buildCaveLane(world, baseCol, floorRow);
+    editTile(world, baseCol + 3, floorRow - 1, MATERIAL.deepstone);
+    editTile(world, baseCol + 4, floorRow - 1, MATERIAL.deepstone);
+    editTile(world, baseCol + 4, floorRow - 2, MATERIAL.deepstone);
+    editTile(world, baseCol + 5, floorRow - 1, MATERIAL.deepstone);
+    editTile(world, baseCol + 5, floorRow - 2, MATERIAL.deepstone);
+
+    const template = world.mobs.find((m) => m.kind === kind);
+    assert.ok(template, `expected spawned ${kind}`);
+    const mob = {
+      ...template,
+      x: (baseCol + 0.5) * TILE,
+      y: floorRow * TILE,
+      homeX: (baseCol + 5) * TILE,
+      homeY: (floorRow - 2) * TILE,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+      windup: 0,
+      dash: kind === 'scorpion' ? 0.5 : 0,
+      venomIn: 0,
+      jumpCooldown: 0,
+      attackTimer: 5,
+    };
+    world.mobs = [mob];
+    Object.assign(player, {
+      x: (baseCol + 30) * TILE,
+      y: floorRow * TILE - player.height,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+      health: 100,
+      hurt: 0,
+    });
+
+    let steppedWithoutJump = true;
+    for (let i = 0; i < 360; i++) {
+      stepCaveEnemy(world, player, mob, 1 / 60, game.effects);
+      if (!mob.grounded || mob.dy < -60) steppedWithoutJump = false;
+      if (mob.y <= (floorRow - 2) * TILE && mob.x >= (baseCol + 4) * TILE) break;
+    }
+    assert.equal(steppedWithoutJump, true, `${kind} should step up 1-block staircase smoothly without jumping`);
+    assert.ok(mob.y <= (floorRow - 2) * TILE, `${kind} should step up 1-block staircase, got y=${mob.y}`);
+    assert.ok(mob.x >= (baseCol + 4) * TILE, `${kind} should advance across 1-block steps, got x=${mob.x}`);
+  }
+
+  // 2. Cave/dungeon enemies jump over a 2-block wall and across a 2-tile pit.
+  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer']) {
+    const wallGame = createGame();
+    buildCaveLane(wallGame.world, baseCol, floorRow);
+    editTile(wallGame.world, baseCol + 2, floorRow - 1, MATERIAL.deepstone);
+    editTile(wallGame.world, baseCol + 2, floorRow - 2, MATERIAL.deepstone);
+
+    const wallMob = {
+      ...wallGame.world.mobs.find((m) => m.kind === kind),
+      x: (baseCol + 0.5) * TILE,
+      y: floorRow * TILE,
+      homeX: (baseCol + 0.5) * TILE,
+      homeY: floorRow * TILE,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+      windup: 0,
+      dash: 0,
+      jumpCooldown: 0,
+      attackTimer: 5,
+    };
+    wallGame.world.mobs = [wallMob];
+    // Position player beyond archer chaseDistance (90px) above the 2-block wall with clear sightline.
+    Object.assign(wallGame.player, {
+      x: (baseCol + 2.5) * TILE,
+      y: (floorRow - 7) * TILE - wallGame.player.height,
+      dx: 0,
+      dy: 0,
+      grounded: true,
+    });
+
+    let jumped = false;
+    for (let i = 0; i < 240; i++) {
+      stepCaveEnemy(wallGame.world, wallGame.player, wallMob, 1 / 60, wallGame.effects);
+      if (!wallMob.grounded && wallMob.dy < -60) jumped = true;
+      if (wallMob.grounded && wallMob.y <= (floorRow - 2) * TILE && wallMob.x >= (baseCol + 2) * TILE) break;
+    }
+    assert.equal(jumped, true, `${kind} should jump to clear 2-block wall`);
+    assert.ok(wallMob.y <= (floorRow - 2) * TILE && wallMob.x >= (baseCol + 2) * TILE, `${kind} should land atop 2-block wall`);
+  }
+
+  // 3. Cave/dungeon gap jump test (archer chasing beyond reach crosses pit).
+  const gapGame = createGame();
+  buildCaveLane(gapGame.world, baseCol, floorRow);
+  editTile(gapGame.world, baseCol + 2, floorRow, MATERIAL.air);
+  editTile(gapGame.world, baseCol + 2, floorRow + 1, MATERIAL.air);
+  const gapMob = {
+    ...gapGame.world.mobs.find((m) => m.kind === 'miner'),
+    x: (baseCol + 0.5) * TILE,
+    y: floorRow * TILE,
+    homeX: (baseCol + 0.5) * TILE,
+    homeY: floorRow * TILE,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+    windup: 0,
+    jumpCooldown: 0,
+  };
+  gapGame.world.mobs = [gapMob];
+  Object.assign(gapGame.player, {
+    x: (baseCol + 6) * TILE,
+    y: floorRow * TILE - gapGame.player.height,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+  });
+  let clearedGap = false;
+  for (let i = 0; i < 240; i++) {
+    stepCaveEnemy(gapGame.world, gapGame.player, gapMob, 1 / 60, gapGame.effects);
+    if (Math.floor(gapMob.x / TILE) > baseCol + 2 && gapMob.y <= floorRow * TILE) {
+      clearedGap = true;
+      break;
+    }
+  }
+  assert.equal(clearedGap, true, 'cave enemy should jump across cave floor gap');
+});
+
 test('defeated kraken boss never respawns over time, on player death, or after save and reload', () => {
   const game = createGame();
   const { world } = game;
@@ -4122,4 +4601,200 @@ test('fish and crabs drop raw food that can be eaten with poison risk or cooked 
   reloaded.player.x = (vtx + 0.5) * TILE;
   reloaded.player.y = vFloor * TILE - reloaded.player.height;
   assert.equal(fireplaceAt(reloaded, vtx, vFloor - 1)?.kind, FIREPLACE.id);
+});
+
+test('skeleton archers shoot arrows along a parabolic trajectory matching player arrow gravity', () => {
+  const { player, world, effects } = createGame();
+  const baseCol = Math.floor(SPAWN.x / TILE) + 2;
+  const floorRow = 12;
+  for (let x = baseCol - 2; x <= baseCol + 14; x++) {
+    for (let y = floorRow - 7; y < floorRow; y++) editTile(world, x, y, MATERIAL.air);
+    editTile(world, x, floorRow, MATERIAL.deepstone);
+  }
+
+  const archer = {
+    ...world.mobs.find((mob) => mob.kind === 'archer'),
+    x: (baseCol + 1) * TILE,
+    y: floorRow * TILE,
+    homeX: (baseCol + 1) * TILE,
+    homeY: floorRow * TILE,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+    attackTimer: 0,
+    windup: 0,
+  };
+  world.mobs = [archer];
+  world.projectiles = [];
+  Object.assign(player, {
+    x: (baseCol + 7.5) * TILE,
+    y: floorRow * TILE - player.height,
+    dx: 0,
+    dy: 0,
+    grounded: true,
+    health: 100,
+    hurt: 0,
+  });
+
+  for (let i = 0; i < 120 && !world.projectiles.length; i++) {
+    stepCaveEnemy(world, player, archer, 1 / 60, effects);
+  }
+  const [arrow] = world.projectiles;
+  assert.equal(arrow?.kind, 'cave-arrow');
+  const initialDy = arrow.dy;
+  assert.ok(initialDy < -5, 'arrow should launch slightly upward to compensate for gravity along the arc');
+
+  // Step the arrow and verify downward gravity (140 px/s^2) curves dy positive and lands on the player.
+  let prevDy = initialDy;
+  let hitPlayer = false;
+  for (let i = 0; i < 90; i++) {
+    const alive = stepCaveHazard(world, player, arrow, 1 / 60, effects);
+    assert.ok(arrow.dy > prevDy, 'arrow vertical velocity should curve downward each frame');
+    prevDy = arrow.dy;
+    if (!alive) {
+      hitPlayer = player.health < 100;
+      break;
+    }
+  }
+  assert.equal(hitPlayer, true, 'parabolic skeleton arrow should hit the player');
+});
+
+test('cave spiders drop string and crafting a bow requires 2 strings instead of kelp', () => {
+  const game = createGame();
+  const spider = game.world.mobs.find((mob) => mob.kind === 'spider');
+  assert.ok(spider);
+  const effects = [];
+  const res = damageMob(game.world, spider, spider.maxHealth + 10, 0, 0, effects);
+  assert.deepEqual(res?.drop, { id: STRING.id, count: 1 });
+  assert.ok(effects.some((e) => e.drop?.id === STRING.id && e.drop?.count === 1));
+
+  const craftGame = createGame();
+  craftGame.inventory.add('wood', 3);
+  craftGame.inventory.add('kelp', 5);
+  craftGame.inventory.add(STRING.id, 1);
+  assert.equal(craftItem(craftGame, BOW), false, '1 string is not enough to craft a bow');
+  craftGame.inventory.add(STRING.id, 1);
+  assert.equal(craftItem(craftGame, BOW), true, '3 wood and 2 strings craft a bow');
+  assert.equal(craftGame.inventory.count(STRING.id), 0);
+  assert.equal(craftGame.inventory.count('kelp'), 5);
+});
+
+test('dungeon blood bats fly in dark red, attack with 30% 10s blindness or 40% 5s bleeding, and render pitch-black FOV', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player } = game;
+    const bats = world.mobs.filter((mob) => mob.kind === 'blood-bat');
+    assert.ok(bats.length >= 4, 'dungeon should host blood bats');
+    for (const bat of bats) {
+      const col = Math.floor(bat.x / TILE) - WEST_EXTENSION;
+      const row = Math.floor(bat.y / TILE);
+      assert.equal(isDungeonMasonry(col, row), true, `${bat.id} should spawn inside dungeon masonry`);
+    }
+
+    const bat = bats[0];
+    world.mobs = [bat];
+    const startX = bat.x;
+    const startY = bat.y;
+    Object.assign(player, {
+      x: startX + 36,
+      y: startY - player.height / 2,
+      dx: 0,
+      dy: 0,
+      hurt: 0,
+      health: 100,
+      blindness: 0,
+      bleed: 0,
+      bleedTick: 0,
+    });
+
+    // 1. Roll < 0.30 -> 10s blindness (no bleeding).
+    bat.attackTimer = 0;
+    bat.statusRoll = 0.15;
+    for (let i = 0; i < 60 && player.health === 100; i++) {
+      stepCaveEnemy(world, player, bat, 1 / 60, game.effects);
+    }
+    assert.ok(player.health < 100, 'blood bat should swoop and bite the player');
+    assert.equal(player.blindness, 10);
+    assert.equal(player.bleed, 0);
+    assert.ok(playerStatusEffects(player).some((e) => e.id === 'blindness' && e.seconds === 10));
+
+    // 2. Roll in [0.30, 0.70) -> 5s bleeding (no new blindness).
+    player.blindness = 0;
+    player.hurt = 0;
+    player.health = 100;
+    bat.x = startX;
+    bat.y = startY;
+    bat.attackTimer = 0;
+    bat.statusRoll = 0.5;
+    for (let i = 0; i < 60 && player.health === 100; i++) {
+      stepCaveEnemy(world, player, bat, 1 / 60, game.effects);
+    }
+    assert.ok(player.health < 100);
+    assert.equal(player.bleed, 5);
+    assert.equal(player.blindness, 0);
+    assert.ok(playerStatusEffects(player).some((e) => e.id === 'bleeding' && e.seconds === 5));
+
+    // 3. Roll >= 0.70 -> normal hit without blindness or bleeding.
+    player.bleed = 0;
+    player.hurt = 0;
+    player.health = 100;
+    bat.x = startX;
+    bat.y = startY;
+    bat.attackTimer = 0;
+    bat.statusRoll = 0.85;
+    for (let i = 0; i < 60 && player.health === 100; i++) {
+      stepCaveEnemy(world, player, bat, 1 / 60, game.effects);
+    }
+    assert.ok(player.health < 100);
+    assert.equal(player.bleed, 0);
+    assert.equal(player.blindness, 0);
+
+    // 4. Verify dark-red bat sprite and pitch-black radial blindness overlay render cleanly.
+    player.blindness = 10;
+    const fillColors = [];
+    let radialGradCalls = 0;
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const ctx = {
+      save: noop, restore: noop, scale: noop, rotate: noop, translate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      putImageData: noop, stroke: noop,
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      fill() { fillColors.push(this.fillStyle); },
+      fillRect() { fillColors.push(this.fillStyle); },
+      clearRect: noop,
+      createLinearGradient: () => grad,
+      createRadialGradient() {
+        radialGradCalls++;
+        return grad;
+      },
+    };
+    const renderer = createRenderer({
+      width: 320,
+      height: 180,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) },
+      getContext: () => ctx,
+    });
+    renderer.draw({
+      world,
+      player,
+      snorkel: null,
+      camera: { x: bat.x - 160, y: bat.y - 90, width: 320, height: 180 },
+      time: 1, elapsed: 1, effects: [], particles: [],
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: bat,
+      aim: null, mining: null, miningSwing: null,
+      conditions: { ambient: 1, darkness: 0.5, rain: 0, night: false, sky: '#000', skyLow: '#000' },
+      overview: false, reducedMotion: false,
+    });
+    assert.ok(fillColors.includes('#7d1826') && fillColors.includes('#470a14'), 'blood bat should render in dark red');
+    assert.ok(radialGradCalls > 0, 'blindness effect should draw pitch-black radial FOV vignette');
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
 });

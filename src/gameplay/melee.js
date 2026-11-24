@@ -77,8 +77,9 @@ export function overlapsMob(hitbox, mob, spec) {
   const { x, y, ux, uy, halfWidth, halfHeight } = hitbox;
   const dx = mob.x - x;
   const dy = mob.y + spec.centerY - y;
-  const mx = spec.width / 2;
-  const my = spec.height / 2;
+  const scale = mob.inflateScale ?? 1;
+  const mx = (spec.width * scale) / 2;
+  const my = (spec.height * scale) / 2;
   const cos = Math.abs(ux);
   const sin = Math.abs(uy);
   // Check the two world axes and the two rotated weapon axes.

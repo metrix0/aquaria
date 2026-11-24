@@ -25,7 +25,7 @@ export function createUI(actions, version) {
   ].map((id) => [id, byId(id)]));
   const panels = [...document.querySelectorAll('dialog')];
   const craftingUI = createCraftingUi(byId('craft-panel'), actions);
-  createItemsMenu(byId('items-panel'), actions.giveItem);
+  const itemsMenu = createItemsMenu(byId('items-panel'), actions.giveItem);
   createDropsUI(byId('drops-content'));
   createSpawnMenu(byId('spawn-panel'), actions.spawnEnemy);
   const characterEditor = createCharacterEditor(byId('customize-panel'), actions.customize);
@@ -194,6 +194,7 @@ export function createUI(actions, version) {
     for (const other of panels) if (other.open) other.close();
     inventoryUI.clearTooltip();
     if (id === 'backpack-panel') inventoryUI.showChest(source);
+    if (id === 'items-panel') itemsMenu.selectTab('all');
     actions.beforePanel(id, source);
     panel.showModal();
   }

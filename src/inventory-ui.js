@@ -1,4 +1,4 @@
-import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, SNORKELS } from './content.js';
+import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, POISON_ARROW, SNORKELS } from './content.js';
 import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
@@ -72,6 +72,7 @@ function drawSlots(buttons, stacks, selected) {
 function itemStats(id, item) {
   if (item.weapon?.damage) return item.weapon.damage + ' damage';
   if (id === ARROW.id) return ARROW.damage + ' damage';
+  if (id === POISON_ARROW.id) return POISON_ARROW.damage + ' damage + poison';
   if (id === BOW.id) return ARROW.damage + ' damage per arrow';
   if (id === KELP_DRESSING.id) return 'Restores up to ' + KELP_DRESSING.heal + ' health';
   if (item.oxygen) {

@@ -1,11 +1,12 @@
 import { RAW_CRAB, RAW_FISH } from '../content.js';
+import { POISON_NEEDLE, STRING } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
 import { ambientMobSpecs, stepAmbientMob } from './ambient-fauna.js';
 import { TILE, WEST_EXTENSION } from '../world/generation.js';
 import { isCaveRefuge } from '../world/island-cave.js';
 
-import { playerWaterborne } from './player.js';
+import { playerWaterborne, takeDamage } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
@@ -13,6 +14,7 @@ import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/je
 import { KRAKEN_DEATH_DURATION, krakenSpec, stepKraken, stepKrakenDeath } from './enemies/kraken.js';
 import { sharkSpec, stepShark } from './enemies/shark.js';
 import { lionfishSpec, stepLionfish, stepLionfishSpine, stepNeurotoxinCloud } from './enemies/lionfish.js';
+import { pufferfishSpec, stepPufferfish, triggerPufferfishWindup } from './enemies/pufferfish.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
 import { stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
 import { caveSpiderSpec, stepCaveSpider } from './enemies/cave-spider.js';
@@ -21,6 +23,7 @@ import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.j
 import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies/cave-scorpion.js';
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
 import { mimicSpec, stepMimic, wakeMimic } from './enemies/mimic.js';
+import { bloodBatSpec, stepBloodBat } from './enemies/blood-bat.js';
 import { cannibalBowSpec, cannibalSpearSpec, stepCannibalBow, stepCannibalSpear } from './enemies/cannibal.js';
 import { aggroJungleCult, frogCultistSpec, idolFacing, stepFrogCultist } from './enemies/frog-cultist.js';
 import { jungleWormSpec, stepJungleWorm } from './enemies/jungle-worm.js';
@@ -40,6 +43,7 @@ const seaEnemySteps = {
   squid: { spec: squidSpec, step: stepSquid },
   shark: { spec: sharkSpec, step: stepShark },
   lionfish: { spec: lionfishSpec, step: stepLionfish },
+  pufferfish: { spec: pufferfishSpec, step: stepPufferfish },
   kraken: { spec: krakenSpec, step: stepKraken },
 };
 
@@ -50,6 +54,7 @@ const caveEnemyModules = {
   scorpion: { spec: caveScorpionSpec, step: stepCaveScorpion },
   hammer: { spec: hammerSkeletonSpec, step: stepHammerSkeleton },
   mimic: { spec: mimicSpec, step: stepMimic },
+  'blood-bat': { spec: bloodBatSpec, step: stepBloodBat },
 };
 
 const jungleEnemyModules = {
@@ -153,7 +158,6 @@ function stepProjectiles(world, player, dt, time, effects) {
 
 export function syncMobs(world, player) {
   for (const mob of world.mobs) {
-    if (mob.kind === 'kraken' && (mob.health <= 0 || world.krakenDefeated)) continue;
     if (ambientMobSpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
@@ -244,6 +248,8 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           y: mob.homeY,
           dx: 0,
           dy: 0,
+          poison: 0,
+          poisonTick: 0,
           flee: 0,
           cooldown: 0,
           hurt: 0,
@@ -279,6 +285,16 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
         if (mob.kind === 'kraken') clearKrakenState(mob);
       }
       continue;
+    }
+    if ((mob.poison ?? 0) > 0 && mob.health > 0) {
+      mob.poison = Math.max(0, mob.poison - dt);
+      mob.poisonTick = (mob.poisonTick ?? 1) - dt;
+      while (mob.poisonTick <= 0 && mob.poison > 0 && mob.health > 0) {
+        mob.poisonTick += 1;
+        damageMob(world, mob, 1, 0, 0, effects, { poisonTick: true });
+      }
+      if (mob.poison === 0) mob.poisonTick = 0;
+      if (mob.health <= 0) continue;
     }
     if (mob.rooted > 0 && mob.health > 0) {
       mob.rooted = Math.max(0, mob.rooted - dt);
@@ -348,15 +364,41 @@ export function mobSpec(mob) {
   return mobSpecs[mob.kind];
 }
 
-export function damageMob(world, mob, damage, angle, knockback, effects) {
+export function damageMob(world, mob, damage, angle, knockback, effects, options = {}) {
   const spec = mobSpecs[mob.kind];
   if (!spec || mob.health <= 0 || mob.respawn > 0) return null;
   const cy = mob.y + spec.centerY;
+  if (mob.kind === 'pufferfish' && mob.pufferState === 'inflated' && options.melee) {
+    const attacker = options.attacker;
+    if (attacker && !attacker.flightOrigin) {
+      attacker.dx = -Math.cos(angle) * 145;
+      attacker.dy = -Math.sin(angle) * 95 - 12;
+      if ((attacker.hurt ?? 0) <= 0) {
+        attacker.hurt = 0.45;
+        const recoil = takeDamage(attacker, 2);
+        effects?.push({
+          x: mob.x,
+          y: cy,
+          color: '#f5e8ba',
+          count: 6,
+          spread: 54,
+          message: 'Attack bounced off inflated pufferfish! −' + recoil + ' health',
+        });
+        return { killed: false, bounced: true };
+      }
+    }
+    effects?.push({ x: mob.x, y: cy, color: '#f5e8ba', count: 6, spread: 54 });
+    return { killed: false, bounced: true };
+  }
   const dir = Math.cos(angle) >= 0 ? 1 : -1;
   mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - damage);
-  mob.hurt = 0.32;
+  if (!options.poisonTick) {
+    mob.hurt = 0.32;
+  }
 
-  if (mob.kind === 'kraken') {
+  if (options.poisonTick) {
+    // Poison damage ticks without knockback, flee resets, or white hurt flash.
+  } else if (mob.kind === 'kraken') {
     mob.facing = -1;
     mob.dx = 0;
     mob.dy = 0;
@@ -391,6 +433,12 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
     mob.cooldown = Math.max(mob.cooldown ?? 0, 0.9);
     if (mob.kind === 'frog' && !mob.dayKind) aggroJungleCult(world);
     if (mob.kind === 'mimic' && !mob.awakened) wakeMimic(world, mob, null, effects);
+    if (mob.kind === 'pufferfish' && mob.health > 0) {
+      mob.flee = 0;
+      if ((mob.pufferState ?? 'idle') === 'idle' && (mob.exhausted ?? 0) <= 0) {
+        triggerPufferfishWindup(mob);
+      }
+    }
   }
 
   const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
@@ -410,7 +458,16 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
-    const dropId = mob.kind === 'fish' ? RAW_FISH.id : mob.kind === 'crab' ? RAW_CRAB.id : null;
+    const dropId = mob.kind === 'fish'
+      ? RAW_FISH.id
+      : mob.kind === 'crab'
+        ? RAW_CRAB.id
+        : mob.kind === 'lionfish'
+          ? POISON_NEEDLE.id
+          : mob.kind === 'spider'
+            ? STRING.id
+            : null;
+    const dropCount = mob.kind === 'lionfish' ? 2 : 1;
     effect = {
       x: mob.x,
       y: cy,
@@ -419,7 +476,15 @@ export function damageMob(world, mob, damage, angle, knockback, effects) {
       count: ambientMobSpecs[mob.kind] ? 4 : 14,
       spread: ambientMobSpecs[mob.kind] ? 22 : 72,
       message: 'Defeated ' + label + '!',
-      ...(dropId ? { drop: { id: dropId, count: 1 } } : {}),
+      ...(dropId ? { drop: { id: dropId, count: dropCount } } : {}),
+    };
+  } else if (options.poisonTick) {
+    effect = {
+      x: mob.x,
+      y: cy,
+      color: '#79d956',
+      count: 4,
+      spread: 36,
     };
   } else {
     effect = {
@@ -464,6 +529,7 @@ export function resetHostiles(world) {
   world.jungleCultAggro = false;
   removeKrakenMinions(world);
   for (const mob of world.mobs) {
+    if (mob.kind === 'kraken' && (mob.health <= 0 || world.krakenDefeated)) continue;
     if ((seaEnemySpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
       if (mob.dayKind && mob.kind !== mob.dayKind) {
         mob.kind = mob.dayKind;
