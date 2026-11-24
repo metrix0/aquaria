@@ -1,5 +1,6 @@
 
 import { CLASS_DEFS, skillBudget, skillCost, SOUL_ITEMS } from './classes.js';
+import { STARTER_CLASS_IDS } from './starter-classes.js';
 
 const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -15,14 +16,28 @@ export function createClassesUI(classPanel, treePanel, actions) {
     summary.textContent = current
       ? `Attuned to ${CLASS_DEFS[current].name}. Each class remembers its build. Souls are shared between classes.`
       : 'Choose an ancient calling to awaken your skill tree. Switch freely while testing.';
-    classCards.innerHTML = Object.values(CLASS_DEFS).map((def) => `
+    const groups = [
+      { heading: 'Starting Callings', eyebrow: 'THE FIRST THREE OATHS',
+        note: 'Accessible from the beginning. Each remains viable throughout the adventure.',
+        ids: STARTER_CLASS_IDS },
+      { heading: 'World Discoveries', eyebrow: 'THE FORGOTTEN OATHS',
+        note: 'Normally revealed by distant statues. Available here for testing until statues are implemented.',
+        ids: Object.keys(CLASS_DEFS).filter((id) => !STARTER_CLASS_IDS.includes(id)) },
+    ];
+    const card = (def) => `
       <article class="calling-card calling-${def.id} ${current === def.id ? 'is-active' : ''}" style="--soul-accent:${def.accent}">
         <div class="calling-emblem" aria-hidden="true"><span>${def.symbol}</span></div>
         <p class="calling-eyebrow">${def.title}</p>
         <h3>${def.name}</h3><p class="calling-description">${def.description}</p>
         <div class="calling-paths">${def.paths.map((path) => `<span>${path.icon} ${path.name}</span>`).join('')}</div>
         <button type="button" class="calling-choose" data-class="${def.id}" ${current === def.id ? 'disabled' : ''}>${current === def.id ? '✦ Currently attuned' : 'Awaken ' + def.name}</button>
-      </article>`).join('');
+      </article>`;
+    classCards.innerHTML = groups.map((group) => `
+      <section class="calling-group" aria-label="${group.heading}">
+        <header class="calling-group-heading"><div><span>${group.eyebrow}</span><h3>${group.heading}</h3></div>
+        <p>${group.note}</p></header>
+        <div class="calling-group-grid">${group.ids.map((id) => card(CLASS_DEFS[id])).join('')}</div>
+      </section>`).join('');
     for (const button of classCards.querySelectorAll('[data-class]')) button.addEventListener('click', () => {
       const error = actions.chooseClass(button.dataset.class);
       if (error) actions.notify(error);

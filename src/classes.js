@@ -1,3 +1,5 @@
+import { STARTER_CLASSES } from './starter-classes.js';
+
 // Class progression is independent of the inventory, but the souls that fund it are items.
 // Only the currently attuned class is active; each class remembers its own build.
 const node = (id, name, detail, effect, major = false) => ({ id, name, detail, effect, major });
@@ -5,6 +7,7 @@ const path = (id, name, icon, description, nodes) => ({ id, name, icon, descript
 
 export const SOUL_ITEMS = Object.freeze({ lesser: 'lesser-soul', greater: 'greater-soul' });
 export const CLASS_DEFS = Object.freeze({
+  ...STARTER_CLASSES,
   stormborn: {
     id: 'stormborn', name: 'Stormborn', title: 'Heir of the Tempest', symbol: 'ϟ', accent: '#79d9ff',
     description: 'Command the storm through velocity, electric force, and winds that turn aside danger.',
@@ -114,7 +117,11 @@ export function skillBudget(progress, classId = progress.active) {
   return { lesser: progress.total.lesser - spent.lesser, greater: progress.total.greater - spent.greater };
 }
 export function skillBonuses(progress) {
-  const buffs = { attack: 0, move: 0, swim: 0, fall: 0, resist: 0, regen: 0, oxygen: 0, mine: 0, ore: 0 };
+  const buffs = { attack: 0, move: 0, swim: 0, fall: 0, resist: 0, regen: 0, oxygen: 0, mine: 0, ore: 0,
+    guard: 0, ward: 0, lowHealthAttack: 0, lifesteal: 0,
+    bowDamage: 0, arrowSpeed: 0, bowCooldown: 0, arrowPierce: 0, snare: 0, rootedDamage: 0,
+    healBoost: 0, cleanse: 0, torchDuration: 0, catalystSeconds: 0, catalystMove: 0, catalystAttack: 0,
+    poison: 0, poisonDuration: 0 };
   const def = CLASS_DEFS[progress?.active];
   if (!def) return buffs;
   const unlocked = new Set(progress.builds[def.id] || []);
@@ -126,12 +133,19 @@ export function skillBonuses(progress) {
   buffs.resist = Math.min(.8, buffs.resist);
   buffs.fall = Math.min(1, buffs.fall);
   buffs.mine = Math.min(.85, buffs.mine);
+  buffs.guard = Math.min(.75, buffs.guard);
+  buffs.lifesteal = Math.min(.35, buffs.lifesteal);
+  buffs.snare = Math.min(3, buffs.snare);
+  buffs.ward = Math.min(50, buffs.ward);
   return buffs;
 }
 export function activateClass(game, id) {
   if (!Object.hasOwn(CLASS_DEFS, id)) return 'Unknown class.';
   game.classes.active = id;
   game.player.skillBonuses = skillBonuses(game.classes);
+  game.player.catalystSeconds = 0;
+  game.player.wardShield = game.player.skillBonuses.ward;
+  game.player.wardCooldown = 0;
   game.dirty = true;
   return null;
 }
@@ -147,8 +161,11 @@ export function unlockSkill(game, id) {
   const cost = skillCost(branch.nodes[index]);
   const balance = skillBudget(progress);
   if (balance.lesser < cost.lesser || balance.greater < cost.greater) return 'Not enough attuned souls.';
+  const previousWard = game.player.skillBonuses?.ward ?? 0;
   progress.builds[def.id].push(id);
   game.player.skillBonuses = skillBonuses(progress);
+  game.player.wardShield = Math.min(game.player.skillBonuses.ward,
+    (game.player.wardShield || 0) + Math.max(0, game.player.skillBonuses.ward - previousWard));
   game.dirty = true;
   return null;
 }

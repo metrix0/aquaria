@@ -2,16 +2,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Inventory } from '../src/inventory.js';
-import { createGame, stepGame } from '../src/gameplay/simulation.js';
+import { createGame, stepGame, useDressing, useWeapon } from '../src/gameplay/simulation.js';
 import { damageMob } from '../src/gameplay/mobs.js';
+import { takeDamage, MAX_HEALTH } from '../src/gameplay/player.js';
+import { skillAttackDamage, strikeMob, stepClassEffects } from '../src/gameplay/class-effects.js';
+import { KELP_DRESSING } from '../src/content.js';
+import { STARTER_CLASS_IDS } from '../src/starter-classes.js';
 import { encodeSave, decodeSave } from '../src/save.js';
 import { absorbSouls, activateClass, CLASS_DEFS, createClassProgress, skillBonuses, skillBudget, unlockSkill } from '../src/classes.js';
 
 function game() {
   return { inventory: new Inventory(), classes: createClassProgress(), player: { skillBonuses: {} }, dirty: false };
 }
-test('all three classes contain three paths and boss-gated major stars', () => {
-  assert.equal(Object.keys(CLASS_DEFS).length, 3);
+test('all six independent classes contain three paths and boss-gated major stars', () => {
+  assert.equal(Object.keys(CLASS_DEFS).length, 6);
+  assert.deepEqual(STARTER_CLASS_IDS, ['warden', 'wayfarer', 'scholar']);
   for (const def of Object.values(CLASS_DEFS)) {
     assert.equal(def.paths.length, 3);
     for (const path of def.paths) {
@@ -93,4 +98,162 @@ test('boss souls survive a full backpack and remain one-time rewards after savin
   const savedAgain = createGame(decodeSave(encodeSave(restored)));
   assert.equal(savedAgain.inventory.count('greater-soul'), 1);
   assert.ok(savedAgain.classes.claimed.includes(boss.id));
+});
+
+test('starter trees save and switch independently without weakening the original three', () => {
+  const state = createGame();
+  state.classes.total.lesser = 18;
+  state.classes.total.greater = 3;
+  activateClass(state, 'warden');
+  assert.equal(unlockSkill(state, 'shield-discipline'), null);
+  activateClass(state, 'wayfarer');
+  assert.equal(unlockSkill(state, 'sharpened-eye'), null);
+  activateClass(state, 'scholar');
+  assert.equal(unlockSkill(state, 'field-dressing'), null);
+  activateClass(state, 'stormborn');
+  assert.equal(unlockSkill(state, 'tailwind'), null);
+  const loaded = createGame(decodeSave(encodeSave(state)));
+  for (const id of ['warden','wayfarer','scholar','stormborn']) {
+    assert.equal(loaded.classes.builds[id].length, 1, id);
+  }
+  activateClass(loaded, 'warden');
+  assert.equal(loaded.player.skillBonuses.guard, .12);
+  activateClass(loaded, 'wayfarer');
+  assert.equal(loaded.player.skillBonuses.bowDamage, 2);
+  activateClass(loaded, 'scholar');
+  assert.equal(loaded.player.skillBonuses.healBoost, .3);
+  activateClass(loaded, 'stormborn');
+  assert.equal(loaded.player.skillBonuses.move, .10);
+});
+
+test('Warden can guard while stationary, carry recharging wards, and heal by weapon strikes', () => {
+  const state = createGame();
+  state.classes.total = { lesser: 20, greater: 3 };
+  activateClass(state, 'warden');
+  unlockSkill(state, 'shield-discipline');
+  state.player.health = 80;
+  state.player.grounded = true;
+  state.player.dx = 0;
+  const stationary = takeDamage(state.player, 20);
+  state.player.health = 80;
+  state.player.dx = 80;
+  const moving = takeDamage(state.player, 20);
+  assert.ok(stationary < moving, 'defender guard depends on standing still');
+
+  unlockSkill(state, 'watchers-ward');
+  assert.equal(state.player.wardShield, 8);
+  assert.equal(takeDamage(state.player, 6), 0);
+  assert.equal(state.player.wardShield, 2);
+  stepClassEffects(state, 8);
+  assert.equal(state.player.wardShield, 8);
+
+  unlockSkill(state, 'battle-temper');
+  unlockSkill(state, 'bloodrush');
+  unlockSkill(state, 'reavers-oath');
+  state.player.health = 20;
+  const previous = state.player.health;
+  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
+  const before = crab.health;
+  strikeMob(state, crab, skillAttackDamage(state.player, 1), 0, 0);
+  assert.ok(crab.health < before, 'berserker damages foes');
+  assert.ok(state.player.health > previous, 'berserker lifesteals');
+});
+
+test('Wayfarer bow traits, roots, pierces and exploration improve real gameplay', () => {
+  const state = createGame();
+  state.classes.total = { lesser: 30, greater: 5 };
+  activateClass(state, 'wayfarer');
+  for (const node of ['sharpened-eye','quickdraw','splitting-arrow','snareshot',
+    'barbed-trail','master-snare','trailrunner','safe-footing','far-sight']) {
+    assert.equal(unlockSkill(state, node), null, node);
+  }
+  state.inventory.hotbar[0] = { id: 'bow', count: 1 };
+  state.inventory.add('arrow', 4);
+  useWeapon(state, 0, state.player.x + 70, state.player.y + 8);
+  assert.equal(state.projectiles.length, 1);
+  assert.equal(state.projectiles[0].pierce, 1);
+  assert.equal(state.projectiles[0].rootedDamage, 4);
+  assert.equal(state.projectiles[0].hitMobs.size, 0);
+  assert.ok(state.projectiles[0].dx > 0);
+  assert.equal(state.player.skillBonuses.ore, 14);
+  assert.equal(state.player.skillBonuses.fall, .5);
+  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
+  strikeMob(state, crab, 1, 0, 0, true);
+  assert.ok(crab.rooted >= 2.7, 'Wayfarer snares on arrow hits');
+  activateClass(state, 'scholar');
+  assert.equal(state.player.skillBonuses.snare, 0);
+});
+
+test('Scholar remedies cleanse conditions and catalysis strengthens existing consumables', () => {
+  const state = createGame();
+  state.classes.total = { lesser: 30, greater: 4 };
+  activateClass(state, 'scholar');
+  for (const node of ['field-dressing','naturalists-care','purifying-tonic',
+    'luminous-formula','invigorating-elixir','perfected-catalyst']) {
+    assert.equal(unlockSkill(state, node), null, node);
+  }
+  state.player.health = 45;
+  state.player.bleed = 7;
+  state.player.neurotoxin = 5;
+  state.player.stun = 2;
+  state.player.confused = 4;
+  state.inventory.hotbar[0] = { id: 'kelp-dressing', count: 1 };
+  const result = useDressing(state, 0);
+  assert.equal(result.inventoryChanged, true);
+  assert.equal(state.player.health, 45 + KELP_DRESSING.heal * 1.55);
+  assert.equal(state.player.bleed, 0);
+  assert.equal(state.player.neurotoxin, 0);
+  assert.equal(state.player.stun, 0);
+  assert.equal(state.player.confused, 0);
+  assert.equal(state.player.catalystSeconds, 36);
+  assert.ok(skillAttackDamage(state.player, 1) >= 4);
+  stepClassEffects(state, 1);
+  assert.equal(state.player.catalystSeconds, 35);
+  activateClass(state, 'wayfarer');
+  assert.equal(state.player.catalystSeconds, 0, 'catalyst buff does not leak between classes');
+});
+
+test('Scholar poison deals real damage over time and has no effect without its skill', () => {
+  const state = createGame();
+  state.classes.total = { lesser: 5, greater: 1 };
+  activateClass(state, 'scholar');
+  for (const id of ['bitter-extract','debilitating-compound','venom-mist']) {
+    assert.equal(unlockSkill(state, id), null, id);
+  }
+  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
+  const before = crab.health;
+  strikeMob(state, crab, 1, 0, 0);
+  assert.equal(crab.skillVenom.damage, 5);
+  assert.equal(crab.skillVenom.remaining, 5);
+  stepClassEffects(state, 1);
+  assert.equal(crab.health, Math.max(0, before - 6));
+  assert.ok(state.effects.some((effect) => effect.color === '#b3dc71'));
+});
+
+test('Wayfarer greater-arrow pierces two separate real mobs without repeat hits', () => {
+  const state = createGame();
+  state.classes.total = { lesser: 4, greater: 1 };
+  activateClass(state, 'wayfarer');
+  for (const id of ['sharpened-eye', 'quickdraw', 'splitting-arrow']) {
+    assert.equal(unlockSkill(state, id), null);
+  }
+  const enemies = state.world.mobs.filter((mob) => mob.kind === 'crab').slice(0, 2);
+  assert.equal(enemies.length, 2);
+  state.world.mobs = enemies;
+  for (const [index, mob] of enemies.entries()) {
+    mob.x = state.player.x + 48 + index * 24;
+    mob.y = state.player.y + 14;
+    mob.health = 40;
+    mob.maxHealth = 40;
+    mob.rooted = 30; // Prevent AI wandering during this projectile test.
+    mob.rootLift = 0;
+  }
+  state.inventory.hotbar[0] = { id: 'bow', count: 1 };
+  state.inventory.add('arrow', 1);
+  useWeapon(state, 0, state.player.x + 90, state.player.y + 11);
+  for (let i = 0; i < 80; i++) stepGame(state, {}, 1 / 60);
+  assert.ok(enemies.every((mob) => mob.health < 40),
+    'a single greater-star arrow must damage both targets');
+  assert.ok(enemies.every((mob) => mob.health >= 30),
+    'each target must take damage at most once from a piercing projectile');
 });

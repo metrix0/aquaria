@@ -70,3 +70,16 @@
 .star-inspector{padding:12px;gap:10px;flex-wrap:wrap}.inspector-emblem{width:48px;height:48px;font-size:33px}.inspector-copy h4{font-size:20px}.star-inspector .soul-action{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.star-node,.calling-card{transition:none}}
+
+#class-selection { display:flex; flex-direction:column; gap:24px; }
+.calling-group { min-width:0; }
+.calling-group-heading { display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:6px 22px; padding:0 4px 12px; }
+.calling-group-heading span { color:#b9a782; font:10px var(--mono,monospace); letter-spacing:.2em; }
+.calling-group-heading h3 { color:#f0e3ca; font:400 clamp(21px,2.4vw,27px) Georgia,serif; margin:3px 0 0; }
+.calling-group-heading p { flex:1; min-width:min(220px,100%); max-width:520px; margin:0; font-size:11px; line-height:1.6; color:#a1b4b9; text-align:right; }
+.calling-group-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(9px,1.5vw,16px); }
+@media(max-width:740px) {
+  #class-selection { gap:20px; }
+  .calling-group-heading p { text-align:left; }
+  .calling-group-grid { grid-template-columns:1fr; }
+}

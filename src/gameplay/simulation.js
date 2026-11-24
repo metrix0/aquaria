@@ -2,6 +2,7 @@ import { START_WORLD_TIME } from '../environment.js';
 import { absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
 import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
+import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
 import { equippedHook, hasHook } from './hook.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
@@ -114,6 +115,7 @@ export function createGame(snapshot) {
   }
   game.player.addons = game.progress.addons;
   game.player.skillBonuses = skillBonuses(game.classes);
+  activateWard(game.player, true);
   game.world.soulRewards = snapshot?.world?.soulRewards ?? [];
   game.player.glowSeconds = Math.max(0, snapshot?.progress?.glowSeconds ?? 0);
   syncMobs(world, game.player);
@@ -187,17 +189,23 @@ function stepProjectiles(game, dt) {
         break;
       }
       for (const mob of world.mobs) {
-        if (mob.health <= 0 || mob.respawn > 0) continue;
+        if (mob.health <= 0 || mob.respawn > 0 || arrow.hitMobs?.has(mob)) continue;
         const spec = mobSpec(mob);
         if (!spec) continue;
         const hit = mob.segments?.length
           ? mob.segments.some((seg) => Math.hypot(arrow.x - seg.x, arrow.y - seg.y) <= seg.radius + 4)
           : Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius * (mob.inflateScale ?? 1) + 4;
         if (hit) {
-          damageMob(world, mob, arrow.damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects);
+          const damage = arrow.damage + ((mob.rooted || 0) > 0 ? arrow.rootedDamage || 0 : 0);
+          strikeMob(game, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, true);
+          arrow.hitMobs?.add(mob);
           if (arrow.poisonDuration > 0 && mob.health > 0) {
             mob.poison = Math.max(mob.poison ?? 0, arrow.poisonDuration);
             mob.poisonTick = mob.poisonTick ?? 1;
+          }
+          if ((arrow.pierce || 0) > 0) {
+            arrow.pierce--;
+            continue;
           }
           removed = true;
           break;
@@ -212,12 +220,33 @@ function stepProjectiles(game, dt) {
 export function useDressing(game, slot) {
   const { player, inventory } = game;
   if (inventory.hotbar[slot]?.id !== KELP_DRESSING.id) return;
-  const healed = Math.min(KELP_DRESSING.heal, MAX_HEALTH - player.health);
-  if (healed < 1) return { message: 'Health is already full.' };
+  const buffs = player.skillBonuses || {};
+  const healed = Math.min(KELP_DRESSING.heal * (1 + (buffs.healBoost || 0)), MAX_HEALTH - player.health);
+  const afflicted = (player.bleed || 0) > 0 || (player.neurotoxin || 0) > 0 ||
+    (player.stun || 0) > 0 || (player.confused || 0) > 0 ||
+    (player.poison || 0) > 0 || (player.blindness || 0) > 0;
+  const catalyst = (buffs.catalystSeconds || 0) > 0;
+  if (healed < 1 && !(buffs.cleanse && afflicted) && !(catalyst && !(player.catalystSeconds > 0))) {
+    return { message: 'Health is already full.' };
+  }
   inventory.consume(inventory.hotbar, slot, 1);
   player.health += healed;
+  if (buffs.cleanse) {
+    player.bleed = 0;
+    player.bleedTick = 0;
+    player.neurotoxin = 0;
+    player.poison = 0;
+    player.poisonTick = 0;
+    player.blindness = 0;
+    player.stun = 0;
+    player.confused = 0;
+    player.confusedStyle = null;
+  }
+  if (catalyst) player.catalystSeconds = Math.max(player.catalystSeconds || 0, buffs.catalystSeconds);
   game.dirty = true;
-  return { inventoryChanged: true, message: 'Kelp dressing restored ' + Math.round(healed) + ' health.' };
+  return { inventoryChanged: true, message: 'Remedy used' +
+    (healed ? ': +' + Math.round(healed) + ' health' : '') +
+    (catalyst ? ' and invigorated for ' + buffs.catalystSeconds + 's' : '') + '.' };
 }
 
 export function useFood(game, slot, random = Math.random) {
@@ -274,7 +303,7 @@ export function useWeapon(game, slot, wx, wy) {
     game.player.facing = facing;
     game.attack = {
       kind: weapon?.id ?? 'melee', angle, facing, timer: duration, duration,
-      tier: item?.pickaxe, damage: (weapon?.damage ?? 1) + (game.player.skillBonuses?.attack ?? 0), knockback: weapon?.knockback, hitMobs: new Set(),
+      tier: item?.pickaxe, damage: skillAttackDamage(game.player, weapon?.damage ?? 1), knockback: weapon?.knockback, hitMobs: new Set(),
     };
     return { handled: true };
   }
@@ -292,13 +321,18 @@ export function useWeapon(game, slot, wx, wy) {
   }
   game.inventory.spend(ammo.id, 1);
   game.dirty = true;
-  game.attack = { kind: BOW.id, angle, timer: weapon.cooldown, duration: weapon.cooldown };
+  const buffs = game.player.skillBonuses || {};
+  const cooldown = weapon.cooldown / (1 + (buffs.bowCooldown || 0));
+  game.attack = { kind: BOW.id, angle, timer: cooldown, duration: cooldown };
   game.projectiles.push({
     x: ox + dirX * 10,
     y: oy + dirY * 10,
-    dx: dirX * ammo.speed,
-    dy: dirY * ammo.speed,
-    damage: ammo.damage + (game.player.skillBonuses?.attack ?? 0),
+    dx: dirX * ammo.speed * (1 + (buffs.arrowSpeed || 0)),
+    dy: dirY * ammo.speed * (1 + (buffs.arrowSpeed || 0)),
+    damage: skillAttackDamage(game.player, ammo.damage, true),
+    rootedDamage: buffs.rootedDamage || 0,
+    pierce: buffs.arrowPierce || 0,
+    hitMobs: new Set(),
     knockback: ammo.knockback,
     poisonDuration: ammo.poisonDuration ?? 0,
     life: 2.5,
@@ -324,7 +358,7 @@ function stepAttack(game, dt) {
     const spec = mobSpec(mob);
     if (spec && overlapsMob(hitbox, mob, spec)) {
       attack.hitMobs.add(mob);
-      damageMob(world, mob, attack.damage, angle, attack.knockback, effects, { melee: true, attacker: player });
+      strikeMob(game, mob, attack.damage, angle, attack.knockback);
     }
   }
 }
@@ -368,6 +402,7 @@ export function stepGame(game, input, dt) {
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  stepClassEffects(game, dt);
   stepRootWave(game, dt);
   stepDroppedChests(game, dt);
   let soulMessage = null;
@@ -414,6 +449,7 @@ export function stepGame(game, input, dt) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
     game.player.skillBonuses = skillBonuses(game.classes);
+    activateWard(game.player, true);
     game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.projectiles.length = 0;
@@ -706,9 +742,10 @@ export function useUtilityItem(game, slot, target) {
   }
   if (held === 'glowshroom-torch') {
     inventory.consume(inventory.hotbar, slot, 1);
-    game.player.glowSeconds = Math.max(game.player.glowSeconds ?? 0, 90);
+    const duration = 90 * (1 + (game.player.skillBonuses?.torchDuration || 0));
+    game.player.glowSeconds = Math.max(game.player.glowSeconds ?? 0, duration);
     game.dirty = true;
-    return { inventoryChanged: true, message: 'Glowshroom lit — brighter cave light for 90 seconds.' };
+    return { inventoryChanged: true, message: 'Glowshroom lit for ' + Math.round(duration) + ' seconds.' };
   }
   if (held !== 'rope-bundle') return null;
   if (!target?.reachable) return { message: 'Aim near a ledge to hang a six-block rope.' };
@@ -820,6 +857,8 @@ export function applyTerrain(game, tx, ty, material) {
   if (material && collides(world, player.x, player.y, player.height)) {
     game.player = spawn(game.world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
+    game.player.skillBonuses = skillBonuses(game.classes);
+    activateWard(game.player, true);
     game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.dirty = true;
