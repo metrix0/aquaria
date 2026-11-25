@@ -1504,6 +1504,8 @@ export function createRenderer(canvas) {
     return clamp((caveLight.at(tx, ty) - 0.1) / 0.45, 0, 1);
   }
 
+  const lightOverlayChannel = (channel) => Math.round(128 + channel / 2);
+
   function shadeUnderground(world, player, { left, right, top, bottom }, overview, darkness = 0) {
     const width = right - left;
     const height = bottom - top;
@@ -1538,14 +1540,11 @@ export function createRenderer(canvas) {
               : 0.34
             : undergroundAmbientAt(world, player, x, y);
         const color = caveLight.colorAt(x, y);
-        const shadowTint = color.strength * 0.45;
-        lightPixels.data[pixel] = Math.round(7 + (color.r - 7) * shadowTint);
-        lightPixels.data[pixel + 1] = Math.round(12 + (color.g - 12) * shadowTint);
-        lightPixels.data[pixel + 2] = Math.round(22 + (color.b - 22) * shadowTint);
         lightPixels.data[pixel + 3] = (1 - light) * (1 - ambient) * 218;
-        colorLightPixels.data[pixel] = color.r;
-        colorLightPixels.data[pixel + 1] = color.g;
-        colorLightPixels.data[pixel + 2] = color.b;
+        // Pale overlay colors brighten every channel without painting over texture.
+        colorLightPixels.data[pixel] = lightOverlayChannel(color.r);
+        colorLightPixels.data[pixel + 1] = lightOverlayChannel(color.g);
+        colorLightPixels.data[pixel + 2] = lightOverlayChannel(color.b);
         colorLightPixels.data[pixel + 3] = Math.round(color.strength * 135);
       }
     }
@@ -1560,7 +1559,7 @@ export function createRenderer(canvas) {
       width * TILE,
       height * TILE,
     );
-    ctx.globalCompositeOperation = "screen";
+    ctx.globalCompositeOperation = "overlay";
     ctx.drawImage(
       colorLightCanvas,
       left * TILE,
@@ -1609,9 +1608,9 @@ export function createRenderer(canvas) {
       }
       ctx.clip();
       const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, radius);
-      glow.addColorStop(0, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, ${(emitter.alpha * flicker).toFixed(3)})`);
-      glow.addColorStop(0.35, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, ${(emitter.alpha * 0.45 * flicker).toFixed(3)})`);
-      glow.addColorStop(1, `rgba(${emitter.r}, ${emitter.g}, ${emitter.b}, 0)`);
+      glow.addColorStop(0, `rgba(${lightOverlayChannel(emitter.r)}, ${lightOverlayChannel(emitter.g)}, ${lightOverlayChannel(emitter.b)}, ${(emitter.alpha * flicker).toFixed(3)})`);
+      glow.addColorStop(0.35, `rgba(${lightOverlayChannel(emitter.r)}, ${lightOverlayChannel(emitter.g)}, ${lightOverlayChannel(emitter.b)}, ${(emitter.alpha * 0.45 * flicker).toFixed(3)})`);
+      glow.addColorStop(1, `rgba(${lightOverlayChannel(emitter.r)}, ${lightOverlayChannel(emitter.g)}, ${lightOverlayChannel(emitter.b)}, 0)`);
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -1619,7 +1618,7 @@ export function createRenderer(canvas) {
       ctx.restore();
     };
     ctx.save();
-    ctx.globalCompositeOperation = "screen";
+    ctx.globalCompositeOperation = "overlay";
     for (const structure of structures) {
       const emitter = caveStructureLight(structure, lightTime);
       if (!emitter || !hasExposedCaveFloor(world, structure)) continue;
