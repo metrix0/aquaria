@@ -1652,6 +1652,22 @@ export function createRenderer(canvas) {
     }
   }
 
+  // Keep the existing vertical fade, but join adjacent stepped bands across a
+  // narrow shoulder instead of cutting the shadow at the tile boundary.
+  function fillAtmosphereSeam(left, width, startTop, endTop, height, r, g, b, alpha) {
+    if (alpha <= 0 || width <= 0) return;
+    const fade = TILE * 2;
+    const end = Math.min(height, Math.max(startTop, endTop) + fade);
+    if (end <= 0) return;
+    const slope = (endTop - startTop) / width;
+    const dy = fade / (1 + slope * slope);
+    const grad = ctx.createLinearGradient(left, startTop, left - slope * dy, startTop + dy);
+    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(left, 0, width, end);
+  }
+
   function shadeAtmosphere(camera, conditions, time, flash = 0) {
     // Release the entire scene from its storm grade and darkness during a flash.
     const gradeStrength = 1 - clamp(flash, 0, 1) * .46;
@@ -1661,23 +1677,35 @@ export function createRenderer(canvas) {
     const nightAlpha = nightShadeAlpha(conditions) * gradeStrength;
     // Grade open sky, surface terrain, and water while fading out at the underground wall boundary
     // so deep caves and caveStructureLight stay consistent across day, night, storm, and thunder.
+    const fadeAt = (tx) => {
+      const ground = groundAt(clamp(tx, 0, COLS - 1));
+      return Math.round((ground + (ground < WATER_ROW ? 1 : 0)) * TILE - camera.y);
+    };
     ctx.save();
     for (let tx = first; tx <= last; tx++) {
-      const ground = groundAt(clamp(tx, 0, COLS - 1));
-      const wallStartRow = ground + (ground < WATER_ROW ? 1 : 0);
-      const fadeTop = Math.round(wallStartRow * TILE - camera.y);
+      const fadeTop = fadeAt(tx);
       const fadeBottom = fadeTop + TILE * 2;
-      if (fadeBottom <= 0) continue;
+      const westTop = (fadeAt(tx - 1) + fadeTop) / 2;
+      const eastTop = (fadeAt(tx + 1) + fadeTop) / 2;
+      if (Math.max(westTop, fadeTop, eastTop) + TILE * 2 <= 0) continue;
       const left = Math.round(tx * TILE - camera.x);
       const width = Math.round((tx + 1) * TILE - camera.x) - left;
       const tint = atmosphereTint(conditions, jungleMixAt((tx + .5) * TILE), time);
+      const band = (r, g, b, alpha) => {
+        const shoulder = Math.min(4, width / 2);
+        const west = westTop === fadeTop ? 0 : shoulder;
+        const east = eastTop === fadeTop ? 0 : shoulder;
+        if (west) fillAtmosphereSeam(left, west, westTop, fadeTop, camera.height, r, g, b, alpha);
+        if (width > west + east) fillAtmosphereBand(left + west, width - west - east, fadeTop, fadeBottom, camera.height, r, g, b, alpha);
+        if (east) fillAtmosphereSeam(left + width - east, east, fadeTop, eastTop, camera.height, r, g, b, alpha);
+      };
       if (tint.alpha > 0) {
         ctx.globalCompositeOperation = "overlay";
-        fillAtmosphereBand(left, width, fadeTop, fadeBottom, camera.height, tint.r, tint.g, tint.b, tint.alpha * gradeStrength);
+        band(tint.r, tint.g, tint.b, tint.alpha * gradeStrength);
       }
       if (nightAlpha > 0) {
         ctx.globalCompositeOperation = "source-over";
-        fillAtmosphereBand(left, width, fadeTop, fadeBottom, camera.height, 4, 8, 21, nightAlpha);
+        band(4, 8, 21, nightAlpha);
       }
     }
     ctx.restore();
