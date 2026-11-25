@@ -246,6 +246,7 @@ export function toggleGodMode(world, player) {
   player.canShortenJump = false;
   player.waterJump = false;
   player.climb = null;
+  player.climbJump = false;
   player.hook = null;
   if (!flightOrigin) {
     player.flightOrigin = { x, y, height };
@@ -346,7 +347,16 @@ export function movePlayer(world, player, input, dt) {
   const hookState = stepGrapplingHook(world, player, { left, right, up, down, jump }, dt, { moveAxis, jumpSpeed });
   if (hookState === 'latched') return;
   if (hookState === 'jumped') player.waterJump = playerInWater(world, player);
-  const canClimb = hookState !== 'jumped' && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
+  const climbJump = hookState !== 'jumped' && jump && Boolean(player.climb);
+  // The up key also triggers jumping. Require a fresh climb input after release.
+  if (!up || down) player.climbJump = false;
+  if (climbJump) {
+    player.climbJump = true;
+    player.grounded = false;
+    player.jumpGrace = 0;
+    player.fallDistance = 0;
+  }
+  const canClimb = hookState !== 'jumped' && !player.climbJump && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
   const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
     const hand = player.y + 8;
     // Never grab a climb after passing its end.
@@ -415,7 +425,7 @@ export function movePlayer(world, player, input, dt) {
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);
   const surfaceJump = jump && !down && !crawling && bodyInWater && !headInWater;
   const risingFromWaterJump = Boolean(player.waterJump) && player.dy < 0 && !down;
-  if (bodyInWater && !shoreJump && !surfaceJump && !risingFromWaterJump) {
+  if (bodyInWater && !climbJump && !shoreJump && !surfaceJump && !risingFromWaterJump) {
     player.canShortenJump = false;
     player.waterJump = false;
     const vertical = Number(Boolean(down)) - Number(Boolean(up));
@@ -435,7 +445,7 @@ export function movePlayer(world, player, input, dt) {
       player.dy = Math.min(0, (surfaceRestY - player.y) / dt);
     }
   } else {
-    if (shoreJump || surfaceJump || (jump && !crawling && (player.grounded || player.jumpGrace > 0))) {
+    if (climbJump || shoreJump || surfaceJump || (jump && !crawling && (player.grounded || player.jumpGrace > 0))) {
       player.jumpGrace = 0;
       player.dy = -jumpSpeed;
       player.canShortenJump = !shoreJump;
