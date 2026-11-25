@@ -6,7 +6,9 @@ import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, gen
 
 export const CHUNK_SIZE = 32;
 export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-const CACHE_LIMIT = 64;
+// The finite world contains at most ceil(COLS / 32) * ceil(ROWS / 32) chunks.
+// Keep generated chunks: distant enemy simulation otherwise continuously evicts
+// terrain needed by the next update. Tiles and flood masks together use ~0.75 MiB.
 let vents;
 
 function baseVents() {
@@ -59,7 +61,6 @@ function getChunk(world, cx, cy) {
     const { tiles, flooded } = generateChunk(cx * CHUNK_SIZE, cy * CHUNK_SIZE, CHUNK_SIZE);
     for (const [index, material] of world.edits.get(key) ?? []) tiles[index] = material;
     chunk = { cx, cy, tiles, flooded };
-    if (world.chunks.size >= CACHE_LIMIT) world.chunks.delete(world.chunks.keys().next().value);
     world.chunks.set(key, chunk);
   }
   world.recentChunk = chunk;
