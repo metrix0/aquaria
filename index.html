@@ -98,6 +98,13 @@
 
       <footer>
         <div class="controls"><span><kbd>A</kbd> <kbd>D</kbd> Move</span><span><kbd>Space</kbd> Jump / swim</span><span><kbd>S</kbd> Crawl / dive</span><span><kbd>Hold left click</kbd> Mine</span><span><kbd>Right click</kbd> Build</span></div>
+        <div class="performance-stats" id="performance-stats" role="group" aria-label="Game performance">
+          <span title="Rendered frames per second"><b data-perf="fps">--</b> FPS</span>
+          <span title="Average interval between rendered frames"><b data-perf="frame">--</b> ms</span>
+          <span title="95th-percentile frame interval (higher means more stutter)">P95 <b data-perf="p95">--</b> ms</span>
+          <span title="Average CPU time before drawing, including game updates and UI">Update <b data-perf="update">--</b> ms</span>
+          <span title="Average CPU time submitting canvas drawing commands (not GPU time)">Draw <b data-perf="draw">--</b> ms</span>
+        </div>
         <div class="footer-actions">
           <button id="multiplayer" class="room-button">Multiplayer</button>
           <button id="customize" class="customize" aria-haspopup="dialog" aria-controls="customize-panel" aria-keyshortcuts="V"><kbd>V</kbd> Character</button>

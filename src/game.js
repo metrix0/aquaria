@@ -14,6 +14,7 @@ import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, co
 import { bindInput } from './input.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
+import { createPerformanceStats } from './performance-stats.js';
 import { createBrowserSave } from './save.js';
 import { consumeNewGame, createIslandReveal } from './start-flow.js';
 import { createUI } from './ui.js';
@@ -591,10 +592,13 @@ updateRoomUI();
 const invite = roomCode(location.hash);
 if (invite && available) void enterRoom(invite);
 
+const performanceStats = createPerformanceStats(document.getElementById('performance-stats'));
+document.addEventListener('visibilitychange', () => performanceStats.reset());
 let last = performance.now();
 let accumulator = 0;
 const timestep = 1 / 60;
 function frame(now) {
+  const frameStart = performance.now();
   const elapsed = Math.max(0, (now - last) / 1000);
   const dt = Math.min(elapsed, 0.05);
   last = now;
@@ -672,6 +676,7 @@ function frame(now) {
   const held = game.inventory.hotbar[selected]?.id;
   const peers = room?.tick(now, dt, game.player, snorkel);
   const targetMob = aimedMob();
+  const drawStart = performance.now();
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
@@ -679,7 +684,9 @@ function frame(now) {
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
   });
+  const drawEnd = performance.now();
   arrival?.reveal();
+  if (!document.hidden) performanceStats.sample(now, drawStart - frameStart, drawEnd - drawStart);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
