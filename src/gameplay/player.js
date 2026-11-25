@@ -131,22 +131,6 @@ export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
-function tryStepUp(world, player, targetDx, remainingX) {
-  const feet = player.y + player.height;
-  const stepFeet = Math.floor((feet - 0.01) / TILE) * TILE;
-  const rise = feet - stepFeet;
-  const stepY = stepFeet - player.height;
-  if (rise <= 0 || rise > TILE + 0.01 || stepY < 0) return false;
-  const stepProbe = Math.sign(targetDx) * Math.max(0.5, Math.abs(remainingX));
-  if (collides(world, player.x, stepY, player.height) ||
-      collides(world, player.x + stepProbe, stepY, player.height)) {
-    return false;
-  }
-  player.y = stepY;
-  moveAxis(world, player, 'x', remainingX);
-  return true;
-}
-
 export function takeDamage(player, damage) {
   const protection = ARMOR[player.armor]?.protection ?? 0;
   const bonuses = player.skillBonuses || {};
@@ -459,14 +443,7 @@ export function movePlayer(world, player, input, dt) {
   }
 
   const previousX = player.x;
-  const targetDx = player.dx * dt;
-  if (moveAxis(world, player, 'x', targetDx)) {
-    const remainingX = previousX + targetDx - player.x;
-    const canAutoStep = (player.grounded || bodyInWater) && horizontal !== 0 && Math.abs(targetDx) > 0.001;
-    if (!canAutoStep || !tryStepUp(world, player, targetDx, remainingX)) {
-      player.dx = 0;
-    }
-  }
+  if (moveAxis(world, player, 'x', player.dx * dt)) player.dx = 0;
   const previousY = player.y;
   const falling = player.dy >= 0;
   const dy = player.dy * dt;

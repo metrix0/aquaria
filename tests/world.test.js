@@ -3731,53 +3731,32 @@ test('lionfish spawn between 20m and 80m in the normal ocean, telegraph radial s
   }
 });
 
-test('player automatically steps up 1-tile blocks without jumping while stopping at 2-tile walls and low ceilings', () => {
+test('player must jump to ascend a 1-tile block', () => {
   const game = createGame();
   const { world, player } = game;
   world.mobs = [];
   const baseCol = Math.floor(SPAWN.x / TILE);
   const floorRow = 12;
-
-  // Build flat floor -> 1-tile staircase (+1, +1) -> 2-tile tall wall ahead.
   for (let x = baseCol - 4; x <= baseCol + 10; x++) {
     for (let y = 5; y < floorRow; y++) editTile(world, x, y, MATERIAL.air);
     editTile(world, x, floorRow, MATERIAL.stone);
+    if (x >= baseCol + 2) editTile(world, x, floorRow - 1, MATERIAL.stone);
   }
-  editTile(world, baseCol + 2, floorRow - 1, MATERIAL.stone);
-  editTile(world, baseCol + 3, floorRow - 1, MATERIAL.stone);
-  editTile(world, baseCol + 3, floorRow - 2, MATERIAL.stone);
-  editTile(world, baseCol + 4, floorRow - 1, MATERIAL.stone);
-  editTile(world, baseCol + 4, floorRow - 2, MATERIAL.stone);
-  // 2-tile obstacle above floorRow - 2 at baseCol + 6 (so floorRow - 3 and floorRow - 4 are solid)
-  editTile(world, baseCol + 6, floorRow - 3, MATERIAL.stone);
-  editTile(world, baseCol + 6, floorRow - 4, MATERIAL.stone);
-  editTile(world, baseCol + 5, floorRow - 1, MATERIAL.stone);
-  editTile(world, baseCol + 5, floorRow - 2, MATERIAL.stone);
-
   Object.assign(player, {
     x: (baseCol + 0.5) * TILE,
     y: floorRow * TILE - player.height,
     dx: 0, dy: 0, grounded: true, health: 100, oxygen: 100,
   });
-
-  // Walk right with NO jump/up input -> climbs both 1-tile steps smoothly and stops before the 2-tile wall.
-  for (let i = 0; i < 120; i++) {
-    stepGame(game, { right: true }, 1 / 60);
-  }
-  assert.ok(player.x > (baseCol + 3.5) * TILE && player.x < (baseCol + 6) * TILE, `expected stop on top step before 2-tile wall, got x=${player.x}`);
-  assert.ok(Math.abs(player.y + player.height - (floorRow - 2) * TILE) < 0.02, 'player feet should sit smoothly 2 tiles higher');
+  for (let i = 0; i < 120; i++) stepGame(game, { right: true }, 1 / 60);
+  assert.ok(player.x + player.width / 2 <= (baseCol + 2) * TILE + 0.02, 'walking must stop at the step');
+  assert.ok(Math.abs(player.y + player.height - floorRow * TILE) < 0.02);
   assert.equal(player.grounded, true);
 
-  // Low ceiling check: place a ceiling 2 tiles above the step base so stepping up 1 tile leaves < player.height clearance.
-  editTile(world, baseCol + 2, floorRow - 3, MATERIAL.stone);
-  Object.assign(player, {
-    x: (baseCol + 0.5) * TILE,
-    y: floorRow * TILE - player.height,
-    dx: 0, dy: 0, grounded: true,
-  });
-  for (let i = 0; i < 60; i++) stepGame(game, { right: true }, 1 / 60);
-  assert.ok(player.x < (baseCol + 2) * TILE, 'must not step up into a low ceiling');
-  assert.ok(Math.abs(player.y + player.height - floorRow * TILE) < 0.02);
+  for (let i = 0; i < 26; i++) stepGame(game, { right: true, jump: i === 0, up: true }, 1 / 60);
+  for (let i = 0; i < 35; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.x >= (baseCol + 2) * TILE, 'jumping must clear the step');
+  assert.ok(Math.abs(player.y + player.height - (floorRow - 1) * TILE) < 0.02);
+  assert.equal(player.grounded, true);
 });
 
 test('renderer emits colored light gradients for cave lamps and orange/green jungle torches', () => {
