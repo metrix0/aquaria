@@ -1,4 +1,4 @@
-import { KRAKEN_COLUMN, MOB_HEALTH, TILE, WATER } from '../../world/generation.js';
+import { KRAKEN_COLUMN, MOB_HEALTH, TILE, WATER, WEST_EXTENSION } from '../../world/generation.js';
 
 const species = [
   {
@@ -40,7 +40,7 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
     const x = player.x - facing * (92 + Math.random() * 125);
     const y = Math.max(WATER + 15, player.y + 12 - 60) + Math.random() * 85;
     if (fishCollides(x, y) || mobs.some((mob) => Math.hypot(mob.x - x, mob.y - y) < 56)) continue;
-    const inLionfishBand = x < KRAKEN_COLUMN * TILE && y >= WATER + 20 * TILE && y <= WATER + 80 * TILE;
+    const inLionfishBand = x < (KRAKEN_COLUMN + WEST_EXTENSION) * TILE && y >= WATER + 20 * TILE && y <= WATER + 80 * TILE;
     if (inLionfishBand && Math.random() < 0.45) {
       mobs.push({
         kind: 'lionfish',

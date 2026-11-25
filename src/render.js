@@ -1,3 +1,4 @@
+import { CORAL_OPEN_ID, coralWallColumn } from "./world/ocean-layout.js";
 import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
@@ -1909,6 +1910,14 @@ export function createRenderer(canvas) {
         }
         const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
+          if (coralWallColumn(x - WEST_EXTENSION) && !world.harvested.has(CORAL_OPEN_ID) && y < groundAt(x)) {
+            const [shade, mid, tip] = coralColors[Math.floor(noise(x, y, 510) * coralColors.length)];
+            rect(x * TILE, y * TILE, TILE, TILE, shade);
+            rect(x * TILE + 2, y * TILE + 1, 11, 13, mid);
+            rect(x * TILE + 4, y * TILE + 3, 6, 3, tip);
+            if (!overview) coral(x * TILE + 8, y * TILE + 15, x * 197 + y);
+            continue;
+          }
           if (overview || !shipwreckArt.timber(world, x, y, material))
             drawTile(world, x, y, material, oreOpacity, overview, time);
           if (ore && !overview && (player.addons?.chest === 'prospectors-brooch' || (player.skillBonuses?.ore ?? 0) > 0) &&
@@ -2226,6 +2235,19 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, "#8fb39a");
           }
         }
+      } else if (item.kind === "mermaid") {
+        const bob = Math.round(Math.sin(time * 2 + x) * 2);
+        const sy = y + bob;
+        const hair = item.id === "mermaid-abyss" ? "#513d82" : item.id === "mermaid-surface" ? "#dba365" : "#b55377";
+        rect(x-6, sy-13, 12, 13, "#29283e");
+        rect(x-5, sy-12, 10, 11, hair);
+        rect(x-3, sy-10, 6, 7, "#e4b4a0");
+        rect(x-2, sy-7, 1, 1, "#332d49"); rect(x+2, sy-7, 1, 1, "#332d49");
+        rect(x-4, sy-3, 8, 6, "#8c65a0");
+        rect(x-6, sy-1, 2, 5, "#e4b4a0"); rect(x+4, sy-1, 2, 5, "#e4b4a0");
+        rect(x-4, sy+3, 9, 7, "#286d75"); rect(x-3, sy+4, 7, 5, "#61c5b0");
+        rect(x-1, sy+10, 7, 4, "#4b9c9d"); rect(x+4, sy+13, 7, 2, "#80d7c0");
+        rect(x+8, sy+10, 3, 6, "#80d7c0");
       } else if (item.kind === "chest") {
         drawChest(x, y, item.id === openChestId);
       }

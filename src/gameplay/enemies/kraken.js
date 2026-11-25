@@ -55,7 +55,7 @@ export function stepKrakenDeath(world, mob, dt, effects) {
       shake: { intensity: 11, duration: 0.75, frequency: 46 },
     });
     if (world && !world.items.some((item) => item.id === KRAKEN_CHEST_ID)) {
-      const dropX = clamp(mob.x - 40, TILE * 2, COLS * TILE - TILE * 2);
+      const dropX = clamp(mob.x - 24, TILE * 2, COLS * TILE - TILE * 2);
       const startY = Math.max(WATER, mob.y - 24);
       const restY = chestRestY(world, dropX, startY);
       world.items.push({

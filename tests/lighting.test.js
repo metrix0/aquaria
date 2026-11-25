@@ -348,7 +348,7 @@ test('placed fireplace illuminates dark caves and chambers, respects solid walls
 
   // Jungle village campfire also counts as a warm flickering fireplace light source.
   const campfire = fireplaceLightSources(world, 2.5).find(
-    (source) => source.tx === 368 + WEST_EXTENSION && source.floor === JUNGLE_ISLAND.floor,
+    (source) => source.tx === JUNGLE_ISLAND.center + 4 + WEST_EXTENSION && source.floor === JUNGLE_ISLAND.floor,
   );
   assert.ok(campfire, 'jungle village campfire emits fireplace light');
   assert.equal(campfire.emitter.color, FIREPLACE_LIGHT.color);

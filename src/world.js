@@ -1,3 +1,4 @@
+import { CORAL_OPEN_ID, coralWallColumn } from "./world/ocean-layout.js";
 import { shipwreckSkeletons } from './world/shipwreck.js';
 import { caveClimbs, caveStructures, islandTraps, mineDecks } from './world/island-cave.js';
 import { jungleCaveClimbs, jungleCaveStructures, jungleCaveTraps } from './world/jungle-cave.js';
@@ -44,7 +45,7 @@ export function createWorld() {
     mineDecks: structures.filter(({ kind }) => Object.hasOwn(mineDecks, kind)),
     projectiles: [],
     get vents() { return baseVents(); },
-    fixtureIds: new Set([...items, ...trees].map(({ id }) => id)),
+    fixtureIds: new Set([CORAL_OPEN_ID, ...[...items, ...trees].map(({ id }) => id)]),
     harvested: new Set(),
     pendingWreckLoot: new Map(),
     chunks: new Map(),
@@ -68,6 +69,7 @@ function getChunk(world, cx, cy) {
 }
 
 export function tileAt(world, tx, ty) {
+  if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return MATERIAL.bedrock;
   if (tx < 0 || tx >= COLS || ty >= ROWS) return MATERIAL.bedrock;
   if (ty < 0) return MATERIAL.air;
   const chunk = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
@@ -75,6 +77,7 @@ export function tileAt(world, tx, ty) {
 }
 
 export function waterTileAt(world, tx, ty) {
+  if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return false;
   if (tx < 0 || tx >= COLS || ty < WATER_ROW || ty >= ROWS) return false;
   const { tiles, flooded } = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
   const index = offset(tx, ty);

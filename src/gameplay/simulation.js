@@ -125,6 +125,7 @@ export function createGame(snapshot) {
 export function resetRoomProgress(previous) {
   const world = previous.world;
   world.harvested.clear();
+  world.coralSongProgress = 0;
   world.soulRewards = [];
   for (const [tx, ty, material] of editedTiles(world)) {
     const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
@@ -630,7 +631,7 @@ export function nearestItem(game) {
   let result;
   let distance = INTERACTION_RANGE;
   for (const item of world.items) {
-    if (item.kind !== 'chest') continue;
+    if (item.kind !== 'chest' && item.kind !== 'mermaid') continue;
     const difference = itemDistance(player, item);
     if (difference < distance) {
       distance = difference;

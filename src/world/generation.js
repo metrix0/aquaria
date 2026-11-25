@@ -1,3 +1,4 @@
+import { EAST_SHIFT, WEST_GROWTH, MERMAIDS } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
@@ -11,12 +12,12 @@ export const TILE = 16;
 export const WORLD_VERSION = 2;
 export const ORIGINAL_COLS = 224;
 export const ORIGINAL_WEST_EXTENSION = 44;
-export const WEST_EXTENSION = ORIGINAL_WEST_EXTENSION + 64;
-export const EAST_EXTENSION = 208;
+export const WEST_EXTENSION = ORIGINAL_WEST_EXTENSION + 64 + WEST_GROWTH;
+export const EAST_EXTENSION = 208 + EAST_SHIFT;
 export const COLS = ORIGINAL_COLS + WEST_EXTENSION + EAST_EXTENSION;
-export const KRAKEN_COLUMN = ORIGINAL_COLS - 1.5;
-export const JUNGLE_FADE_START_COLUMN = ORIGINAL_COLS;
-export const JUNGLE_FADE_END_COLUMN = ORIGINAL_COLS + 48;
+export const KRAKEN_COLUMN = (150 + ORIGINAL_COLS + EAST_SHIFT) / 2;
+export const JUNGLE_FADE_START_COLUMN = ORIGINAL_COLS + EAST_SHIFT;
+export const JUNGLE_FADE_END_COLUMN = ORIGINAL_COLS + EAST_SHIFT + 48;
 const OCEAN_ROWS = 176;
 export const ROWS = ISLAND_BOTTOM;
 export const WATER_ROW = 16;
@@ -63,6 +64,17 @@ function islandSurface(x) {
 }
 
 function oceanFloor(x) {
+  if (x < -108) {
+    const distance = -108 - x;
+    return Math.round(63 + 52 * Math.min(1, distance / 110) + Math.sin(distance * .12) * 3 * Math.min(1, distance / 12));
+  }
+  if (x >= 150 && x < ORIGINAL_COLS + EAST_SHIFT) {
+    const t = (x - 150) / (ORIGINAL_COLS + EAST_SHIFT - 150);
+    const depth = 46 + 56 * Math.sin(Math.PI * t) + 3 * Math.sin(x * .15) * Math.sin(Math.PI * t);
+    const blend = Math.min(1, (x - 150) / 16);
+    const old = 46 + 6 * Math.sin(x * .098) + 3 * Math.sin(x * .27);
+    return Math.round(old * (1 - blend) + depth * blend);
+  }
   if (x < -ORIGINAL_WEST_EXTENSION) {
     const distance = -x - ORIGINAL_WEST_EXTENSION;
     const blend = Math.min(1, distance / 12);
@@ -74,8 +86,8 @@ function oceanFloor(x) {
     const shelf = 46 + 19 * Math.sin(-x / ORIGINAL_WEST_EXTENSION * Math.PI * 0.83);
     return Math.round(shelf + 2 * Math.sin(x * 0.35) + noise(x, 7) * 2);
   }
-  if (x > ORIGINAL_COLS) {
-    const distance = x - ORIGINAL_COLS;
+  if (x >= ORIGINAL_COLS + EAST_SHIFT) {
+    const distance = x - ORIGINAL_COLS - EAST_SHIFT;
     const blend = Math.min(1, distance / 18);
     const baseDepth = 46 + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
     const jungleDepth = 52 + 7 * Math.sin(distance * 0.085 + 0.6) + 3 * Math.sin(distance * 0.23);
@@ -305,24 +317,24 @@ export function generateCaveSystem(seed = 61) {
 
   // Eastern jungle ocean grotto chambers beyond the Kraken.
   const eastMaxX = COLS - WEST_EXTENSION - 24;
-  const eastUpper = [258, 308].map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i + 10, 1, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+  const eastUpper = [258, 308].map(x => x + EAST_SHIFT).map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 1, seed) - 0.5) * 8), ORIGINAL_COLS + EAST_SHIFT + 22, eastMaxX);
     const rx = 18 + Math.round(noise(i + 10, 3, seed) * 7);
     const ry = 9 + Math.round(noise(i + 10, 4, seed) * 4);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
     const y = clamp(Math.round(62 + noise(i + 10, 2, seed) * 16), Math.max(WATER_ROW + ry + 6, floorClearance), 84);
     return makeChamber(0, x, y, rx, ry);
   });
-  const eastMid = [260, 310].map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i + 10, 11, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+  const eastMid = [260, 310].map(x => x + EAST_SHIFT).map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 11, seed) - 0.5) * 8), ORIGINAL_COLS + EAST_SHIFT + 22, eastMaxX);
     const rx = 20 + Math.round(noise(i + 10, 13, seed) * 7);
     const ry = 11 + Math.round(noise(i + 10, 14, seed) * 4);
     const floorClearance = groundAt(x + WEST_EXTENSION) + ry + 6;
     const y = clamp(Math.round(98 + noise(i + 10, 12, seed) * 20), floorClearance, 124);
     return makeChamber(1, x, y, rx, ry);
   });
-  const eastAbyss = [257, 309].map((anchorX, i) => {
-    const x = clamp(anchorX + Math.round((noise(i + 10, 21, seed) - 0.5) * 8), ORIGINAL_COLS + 22, eastMaxX);
+  const eastAbyss = [257, 309].map(x => x + EAST_SHIFT).map((anchorX, i) => {
+    const x = clamp(anchorX + Math.round((noise(i + 10, 21, seed) - 0.5) * 8), ORIGINAL_COLS + EAST_SHIFT + 22, eastMaxX);
     const rx = 19 + Math.round(noise(i + 10, 23, seed) * 8);
     const ry = 11 + Math.round(noise(i + 10, 24, seed) * 4);
     const y = clamp(Math.round(140 + noise(i + 10, 22, seed) * 14), 134, OCEAN_ROWS - ry - 6);
@@ -331,8 +343,8 @@ export function generateCaveSystem(seed = 61) {
   chambers.push(...eastUpper, ...eastMid, ...eastAbyss);
 
   const eastEntranceZones = [
-    { min: 252, max: 262, target: eastUpper[0] },
-    { min: 304, max: 314, target: eastUpper[1] },
+    { min: 252 + EAST_SHIFT, max: 262 + EAST_SHIFT, target: eastUpper[0] },
+    { min: 304 + EAST_SHIFT, max: 314 + EAST_SHIFT, target: eastUpper[1] },
   ];
   for (const [i, zone] of eastEntranceZones.entries()) {
     const ex = Math.round(zone.min + noise(i + 10, 31, seed) * (zone.max - zone.min));
@@ -378,11 +390,11 @@ export function generateCaveSystem(seed = 61) {
 
   return {
     seed,
-    entrances,
-    chambers,
-    passages: rawPassages.map(withBounds),
-    pillars,
-    ventCandidates,
+    entrances: entrances.filter(e => e.x >= JUNGLE_FADE_START_COLUMN),
+    chambers: chambers.filter(c => c.x >= JUNGLE_FADE_START_COLUMN),
+    passages: rawPassages.filter(points => points.every(([x]) => x >= JUNGLE_FADE_START_COLUMN)).map(withBounds),
+    pillars: pillars.filter(p => p.x >= JUNGLE_FADE_START_COLUMN),
+    ventCandidates: ventCandidates.filter(([x]) => x >= JUNGLE_FADE_START_COLUMN),
   };
 }
 
@@ -434,6 +446,7 @@ function isProtectedCave(x, y) {
 }
 
 function isCarvedAt(tx, ty) {
+  if (tx - WEST_EXTENSION < JUNGLE_FADE_START_COLUMN) return false;
   if (ty < WATER_ROW + 4 || ty >= OCEAN_ROWS - 2 || isProtectedCave(tx - WEST_EXTENSION, ty)) return false;
   if (ty <= groundAt(tx) + 3 && !isEntranceZone(tx, ty)) return false;
   for (const chamber of CAVE_SYSTEM.chambers) {
@@ -448,6 +461,7 @@ function isCarvedAt(tx, ty) {
 
 function applyCaves(get, set, bounds) {
   const carve = (x, y) => {
+    if (x - WEST_EXTENSION < JUNGLE_FADE_START_COLUMN) return;
     if (y < WATER_ROW + 4 || isProtectedCave(x - WEST_EXTENSION, y)) return;
     if (y <= groundAt(x) + 3 && !isEntranceZone(x, y)) return;
     set(x, y, MATERIAL.air);
@@ -461,7 +475,7 @@ function applyCaves(get, set, bounds) {
 
   for (let y = Math.max(bounds.top, WATER_ROW + 14); y <= Math.min(bounds.bottom, OCEAN_ROWS - 7); y++) {
     for (let x = bounds.left; x <= bounds.right; x++) {
-      if (y <= groundAt(x) + 8 || isProtectedCave(x - WEST_EXTENSION, y)) continue;
+      if (x - WEST_EXTENSION < JUNGLE_FADE_START_COLUMN || y <= groundAt(x) + 8 || isProtectedCave(x - WEST_EXTENSION, y)) continue;
       if (caveField(x, y, CAVE_SYSTEM.seed) > 0.76) set(x, y, MATERIAL.air);
     }
   }
@@ -495,6 +509,10 @@ export function generateVents(get) {
     if (floor >= y + 3 && floor < OCEAN_ROWS - 2 && floor > groundAt(column) + 3) {
       vents.push({ x: column * TILE + TILE / 2, y: floor * TILE });
     }
+  }
+  for (const x of [-151, 229, -176, -203]) {
+    const tx = x + WEST_EXTENSION;
+    vents.push({ x: (tx + .5) * TILE, y: groundAt(tx) * TILE });
   }
   const wreckVentX = shipwreckVentColumn + WEST_EXTENSION;
   vents.push({ x: (wreckVentX + .5) * TILE, y: groundAt(wreckVentX) * TILE });
@@ -708,9 +726,9 @@ export function generateFixtures() {
     ...shipwreckCaches,
     { id: 'wreck-cache', name: 'Reef cache', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
     ...islandCaches.map(([id, name, column, floor, resource, amount, bonusLoot]) => ({ id, name, column, floor, resource, amount, bonusLoot })),
-    { id: 'western-grotto-cache', name: 'Grotto cache', column: -62, floor: 106, resource: 'kelp', amount: 2 },
-    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 196, floor: 113, resource: 'iron', amount: 3 },
-    { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288, floor: groundAt(288 + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
+    { id: 'western-grotto-cache', name: 'Grotto cache', column: -151, floor: groundAt(-151 + WEST_EXTENSION), resource: 'kelp', amount: 2 },
+    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 229, floor: groundAt(229 + WEST_EXTENSION), resource: 'iron', amount: 3 },
+    { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288 + EAST_SHIFT, floor: groundAt(288 + EAST_SHIFT + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
     jungleVillageCache,
     ...jungleCaveCaches,
   ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
@@ -729,11 +747,12 @@ export function generateFixtures() {
   // Preserve saved kelp IDs where the seabed has shifted near cave openings.
   const kelpLocations = [[-105], [-100], [-57, -59], [-50], [-46], [34], [41], [76], [79], [84], [91, 89], [96], [104], [114], [127, 123], [132, 133], [144], [236], [248], [264], [282], [300], [320], [406], [418]];
   for (const [id, column = id] of kelpLocations) {
-    const tx = column + WEST_EXTENSION;
+    const tx = column + (column >= ORIGINAL_COLS ? EAST_SHIFT : 0) + WEST_EXTENSION;
     const ty = groundAt(tx);
     items.push({ id: 'kelp-' + id, kind: 'kelp', amount: 1, tx, ty, x: (tx + .5) * TILE, y: ty * TILE - 12 });
   }
 
+  for (const mermaid of MERMAIDS) items.push({ ...mermaid, kind: "mermaid", x: (mermaid.column + WEST_EXTENSION + .5) * TILE, y: mermaid.row * TILE });
   return items;
 }
 
@@ -780,15 +799,15 @@ function lionfishChamberSpot(chamber) {
 }
 
 export function generateMobs() {
-  const caveFish = chamberMobSpot(CAVE_SYSTEM.chambers[3]);
-  const caveSquid = chamberMobSpot(CAVE_SYSTEM.chambers[8]);
+  const caveFish = chamberMobSpot(CAVE_SYSTEM.chambers[0]);
+  const caveSquid = chamberMobSpot(CAVE_SYSTEM.chambers[2]);
   const lionWestShelf = { x: -72 * TILE, y: Math.max((WATER_ROW + 24) * TILE, (groundAt(-72 + WEST_EXTENSION) - 5) * TILE) };
   const lionEastShelf = { x: 158 * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(158 + WEST_EXTENSION) - 5) * TILE) };
-  const lionWestUpper = lionfishChamberSpot(CAVE_SYSTEM.chambers[0]);
-  const lionWestDoor = lionfishChamberSpot(CAVE_SYSTEM.chambers[1]);
-  const lionEastUpper = lionfishChamberSpot(CAVE_SYSTEM.chambers[2]);
-  const lionEastCorridor = lionfishChamberSpot(CAVE_SYSTEM.chambers[4]);
-  const lionDeepWest = lionfishChamberSpot(CAVE_SYSTEM.chambers[5]);
+  const lionWestUpper = { x: -145 * TILE, y: (groundAt(-145 + WEST_EXTENSION) - 9) * TILE };
+  const lionWestDoor = { x: -169 * TILE, y: (groundAt(-169 + WEST_EXTENSION) - 9) * TILE };
+  const lionEastUpper = { x: 190 * TILE, y: (groundAt(190 + WEST_EXTENSION) - 9) * TILE };
+  const lionEastCorridor = { x: 236 * TILE, y: Math.min(WATER_ROW + 80, groundAt(236 + WEST_EXTENSION) - 9) * TILE };
+  const lionDeepWest = { x: -208 * TILE, y: Math.min(WATER_ROW + 80, groundAt(-208 + WEST_EXTENSION) - 9) * TILE };
   return [
     { id: 'crab-island-west', kind: 'crab', x: 50 * TILE + 8, span: 48, speed: 22, variant: 0, phase: 0.4 },
     { id: 'crab-west-floor', kind: 'crab', x: 34 * TILE + 8, span: 52, speed: 21, variant: 1, phase: 0.9 },
@@ -833,7 +852,7 @@ export function generateMobs() {
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
-    { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 32 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
+    { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 40 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? groundAt(Math.floor(x / TILE)) * TILE : mob.y;

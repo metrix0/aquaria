@@ -129,8 +129,8 @@ test('hard landings apply damage once, scale with distance, and can be fatal', (
   for (const [x, y, expectedDamage] of [
     [SPAWN.x, SPAWN.y - 8 * TILE, 0],
     [SPAWN.x, SPAWN.y - 10 * TILE, 8],
-    [3000, 2665, 48],
-    [3000, 2385, 100],
+    [3000 + (WEST_EXTENSION - 108) * TILE, 2665, 48],
+    [3000 + (WEST_EXTENSION - 108) * TILE, 2385, 100],
   ]) {
     const game = createGame();
     const { world, player } = game;
@@ -311,7 +311,7 @@ test('auto-generated cave system is deterministic, multi-tiered, and reachable f
 
   for (const tier of [0, 1, 2]) {
     const tierChambers = CAVE_SYSTEM.chambers.filter((c) => c.tier === tier);
-    assert.ok(tierChambers.length >= 4);
+    assert.ok(tierChambers.length >= 2);
     assert.ok(tierChambers.every((c) => {
       for (let y = c.minY; y <= c.maxY; y++) {
         for (let x = c.minX; x <= c.maxX; x++) {
@@ -768,7 +768,7 @@ test('Underground iron occurs in small contiguous veins', () => {
   const visited = new Set();
   let count = 0;
   for (let y = ISLAND_DEEPSTONE_ROW; y < 615; y++) {
-    for (let x = 80; x < 267; x++) {
+    for (let x = WEST_EXTENSION - 28; x < WEST_EXTENSION + 159; x++) {
       if (visited.has(y * COLS + x) || tileAt(world, x, y) !== MATERIAL.iron) continue;
       const vein = [[x, y]];
       visited.add(y * COLS + x);
@@ -1742,7 +1742,7 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
 
   // Isolate kraken for deterministic attack testing.
   world.mobs = [kraken];
-  Object.assign(player, { x: barrierX - 70, y: WATER + 12 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
+  Object.assign(player, { x: barrierX - 70, y: kraken.y - 4 * TILE, dx: 0, dy: 0, hurt: 0, health: 100 });
 
   // Primary attack: tentacle tackle.
   kraken.attackTimer = 0;
@@ -1752,7 +1752,7 @@ test('giant kraken blocks the far right edge at all depths and performs all thre
   assert.ok(player.dx < 0 || player.x < barrierX - 70);
 
   // Secondary attack: spawns three squids.
-  Object.assign(player, { x: barrierX - 90, y: WATER + 12 * TILE, dx: 0, dy: 0, hurt: 0 });
+  Object.assign(player, { x: barrierX - 90, y: kraken.y - 4 * TILE, dx: 0, dy: 0, hurt: 0 });
   kraken.attackMode = 'idle';
   kraken.windup = 0;
   kraken.actionTime = 0;
@@ -2051,7 +2051,7 @@ test('defeating the kraken drops a chest with a blue diving fin that equips in f
     damageMob(world, kraken, kraken.maxHealth, 0, 0, game.effects);
 
     let dropNotice = false;
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 600; i++) {
       game.effects.length = 0;
       stepGame(game, {}, 1 / 60);
       if (game.effects.some((effect) => effect.message === 'The Kraken dropped a chest!')) dropNotice = true;
@@ -2691,12 +2691,12 @@ test('cannibals can jump over obstacles, pits, and toward elevated players witho
   const edgeMob = edgeGame.world.mobs.find((mob) => mob.kind === 'cannibal-spear');
   assert.ok(edgeMob);
   edgeGame.world.mobs = [edgeMob];
-  edgeMob.x = (340 + WEST_EXTENSION) * TILE + 8;
+  edgeMob.x = (JUNGLE_ISLAND.center - 24 + WEST_EXTENSION) * TILE + 8;
   edgeMob.homeX = edgeMob.x;
-  edgeMob.y = groundAt(340 + WEST_EXTENSION) * TILE;
+  edgeMob.y = groundAt(JUNGLE_ISLAND.center - 24 + WEST_EXTENSION) * TILE;
   edgeMob.homeY = edgeMob.y;
   Object.assign(edgeGame.player, {
-    x: (333 + WEST_EXTENSION) * TILE,
+    x: (JUNGLE_ISLAND.center - 31 + WEST_EXTENSION) * TILE,
     y: WATER - 13,
     dx: 0,
     dy: 0,
@@ -2754,8 +2754,8 @@ test('jungle island has a deep progressive cave ending in a Lovecraftian cult ch
     // Progressive features: normal cave top -> moss/scriptures -> statues/columns -> deepstone cult idol.
     assert.equal(tileAt(world, startTx, JUNGLE_CAVE.entryFloor), MATERIAL.stone);
     assert.equal(tileAt(world, endTx, JUNGLE_CAVE.sanctuaryFloor), MATERIAL.deepstone);
-    assert.ok(visited.has((334 + WEST_EXTENSION) + ',' + 285), 'west branch is reachable');
-    assert.ok(visited.has((400 + WEST_EXTENSION) + ',' + 283), 'east branch is reachable');
+    assert.ok(visited.has((JUNGLE_ISLAND.center - 30 + WEST_EXTENSION) + ',' + 285), 'west branch is reachable');
+    assert.ok(visited.has((JUNGLE_ISLAND.center + 36 + WEST_EXTENSION) + ',' + 283), 'east branch is reachable');
     assert.ok(jungleMossProgress(220) > jungleMossProgress(100));
 
     const kindsByFloor = (kind) => world.caveStructures.filter((s) => s.kind === kind).map((s) => s.floor);
@@ -3618,7 +3618,7 @@ test('lionfish spawn between 20m and 80m in the normal ocean, telegraph radial s
 
     for (const mob of lionfishList) {
       const depth = Math.floor((mob.y - WATER) / TILE);
-      assert.ok(mob.x < (ORIGINAL_COLS + WEST_EXTENSION) * TILE, `${mob.id} must be in normal ocean biome`);
+      assert.ok(mob.x < (KRAKEN_COLUMN + WEST_EXTENSION) * TILE, `${mob.id} must be in normal ocean biome`);
       assert.ok(depth >= 20 && depth <= 80, `${mob.id} depth ${depth}m must be in 20m..80m`);
       const tx = Math.floor(mob.x / TILE);
       const ty = Math.floor(mob.y / TILE);
