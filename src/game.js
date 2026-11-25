@@ -1,5 +1,5 @@
 import { singWithMermaid } from "./world/ocean-layout.js";
-import { Inventory, ITEMS } from './inventory.js';
+import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls } from './classes.js';
 import { ARROW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
@@ -13,6 +13,7 @@ import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
 import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
+import { useWardenSkill, updateWardenAllies, wardenAttackBlocked } from './gameplay/warden.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
 import { createPerformanceStats } from './performance-stats.js';
@@ -360,7 +361,7 @@ const ui = createUI({
   getSnorkel: () => equippedSnorkel(game),
   getFeet: () => equippedFeet(game),
   getRing: () => equippedRing(game),
-  getOffhand: () => equippedHook(game),
+  getOffhand: () => equippedHook(game) ?? (game.progress.offhand === WOODEN_SHIELD.id ? WOODEN_SHIELD : null),
   getAddon: (slot) => equippedAddon(game, slot),
   customize(appearance) {
     game.player.appearance = appearance;
@@ -381,6 +382,7 @@ const ui = createUI({
   makeItem(recipe) {
     if (editPending || !craftItem(game, recipe, craftingStation())) return false;
     inventoryChanged();
+    if (recipe.equipment && game.player.perfectArmor) ui.notify('Perfect Armor forged! +5% protection.');
     return true;
   },
 }, version);
@@ -430,8 +432,14 @@ const input = bindInput(canvas, camera, {
     if (!editPending) ui.open('backpack-panel', chest);
     return true;
   },
-  castRing() {
+  castWarden(id) {
     if (editPending) return;
+    const error = useWardenSkill(game, id);
+    if (error) ui.notify(error);
+    else input.stopMining();
+  },
+  castRing() {
+    if (editPending || wardenAttackBlocked(game.player)) return;
     const { pointer } = input;
     const cast = pointer.active
       ? useRootRing(game, pointer.x + camera.x, pointer.y + camera.y)
@@ -439,6 +447,7 @@ const input = bindInput(canvas, camera, {
     if (cast) storeProgress();
   },
   fend() {
+    if (wardenAttackBlocked(game.player)) return true;
     if (editPending || playerImmobilized(game.player)) return false;
     const { pointer } = input;
     const wx = pointer.x + camera.x;
@@ -649,7 +658,7 @@ function frame(now) {
       if (miningSwing.phase >= 1) miningSwing = null;
     }
     const heldItem = game.inventory.hotbar[selected]?.id;
-    if (playerImmobilized(game.player)) {
+    if (playerImmobilized(game.player) || wardenAttackBlocked(game.player)) {
       input.stopMining();
       miningSwing = null;
     } else if (game.attack) {
@@ -676,7 +685,9 @@ function frame(now) {
   ui.update(game, conditions);
   const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
-  const peers = room?.tick(now, dt, game.player, snorkel);
+  const peers = Array.from(room?.tick(now, dt, game.player, snorkel) ?? []);
+  if (room) updateWardenAllies(game, peers);
+  else game.player.allyAegis = false;
   const targetMob = aimedMob();
   const drawStart = performance.now();
   renderer.draw({

@@ -3725,6 +3725,21 @@ export function createRenderer(canvas) {
         "#a6eee0",
       );
     }
+    for (const protector of [...peers, player]) {
+      if (!(protector.aegisTime > 0)) continue;
+      const x = protector.x + protector.aegisFacing * TILE;
+      ctx.save();
+      ctx.strokeStyle = '#a6e8e7bb'; ctx.fillStyle = '#77d5d735'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, protector.y + 10, 5, 3 * TILE, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    if (player.bracing || player.rushTime > 0) {
+      const x = player.x + player.facing * 9;
+      rect(x - 3, player.y + 3, 6, 15, player.braceTime >= 1.5 || player.rushTime > 0 ? '#f3d39a' : '#997e5b');
+    }
+    if (player.cryTime > 0) {
+      ctx.save(); ctx.strokeStyle = '#f3d39a99'; ctx.beginPath(); ctx.arc(player.x, player.y + 8, (1 - player.cryTime / .8) * 12 * TILE, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
     drawCharacter(player, player.appearance, {
       snorkel: playerHeadInWater(world, player) ? snorkel : null,
       ring,

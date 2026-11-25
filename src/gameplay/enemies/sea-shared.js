@@ -29,6 +29,10 @@ export function stepSeaEnemy(world, player, mob, spec, dt, effects, ctx, behavio
     }));
   }
 
+  if (mob.wardenTaunt > 0 && playerInWater && dist > spec.radius + 7 && !mob.dash && !mob.windup) {
+    targetDx = toPlayerX / dist * mob.speed;
+    targetDy = toPlayerY / dist * mob.speed;
+  }
   mob.dx += (targetDx - mob.dx) * Math.min(1, dt * accel);
   mob.dy += (targetDy - mob.dy) * Math.min(1, dt * accel);
   if (Math.abs(mob.dx) > 1.5 && mob.kind !== 'jellyfish' && mob.windup <= 0) {

@@ -4,12 +4,13 @@ import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
 import { equippedHook, hasHook } from './hook.js';
+import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocked } from './warden.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
-import { GRAPPLING_HOOK, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
+import { GRAPPLING_HOOK, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
@@ -114,6 +115,7 @@ export function createGame(snapshot) {
     }
   }
   game.player.addons = game.progress.addons;
+  game.player.perfectArmor = Boolean(game.player.armor && snapshot?.perfectArmor);
   game.player.skillBonuses = skillBonuses(game.classes);
   activateWard(game.player, true);
   game.world.soulRewards = snapshot?.world?.soulRewards ?? [];
@@ -293,7 +295,7 @@ export function useWeapon(game, slot, wx, wy) {
   const itemId = game.inventory.hotbar[slot]?.id;
   const item = ITEMS[itemId];
   const weapon = item?.weapon;
-  if (game.attack) return { handled: true };
+  if (game.attack || wardenAttackBlocked(game.player)) return { handled: true };
 
   const ox = game.player.x;
   const oy = game.player.y + Math.ceil(game.player.height / 2);
@@ -392,7 +394,9 @@ export function stepGame(game, input, dt) {
   if (player.hook && !hasHook(game)) player.hook = null;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
+  stepWardenBefore(game, input, dt);
   const fallDamage = movePlayer(world, player, input, dt);
+  stepWardenAfter(game, x, dt);
   if (player.glowSeconds > 0) player.glowSeconds = Math.max(0, player.glowSeconds - dt);
   let fallLoss = 0;
   if (fallDamage) {
@@ -449,6 +453,9 @@ export function stepGame(game, input, dt) {
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
+    game.player.perfectArmor = player.perfectArmor;
+    game.player.damageSequence = player.damageSequence;
+    game.player.wardenCooldowns = player.wardenCooldowns;
     game.player.skillBonuses = skillBonuses(game.classes);
     activateWard(game.player, true);
     game.player.glowSeconds = player.glowSeconds;
@@ -465,6 +472,7 @@ export function stepGame(game, input, dt) {
           ? 'You succumbed to pufferfish poison. You woke up back on the island.'
           : 'You washed back up on the island.';
   }
+  finishWardenStep(player, dt);
   if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
   if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
   if (soulMessage) return soulMessage;
@@ -530,7 +538,7 @@ const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
   ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
-  offhand: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK }, get: equippedHook, set: (game, id) => { game.progress.offhand = id; } },
+  offhand: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK, [WOODEN_SHIELD.id]: WOODEN_SHIELD }, get: (game) => equippedHook(game) ?? (game.progress.offhand === WOODEN_SHIELD.id ? WOODEN_SHIELD : null), set: (game, id) => { game.progress.offhand = id; } },
   ...Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => ['addon-' + slot, {
     items: Object.fromEntries(Object.values(ADDONS).filter((addon) => addon.addonSlot === slot).map((addon) => [addon.id, addon])),
     get: (game) => equippedAddon(game, slot),
@@ -705,11 +713,12 @@ export function canCraftItem(game, recipe, station) {
     Object.entries(recipe.cost).every(([id, count]) => game.inventory.count(id) >= count);
 }
 
-export function craftItem(game, recipe, station) {
+export function craftItem(game, recipe, station, random = Math.random) {
   if (recipe.equipment) {
     if (!canCraftItem(game, recipe, station)) return false;
     for (const [id, count] of Object.entries(recipe.cost)) game.inventory.spend(id, count);
     game.player.armor = recipe.id;
+    game.player.perfectArmor = random() < (game.player.skillBonuses?.perfectArmor ?? 0);
     game.dirty = true;
     return true;
   }
@@ -725,6 +734,7 @@ export function grantItem(game, id, count) {
   if (!Number.isSafeInteger(count) || count < 1) return false;
   if (Object.hasOwn(ARMOR, id)) {
     game.player.armor = id;
+    game.player.perfectArmor = false;
   } else if (id === GRAPPLING_HOOK.id && !game.progress.offhand) {
     game.progress.offhand = GRAPPLING_HOOK.id;
     if (count > 1 && !game.inventory.add(id, count - 1, { preferHotbar: true })) return false;

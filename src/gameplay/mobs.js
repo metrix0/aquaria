@@ -233,6 +233,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
   for (const mob of [...world.mobs]) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
+    if (mob.wardenTaunt > 0) { mob.wardenTaunt = Math.max(0, mob.wardenTaunt - dt); mob.flee = 0; }
     if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
       stepKrakenDeath(world, mob, dt, effects);
       if (mob.deathTime === 0) {

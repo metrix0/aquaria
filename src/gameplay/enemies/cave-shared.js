@@ -84,7 +84,7 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
   const distance = Math.hypot(deltaX, deltaY);
   const sightRange = hooks.sightRange ?? 170;
   const leashRange = hooks.leashRange ?? 170;
-  const active = !player.flightOrigin && distance < sightRange &&
+  const active = !player.flightOrigin && distance < (mob.wardenTaunt > 0 ? Math.max(sightRange, 12 * TILE) : sightRange) &&
     !isCaveRefuge(Math.floor(player.x / TILE) - WEST_EXTENSION, Math.floor(playerY / TILE)) &&
     clearPath(world, mob.x, mob.y + spec.centerY, player.x, playerY);
 
@@ -123,7 +123,7 @@ export function stepCaveEnemyBase(world, player, mob, spec, dt, effects, hooks =
         } else {
           mob.windup = hooks.windupDuration ?? .38;
         }
-      } else if (distance > (mob.grounded ? (hooks.chaseDistance ?? 14) : 4) && Math.abs(mob.x - mob.homeX) < leashRange) {
+      } else if (distance > (mob.grounded ? (hooks.chaseDistance ?? 14) : 4) && (mob.wardenTaunt > 0 || Math.abs(mob.x - mob.homeX) < leashRange)) {
         speed = mob.facing * spec.speed;
       }
     } else if (Math.abs(mob.x - mob.homeX) > 3) {

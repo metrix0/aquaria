@@ -117,46 +117,13 @@ test('starter trees save and switch independently without weakening the original
     assert.equal(loaded.classes.builds[id].length, 1, id);
   }
   activateClass(loaded, 'warden');
-  assert.equal(loaded.player.skillBonuses.guard, .12);
+  assert.equal(loaded.player.skillBonuses.resist, .10);
   activateClass(loaded, 'wayfarer');
   assert.equal(loaded.player.skillBonuses.bowDamage, 2);
   activateClass(loaded, 'scholar');
   assert.equal(loaded.player.skillBonuses.healBoost, .3);
   activateClass(loaded, 'stormborn');
   assert.equal(loaded.player.skillBonuses.move, .10);
-});
-
-test('Warden can guard while stationary, carry recharging wards, and heal by weapon strikes', () => {
-  const state = createGame();
-  state.classes.total = { lesser: 20, greater: 3 };
-  activateClass(state, 'warden');
-  unlockSkill(state, 'shield-discipline');
-  state.player.health = 80;
-  state.player.grounded = true;
-  state.player.dx = 0;
-  const stationary = takeDamage(state.player, 20);
-  state.player.health = 80;
-  state.player.dx = 80;
-  const moving = takeDamage(state.player, 20);
-  assert.ok(stationary < moving, 'defender guard depends on standing still');
-
-  unlockSkill(state, 'watchers-ward');
-  assert.equal(state.player.wardShield, 8);
-  assert.equal(takeDamage(state.player, 6), 0);
-  assert.equal(state.player.wardShield, 2);
-  stepClassEffects(state, 8);
-  assert.equal(state.player.wardShield, 8);
-
-  unlockSkill(state, 'battle-temper');
-  unlockSkill(state, 'bloodrush');
-  unlockSkill(state, 'reavers-oath');
-  state.player.health = 20;
-  const previous = state.player.health;
-  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
-  const before = crab.health;
-  strikeMob(state, crab, skillAttackDamage(state.player, 1), 0, 0);
-  assert.ok(crab.health < before, 'berserker damages foes');
-  assert.ok(state.player.health > previous, 'berserker lifesteals');
 });
 
 test('Wayfarer bow traits, roots, pierces and exploration improve real gameplay', () => {

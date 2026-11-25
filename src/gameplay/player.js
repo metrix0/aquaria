@@ -131,18 +131,22 @@ export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
-export function takeDamage(player, damage) {
-  const protection = ARMOR[player.armor]?.protection ?? 0;
+export function takeDamage(player, damage, fractional = false) {
+  if (player.rushTime > 0) return 0;
+  const protection = (ARMOR[player.armor]?.protection ?? 0) + (player.armor && player.perfectArmor ? .05 : 0);
   const bonuses = player.skillBonuses || {};
   const standingGuard = player.grounded && Math.abs(player.dx || 0) < 10 ? bonuses.guard || 0 : 0;
-  let loss = Math.max(0, Math.round(damage * (1 - protection) *
-    (1 - Math.min(.9, (bonuses.resist || 0) + standingGuard))));
+  const desperate = player.health < MAX_HEALTH * .5 ? bonuses.desperateResist || 0 : 0;
+  const brace = player.bracing && player.braceTime >= 1.5 ? .5 : 0;
+  const rawLoss = damage * (1 - protection) * (1 - Math.min(.9, (bonuses.resist || 0) + standingGuard + desperate)) * (1 - brace) * (player.allyAegis ? .7 : 1);
+  let loss = Math.max(0, fractional ? rawLoss : Math.round(rawLoss));
   if (loss > 0) {
     const shield = Math.min(loss, player.wardShield || 0);
     player.wardShield = Math.max(0, (player.wardShield || 0) - shield);
     player.wardCooldown = 6;
     loss -= shield;
   }
+  if (loss > 0) player.damageSequence = (player.damageSequence ?? 0) + 1;
   player.health = Math.max(0, player.health - loss);
   return loss;
 }
@@ -328,6 +332,7 @@ export function movePlayer(world, player, input, dt) {
     jump = nextJump;
     up = nextJump;
   }
+  if (player.bracing || player.rushTime > 0) { up = false; down = false; jump = false; }
   const hookState = stepGrapplingHook(world, player, { left, right, up, down, jump }, dt, { moveAxis, jumpSpeed });
   if (hookState === 'latched') return;
   if (hookState === 'jumped') player.waterJump = playerInWater(world, player);
@@ -340,7 +345,7 @@ export function movePlayer(world, player, input, dt) {
     player.jumpGrace = 0;
     player.fallDistance = 0;
   }
-  const canClimb = hookState !== 'jumped' && !player.climbJump && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
+  const canClimb = !player.bracing && !player.rushTime && hookState !== 'jumped' && !player.climbJump && !left && !right && !playerImmobilized(player) && (up || down || player.climb);
   const caveRoute = canClimb && world.caveClimbs?.find(({ tx, top, bottom }) => {
     const hand = player.y + 8;
     // Never grab a climb after passing its end.
@@ -387,7 +392,7 @@ export function movePlayer(world, player, input, dt) {
   if (bodyInWater) player.jumpGrace = 0;
   else if (player.grounded) player.jumpGrace = ledgeJumpGrace;
   else player.jumpGrace = Math.max(0, player.jumpGrace - dt);
-  const wantsCrawl = down && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
+  const wantsCrawl = down && !player.skillBonuses?.brace && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
   const height = wantsCrawl ? CRAWL_HEIGHT : PLAYER_SIZE.height;
   if (height !== player.height) {
     const y = player.y + player.height - height;
@@ -397,14 +402,16 @@ export function movePlayer(world, player, input, dt) {
     }
   }
   const crawling = player.height === CRAWL_HEIGHT;
-  const horizontal = Number(Boolean(right)) - Number(Boolean(left));
+  const horizontal = player.rushTime > 0 ? player.rushFacing : player.bracing ? 0 : Number(Boolean(right)) - Number(Boolean(left));
 
   if (horizontal) player.facing = horizontal;
   const swimMultiplier = (FEET_GEAR[player.feet]?.swimMultiplier ?? 1) * ((player.neurotoxin ?? 0) > 0 ? 0.38 : 1) * (1 + (player.skillBonuses?.swim ?? 0));
   const verticalSwimSpeed = swimSpeed * swimMultiplier;
   const catalyst = (player.catalystSeconds || 0) > 0 ? player.skillBonuses?.catalystMove || 0 : 0;
   const speed = (bodyInWater ? 102 * swimMultiplier : crawling ? 56 : 112) * (!bodyInWater ? 1 + (player.addons?.feet === 'explorers-anklet' ? 0.05 : 0) + (player.skillBonuses?.move ?? 0) + catalyst : 1);
-  player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
+  if (player.rushTime > 0) player.dx = horizontal * 260;
+  else if (player.bracing) player.dx = 0;
+  else player.dx += (horizontal * speed - player.dx) * Math.min(1, dt * (bodyInWater ? 5 : 13));
   const headInWater = playerHeadInWater(world, player);
   const shoreJump = (up || jump) && !down && canJumpAshore(world, player, horizontal, verticalSwimSpeed);
   const surfaceJump = jump && !down && !crawling && bodyInWater && !headInWater;
@@ -477,8 +484,9 @@ function stepOverTimeDebuff(player, dt, effects, key, tickKey, color) {
   let lost = 0;
   while (player[tickKey] <= 0 && player[key] > 0 && player.health > 0) {
     player[tickKey] += 1;
-    player.health = Math.max(0, player.health - 1);
-    lost += 1;
+    if (player.rushTime > 0) continue;
+    if (player.skillBonuses?.wardenResistance || player.skillBonuses?.desperateResist || player.bracing || player.allyAegis || player.perfectArmor) lost += takeDamage(player, 1, true);
+    else { player.health = Math.max(0, player.health - 1); player.damageSequence = (player.damageSequence ?? 0) + 1; lost += 1; }
     effects?.push({
       x: player.x + (Math.random() - 0.5) * 8,
       y: player.y + 8 + Math.random() * 10,

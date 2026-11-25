@@ -142,6 +142,9 @@ export async function connectRoom(config, invite, handlers) {
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
+      damageSequence: Number.isSafeInteger(payload.damageSequence) && payload.damageSequence >= 0 ? payload.damageSequence : 0,
+      aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
+      aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
     });
     if (!old) handlers.count(peers.size + 1);
   });
@@ -195,6 +198,9 @@ export async function connectRoom(config, invite, handlers) {
         dy: clamp(Math.round(player.dy), -maxPeerVelocity, maxPeerVelocity),
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
+        damageSequence: player.damageSequence ?? 0,
+        aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
+        aegisFacing: player.aegisFacing ?? 1,
         feet: player.feet,
         crawling: player.height === CRAWL_HEIGHT,
         climbColumn: player.climb ? player.climb.tx - WEST_EXTENSION : null,
@@ -212,6 +218,7 @@ export async function connectRoom(config, invite, handlers) {
           forgetPeer(remoteId);
           continue;
         }
+        peer.aegisTime = Math.max(0, (peer.aegisTime || 0) - dt);
         const blend = Math.min(1, dt * 14);
         const horizontal = (peer.targetX - peer.x) * blend;
         peer.x += horizontal;

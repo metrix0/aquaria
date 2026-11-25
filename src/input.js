@@ -65,6 +65,9 @@ export function bindInput(canvas, camera, actions) {
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
+    if (code === 'KeyQ') actions.castWarden?.('shieldRush');
+    if (code === 'KeyR') actions.castWarden?.('rage');
+    if (code === 'KeyT') actions.castWarden?.('aegisAura');
     if (/^Digit[1-6]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
   });
   window.addEventListener('keyup', ({ code }) => keys.delete(code));
@@ -126,6 +129,9 @@ export function bindInput(canvas, camera, actions) {
     for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) {
       button.addEventListener(event, () => keys.delete(key));
     }
+  }
+  for (const button of document.querySelectorAll('[data-warden-skill]')) {
+    button.addEventListener('click', () => { if (!actions.blocked()) actions.castWarden?.(button.dataset.wardenSkill); });
   }
   document.getElementById('grab').addEventListener('click', actions.interact);
   document.getElementById('cast-ring').addEventListener('click', () => {

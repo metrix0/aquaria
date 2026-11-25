@@ -14,7 +14,10 @@ export const GRAPPLING_HOOK = {
   description: 'An iron-clawed climber’s line. Fires where you aim and hauls you to solid rock.',
 };
 
+export const WOODEN_SHIELD = { id: 'wooden-shield', name: 'Wooden shield', station: WORKBENCH.id, cost: { wood: 4, copper: 2 }, description: 'Equip in your off-hand to use Shield Rush.' };
+
 export const ITEMS = {
+  [WOODEN_SHIELD.id]: WOODEN_SHIELD,
   [BROKEN_PICKAXE.id]: {
     name: 'Broken Pickaxe', description: 'One tooth left. The mountain still counts it.', hotbar: 0, pickaxe: 1,
   },

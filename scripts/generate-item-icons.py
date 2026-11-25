@@ -84,6 +84,7 @@ def crab(cooked):
     return art('hb.....bh./bbh...hbb./.bhhhhbb../.habhab.../sbbbbbbbs./.bbbbbbb../s.sss.s.s.', colors, extra='#35434b')
 
 ITEMS = {
+    'wooden-shield': art('hhhhhhh/hbbabbs/hbbabbs/hbaaabs/hbbabbs/.bbabs./..sas../...s...', WOOD, extra='#d7e0cf', outline=WARM),
     'root-ring': art('.....aa../....aab../.hhhbs.../hbs..bs../hb....b../hb....s../.bb..bs../..ssss...', WOOD, extra='#609970', outline=WARM),
     'lesser-soul': art('...h.../..hhh../..hbb../.hbbbs./hbbbbbs/hbbbbbs/.sbbbs./..sss..', ('#73baf2','#bce9f6','#437caa')),
     'greater-soul': art('...h.../..hhh../..hab../.habbs./habbbbs/hbbbbbs/.sbbbs./..sss..', ('#dba968','#fff0b4','#8b6491'), extra='#f8d593'),

@@ -1,5 +1,5 @@
 import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
-import { GRAPPLING_HOOK, ROOT_RING } from './inventory.js';
+import { GRAPPLING_HOOK, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
@@ -55,6 +55,7 @@ export function decodeSave(data) {
     inventory: data.inventory,
     appearance: data.appearance,
     armor: Object.hasOwn(ARMOR, player?.armor) ? player.armor : null,
+    perfectArmor: player?.perfectArmor === true,
     feet: Object.hasOwn(FEET_GEAR, player?.feet) ? player.feet : null,
     worldTime: Number.isFinite(data.worldTime) && data.worldTime >= 0 ? data.worldTime : 0,
     weatherSeed: Number.isInteger(data.weatherSeed) && data.weatherSeed >= 0 && data.weatherSeed < 0x80000000 ? data.weatherSeed : undefined,
@@ -73,7 +74,7 @@ export function decodeSave(data) {
       ...(Number.isFinite(gear.glowSeconds) && gear.glowSeconds > 0
         ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
       ring: gear.ring === ROOT_RING.id ? gear.ring : null,
-      offhand: (gear.offhand ?? gear.hands) === GRAPPLING_HOOK.id ? GRAPPLING_HOOK.id : null,
+      offhand: [GRAPPLING_HOOK.id, WOODEN_SHIELD.id].includes(gear.offhand ?? gear.hands) ? (gear.offhand ?? gear.hands) : null,
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
@@ -92,7 +93,7 @@ export function encodeSave(game, saveTerrain = true) {
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const { x, y, height } = player.flightOrigin ?? player;
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
-  if (player.armor) position.armor = player.armor;
+  if (player.armor) { position.armor = player.armor; if (player.perfectArmor) position.perfectArmor = true; }
   if (player.feet) position.feet = player.feet;
   if (height === CRAWL_HEIGHT) position.crawling = true;
   const droppedKrakenChest = world.items.find((item) => item.id === KRAKEN_CHEST_ID);

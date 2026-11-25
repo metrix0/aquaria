@@ -5,7 +5,7 @@ import { damageMob } from './mobs.js';
 
 export function skillAttackDamage(player, base, bow = false) {
   const bonus = player.skillBonuses || {};
-  return base + (bonus.attack || 0) + (bow ? bonus.bowDamage || 0 : 0)
+  return base + Math.round(base * (bonus.missingHealthAttack || 0) * (1 - Math.max(0, player.health) / MAX_HEALTH)) + (bonus.attack || 0) + (bow ? bonus.bowDamage || 0 : 0)
     + (player.health <= MAX_HEALTH * .4 ? bonus.lowHealthAttack || 0 : 0)
     + ((player.catalystSeconds || 0) > 0 ? bonus.catalystAttack || 0 : 0);
 }
@@ -13,8 +13,9 @@ export function skillAttackDamage(player, base, bow = false) {
 export function classHit(game, mob, damageDealt, bow = false) {
   if (damageDealt <= 0) return;
   const bonus = game.player.skillBonuses || {};
-  if (bonus.lifesteal && game.player.health > 0) {
-    game.player.health = Math.min(MAX_HEALTH, game.player.health + damageDealt * bonus.lifesteal);
+  const lifesteal = (bonus.lifesteal || 0) + (bonus.rage && game.player.rageTime > 0 ? .30 : 0);
+  if (lifesteal && game.player.health > 0) {
+    game.player.health = Math.min(MAX_HEALTH, game.player.health + damageDealt * lifesteal);
   }
   if (bow && bonus.snare && mob.health > 0 && mob.kind !== 'kraken') {
     mob.rooted = Math.max(mob.rooted || 0, bonus.snare);

@@ -45,7 +45,7 @@ export function stepFish(
 
   let targetDx;
   let targetDy;
-  if (mob.enemyType && playerInWater && dist < 108 && mob.remainingLife > 2) {
+  if (mob.enemyType && playerInWater && dist < (mob.wardenTaunt > 0 ? 192 : 108) && mob.remainingLife > 2) {
     targetDx = (-diffX / dist) * mob.speed;
     targetDy = (-diffY / dist) * mob.speed;
     if (

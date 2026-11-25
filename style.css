@@ -584,3 +584,10 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .ring-skill[data-recharged] { animation: none; border-color: #ceeaae; }
   .ring-skill[data-recharged] i { animation: none; opacity: .75; }
 }
+
+.warden-skills { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:4px; font:11px var(--mono); }
+.warden-skills[hidden], .warden-skills [hidden] { display:none; }
+.warden-skills button { padding:3px 6px; min-height:28px; font-size:11px; }
+.warden-skills button.active { color:var(--gold); border-color:var(--gold); opacity:1; }
+#warden-brace { color:var(--gold); align-self:center; }
+#health-fill.bloodrush { filter:hue-rotate(calc(-1 * var(--rage-hue, 0deg))) saturate(1.7); }

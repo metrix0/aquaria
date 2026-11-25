@@ -119,6 +119,7 @@ export function skillBudget(progress, classId = progress.active) {
 export function skillBonuses(progress) {
   const buffs = { attack: 0, move: 0, swim: 0, fall: 0, resist: 0, regen: 0, oxygen: 0, mine: 0, ore: 0,
     guard: 0, ward: 0, lowHealthAttack: 0, lifesteal: 0,
+    wardenResistance: 0, brace: 0, shieldRush: 0, desperateResist: 0, missingHealthAttack: 0, rage: 0, perfectArmor: 0, guardianCry: 0, aegisAura: 0,
     bowDamage: 0, arrowSpeed: 0, bowCooldown: 0, arrowPierce: 0, snare: 0, rootedDamage: 0,
     healBoost: 0, cleanse: 0, torchDuration: 0, catalystSeconds: 0, catalystMove: 0, catalystAttack: 0,
     poison: 0, poisonDuration: 0 };
@@ -144,6 +145,8 @@ export function activateClass(game, id) {
   game.classes.active = id;
   game.player.skillBonuses = skillBonuses(game.classes);
   game.player.catalystSeconds = 0;
+  game.player.braceTime = game.player.rushTime = game.player.rageTime = game.player.aegisTime = 0;
+  game.player.bracing = false;
   game.player.wardShield = game.player.skillBonuses.ward;
   game.player.wardCooldown = 0;
   game.dirty = true;

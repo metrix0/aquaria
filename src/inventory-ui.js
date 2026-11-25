@@ -1,5 +1,5 @@
 import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, POISON_ARROW, SNORKELS } from './content.js';
-import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
 
@@ -45,7 +45,7 @@ export function equipmentSlotForItem(id) {
   if (Object.hasOwn(SNORKELS, id)) return 'head';
   if (Object.hasOwn(FEET_GEAR, id)) return 'feet';
   if (id === ROOT_RING.id) return 'ring';
-  if (id === GRAPPLING_HOOK.id) return 'offhand';
+  if (id === GRAPPLING_HOOK.id || id === WOODEN_SHIELD.id) return 'offhand';
   return ADDONS[id]?.addonSlot ? 'addon-' + ADDONS[id].addonSlot : null;
 }
 
@@ -365,7 +365,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
         label.textContent = group === 'ring' && equipped ? 'Root ring [F]'
-          : group === 'offhand' && equipped ? 'Grappling hook [E]'
+          : group === 'offhand' && equipped?.id === GRAPPLING_HOOK.id ? 'Grappling hook [E]'
           : (equipped?.name ?? fallback);
       }
       if (chestId) {

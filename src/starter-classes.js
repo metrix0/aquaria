@@ -11,19 +11,19 @@ export const STARTER_CLASSES = Object.freeze({
     domain: 'Guard · Resolve · Protection',
     paths: [
       branch('defender', 'Defender', '⬡', 'Hold the line when danger closes in.', [
-        star('shield-discipline', 'Shield Discipline', 'While standing still, take 12% less damage.', { guard: .12 }),
-        star('ironwall', 'Ironwall', 'Take 10% less damage from all sources.', { resist: .10 }),
-        star('unyielding', 'Unyielding', 'While standing still, take another 28% less damage; gain 12% permanent resistance.', { guard: .28, resist: .12 }, true),
+        star("shield-discipline", "Shield Discipline", "Take 10% less incoming damage.", {"resist":0.1,"wardenResistance":1}),
+        star("ironwall", "Ironwall", "Hold S on land instead of crouching. After 1.5s, take 50% less damage until released. Cannot attack while bracing.", {"brace":1}),
+        star("unyielding", "Shield Rush", "Q: With a shield equipped, rush forward invulnerably and knock enemies back. 18s cooldown.", {"shieldRush":1}, true),
       ]),
       branch('berserker', 'Berserker', '⚔', 'Make desperation your greatest strength.', [
-        star('battle-temper', 'Battle Temper', '+1 damage with every weapon.', { attack: 1 }),
-        star('bloodrush', 'Bloodrush', '+4 weapon damage while at 40% health or below.', { lowHealthAttack: 4 }),
-        star('reavers-oath', "Reaver's Oath", 'At low health, gain 3 more damage. Recover 15% of damage dealt by weapons.', { lowHealthAttack: 3, lifesteal: .15 }, true),
+        star("battle-temper", "Battle Temper", "Below 50% health, take 20% less damage.", {"desperateResist":0.2}),
+        star("bloodrush", "Bloodrush", "Deal up to 100% extra weapon damage as health falls. Your health bar changes color.", {"missingHealthAttack":1}),
+        star("reavers-oath", "Rage", "R: For 8s, recover 30% of weapon damage dealt as health. 25s cooldown.", {"rage":1}, true),
       ]),
-      branch('protector', 'Protector', '◈', 'Keep a ward ready for the next blow.', [
-        star('watchers-ward', "Watcher's Ward", 'Gain an 8-point ward that recharges when safe.', { ward: 8 }),
-        star('sanctuary-guard', 'Sanctuary Guard', 'Gain 6 more ward points and regenerate 0.25 health per second.', { ward: 6, regen: .25 }),
-        star('aegis-oath', 'Aegis Oath', 'Gain 16 more ward points and 12% damage resistance.', { ward: 16, resist: .12 }, true),
+      branch('protector', 'Protector', '◈', 'Forge exceptional armor and protect nearby allies.', [
+        star("watchers-ward", "Perfect Forge", "Crafted breastplates have a 10% chance to become Perfect Armor (+5 percentage points of protection).", {"perfectArmor":0.1}),
+        star("sanctuary-guard", "Guardian Cry", "When a nearby ally is injured, cry out and draw nearby enemies toward you. 20s cooldown.", {"guardianCry":1}),
+        star("aegis-oath", "Aegis Aura", "T: Project a shield in your facing direction for 8s. Nearby allies behind it take 30% less damage. 25s cooldown.", {"aegisAura":1}, true),
       ]),
     ],
   },

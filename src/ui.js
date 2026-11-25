@@ -13,6 +13,7 @@ import { createClassesUI } from './classes-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
+import { WARDEN_SKILLS } from './gameplay/warden.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
 import { hudVisibility } from './hud-state.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
@@ -56,6 +57,9 @@ export function createUI(actions, version) {
   const hookSlot = byId('use-hook');
   // Reuse the inventory's actual grappling-hook sprite instead of the obsolete CSS glyph.
   setItemIcon(hookSlot.querySelector('span'), GRAPPLING_HOOK.id);
+  const wardenSkills = byId('warden-skills');
+  const wardenButtons = [...wardenSkills.querySelectorAll('[data-warden-skill]')];
+  const braceLabel = byId('warden-brace');
   const statusEffects = byId('status-effects');
   const statusTooltip = byId('status-tooltip');
   const statusTitle = statusTooltip?.querySelector('strong');
@@ -291,7 +295,7 @@ export function createUI(actions, version) {
         slot.removeAttribute('aria-label');
         slot.setAttribute('aria-hidden', 'true');
       }
-      setText('backpack-chest-label', armor?.name ?? 'Chest');
+      setText('backpack-chest-label', armor ? (game.player.perfectArmor ? 'Perfect ' : '') + armor.name : 'Chest');
     },
     clearNotice() {
       clearTimeout(toastTimer);
@@ -342,6 +346,27 @@ export function createUI(actions, version) {
       setText('depth-label', zone);
       setText('health-label', String(health));
       const healthTrack = fields['health-fill'].parentElement;
+      const player = game.player;
+      const bloodrush = Boolean(player.skillBonuses?.missingHealthAttack && health < 100);
+      fields['health-fill'].classList.toggle('bloodrush', bloodrush);
+      if (bloodrush) { const hue = String(Math.round((100 - health) * .38)) + 'deg'; if (fields['health-fill'].style.getPropertyValue('--rage-hue') !== hue) fields['health-fill'].style.setProperty('--rage-hue', hue); }
+      let visible = false;
+      for (const [index, skill] of WARDEN_SKILLS.entries()) {
+        const button = wardenButtons[index];
+        const unlocked = Boolean(player.skillBonuses?.[skill.id]);
+        button.hidden = !unlocked;
+        if (!unlocked) continue;
+        visible = true;
+        const cd = Math.ceil(player.wardenCooldowns?.[skill.id] || 0);
+        const active = Math.ceil(player[skill.timer] || 0);
+        const text = skill.key + ' ' + skill.name + (active ? ' ' + active + 's' : cd ? ' ' + cd + 's' : '');
+        if (button.textContent !== text) button.textContent = text;
+        button.disabled = Boolean(cd);
+        button.classList.toggle('active', Boolean(active));
+      }
+      braceLabel.hidden = !player.bracing;
+      if (player.bracing) { visible = true; const text = player.braceTime >= 1.5 ? 'Guarded' : 'Bracing ' + player.braceTime.toFixed(1) + '/1.5s'; if (braceLabel.textContent !== text) braceLabel.textContent = text; }
+      wardenSkills.hidden = !visible;
       if (healthTrack.getAttribute('aria-valuenow') !== String(health)) {
         healthTrack.setAttribute('aria-valuenow', String(health));
         fields['health-fill'].style.width = healthValue;
