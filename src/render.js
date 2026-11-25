@@ -3646,6 +3646,8 @@ export function createRenderer(canvas) {
     shake = { x: 0, y: 0 },
     peers = [],
   }) {
+    // Remote characters are supplied as a one-shot iterator; multiple draw passes reuse them.
+    peers = Array.from(peers);
     const scale = canvas.width / camera.width;
     const overview = scale <= 0.25;
     ctx.setTransform(scale, 0, 0, canvas.height / camera.height, 0, 0);
@@ -3662,14 +3664,18 @@ export function createRenderer(canvas) {
     starlight(camera, surface, time, conditions, reducedMotion);
     const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
     const distantThunder = distantThunderAt(worldTime, weatherSeed, conditions, reducedMotion);
-    if (lightning) {
-      activeLightningAnchor = lightningAnchor(lightning, weatherSeed, camera, activeLightningAnchor);
-    }
-    if (distantThunder) {
-      // Keep the separate far-off glow fixed to the landscape too.
-      activeDistantAnchor = lightningAnchor(
-        { event: distantThunder.event + 100000 }, weatherSeed, camera, activeDistantAnchor,
-      );
+    if (lightning || distantThunder) {
+      const characters = [player, ...peers];
+      if (lightning) {
+        activeLightningAnchor = lightningAnchor(
+          lightning, weatherSeed, camera, activeLightningAnchor, characters,
+        );
+      }
+      if (distantThunder) {
+        activeDistantAnchor = lightningAnchor(
+          { event: distantThunder.event + 100000 }, weatherSeed, camera, activeDistantAnchor, characters,
+        );
+      }
     }
     if (
       !reducedMotion &&

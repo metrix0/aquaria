@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from '../src/world/atmosphere.js';
 import { WEATHER_MODES, worldConditions } from '../src/environment.js';
-import { lightningAt, lightningAnchor, distantThunderAt, stormBurstAt } from '../src/lightning.js';
+import { lightningAt, lightningAnchor, distantThunderAt, stormBurstAt, LIGHTNING_NEAR_RADIUS } from '../src/lightning.js';
 import { WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 
 test('full-scene weather tint ignores background-wall presence', () => {
@@ -105,9 +105,10 @@ test('lightning remains fixed in world coordinates while the camera moves or zoo
   const movingCamera = { x: 1535, y: 28, width: 640, height: 380 };
   const zoomedCamera = { x: 1650, y: 0, width: 950, height: 420 };
   const strike = { event: 39, flash: 1 };
-  const anchor = lightningAnchor(strike, seed, firstCamera);
-  assert.equal(lightningAnchor(strike, seed, movingCamera, anchor), anchor);
-  assert.equal(lightningAnchor(strike, seed, zoomedCamera, anchor), anchor);
+  const characters = [{ x: 1650, y: 200 }];
+  const anchor = lightningAnchor(strike, seed, firstCamera, null, characters);
+  assert.equal(lightningAnchor(strike, seed, movingCamera, anchor, characters), anchor);
+  assert.equal(lightningAnchor(strike, seed, zoomedCamera, anchor, characters), anchor);
   assert.equal(
     (anchor.worldX - movingCamera.x) - (anchor.worldX - firstCamera.x),
     -(movingCamera.x - firstCamera.x),
@@ -118,7 +119,7 @@ test('lightning remains fixed in world coordinates while the camera moves or zoo
   );
   assert.ok(anchor.worldBottom > anchor.worldTop);
   assert.equal(anchor.worldBottom < 256, true);
-  assert.notEqual(lightningAnchor({ event: 40, flash: 1 }, seed, movingCamera, anchor), anchor);
+  assert.notEqual(lightningAnchor({ event: 40, flash: 1 }, seed, movingCamera, anchor, characters), anchor);
 });
 
 test('aurora remains in the world as the camera pans', () => {
@@ -144,14 +145,16 @@ test('world-anchored lightning is inside visible sky at its first frame', () => 
   ]) {
     for (let event = 0; event < 40; event++) {
       const strike = { event, flash: 1 };
-      const anchor = lightningAnchor(strike, 17, camera);
+      const character = { x: camera.x + camera.width * .42, y: 200 };
+      const anchor = lightningAnchor(strike, 17, camera, null, [character]);
       const projectedX = anchor.worldX - camera.x;
       const projectedTop = anchor.worldTop - camera.y;
-      assert.ok(projectedX >= camera.width * .1 && projectedX <= camera.width * .9);
+      assert.ok(projectedX >= 0 && projectedX <= camera.width);
+      assert.ok(Math.abs(anchor.worldX - character.x) <= LIGHTNING_NEAR_RADIUS);
       assert.ok(projectedTop > 0);
       assert.ok(anchor.worldBottom > anchor.worldTop + 45);
       assert.equal(lightningAnchor(strike, 17,
-        { ...camera, x: camera.x + 100, y: camera.y + 20 }, anchor), anchor);
+        { ...camera, x: camera.x + 100, y: camera.y + 20 }, anchor, [character]), anchor);
     }
   }
 });
@@ -177,4 +180,33 @@ test('distant lightning is independently scheduled, bolt-free and faint', () => 
   assert.ok(far.length > 20 && near.length > 0);
   assert.ok(far.some(([time]) => !lightningAt(time, seed, storm)?.bolt));
   assert.ok(near.some(time => !distantThunderAt(time, seed, storm)?.flash));
+});
+
+test('lightning stays close to visible characters even when zoomed far out', () => {
+  const camera = { x: 0, y: 0, width: 8000, height: 400 };
+  const characters = [{ x: 2200, y: 200 }, { x: 6500, y: 200 },
+    { x: 4000, y: 900 }, { x: 9500, y: 200 }];
+  const targets = new Set();
+  for (let event = 0; event < 100; event++) {
+    const anchor = lightningAnchor({ event }, 17, camera, null, characters);
+    const target = characters.slice(0, 2).find(c =>
+      Math.abs(anchor.worldX - c.x) <= LIGHTNING_NEAR_RADIUS);
+    assert.ok(target, 'strike must be close to a visible character');
+    targets.add(target.x);
+  }
+  assert.equal(targets.size, 2, 'both visible players can anchor strikes');
+  assert.equal(lightningAnchor({ event: 0 }, 17, camera, null, characters.slice(2)), null);
+});
+
+test('lightning uses the available side on narrow or edge-aligned views', () => {
+  for (const camera of [{ x: 0, y: 0, width: 100, height: 400 },
+    { x: 2000, y: 0, width: 300, height: 400 }]) {
+    for (const x of [camera.x, camera.x + camera.width]) {
+      for (let event = 0; event < 30; event++) {
+        const anchor = lightningAnchor({ event }, 17, camera, null, [{ x, y: 200 }]);
+        assert.ok(anchor.worldX >= camera.x && anchor.worldX <= camera.x + camera.width);
+        assert.ok(Math.abs(anchor.worldX - x) <= LIGHTNING_NEAR_RADIUS);
+      }
+    }
+  }
 });

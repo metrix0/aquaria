@@ -41,17 +41,38 @@ export function lightningAt(seconds, seed, conditions, reducedMotion = false) {
   return null;
 }
 
+// Horizontal distance in world pixels, independent of viewport size or zoom.
+export const LIGHTNING_NEAR_RADIUS = 10 * TILE;
+const LIGHTNING_MIN_OFFSET = 4 * TILE;
+
 /**
- * Pick a visible, distant location on the left or right side of the camera.
- * Once a strike begins the world coordinates are frozen until its last echo.
+ * Anchor each event near an on-screen character, rather than at the edge of
+ * the camera. Keep its world coordinates frozen through the final echo.
  */
-export function lightningAnchor(strike, seed, camera, existing = null) {
+export function lightningAnchor(strike, seed, camera, existing = null, characters = []) {
   if (existing?.event === strike.event) return existing;
-  const side = noise(strike.event, 860, seed) < .5;
-  const portion = side
-    ? .12 + noise(strike.event, 861, seed) * .16
-    : .72 + noise(strike.event, 861, seed) * .16;
-  const worldX = camera.x + camera.width * portion;
+  const margin = Math.min(TILE, camera.width * .1);
+  const left = camera.x + margin;
+  const right = camera.x + camera.width - margin;
+  const nearby = characters.filter(character =>
+    Number.isFinite(character?.x) &&
+    character.x >= left - LIGHTNING_NEAR_RADIUS &&
+    character.x <= right + LIGHTNING_NEAR_RADIUS &&
+    (character.y == null || (character.y >= camera.y - 25 &&
+      character.y <= camera.y + camera.height + 25)));
+  if (!nearby.length) return null;
+  const target = nearby[Math.min(nearby.length - 1,
+    Math.floor(noise(strike.event, 859, seed) * nearby.length))];
+  const low = Math.max(left, target.x - LIGHTNING_NEAR_RADIUS);
+  const high = Math.min(right, target.x + LIGHTNING_NEAR_RADIUS);
+  const offset = LIGHTNING_MIN_OFFSET + noise(strike.event, 861, seed) *
+    (LIGHTNING_NEAR_RADIUS - LIGHTNING_MIN_OFFSET);
+  const direction = noise(strike.event, 860, seed) < .5 ? -1 : 1;
+  const preferred = clamp(target.x + direction * offset, low, high);
+  const opposite = clamp(target.x - direction * offset, low, high);
+  // At the screen edge prefer the other side rather than striking at the player.
+  const worldX = Math.abs(preferred - target.x) >= Math.min(LIGHTNING_MIN_OFFSET, camera.width * .25)
+    ? preferred : opposite;
   const horizon = Math.min(WATER, groundAt(Math.floor(worldX / TILE)) * TILE);
   const visibleSky = Math.max(0, Math.min(camera.height, horizon - camera.y));
   return {
