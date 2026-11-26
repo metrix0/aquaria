@@ -1,5 +1,5 @@
 import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, POISON_ARROW, SNORKELS } from './content.js';
-import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOOKS, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOOKS, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { TILE } from './world/generation.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
