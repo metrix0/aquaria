@@ -233,6 +233,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
   for (const mob of [...world.mobs]) {
     mob.hurt = Math.max(0, (mob.hurt ?? 0) - dt);
+    if (mob.markedTime > 0) mob.markedTime = Math.max(0, mob.markedTime - dt);
     if (mob.wardenTaunt > 0) { mob.wardenTaunt = Math.max(0, mob.wardenTaunt - dt); mob.flee = 0; }
     if (mob.kind === 'kraken' && (mob.deathTime ?? 0) > 0) {
       stepKrakenDeath(world, mob, dt, effects);
@@ -255,6 +256,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           cooldown: 0,
           hurt: 0,
           rooted: 0,
+          markedTime: 0,
           rootLift: 0,
           health: mob.maxHealth,
           grounded: mob.kind === 'crab' || mob.kind === 'mimic',
@@ -392,6 +394,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
     return { killed: false, bounced: true };
   }
   const dir = Math.cos(angle) >= 0 ? 1 : -1;
+  if (mob.markedTime > 0) damage *= 1.1;
   mob.health = Math.max(0, (mob.health ?? spec.maxHealth) - damage);
   if (!options.poisonTick) {
     mob.hurt = 0.32;

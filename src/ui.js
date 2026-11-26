@@ -14,6 +14,8 @@ import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { hasHook } from './gameplay/hook.js';
 import { WARDEN_SKILLS } from './gameplay/warden.js';
+import { WAYFARER_SKILLS } from './gameplay/wayfarer.js';
+import { BOW } from './content.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
 import { hudVisibility } from './hud-state.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
@@ -351,7 +353,7 @@ export function createUI(actions, version) {
       fields['health-fill'].classList.toggle('bloodrush', bloodrush);
       if (bloodrush) { const hue = String(Math.round((100 - health) * .38)) + 'deg'; if (fields['health-fill'].style.getPropertyValue('--rage-hue') !== hue) fields['health-fill'].style.setProperty('--rage-hue', hue); }
       let visible = false;
-      for (const [index, skill] of WARDEN_SKILLS.entries()) {
+      for (const [index, skill] of [...WARDEN_SKILLS,...WAYFARER_SKILLS].entries()) {
         const button = wardenButtons[index];
         const unlocked = Boolean(player.skillBonuses?.[skill.id]);
         button.hidden = !unlocked;
@@ -359,14 +361,23 @@ export function createUI(actions, version) {
         visible = true;
         const cd = Math.ceil(player.wardenCooldowns?.[skill.id] || 0);
         const active = Math.ceil(player[skill.timer] || 0);
-        const text = skill.key + ' ' + skill.name + (active ? ' ' + active + 's' : cd ? ' ' + cd + 's' : '');
+        const text = skill.key + ' ' + skill.name + (skill.id === 'huntersMark' && active ? ' Armed' : active ? ' ' + active + 's' : cd ? ' ' + cd + 's' : '');
         if (button.textContent !== text) button.textContent = text;
         button.disabled = Boolean(cd);
         button.classList.toggle('active', Boolean(active));
       }
       braceLabel.hidden = !player.bracing;
       if (player.bracing) { visible = true; const text = player.braceTime >= 1.5 ? 'Guarded' : 'Bracing ' + player.braceTime.toFixed(1) + '/1.5s'; if (braceLabel.textContent !== text) braceLabel.textContent = text; }
-      wardenSkills.hidden = !visible;
+      const wayfarerStatus=byId('wayfarer-status');
+      const draw=game.bowDraw;
+      const labels=[];
+      if (draw) labels.push(draw.extra ? 'Overdraw ready' : draw.elapsed>=BOW.drawTime-1e-6 ? (player.skillBonuses?.extraDraw ? 'Ready / Overdraw '+Math.min(100,Math.round((draw.elapsed-BOW.drawTime)*100))+'%' : 'Ready') : 'Drawing '+Math.round(draw.elapsed/BOW.drawTime*100)+'%');
+      if (player.skillBonuses?.heat) labels.push('Heat +'+Math.round((player.heatBonus||0)*100)+'%');
+      if (player.catching) labels.push('Ready to catch');
+      const statusText=labels.join(' | ');
+      if(wayfarerStatus.textContent!==statusText)wayfarerStatus.textContent=statusText;
+      wayfarerStatus.hidden=!statusText;
+      wardenSkills.hidden = !visible && !statusText;
       if (healthTrack.getAttribute('aria-valuenow') !== String(health)) {
         healthTrack.setAttribute('aria-valuenow', String(health));
         fields['health-fill'].style.width = healthValue;

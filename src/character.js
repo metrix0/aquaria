@@ -267,16 +267,16 @@ export function createCharacterRenderer(ctx) {
       rect(18 + thrust + reach, -1, 3, 1, shine);
       if (melee?.bounds && !reducedMotion) rect(9 + thrust, -2, 6, 1, '#f4d4a5a8');
     } else if (weapon === 'bow') {
-      const pull = active && !reducedMotion ? Math.round((attack.timer / attack.duration) * 3) : 0;
+      const pull = attack?.charging ? Math.round(attack.drawProgress * 4) : active && !reducedMotion ? Math.round((attack.timer / attack.duration) * 3) : 0;
       rect(5 - pull, -6, 1, 12, '#bed8ba');
       rect(5, -7, 2, 2, '#85604c');
       rect(5, 5, 2, 2, '#85604c');
       rect(7, -6, 2, 12, '#85604c');
       rect(8, -5, 1, 10, '#d29c65');
       rect(7, -1, 2, 3, '#483d42');
-      if (hasArrow && !active) {
-        rect(5, -1, 8, 1, '#d29c65');
-        rect(12, -2, 3, 3, '#b5c6bd');
+      if (hasArrow && (!active || attack?.charging)) {
+        rect(5-pull, -1, 8, 1, '#d29c65');
+        rect(12-pull, -2, 3, 3, attack?.extra ? '#9affcc' : attack?.drawProgress >= 1 ? '#fff2a7' : '#b5c6bd');
       }
     }
     if (ring) rect(6, 0, 1, 1, '#a8f184');

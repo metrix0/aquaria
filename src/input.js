@@ -12,6 +12,7 @@ export function bindInput(canvas, camera, actions) {
   let jump = false;
   let placing = false;
   let miningPointer = null;
+  let bowPointer = null;
 
   function stopMining() {
     miningPointer = null;
@@ -21,6 +22,8 @@ export function bindInput(canvas, camera, actions) {
   function clear() {
     keys.clear();
     jump = false;
+    bowPointer = null;
+    actions.cancelBow?.();
     stopMining();
   }
 
@@ -83,7 +86,7 @@ export function bindInput(canvas, camera, actions) {
   });
   canvas.addEventListener('contextmenu', (event) => event.preventDefault());
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 && event.button !== 2) return;
+    if (bowPointer !== null || (event.button !== 0 && event.button !== 2)) return;
     if (miningPointer !== null && event.pointerId !== miningPointer) return;
     event.preventDefault();
     if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
@@ -99,6 +102,9 @@ export function bindInput(canvas, camera, actions) {
       if (event.pointerType === 'touch') pointer.active = false;
       return;
     }
+    if (event.button === 0 && !actions.blocked() && actions.beginBow?.()) {
+      stopMining(); bowPointer = event.pointerId; canvas.setPointerCapture(event.pointerId); return;
+    }
     if (actions.fend()) {
       stopMining();
       if (event.pointerType === 'touch') pointer.active = false;
@@ -109,6 +115,13 @@ export function bindInput(canvas, camera, actions) {
   });
 
   function releaseMining(event) {
+    if (event.pointerId === bowPointer) {
+      bowPointer = null;
+      if (event.type === 'pointerup') { locate(event); actions.releaseBow?.(); }
+      else actions.cancelBow?.();
+      if (event.pointerType === 'touch') pointer.active = false;
+      return;
+    }
     if (event.pointerId !== miningPointer || (event.type === 'pointerup' && event.button !== 0)) return;
     if (event.pointerType === 'touch') pointer.active = false;
     stopMining();

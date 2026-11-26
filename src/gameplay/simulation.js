@@ -5,6 +5,7 @@ import { stepRootWave } from './root-ring.js';
 import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
 import { equippedHook, hasHook } from './hook.js';
 import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocked } from './warden.js';
+import { stepWayfarer, finishWayfarer, catchFallMultiplier } from './wayfarer.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
@@ -291,11 +292,11 @@ export function useFood(game, slot, random = Math.random) {
   };
 }
 
-export function useWeapon(game, slot, wx, wy) {
+export function useWeapon(game, slot, wx, wy, draw = null) {
   const itemId = game.inventory.hotbar[slot]?.id;
   const item = ITEMS[itemId];
   const weapon = item?.weapon;
-  if (game.attack || wardenAttackBlocked(game.player)) return { handled: true };
+  if (game.attack || game.player.counterTime > 0 || wardenAttackBlocked(game.player)) return { handled: true };
 
   const ox = game.player.x;
   const oy = game.player.y + Math.ceil(game.player.height / 2);
@@ -306,7 +307,7 @@ export function useWeapon(game, slot, wx, wy) {
     game.player.facing = facing;
     game.attack = {
       kind: weapon?.id ?? 'melee', angle, facing, timer: duration, duration,
-      tier: item?.pickaxe, damage: skillAttackDamage(game.player, weapon?.damage ?? 1), knockback: weapon?.knockback, hitMobs: new Set(),
+      tier: item?.pickaxe, damage: skillAttackDamage(game.player, (weapon?.damage ?? 1) * (item?.perfectWeapon ? 1.15 : 1), false, Boolean(weapon)), knockback: weapon?.knockback, hitMobs: new Set(),
     };
     return { handled: true };
   }
@@ -326,15 +327,19 @@ export function useWeapon(game, slot, wx, wy) {
   game.dirty = true;
   const buffs = game.player.skillBonuses || {};
   const cooldown = weapon.cooldown / (1 + (buffs.bowCooldown || 0));
+  const extra = Boolean(draw?.extra);
+  const power = draw ? .5 + .5 * Math.min(1, draw.elapsed / BOW.drawTime) : 1;
+  const arrowSpeed = ammo.speed * (1 + (buffs.arrowSpeed || 0)) * (extra ? 1.25 : 1) * power;
   game.attack = { kind: BOW.id, angle, timer: cooldown, duration: cooldown };
   game.projectiles.push({
     x: ox + dirX * 10,
     y: oy + dirY * 10,
-    dx: dirX * ammo.speed * (1 + (buffs.arrowSpeed || 0)),
-    dy: dirY * ammo.speed * (1 + (buffs.arrowSpeed || 0)),
-    damage: skillAttackDamage(game.player, ammo.damage, true),
+    dx: dirX * arrowSpeed,
+    dy: dirY * arrowSpeed,
+    damage: skillAttackDamage(game.player, ammo.damage * power * (item?.perfectWeapon ? 1.15 : 1), true),
     rootedDamage: buffs.rootedDamage || 0,
-    pierce: buffs.arrowPierce || 0,
+    pierce: (buffs.arrowPierce || 0) + Number(extra),
+    charged: extra,
     hitMobs: new Set(),
     knockback: ammo.knockback,
     poisonDuration: ammo.poisonDuration ?? 0,
@@ -343,6 +348,30 @@ export function useWeapon(game, slot, wx, wy) {
   return { handled: true, inventoryChanged: true };
 }
 
+export function beginBowDraw(game, slot, wx, wy) {
+  if (ITEMS[game.inventory.hotbar[slot]?.id]?.weapon?.id !== BOW.id) return false;
+  if (game.attack || game.bowDraw || wardenAttackBlocked(game.player) || game.player.counterTime > 0) return true;
+  if (!game.inventory.count(ARROW.id) && !game.inventory.count(POISON_ARROW.id)) return { message: 'Out of arrows. Craft more in Crafting.' };
+  game.bowDraw = { slot, id: game.inventory.hotbar[slot].id, elapsed: 0, wx, wy };
+  aimBow(game, wx, wy);
+  return true;
+}
+export function aimBow(game, wx, wy) {
+  const draw = game.bowDraw;
+  if (!draw) return;
+  draw.wx = wx; draw.wy = wy;
+  const p = game.player;
+  draw.angle = Math.atan2(wy - p.y - Math.ceil(p.height / 2), wx - p.x);
+  p.facing = Math.cos(draw.angle) < 0 ? -1 : 1;
+}
+export function releaseBowDraw(game) {
+  const draw = game.bowDraw;
+  game.bowDraw = null;
+  if (!draw || game.inventory.hotbar[draw.slot]?.id !== draw.id || wardenAttackBlocked(game.player) || game.player.stun > 0 || game.player.flightOrigin) return;
+  return useWeapon(game, draw.slot, draw.wx, draw.wy, {
+    elapsed: draw.elapsed, extra: Boolean(game.player.skillBonuses?.extraDraw && draw.elapsed >= BOW.drawTime + 1 - 1e-6),
+  });
+}
 function stepAttack(game, dt) {
   const { attack, player, world, effects } = game;
   if (!attack) return;
@@ -395,12 +424,13 @@ export function stepGame(game, input, dt) {
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
   stepWardenBefore(game, input, dt);
+  stepWayfarer(game, input, dt);
   const fallDamage = movePlayer(world, player, input, dt);
   stepWardenAfter(game, x, dt);
   if (player.glowSeconds > 0) player.glowSeconds = Math.max(0, player.glowSeconds - dt);
   let fallLoss = 0;
   if (fallDamage) {
-    fallLoss = takeDamage(player, Math.max(0, Math.round(fallDamage * (player.addons?.legs === 'padded-leg-wraps' ? 0.85 : 1) * (1 - (player.skillBonuses?.fall ?? 0)))));
+    fallLoss = takeDamage(player, Math.max(0, Math.round(fallDamage * (player.addons?.legs === 'padded-leg-wraps' ? 0.85 : 1) * (1 - (player.skillBonuses?.fall ?? 0)) * catchFallMultiplier(game))));
     player.hurt = Math.max(player.hurt, 0.85);
   }
   const fatalFall = fallLoss > 0 && player.health === 0;
@@ -450,6 +480,7 @@ export function stepGame(game, input, dt) {
     takeDamage(player, hit.healthLoss ?? 10);
     player.oxygen = Math.max(0, player.oxygen - hit.airLoss);
   }
+  finishWayfarer(game,dt);
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
     game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
@@ -460,6 +491,7 @@ export function stepGame(game, input, dt) {
     activateWard(game.player, true);
     game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
+    game.bowDraw = null;
     game.projectiles.length = 0;
     game.rootWave = null;
     resetHostiles(world);
@@ -682,7 +714,7 @@ export function craftMaterialCount(game, recipe, id) {
   return game.inventory.count(id) + Number(usesEquippedSnorkel(game, recipe, id));
 }
 
-function craftResult(game, recipe, activeStation) {
+function craftResult(game, recipe, activeStation, outputId = recipe.id) {
   const { id, cost, amount = 1, station } = recipe;
   if (station && station !== activeStation) return null;
   const materials = Object.entries(cost);
@@ -694,7 +726,7 @@ function craftResult(game, recipe, activeStation) {
     after.spend(item, count - Number(worn));
     upgrade ||= worn;
   }
-  return upgrade || after.add(id, amount, { preferHotbar: true }) ? { inventory: after, upgrade } : null;
+  return upgrade || after.add(outputId, amount, { preferHotbar: true }) ? { inventory: after, upgrade } : null;
 }
 
 export function equipmentCraftStatus(game, recipe) {
@@ -722,9 +754,12 @@ export function craftItem(game, recipe, station, random = Math.random) {
     game.dirty = true;
     return true;
   }
-  const result = craftResult(game, recipe, station);
+  const perfectId = 'perfect-' + recipe.id;
+  const perfect = Boolean(ITEMS[perfectId] && game.player.skillBonuses?.perfectWeapon && random() < game.player.skillBonuses.perfectWeapon);
+  const result = craftResult(game, recipe, station, perfect ? perfectId : recipe.id);
   if (!result) return false;
   game.inventory = result.inventory;
+  if (perfect) game.effects.push({ x: game.player.x, y: game.player.y, color: '#ffe5a2', count: 8, spread: 25, message: 'Perfect Weapon forged! +15% damage.' });
   if (result.upgrade) setSnorkel(game, recipe.id);
   game.dirty = true;
   return true;

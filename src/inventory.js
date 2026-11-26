@@ -70,6 +70,12 @@ export const ITEMS = {
   cobalt: { name: 'Cobalt ore', description: 'A vein of midnight blue. The deep keeps its finest colors to itself.' },
 };
 
+// Separate quality variants retain the original weapon art and moves.
+for (const [id, item] of Object.entries(ITEMS)) {
+  if (!item.weapon || !item.weapon.cost) continue;
+  ITEMS['perfect-' + id] = { ...item, name: 'Perfect ' + item.name, icon: id, perfectWeapon: true,
+    description: item.description + ' Forged to deal 15% more damage.' };
+}
 export const EQUIPMENT_ITEMS = ARMOR;
 
 export function restoreSlots(slots, size) {

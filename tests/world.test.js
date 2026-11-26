@@ -1325,6 +1325,8 @@ test('craftable spears and bow with arrows damage and defeat sea enemies', () =>
   assert.equal(game.projectiles.length, 0);
   assert.equal(shark.health, 3);
 
+  // The bow now has a longer recovery period before another weapon attack.
+  while (game.attack) stepGame(game, neutral, 1 / 60);
   const copperSpearSlot = findItemSlot(COPPER_SPEAR.id);
   assert.ok(copperSpearSlot);
   assert.ok(game.inventory.move(copperSpearSlot, { group: 'hotbar', index: 1 }));

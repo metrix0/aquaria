@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Inventory } from '../src/inventory.js';
-import { createGame, stepGame, useDressing, useWeapon } from '../src/gameplay/simulation.js';
+import { beginBowDraw, releaseBowDraw, createGame, stepGame, useDressing, useWeapon } from '../src/gameplay/simulation.js';
 import { damageMob } from '../src/gameplay/mobs.js';
 import { takeDamage, MAX_HEALTH } from '../src/gameplay/player.js';
 import { skillAttackDamage, strikeMob, stepClassEffects } from '../src/gameplay/class-effects.js';
@@ -119,36 +119,26 @@ test('starter trees save and switch independently without weakening the original
   activateClass(loaded, 'warden');
   assert.equal(loaded.player.skillBonuses.resist, .10);
   activateClass(loaded, 'wayfarer');
-  assert.equal(loaded.player.skillBonuses.bowDamage, 2);
+  assert.equal(loaded.player.skillBonuses.arrowSpeed, .25);
   activateClass(loaded, 'scholar');
   assert.equal(loaded.player.skillBonuses.healBoost, .3);
   activateClass(loaded, 'stormborn');
   assert.equal(loaded.player.skillBonuses.move, .10);
 });
 
-test('Wayfarer bow traits, roots, pierces and exploration improve real gameplay', () => {
+test('Wayfarer keeps new branch bonuses and does not carry removed traps or exploration bonuses', () => {
   const state = createGame();
   state.classes.total = { lesser: 30, greater: 5 };
   activateClass(state, 'wayfarer');
   for (const node of ['sharpened-eye','quickdraw','splitting-arrow','snareshot',
-    'barbed-trail','master-snare','trailrunner','safe-footing','far-sight']) {
-    assert.equal(unlockSkill(state, node), null, node);
-  }
-  state.inventory.hotbar[0] = { id: 'bow', count: 1 };
-  state.inventory.add('arrow', 4);
-  useWeapon(state, 0, state.player.x + 70, state.player.y + 8);
-  assert.equal(state.projectiles.length, 1);
-  assert.equal(state.projectiles[0].pierce, 1);
-  assert.equal(state.projectiles[0].rootedDamage, 4);
-  assert.equal(state.projectiles[0].hitMobs.size, 0);
-  assert.ok(state.projectiles[0].dx > 0);
-  assert.equal(state.player.skillBonuses.ore, 14);
-  assert.equal(state.player.skillBonuses.fall, .5);
-  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
-  strikeMob(state, crab, 1, 0, 0, true);
-  assert.ok(crab.rooted >= 2.7, 'Wayfarer snares on arrow hits');
-  activateClass(state, 'scholar');
-  assert.equal(state.player.skillBonuses.snare, 0);
+    'barbed-trail','master-snare','trailrunner','safe-footing','far-sight']) assert.equal(unlockSkill(state,node),null,node);
+  const b=state.player.skillBonuses;
+  assert.equal(b.arrowSpeed,.25); assert.equal(b.bowCooldown,.15); assert.equal(b.extraDraw,1);
+  assert.equal(b.meleePower,.1); assert.equal(b.heat,1); assert.equal(b.fall,.85);
+  assert.equal(b.perfectWeapon,.1); assert.equal(b.huntersMark,1);
+  assert.equal(b.snare,0); assert.equal(b.ore,0);
+  activateClass(state,'scholar');
+  assert.equal(state.player.skillBonuses.heat,0);
 });
 
 test('Scholar remedies cleanse conditions and catalysis strengthens existing consumables', () => {
@@ -197,7 +187,7 @@ test('Scholar poison deals real damage over time and has no effect without its s
   assert.ok(state.effects.some((effect) => effect.color === '#b3dc71'));
 });
 
-test('Wayfarer greater-arrow pierces two separate real mobs without repeat hits', () => {
+test('Wayfarer overdraw pierces two separate real mobs without repeat hits', () => {
   const state = createGame();
   state.classes.total = { lesser: 4, greater: 1 };
   activateClass(state, 'wayfarer');
@@ -217,7 +207,9 @@ test('Wayfarer greater-arrow pierces two separate real mobs without repeat hits'
   }
   state.inventory.hotbar[0] = { id: 'bow', count: 1 };
   state.inventory.add('arrow', 1);
-  useWeapon(state, 0, state.player.x + 90, state.player.y + 11);
+  beginBowDraw(state, 0, state.player.x + 90, state.player.y + 11);
+  for (let i = 0; i < 100; i++) stepGame(state, {}, 1 / 60);
+  releaseBowDraw(state);
   for (let i = 0; i < 80; i++) stepGame(state, {}, 1 / 60);
   assert.ok(enemies.every((mob) => mob.health < 40),
     'a single greater-star arrow must damage both targets');

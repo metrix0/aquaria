@@ -3,8 +3,9 @@
 import { MAX_HEALTH } from './player.js';
 import { damageMob } from './mobs.js';
 
-export function skillAttackDamage(player, base, bow = false) {
+export function skillAttackDamage(player, base, bow = false, meleeWeapon = !bow) {
   const bonus = player.skillBonuses || {};
+  if (meleeWeapon && !bow) base *= (1 + (bonus.meleePower || 0)) * (1 + (player.heatBonus || 0));
   return base + Math.round(base * (bonus.missingHealthAttack || 0) * (1 - Math.max(0, player.health) / MAX_HEALTH)) + (bonus.attack || 0) + (bow ? bonus.bowDamage || 0 : 0)
     + (player.health <= MAX_HEALTH * .4 ? bonus.lowHealthAttack || 0 : 0)
     + ((player.catalystSeconds || 0) > 0 ? bonus.catalystAttack || 0 : 0);
@@ -13,6 +14,16 @@ export function skillAttackDamage(player, base, bow = false) {
 export function classHit(game, mob, damageDealt, bow = false) {
   if (damageDealt <= 0) return;
   const bonus = game.player.skillBonuses || {};
+  if (bonus.heat && !bow) {
+    const hits = game.player.heatHits ??= [];
+    hits.push({ time: game.elapsed, damage: damageDealt });
+    game.player.heatBonus = Math.min(.30, hits.reduce((sum, hit) => sum + hit.damage, 0) * .01);
+  }
+  if (bonus.huntersMark && game.player.markArmed) {
+    game.player.markArmed = 0;
+    if (mob.health > 0) mob.markedTime = 12;
+    game.effects.push({ x: mob.x, y: mob.y, color: '#c5ed99', count: 8, spread: 28, message: 'Enemy marked!' });
+  }
   const lifesteal = (bonus.lifesteal || 0) + (bonus.rage && game.player.rageTime > 0 ? .30 : 0);
   if (lifesteal && game.player.health > 0) {
     game.player.health = Math.min(MAX_HEALTH, game.player.health + damageDealt * lifesteal);

@@ -70,10 +70,10 @@ function drawSlots(buttons, stacks, selected) {
 }
 
 function itemStats(id, item) {
-  if (item.weapon?.damage) return item.weapon.damage + ' damage';
+  if (item.weapon?.damage) return Number((item.weapon.damage * (item.perfectWeapon ? 1.15 : 1)).toFixed(2)) + ' damage';
   if (id === ARROW.id) return ARROW.damage + ' damage';
   if (id === POISON_ARROW.id) return POISON_ARROW.damage + ' damage + poison';
-  if (id === BOW.id) return ARROW.damage + ' damage per arrow';
+  if (item.weapon?.id === BOW.id) return Number((ARROW.damage * (item.perfectWeapon ? 1.15 : 1)).toFixed(2)) + ' damage per fully drawn arrow';
   if (id === KELP_DRESSING.id) return 'Restores up to ' + KELP_DRESSING.heal + ' health';
   if (item.oxygen) {
     return 'Restores ' + item.oxygen + ' s oxygen' + (item.poisonChance ? ' · ' + Math.round(item.poisonChance * 100) + '% poison risk' : '');

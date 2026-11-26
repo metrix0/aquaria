@@ -30,22 +30,22 @@ export const STARTER_CLASSES = Object.freeze({
   wayfarer: {
     id: 'wayfarer', name: 'Wayfarer', title: 'The Far Horizon', symbol: '➶', accent: '#b4dda1',
     description: 'A wanderer who reads the terrain, commands distance, and turns every trail into an advantage.',
-    domain: 'Precision · Snares · Exploration',
+    domain: 'Precision · Martial arts · Exploration',
     paths: [
       branch('marksman', 'Marksman', '➶', 'Turn every arrow into a deliberate strike.', [
-        star('sharpened-eye', 'Sharpened Eye', '+2 damage with bows.', { bowDamage: 2 }),
-        star('quickdraw', 'Quickdraw', 'Arrows fly 25% faster and bows reload 15% faster.', { arrowSpeed: .25, bowCooldown: .15 }),
-        star('splitting-arrow', 'Splitting Arrow', 'Arrows pierce one additional enemy and deal 4 more bow damage.', { arrowPierce: 1, bowDamage: 4 }, true),
+        star("sharpened-eye", "Quickdraw", "Arrows fly 25% faster and bows reload 15% faster.", {"arrowSpeed":0.25,"bowCooldown":0.15}),
+        star("quickdraw", "Overdraw", "Hold a fully drawn arrow for one extra second: 25% more speed and pierce one enemy.", {"extraDraw":1}),
+        star("splitting-arrow", "Horizon Shot", "Q: Fire an instant wide shot to the screen edge. Damage increases with distance. Requires a bow. 20s cooldown.", {"horizonShot":1}, true),
       ]),
-      branch('trapper', 'Trapper', '⟐', 'Pin down your prey before it can respond.', [
-        star('snareshot', 'Snareshot', 'Arrows briefly root ordinary enemies for 0.4 seconds.', { snare: .4 }),
-        star('barbed-trail', 'Barbed Trail', 'Add 0.8 seconds of root and 1 bow damage.', { snare: .8, bowDamage: 1 }),
-        star('master-snare', 'Master Snare', 'Add 1.5 seconds of root; arrows deal 4 more damage to already rooted enemies.', { snare: 1.5, rootedDamage: 4 }, true),
+      branch('trapper', 'Martial Adept', '⟐', 'Master melee weapons, build heat, and counter incoming attacks.', [
+        star("snareshot", "Weapon Mastery", "Melee weapons deal 10% more damage.", {"meleePower":0.1}),
+        star("barbed-trail", "Heat", "Melee damage dealt within 5s grants up to 30% extra melee damage.", {"heat":1}),
+        star("master-snare", "Counterstance", "R: Enter a counter stance for 3s. Taking damage triggers a powerful melee strike. 20s cooldown.", {"counter":1}, true),
       ]),
       branch('pathfinder', 'Pathfinder', '✧', 'Know the ground before it knows you.', [
-        star('trailrunner', 'Trailrunner', 'Move 8% faster on land.', { move: .08 }),
-        star('safe-footing', 'Safe Footing', 'Reduce fall damage by 35%.', { fall: .35 }),
-        star('far-sight', 'Far Sight', 'Move 12% faster, reveal ore within 14 tiles, and take another 15% less fall damage.', { move: .12, ore: 14, fall: .15 }, true),
+        star("trailrunner", "Perfect Forge", "Crafted weapons have a 10% chance to deal 15% more damage.", {"perfectWeapon":0.1}),
+        star("safe-footing", "Safe Landing", "Take 85% less fall damage. Hold S on the ground to catch nearby falling allies, reducing their fall damage by 70%.", {"fall":0.85,"catchAlly":1}),
+        star("far-sight", "Hunter Mark", "T: Mark the next enemy you damage for 12s. It takes 10% more damage from all sources. 25s cooldown.", {"huntersMark":1}, true),
       ]),
     ],
   },

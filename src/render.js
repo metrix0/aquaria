@@ -3731,6 +3731,9 @@ export function createRenderer(canvas) {
         "#a6eee0",
       );
     }
+    for (const remote of peers) if (remote.catching) {
+      ctx.save();ctx.strokeStyle='#b4dda1';ctx.lineWidth=1;ctx.beginPath();ctx.arc(remote.x,remote.y+remote.height/2,14,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
     for (const protector of [...peers, player]) {
       if (!(protector.aegisTime > 0)) continue;
       const x = protector.x + protector.aegisFacing * TILE;
@@ -3745,6 +3748,30 @@ export function createRenderer(canvas) {
     }
     if (player.cryTime > 0) {
       ctx.save(); ctx.strokeStyle = '#f3d39a99'; ctx.beginPath(); ctx.arc(player.x, player.y + 8, (1 - player.cryTime / .8) * 12 * TILE, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    if (player.beamTime > 0 && player.horizonBeam) {
+      const beam=player.horizonBeam;
+      ctx.save(); ctx.globalAlpha=Math.min(1,player.beamTime/.18);
+      for (const [width,color] of [[22,'#b4dda144'],[8,'#b4dda1aa'],[2,'#f5ffe2']]) {
+        ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(beam.x,beam.y);ctx.lineTo(beam.endX,beam.endY);ctx.stroke();
+      } ctx.restore();
+    }
+    if (player.counterTime>0 || player.catching || player.counterFlash>0 || player.catchFlash>0) {
+      ctx.save();ctx.strokeStyle=player.counterTime>0?'#e5bb85':'#b4dda1';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(player.x,player.y+player.height/2,player.counterFlash>0?64*(1-player.counterFlash/.45):14,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
+    if (attack?.charging) {
+      const x=player.x+Math.cos(attack.angle)*16,y=player.y+player.height/2+Math.sin(attack.angle)*16;
+      if (attack.drawProgress>=1) {
+        ctx.save();ctx.strokeStyle=attack.extra?'#9affcc':'#fff2a7';ctx.lineWidth=attack.extra?2:1;ctx.beginPath();ctx.arc(x,y,attack.extra?7:4,0,Math.PI*2);ctx.stroke();ctx.restore();
+      }
+      rect(player.x-10,player.y-10,20,2,'#293943');
+      rect(player.x-10,player.y-10,Math.round(20*attack.drawProgress),2,attack.extra?'#9affcc':'#fff2a7');
+    }
+    for (const mob of world.mobs) if (mob.markedTime>0 && mob.health>0 && mob.x>camera.x-20 && mob.x<camera.x+camera.width+20 && mob.y>camera.y-20 && mob.y<camera.y+camera.height+20) {
+      const spec=mobSpec(mob);if(!spec)continue;
+      const y=mob.y+spec.centerY-spec.height/2-6;
+      rect(mob.x-3,y,7,1,'#c5ed99');rect(mob.x,y-3,1,7,'#c5ed99');
     }
     drawCharacter(player, player.appearance, {
       snorkel: playerHeadInWater(world, player) ? snorkel : null,

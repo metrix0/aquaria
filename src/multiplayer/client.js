@@ -145,6 +145,7 @@ export async function connectRoom(config, invite, handlers) {
       damageSequence: Number.isSafeInteger(payload.damageSequence) && payload.damageSequence >= 0 ? payload.damageSequence : 0,
       aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
+      catching: payload.catching === true,
     });
     if (!old) handlers.count(peers.size + 1);
   });
@@ -201,6 +202,7 @@ export async function connectRoom(config, invite, handlers) {
         damageSequence: player.damageSequence ?? 0,
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
         aegisFacing: player.aegisFacing ?? 1,
+        catching: Boolean(player.catching),
         feet: player.feet,
         crawling: player.height === CRAWL_HEIGHT,
         climbColumn: player.climb ? player.climb.tx - WEST_EXTENSION : null,

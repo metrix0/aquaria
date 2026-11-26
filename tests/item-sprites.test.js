@@ -10,7 +10,7 @@ test('every non-block, non-pickaxe item and equipment piece has a unique transpa
   const required = Object.entries(all)
     .filter(([, item]) => !item.pickaxe && (!item.block || item.block === MATERIAL.workbench || item.block === MATERIAL.fireplace))
     .map(([id, item]) => item.icon ?? id);
-  assert.equal(ITEM_ICON_IDS.size, required.length);
+  assert.equal(ITEM_ICON_IDS.size, new Set(required).size);
   for (const id of required) {
     assert.ok(ITEM_ICON_IDS.has(id), 'missing sprite manifest entry: ' + id);
     const file = new URL('../src/art/items/' + id + '.png', import.meta.url);

@@ -1,7 +1,7 @@
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls } from './classes.js';
-import { ARROW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
+import { ARROW, BOW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
 import { wakeMimic } from './gameplay/enemies/mimic.js';
@@ -11,8 +11,9 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
-import { advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
+import { useWayfarerSkill } from './gameplay/wayfarer.js';
 import { useWardenSkill, updateWardenAllies, wardenAttackBlocked } from './gameplay/warden.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
 import { createRenderer } from './render.js';
@@ -78,6 +79,7 @@ function storeProgress() {
 }
 
 function select(slot) {
+  if (selected !== slot) game.bowDraw = null;
   selected = slot;
   if (game.inventory.hotbar[slot]?.id === 'explorers-map') input.stopMining();
   ui.select(slot);
@@ -434,7 +436,13 @@ const input = bindInput(canvas, camera, {
   },
   castWarden(id) {
     if (editPending) return;
-    const error = useWardenSkill(game, id);
+    const pointer = input.pointer;
+    const wayfarer = game.classes.active === 'wayfarer';
+    const resolved = wayfarer ? ({ shieldRush:'horizonShot', rage:'counter', aegisAura:'huntersMark' }[id] ?? id) : id;
+    const error = wayfarer
+      ? useWayfarerSkill(game, resolved, selected, pointer.active ? pointer.x+camera.x : game.player.x+game.player.facing*100, pointer.active ? pointer.y+camera.y : game.player.y+game.player.height/2, camera)
+      : useWardenSkill(game, resolved);
+    if (!error && wayfarer) inventoryChanged();
     if (error) ui.notify(error);
     else input.stopMining();
   },
@@ -446,8 +454,25 @@ const input = bindInput(canvas, camera, {
       : useRootRing(game);
     if (cast) storeProgress();
   },
+  beginBow() {
+    if (ITEMS[game.inventory.hotbar[selected]?.id]?.weapon?.id !== BOW.id) return false;
+    if (editPending || playerImmobilized(game.player)) return true;
+    const {pointer} = input;
+    const result = beginBowDraw(game, selected, pointer.x+camera.x, pointer.y+camera.y);
+    if (result?.message) ui.notify(result.message);
+    return true;
+  },
+  releaseBow() {
+    if (ui.activePanel() || document.hidden) { game.bowDraw=null; return; }
+    const {pointer} = input;
+    aimBow(game,pointer.x+camera.x,pointer.y+camera.y);
+    const result=releaseBowDraw(game);
+    if (result?.inventoryChanged) inventoryChanged();
+    if (result?.message) ui.notify(result.message);
+  },
+  cancelBow: () => { game.bowDraw = null; },
   fend() {
-    if (wardenAttackBlocked(game.player)) return true;
+    if (wardenAttackBlocked(game.player) || game.player.counterTime > 0) return true;
     if (editPending || playerImmobilized(game.player)) return false;
     const { pointer } = input;
     const wx = pointer.x + camera.x;
@@ -625,13 +650,16 @@ function frame(now) {
   const worldTime = room?.worldAge(now) ?? game.worldTime;
   const conditions = worldConditions(worldTime, game.weatherSeed, WEATHER_MODES[weatherModeIndex].id);
   let shake = { x: 0, y: 0 };
+  if (!playing) game.bowDraw = null;
   if (playing) {
+    if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     time += dt;
     accumulator += dt;
     while (accumulator >= timestep) {
       const previousPlayer = game.player;
       const note = stepGame(game, {
         ...input.sample(),
+        selectedSlot: selected,
         mining: input.holdingMine(),
         night: conditions.night,
         flightSpeedMultiplier: flightSpeedLevels[flightSpeedIndex],
@@ -652,13 +680,14 @@ function frame(now) {
     updateParticles(dt);
     updateDrowningWarning(dt);
     updateCamera(dt);
+    if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     shake = screenShake.step(dt, time, reducedMotion);
     if (miningSwing) {
       miningSwing.phase += dt / miningSwing.duration;
       if (miningSwing.phase >= 1) miningSwing = null;
     }
     const heldItem = game.inventory.hotbar[selected]?.id;
-    if (playerImmobilized(game.player) || wardenAttackBlocked(game.player)) {
+    if (playerImmobilized(game.player) || wardenAttackBlocked(game.player) || game.player.counterTime>0) {
       input.stopMining();
       miningSwing = null;
     } else if (game.attack) {
@@ -686,13 +715,14 @@ function frame(now) {
   const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
   const peers = Array.from(room?.tick(now, dt, game.player, snorkel) ?? []);
+  game.wayfarerPeers = peers;
   if (room) updateWardenAllies(game, peers);
   else game.player.allyAegis = false;
   const targetMob = aimedMob();
   const drawStart = performance.now();
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
-    aim: targetMob ? null : aimedTile(), mining, miningSwing, held, attack: game.attack,
+    aim: targetMob ? null : aimedTile(), mining, miningSwing, held: ITEMS[held]?.weapon?.id ?? held, attack: game.bowDraw ? {kind:BOW.id,angle:game.bowDraw.angle,drawProgress:Math.min(1,game.bowDraw.elapsed/BOW.drawTime),extra:game.bowDraw.extra,charging:true} : game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0 || game.inventory.count(POISON_ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
