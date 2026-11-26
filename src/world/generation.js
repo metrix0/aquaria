@@ -66,7 +66,7 @@ function islandSurface(x) {
 function oceanFloor(x) {
   if (x < -108) {
     const distance = -108 - x;
-    return Math.round(63 + 52 * Math.min(1, distance / 110) + Math.sin(distance * .12) * 3 * Math.min(1, distance / 12));
+    return Math.round(63 + 52 * Math.min(1, distance / (WEST_GROWTH * 110 / 128)) + Math.sin(distance * .12) * 3 * Math.min(1, distance / 12));
   }
   if (x >= 150 && x < ORIGINAL_COLS + EAST_SHIFT) {
     const t = (x - 150) / (ORIGINAL_COLS + EAST_SHIFT - 150);
@@ -89,7 +89,7 @@ function oceanFloor(x) {
   if (x >= ORIGINAL_COLS + EAST_SHIFT) {
     const distance = x - ORIGINAL_COLS - EAST_SHIFT;
     const blend = Math.min(1, distance / 18);
-    const baseDepth = 46 + 6 * Math.sin(x * 0.098) + 3 * Math.sin(x * 0.27);
+    const baseDepth = 46 + 6 * Math.sin((x - EAST_SHIFT) * 0.098) + 3 * Math.sin((x - EAST_SHIFT) * 0.27);
     const jungleDepth = 52 + 7 * Math.sin(distance * 0.085 + 0.6) + 3 * Math.sin(distance * 0.23);
     const seabed = Math.round(baseDepth + (jungleDepth - baseDepth) * blend + noise(x, 7) * 2);
     return Math.min(jungleIslandSurface(x), seabed);
@@ -510,7 +510,7 @@ export function generateVents(get) {
       vents.push({ x: column * TILE + TILE / 2, y: floor * TILE });
     }
   }
-  for (const x of [-151, 229, -176, -203]) {
+  for (const x of [-151, 229, -210, -275, -315, -345, -390, -445, 300, 365, 420, 490, 560, 625, 690]) {
     const tx = x + WEST_EXTENSION;
     vents.push({ x: (tx + .5) * TILE, y: groundAt(tx) * TILE });
   }
