@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
 export const HOTBAR_SIZE = 6;
@@ -8,11 +8,42 @@ export const ROOT_RING = { id: 'root-ring', name: 'Root ring', cooldown: 18, des
 export const GRAPPLING_HOOK = {
   id: 'grappling-hook',
   name: 'Grappling hook',
-  range: 18 * TILE,
-  speed: 480,
-  pullSpeed: 330,
-  description: 'An iron-clawed climber’s line. Fires where you aim and hauls you to solid rock.',
+  range: 9 * TILE,
+  speed: 420,
+  pullSpeed: 300,
+  colors: ['#69808a', '#dce5dc'],
+  description: 'A climber’s hooked line. Reaches up to 9 blocks.',
 };
+
+export const IRON_GRAPPLING_HOOK = {
+  id: 'iron-grappling-hook',
+  name: 'Iron grappling hook',
+  icon: 'grappling-hook',
+  station: WORKBENCH.id,
+  cost: { [GRAPPLING_HOOK.id]: 1, iron: 4 },
+  range: 14 * TILE,
+  speed: 470,
+  pullSpeed: 330,
+  colors: ['#536874', '#d6e3df'],
+  description: 'Reinforced iron chain and claws. Reaches up to 14 blocks.',
+};
+
+export const COBALT_GRAPPLING_HOOK = {
+  id: 'cobalt-grappling-hook',
+  name: 'Cobalt grappling hook',
+  icon: 'grappling-hook',
+  station: WORKBENCH.id,
+  cost: { [IRON_GRAPPLING_HOOK.id]: 1, cobalt: 3 },
+  range: 20 * TILE,
+  speed: 530,
+  pullSpeed: 370,
+  colors: ['#48568b', '#a6b7ff'],
+  description: 'Deep-forged cobalt winch with maximum reach. Reaches up to 20 blocks.',
+};
+
+export const HOOKS = Object.freeze(Object.fromEntries(
+  [GRAPPLING_HOOK, IRON_GRAPPLING_HOOK, COBALT_GRAPPLING_HOOK].map((hook) => [hook.id, hook]),
+));
 
 export const WOODEN_SHIELD = { id: 'wooden-shield', name: 'Wooden shield', station: WORKBENCH.id, cost: { wood: 4, copper: 2 }, description: 'Equip in your off-hand to use Shield Rush.' };
 
@@ -30,7 +61,7 @@ export const ITEMS = {
   [ROOT_RING.id]: ROOT_RING,
   'lesser-soul': { name: 'Lesser Soul', description: 'A small ember of a fallen champion. Attune it at a class skill tree to awaken lesser stars.' },
   'greater-soul': { name: 'Greater Soul', description: 'The radiant soul of a fallen boss. Awaken major stars with this and two Lesser Souls.' },
-  [GRAPPLING_HOOK.id]: GRAPPLING_HOOK,
+  ...HOOKS,
   'explorers-map': { name: 'Weathered explorer’s map', description: 'The ink survived the sea. The warnings in the margins nearly didn’t.' },
   [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },
   [CAPTAINS_CUTLASS.id]: {
@@ -51,6 +82,7 @@ export const ITEMS = {
   door: { name: 'Wooden door', description: 'A good door makes even a rented cave feel like a castle.' },
   [WORKBENCH.id]: { name: 'Workbench', description: 'Its legs are uneven. Its claim to have built a kingdom is unproven.', block: MATERIAL.workbench },
   [FIREPLACE.id]: { name: 'Fireplace', description: 'A stone hearth for cooking raw catch into safe, hearty meals.', block: MATERIAL.fireplace },
+  [TENT.id]: { name: 'Tent', description: 'A sturdy canvas shelter. Place it on dry ground to set your respawn point.' },
   [RAW_FISH.id]: { ...RAW_FISH, description: 'Fresh from the reef. Restores 5 seconds of oxygen, with a 10% chance of poison.' },
   [COOKED_FISH.id]: { ...COOKED_FISH, description: 'Seared over open coals. Safely restores 15 seconds of oxygen.' },
   [RAW_CRAB.id]: { ...RAW_CRAB, description: 'Pinchy shore catch. Restores 5 health, with a 10% chance of poison.' },

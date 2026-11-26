@@ -10,6 +10,7 @@ export function itemCategory(id, item) {
   if (
     item?.pickaxe ||
     item?.addonSlot ||
+    item?.range ||
     Object.hasOwn(EQUIPMENT_ITEMS, id) ||
     Object.hasOwn(SNORKELS, id) ||
     Object.hasOwn(FEET_GEAR, id) ||

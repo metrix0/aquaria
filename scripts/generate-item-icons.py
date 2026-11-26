@@ -122,6 +122,7 @@ ITEMS = {
     'glowshroom-torch': art('..hhhh.../.hhhhhb../hhbhhbbh./hbbbbbbbs/.sssssss./...aa..../...ac..../...ac....', ('#72bda0','#b5f0c9','#468d77'), extra='#c9a56e #78513f'),
     'rope-bundle': art('..hhhhh../.hbbbbbs./hb..h..bs/hb.hbs.bs/hb.sbs.bs/.bbbbbbs./..sssssbs/.......bs', WOOD, outline=WARM),
     'string': art('..hhhhh../.hbbbbbs./hb..h..bs/hb.hbs.bs/hb.sbs.bs/.bbbbbbs./..sssssbs/.......bs', ('#cbd5db','#edf2eb','#8d9fa8')),
+    'tent': art('....a..../...hb.../..hhbb../..hhbb../.hhhbbbs./.hhbaabs./hhhbaaabs/sssaaasss', ('#536e69','#7d9690','#243a42'), extra='#8d6c52'),
     'kelp': art('.....hh../....hbb../.h..hbs../hbh.hbs../.bbhbs.../..bs..hh./hhbs.hbs./.bbbhbs../..sbs..../...s.....', GREEN),
     'copper': ore(COPPER),
     'iron': ore(IRON),

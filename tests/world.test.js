@@ -6,7 +6,7 @@ import { GROVE_FLOOR_GAP, ISLAND_DEEPSTONE_ROW, ROOT_GROVE, groveDistance, grove
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createCharacterRenderer } from '../src/character.js';
-import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKEL_CHEST_ID, SPEAR, STRING, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
+import { ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CHEST_SIZE, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, DIVING_FIN, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, KRAKEN_CHEST_ID, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKEL_CHEST_ID, SPEAR, STRING, TENT, WOODEN_DOOR, WORKBENCH } from '../src/content.js';
 import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
@@ -14,12 +14,12 @@ import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
-import { EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, ITEMS } from '../src/inventory.js';
+import { COBALT_GRAPPLING_HOOK, EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, IRON_GRAPPLING_HOOK, ITEMS } from '../src/inventory.js';
 import { createItemsMenu, itemCategory } from '../src/items-menu.js';
 import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
-import { CHUNK_SIZE, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
+import { CHUNK_SIZE, activeTent, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
 import { CAVE_SYSTEM, COLS, EAST_EXTENSION, exposedUndergroundVeins, ISLAND_CAVE, JUNGLE_FADE_END_COLUMN, JUNGLE_FADE_START_COLUMN, JUNGLE_ISLAND, KRAKEN_COLUMN, ORIGINAL_COLS, ROWS, SPAWN, TILE, WATER, WATER_ROW, WEST_EXTENSION, generateCaveSystem, groundAt, isDeepstoneAt, undergroundRockBlendAt, waterwayAt } from '../src/world/generation.js';
 import { jungleVillageStructures } from '../src/world/jungle-village.js';
 import { JUNGLE_CAVE, isDryJungleCave, jungleMossProgress, jungleScriptureProgress } from '../src/world/jungle-cave.js';
@@ -1023,27 +1023,26 @@ test('kelp is mined from its stalk or its supporting block and stays harvested o
   assert.equal(peer.inventory.count('kelp'), 0);
 });
 
-test('palms survive mining their base across reloads and can still be chopped', () => {
+test('breaking the sand under a tree fells the whole tree and drops its wood across reloads', () => {
   const migrated = createGame(decodeSave({ format: 1, harvested: ['palm-62'] }));
   assert.equal(migrated.world.harvested.has('palm-62'), true);
 
   let game = createGame();
+  const initialWood = game.inventory.count('wood');
   const tree = game.world.trees.find(({ id }) => id === 'palm-62');
   const base = targetTile(game, tree.x, (tree.ty + .5) * TILE);
   commitTileAction(game, advanceMining(game, base, null, 1).action);
   assert.equal(tileAt(game.world, tree.tx, tree.ty), MATERIAL.air);
-  game = createGame(decodeSave(encodeSave(game)));
-  assert.equal(isTreeStanding(game.world, tree), true);
+  assert.equal(isTreeStanding(game.world, tree), false);
+  assert.equal(game.inventory.count('sand'), 1);
+  assert.equal(game.inventory.count('wood'), initialWood + Math.round(tree.height / TILE));
+
   const target = targetTile(game, (62 + WEST_EXTENSION) * 16 + 8, 9 * 16 + 8);
-  const mining = advanceMining(game, target, null, 0.5);
-  assert.equal(mining.action.fixtureId, 'palm-62');
-  assert.equal(mining.progress, 1);
-  commitTileAction(game, mining.action);
-  assert.equal(game.inventory.count('wood'), 6);
   assert.equal(advanceMining(game, target, null, 0.5), null);
   const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(isTreeStanding(restored.world, tree), false);
   assert.equal(restored.world.harvested.has('palm-62'), true);
-  assert.equal(restored.inventory.count('wood'), 6);
+  assert.equal(restored.inventory.count('wood'), initialWood + Math.round(tree.height / TILE));
 });
 
 test('the expanded-map save migrates western edits and ore inventory', () => {
@@ -3609,7 +3608,7 @@ test('spike and bear traps inflict 10s bleeding without shock, while spiked pend
   }
 });
 
-test('lionfish spawn between 20m and 80m in the normal ocean, telegraph radial starbursts, bloom toxic clouds on rock, and slow swimming via neurotoxin', () => {
+test('lionfish spawn between 20m and 80m in the green ocean after the kraken, telegraph radial starbursts, bloom toxic clouds on rock, and slow swimming via neurotoxin', () => {
   const prevPath2D = globalThis.Path2D;
   globalThis.Path2D = class {
     rect() {}
@@ -3623,12 +3622,33 @@ test('lionfish spawn between 20m and 80m in the normal ocean, telegraph radial s
 
     for (const mob of lionfishList) {
       const depth = Math.floor((mob.y - WATER) / TILE);
-      assert.ok(mob.x < (KRAKEN_COLUMN + WEST_EXTENSION) * TILE, `${mob.id} must be in normal ocean biome`);
+      assert.ok(mob.x > (KRAKEN_COLUMN + WEST_EXTENSION) * TILE, `${mob.id} must be east of the kraken`);
+      assert.ok(mob.x >= (JUNGLE_FADE_START_COLUMN + WEST_EXTENSION) * TILE, `${mob.id} must be in green ocean biome`);
       assert.ok(depth >= 20 && depth <= 80, `${mob.id} depth ${depth}m must be in 20m..80m`);
       const tx = Math.floor(mob.x / TILE);
       const ty = Math.floor(mob.y / TILE);
       assert.equal(waterTileAt(world, tx, ty), true, `${mob.id} must spawn in open ocean water`);
       assert.equal(tileAt(world, tx, ty), MATERIAL.air, `${mob.id} must not overlap solid rock`);
+    }
+
+    // Dynamic spawns never place lionfish before the green ocean, and can place them in the green ocean.
+    const prevRandom = Math.random;
+    Math.random = () => 0.1;
+    try {
+      const preGreenMobs = [];
+      const preGreenPlayer = { x: (KRAKEN_COLUMN - 60 + WEST_EXTENSION) * TILE, y: WATER + 26 * TILE };
+      for (let i = 0; i < 6; i++) {
+        preGreenMobs.length = 0;
+        updateEnemySpawns({ spawnIn: 0 }, preGreenMobs, preGreenPlayer, false, 0.1, () => false);
+        assert.notEqual(preGreenMobs[0]?.kind, 'lionfish', 'lionfish must not dynamically spawn before the green ocean');
+      }
+      const greenMobs = [];
+      const greenPlayer = { x: (JUNGLE_FADE_START_COLUMN + 60 + WEST_EXTENSION) * TILE, y: WATER + 30 * TILE };
+      updateEnemySpawns({ spawnIn: 0 }, greenMobs, greenPlayer, false, 0.1, () => false);
+      assert.equal(greenMobs[0]?.kind, 'lionfish', 'lionfish should dynamically spawn in the green ocean');
+      assert.ok(greenMobs[0].x >= (JUNGLE_FADE_START_COLUMN + WEST_EXTENSION) * TILE);
+    } finally {
+      Math.random = prevRandom;
     }
 
     // Isolate a single lionfish in an open deep-water pocket beside a rock ceiling/wall.
@@ -4782,4 +4802,102 @@ test('dungeon blood bats fly in dark red, attack with 30% 10s blindness or 40% 5
   } finally {
     globalThis.Path2D = prevPath2D;
   }
+});
+
+test('breaking first-island tent collects it, placing sets respawn point, and death without placed tent respawns on first island', () => {
+  const game = createGame();
+  const { world, player } = game;
+  const initialTent = activeTent(world);
+  assert.ok(initialTent && !initialTent.placed);
+  const islandTx = 53 + WEST_EXTENSION;
+  assert.equal(initialTent.tx, islandTx);
+
+  // 1. Break the tent on the first island -> goes to inventory.
+  player.x = (islandTx + 0.5) * TILE;
+  player.y = (initialTent.ty + 1) * TILE - player.height;
+  const breakAction = planTileAction(game, targetTile(game, (islandTx + 0.5) * TILE, (initialTent.ty + 0.5) * TILE), false);
+  assert.equal(breakAction?.item, TENT.id);
+  commitTileAction(game, breakAction);
+  assert.equal(game.inventory.count(TENT.id), 1);
+  assert.equal(activeTent(world), null);
+
+  // 2. Die with no tent placed -> respawns at first island SPAWN.
+  const placeTx = JUNGLE_ISLAND.center + WEST_EXTENSION;
+  const placeFloor = JUNGLE_ISLAND.floor;
+  for (let y = placeFloor - 3; y < placeFloor; y++) editTile(world, placeTx, y, MATERIAL.air);
+  editTile(world, placeTx, placeFloor, MATERIAL.soil);
+  player.x = (placeTx + 0.5) * TILE;
+  player.y = placeFloor * TILE - player.height;
+  player.health = 0;
+  for (let i = 0; i < 400 && player.downed !== true && game.player.health === 0; i++) stepGame(game, {}, 1 / 60);
+  for (let i = 0; i < 400 && game.player.downed; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(Math.abs(game.player.x - SPAWN.x) < TILE, 'death without a placed tent must respawn on first island');
+
+  // 3. Place the tent at a new location -> marks spawn point and persists across save/reload.
+  let tentSlot = game.inventory.hotbar.findIndex((s) => s?.id === TENT.id);
+  if (tentSlot < 0) {
+    const bp = game.inventory.backpack.findIndex((s) => s?.id === TENT.id);
+    assert.ok(bp >= 0);
+    assert.ok(game.inventory.move({ group: 'backpack', index: bp }, { group: 'hotbar', index: 5 }));
+    tentSlot = 5;
+  }
+  game.player.x = (placeTx - 1) * TILE;
+  game.player.y = placeFloor * TILE - game.player.height;
+  const placeAction = planTileAction(game, targetTile(game, (placeTx + 0.5) * TILE, (placeFloor - 0.5) * TILE), true, tentSlot);
+  assert.equal(placeAction?.tentPlace, true);
+  commitTileAction(game, placeAction);
+  assert.equal(game.inventory.count(TENT.id), 0);
+  assert.deepEqual(activeTent(world), { tx: placeTx, ty: placeFloor - 1, placed: true, id: 'placed-tent' });
+
+  const reloaded = createGame(decodeSave(encodeSave(game)));
+  assert.deepEqual(activeTent(reloaded.world), { tx: placeTx, ty: placeFloor - 1, placed: true, id: 'placed-tent' });
+
+  // 4. Die with placed tent -> respawns at the placed tent.
+  reloaded.player.x = SPAWN.x;
+  reloaded.player.y = SPAWN.y;
+  reloaded.player.health = 0;
+  for (let i = 0; i < 400 && !reloaded.player.downed; i++) stepGame(reloaded, {}, 1 / 60);
+  for (let i = 0; i < 400 && reloaded.player.downed; i++) stepGame(reloaded, {}, 1 / 60);
+  assert.ok(Math.abs(reloaded.player.x - (placeTx + 0.5) * TILE) < 1, 'should respawn at placed tent');
+  assert.equal(reloaded.player.y, placeFloor * TILE - reloaded.player.height);
+
+  // 5. Break the placed tent -> returns to inventory and future death falls back to first island.
+  const breakPlaced = planTileAction(reloaded, targetTile(reloaded, (placeTx + 0.5) * TILE, (placeFloor - 0.5) * TILE), false);
+  assert.equal(breakPlaced?.item, TENT.id);
+  commitTileAction(reloaded, breakPlaced);
+  assert.equal(reloaded.inventory.count(TENT.id), 1);
+  assert.equal(activeTent(reloaded.world), null);
+
+  reloaded.player.health = 0;
+  for (let i = 0; i < 400 && !reloaded.player.downed; i++) stepGame(reloaded, {}, 1 / 60);
+  for (let i = 0; i < 400 && reloaded.player.downed; i++) stepGame(reloaded, {}, 1 / 60);
+  assert.ok(Math.abs(reloaded.player.x - SPAWN.x) < TILE, 'should respawn on first island once tent is removed');
+});
+
+test('grappling hook starts with reduced 9-block reach and upgrades through iron and cobalt tiers', () => {
+  const game = createGame();
+  assert.ok(GRAPPLING_HOOK.range < IRON_GRAPPLING_HOOK.range);
+  assert.ok(IRON_GRAPPLING_HOOK.range < COBALT_GRAPPLING_HOOK.range);
+  assert.equal(GRAPPLING_HOOK.range, 9 * TILE);
+  assert.equal(IRON_GRAPPLING_HOOK.range, 14 * TILE);
+  assert.equal(COBALT_GRAPPLING_HOOK.range, 20 * TILE);
+
+  // Equip base hook in offhand and upgrade directly at a workbench using iron & cobalt.
+  assert.equal(grantItem(game, GRAPPLING_HOOK.id, 1), true);
+  assert.equal(equippedHook(game)?.id, GRAPPLING_HOOK.id);
+
+  game.inventory.add('iron', 4);
+  game.inventory.add('cobalt', 3);
+  assert.equal(craftItem(game, IRON_GRAPPLING_HOOK, WORKBENCH.id), true);
+  assert.equal(equippedHook(game)?.id, IRON_GRAPPLING_HOOK.id);
+  useGrapplingHook(game, game.player.x + 200, game.player.y);
+  assert.equal(game.player.hook.range, IRON_GRAPPLING_HOOK.range);
+
+  assert.equal(craftItem(game, COBALT_GRAPPLING_HOOK, WORKBENCH.id), true);
+  assert.equal(equippedHook(game)?.id, COBALT_GRAPPLING_HOOK.id);
+  useGrapplingHook(game, game.player.x + 200, game.player.y);
+  assert.equal(game.player.hook.range, COBALT_GRAPPLING_HOOK.range);
+
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(equippedHook(restored)?.id, COBALT_GRAPPLING_HOOK.id);
 });

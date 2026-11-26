@@ -1,6 +1,6 @@
 import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
-import { GRAPPLING_HOOK, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
-import { CRAWL_HEIGHT } from './gameplay/player.js';
+import { HOOKS, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
+import { CRAWL_HEIGHT, PLAYER_SIZE, respawnPoint } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
 import { SPAWN, TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
 
@@ -33,6 +33,9 @@ export function decodeSave(data) {
   const doors = Array.isArray(world.doors) ? world.doors.filter((entry) => Array.isArray(entry) &&
     Number.isInteger(entry[0]) && isEditableTile(entry[0] + WEST_EXTENSION, entry[1]))
     .map(([x, y]) => [x + WEST_EXTENSION, y]) : [];
+  const tent = Array.isArray(world.tent) && Number.isInteger(world.tent[0]) && isEditableTile(world.tent[0] + WEST_EXTENSION, world.tent[1])
+    ? { tx: world.tent[0] + WEST_EXTENSION, ty: world.tent[1] }
+    : null;
   const player = legacy ? data : data.player;
   const harvested = Array.isArray(world.harvested) ? [...world.harvested] : [];
   const gear = data.progress ?? {};
@@ -74,9 +77,9 @@ export function decodeSave(data) {
       ...(Number.isFinite(gear.glowSeconds) && gear.glowSeconds > 0
         ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
       ring: gear.ring === ROOT_RING.id ? gear.ring : null,
-      offhand: [GRAPPLING_HOOK.id, WOODEN_SHIELD.id].includes(gear.offhand ?? gear.hands) ? (gear.offhand ?? gear.hands) : null,
+      offhand: (Object.hasOwn(HOOKS, gear.offhand ?? gear.hands) || (gear.offhand ?? gear.hands) === WOODEN_SHIELD.id) ? (gear.offhand ?? gear.hands) : null,
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
-    world: { edits, doors, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
+    world: { edits, doors, tent, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
       soulRewards: Array.isArray(world.soulRewards) ? world.soulRewards.filter((reward) =>
         typeof reward?.id === 'string' && reward.id.length <= 120 &&
@@ -91,7 +94,8 @@ export function encodeSave(game, saveTerrain = true) {
   const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
-  const { x, y, height } = player.downed ? SPAWN : (player.flightOrigin ?? player);
+  const tent = saveTerrain && world.tent ? [world.tent.tx - WEST_EXTENSION, world.tent.ty] : null;
+  const { x, y, height } = player.downed ? { ...respawnPoint(world), height: PLAYER_SIZE.height } : (player.flightOrigin ?? player);
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.downed ? 100 : player.health, oxygen: player.downed ? undefined : player.oxygen };
   if (player.armor) { position.armor = player.armor; if (player.perfectArmor) position.perfectArmor = true; }
   if (player.feet) position.feet = player.feet;
@@ -112,7 +116,7 @@ export function encodeSave(game, saveTerrain = true) {
       ...(progress.offhand ? { offhand: progress.offhand } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
-      generator: WORLD_VERSION, edits, doors, harvested: Array.from(world.harvested),
+      generator: WORLD_VERSION, edits, doors, ...(tent ? { tent } : {}), harvested: Array.from(world.harvested),
       placedRopes: world.placedRopes ?? [],
       ...(world.soulRewards?.length ? { soulRewards: world.soulRewards } : {}),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),

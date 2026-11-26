@@ -1,7 +1,7 @@
 import { ARMOR, FEET_GEAR, normalizeAppearance, WALK_CYCLE_DISTANCE } from '../content.js';
 import { stepGrapplingHook } from './hook.js';
 import { mineDecks } from '../world/island-cave.js';
-import { hasExposedCaveFloor, inWater, solidAt } from '../world.js';
+import { activeTent, hasExposedCaveFloor, inWater, solidAt } from '../world.js';
 import { COLS, ROWS, SPAWN, TILE, clamp } from '../world/generation.js';
 import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kraken.js';
 
@@ -125,10 +125,19 @@ export function playerStatusEffects(player) {
   return effects;
 }
 
+export function respawnPoint(world) {
+  const tent = activeTent(world);
+  if (tent?.placed) {
+    return { x: (tent.tx + 0.5) * TILE, y: (tent.ty + 1) * TILE - PLAYER_SIZE.height, atTent: true };
+  }
+  return { x: SPAWN.x, y: SPAWN.y, atTent: false };
+}
+
 export function spawn(world, oxygen, appearance, armor = null, feet = null) {
-  let y = SPAWN.y;
-  while (y > 0 && collides(world, SPAWN.x, y)) y = Math.max(0, y - TILE);
-  return { x: SPAWN.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
+  const point = respawnPoint(world);
+  let y = point.y;
+  while (y > 0 && collides(world, point.x, y)) y = Math.max(0, y - TILE);
+  return { x: point.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage, fractional = false) {

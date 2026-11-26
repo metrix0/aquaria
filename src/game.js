@@ -152,6 +152,8 @@ async function editTile(action) {
   const rewards = action.amount > 0 ? new Inventory(game.inventory) : null;
   const missing = rewards && [
     [action.item, action.amount], ['door', action.supportedDoor ? 1 : 0], ['kelp', action.supportedKelp?.amount ?? 0],
+    ['wood', action.supportedTree ? Math.round(action.supportedTree.height / TILE) : 0],
+    ['tent', action.supportedTent ? 1 : 0],
   ].find(([item, amount]) => amount > 0 && !rewards.add(item, amount));
   if (missing) {
     input.stopMining();
@@ -176,6 +178,7 @@ async function editTile(action) {
     }
   }
   showTileEffect(action);
+  if (action.message) ui.notify(action.message);
   inventoryChanged();
 }
 

@@ -804,13 +804,18 @@ function lionfishChamberSpot(chamber) {
 export function generateMobs() {
   const caveFish = chamberMobSpot(CAVE_SYSTEM.chambers[0]);
   const caveSquid = chamberMobSpot(CAVE_SYSTEM.chambers[2]);
-  const lionWestShelf = { x: -72 * TILE, y: Math.max((WATER_ROW + 24) * TILE, (groundAt(-72 + WEST_EXTENSION) - 5) * TILE) };
-  const lionEastShelf = { x: 158 * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(158 + WEST_EXTENSION) - 5) * TILE) };
-  const lionWestUpper = { x: -145 * TILE, y: (groundAt(-145 + WEST_EXTENSION) - 9) * TILE };
-  const lionWestDoor = { x: -169 * TILE, y: (groundAt(-169 + WEST_EXTENSION) - 9) * TILE };
-  const lionEastUpper = { x: 190 * TILE, y: (groundAt(190 + WEST_EXTENSION) - 9) * TILE };
-  const lionEastCorridor = { x: 236 * TILE, y: Math.min(WATER_ROW + 80, groundAt(236 + WEST_EXTENSION) - 9) * TILE };
-  const lionDeepWest = { x: -208 * TILE, y: Math.min(WATER_ROW + 80, groundAt(-208 + WEST_EXTENSION) - 9) * TILE };
+  const greenWestX = JUNGLE_FADE_START_COLUMN + 18;
+  const greenMidX = JUNGLE_FADE_START_COLUMN + 46;
+  const greenDeepX = JUNGLE_FADE_START_COLUMN + 82;
+  const greenEastX = JUNGLE_ISLAND.center + JUNGLE_ISLAND.halfWidth + 16;
+  const greenFarEastX = JUNGLE_ISLAND.center + JUNGLE_ISLAND.halfWidth + 26;
+  const lionGreenWest = { x: greenWestX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenWestX + WEST_EXTENSION) - 6) * TILE) };
+  const lionGreenMid = { x: greenMidX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenMidX + WEST_EXTENSION) - 6) * TILE) };
+  const lionGreenDeep = { x: greenDeepX * TILE, y: Math.max((WATER_ROW + 24) * TILE, (groundAt(greenDeepX + WEST_EXTENSION) - 7) * TILE) };
+  const lionGreenGrottoWest = lionfishChamberSpot(CAVE_SYSTEM.chambers[0]);
+  const lionGreenGrottoEast = lionfishChamberSpot(CAVE_SYSTEM.chambers[1]);
+  const lionGreenEast = { x: greenEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenEastX + WEST_EXTENSION) - 6) * TILE) };
+  const lionGreenFarEast = { x: greenFarEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenFarEastX + WEST_EXTENSION) - 6) * TILE) };
   return [
     { id: 'crab-island-west', kind: 'crab', x: 50 * TILE + 8, span: 48, speed: 22, variant: 0, phase: 0.4 },
     { id: 'crab-west-floor', kind: 'crab', x: 34 * TILE + 8, span: 52, speed: 21, variant: 1, phase: 0.9 },
@@ -834,13 +839,13 @@ export function generateMobs() {
     { id: 'squid-deep', kind: 'squid', x: caveSquid.x, y: caveSquid.y - 4 * TILE, span: 68, speed: 54, phase: 5.1 },
     { id: 'shark-west', kind: 'shark', x: 19 * TILE, y: 23 * TILE, span: 84, speed: 58, phase: 0.2 },
     { id: 'shark-deep', kind: 'shark', x: 146 * TILE, y: 33 * TILE, span: 104, speed: 66, phase: 2.9 },
-    { id: 'lionfish-west-shelf', kind: 'lionfish', x: lionWestShelf.x, y: lionWestShelf.y, span: 28, speed: 22, phase: 0.5, respawnDelay: 45 },
-    { id: 'lionfish-east-shelf', kind: 'lionfish', x: lionEastShelf.x, y: lionEastShelf.y, span: 30, speed: 22, phase: 1.4, respawnDelay: 45 },
-    { id: 'lionfish-west-cave', kind: 'lionfish', x: lionWestUpper.x, y: lionWestUpper.y, span: 36, speed: 22, phase: 2.3, respawnDelay: 45 },
-    { id: 'lionfish-west-door', kind: 'lionfish', x: lionWestDoor.x, y: lionWestDoor.y, span: 32, speed: 20, phase: 3.1, respawnDelay: 45 },
-    { id: 'lionfish-east-cave', kind: 'lionfish', x: lionEastUpper.x, y: lionEastUpper.y, span: 34, speed: 22, phase: 4.0, respawnDelay: 45 },
-    { id: 'lionfish-east-corridor', kind: 'lionfish', x: lionEastCorridor.x, y: lionEastCorridor.y, span: 36, speed: 22, phase: 4.9, respawnDelay: 45 },
-    { id: 'lionfish-deep-west', kind: 'lionfish', x: lionDeepWest.x, y: lionDeepWest.y, span: 34, speed: 20, phase: 5.7, respawnDelay: 45 },
+    { id: 'lionfish-green-west', kind: 'lionfish', x: lionGreenWest.x, y: lionGreenWest.y, span: 28, speed: 22, phase: 0.5, respawnDelay: 45 },
+    { id: 'lionfish-green-mid', kind: 'lionfish', x: lionGreenMid.x, y: lionGreenMid.y, span: 30, speed: 22, phase: 1.4, respawnDelay: 45 },
+    { id: 'lionfish-green-deep', kind: 'lionfish', x: lionGreenDeep.x, y: lionGreenDeep.y, span: 34, speed: 22, phase: 2.3, respawnDelay: 45 },
+    { id: 'lionfish-green-grotto-west', kind: 'lionfish', x: lionGreenGrottoWest.x, y: lionGreenGrottoWest.y, span: 32, speed: 20, phase: 3.1, respawnDelay: 45 },
+    { id: 'lionfish-green-grotto-east', kind: 'lionfish', x: lionGreenGrottoEast.x, y: lionGreenGrottoEast.y, span: 32, speed: 22, phase: 4.0, respawnDelay: 45 },
+    { id: 'lionfish-green-east', kind: 'lionfish', x: lionGreenEast.x, y: lionGreenEast.y, span: 30, speed: 22, phase: 4.9, respawnDelay: 45 },
+    { id: 'lionfish-green-far-east', kind: 'lionfish', x: lionGreenFarEast.x, y: lionGreenFarEast.y, span: 28, speed: 20, phase: 5.7, respawnDelay: 45 },
     ...islandMobs.filter(([, , column, floor]) => !inRootGrove(column, floor - 1)).map(([id, kind, column, floor, respawnDelay], index) => ({
       id, kind, x: (column + .5) * TILE, y: floor * TILE, respawnDelay: floor <= ISLAND_DEEPSTONE_ROW ? Math.round(15 + 28 * clamp((WATER_ROW + 40 - floor) / (WATER_ROW + 40 - ISLAND_CAVE.campFloor), 0, 1)) : respawnDelay, phase: index * .7,
     })),

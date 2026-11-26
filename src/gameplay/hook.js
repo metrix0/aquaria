@@ -1,5 +1,5 @@
 import { MATERIAL } from '../content.js';
-import { GRAPPLING_HOOK } from '../inventory.js';
+import { HOOKS } from '../inventory.js';
 import { tileAt } from '../world.js';
 import { COLS, ROWS, TILE } from '../world/generation.js';
 import { playerImmobilized } from './player.js';
@@ -13,7 +13,8 @@ const HOOK_ARRIVAL_DISTANCE = 2;
  * @param {object} game
  */
 export function equippedHook(game) {
-  return (game.progress?.offhand ?? game.progress?.hands) === GRAPPLING_HOOK.id ? GRAPPLING_HOOK : null;
+  const id = game.progress?.offhand ?? game.progress?.hands;
+  return HOOKS[id] ?? null;
 }
 
 /**
@@ -53,6 +54,7 @@ export function useGrapplingHook(game, targetX, targetY) {
     range: hookItem.range,
     speed: hookItem.speed,
     pullSpeed: hookItem.pullSpeed,
+    colors: hookItem.colors,
     tx: null,
     ty: null,
   };

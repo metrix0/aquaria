@@ -24,6 +24,7 @@ import { createHelmetWreckArt } from "./helmet-wreck-art.js";
 import { ITEMS } from "./inventory.js";
 import {
   TILE_NEIGHBORS,
+  activeTent,
   hasExposedCaveFloor,
   hasOpenFace,
   isDoorOpen,
@@ -2198,10 +2199,10 @@ export function createRenderer(canvas) {
         else palm(tree);
     }
 
-    const shelterColumn = 53 + WEST_EXTENSION;
-    const shelterX = shelterColumn * TILE;
-    const shelterY = groundAt(shelterColumn) * TILE;
-    if (tileAt(world, shelterColumn, groundAt(shelterColumn))) {
+    const tent = activeTent(world);
+    if (tent) {
+      const shelterX = tent.tx * TILE;
+      const shelterY = (tent.ty + 1) * TILE;
       polygon(
         [
           [shelterX - 13, shelterY],
@@ -2515,25 +2516,26 @@ export function createRenderer(canvas) {
     const dy = hy - oy;
     const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx) || hook.angle || 0;
+    const [shade, shine] = hook.colors ?? ['#69808a', '#dce5dc'];
     const step = 4;
     const count = Math.floor(dist / step);
     for (let i = 1; i < count; i++) {
       const t = i / Math.max(1, count);
       const lx = Math.round(ox + dx * t);
       const ly = Math.round(oy + dy * t);
-      rect(lx - 1, ly - 1, 2, 2, i % 2 ? '#23313d' : '#8da3a8');
-      if (i % 2 === 0) rect(lx - 1, ly - 1, 1, 1, '#dce5dc');
+      rect(lx - 1, ly - 1, 2, 2, i % 2 ? '#23313d' : shade);
+      if (i % 2 === 0) rect(lx - 1, ly - 1, 1, 1, shine);
     }
     ctx.save();
     ctx.translate(hx, hy);
     ctx.rotate(angle);
     rect(-4, -1, 7, 2, '#374a57');
-    rect(-3, -1, 5, 1, '#9fb3b8');
-    rect(-1, -4, 3, 2, '#69808a');
-    rect(1, -5, 3, 2, '#dce5dc');
-    rect(-1, 2, 3, 2, '#69808a');
-    rect(1, 3, 3, 2, '#dce5dc');
-    rect(2, -1, 4, 2, '#dce5dc');
+    rect(-3, -1, 5, 1, shade);
+    rect(-1, -4, 3, 2, shade);
+    rect(1, -5, 3, 2, shine);
+    rect(-1, 2, 3, 2, shade);
+    rect(1, 3, 3, 2, shine);
+    rect(2, -1, 4, 2, shine);
     ctx.restore();
   }
 

@@ -38,6 +38,7 @@ export const BREATH_SECONDS = 18;
 
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 export const FIREPLACE = { id: 'fireplace', cost: { stone: 4, wood: 4 } };
+export const TENT = { id: 'tent' };
 
 export const SNORKEL_CHEST_ID = 'wreck-chest';
 export const KRAKEN_CHEST_ID = 'kraken-chest';

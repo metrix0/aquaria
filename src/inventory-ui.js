@@ -1,5 +1,6 @@
 import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, POISON_ARROW, SNORKELS } from './content.js';
-import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
+import { BACKPACK_SIZE, EQUIPMENT_ITEMS, HOOKS, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
+import { TILE } from './world/generation.js';
 import { pickaxeIcon } from './pickaxe-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
 
@@ -45,7 +46,7 @@ export function equipmentSlotForItem(id) {
   if (Object.hasOwn(SNORKELS, id)) return 'head';
   if (Object.hasOwn(FEET_GEAR, id)) return 'feet';
   if (id === ROOT_RING.id) return 'ring';
-  if (id === GRAPPLING_HOOK.id || id === WOODEN_SHIELD.id) return 'offhand';
+  if (Object.hasOwn(HOOKS, id) || id === WOODEN_SHIELD.id) return 'offhand';
   return ADDONS[id]?.addonSlot ? 'addon-' + ADDONS[id].addonSlot : null;
 }
 
@@ -73,6 +74,7 @@ function itemStats(id, item) {
   if (item.weapon?.damage) return Number((item.weapon.damage * (item.perfectWeapon ? 1.15 : 1)).toFixed(2)) + ' damage';
   if (id === ARROW.id) return ARROW.damage + ' damage';
   if (id === POISON_ARROW.id) return POISON_ARROW.damage + ' damage + poison';
+  if (item.range) return Math.round(item.range / TILE) + ' block reach';
   if (item.weapon?.id === BOW.id) return Number((ARROW.damage * (item.perfectWeapon ? 1.15 : 1)).toFixed(2)) + ' damage per fully drawn arrow';
   if (id === KELP_DRESSING.id) return 'Restores up to ' + KELP_DRESSING.heal + ' health';
   if (item.oxygen) {

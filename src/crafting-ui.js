@@ -1,12 +1,15 @@
 import { ARMOR, SALVAGE_RECIPES, ARROW, BOW, BREATH_SECONDS, COBALT_SNORKEL, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SNORKEL, COPPER_SPEAR, FIREPLACE, IRON_PICKAXE, IRON_SNORKEL, IRON_SWORD, KELP_DRESSING, POISON_ARROW, SPEAR, WOODEN_DOOR, WORKBENCH } from './content.js';
 import { canCraftItem, craftMaterialCount, equipmentCraftStatus } from './gameplay/simulation.js';
-import { ITEMS, WOODEN_SHIELD } from './inventory.js';
+import { COBALT_GRAPPLING_HOOK, IRON_GRAPPLING_HOOK, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
 
 const recipes = [
   ...SALVAGE_RECIPES.map((recipe) => ({ recipe, name: recipe.name, description: recipe.description })),
   ...[COPPER_SNORKEL, IRON_SNORKEL, COBALT_SNORKEL].map((recipe) => ({
     recipe, description: 'Lets you stay underwater for ' + (BREATH_SECONDS + recipe.bonusSeconds) + ' seconds.',
+  })),
+  ...[IRON_GRAPPLING_HOOK, COBALT_GRAPPLING_HOOK].map((recipe) => ({
+    recipe, description: recipe.description,
   })),
   { recipe: WORKBENCH, description: 'Place it from your hotbar to craft advanced gear. Press E, right-click it, or tap Use nearby to open it.' },
   { recipe: FIREPLACE, description: 'Place it from your hotbar to cook raw fish and crab. Press E, right-click it, or tap Use nearby to cook.' },

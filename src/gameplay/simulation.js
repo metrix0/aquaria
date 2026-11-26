@@ -8,11 +8,11 @@ import { equippedHook, hasHook } from './hook.js';
 import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocked } from './warden.js';
 import { stepWayfarer, finishWayfarer, catchFallMultiplier } from './wayfarer.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, WOODEN_DOOR, WORKBENCH } from '../content.js';
-import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, setDoor, solidAt, tileAt, treeAt } from '../world.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ISLAND_TENT_ID, activeTent, buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, rootedTreeAt, setDoor, solidAt, tentAt, tileAt, treeAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
-import { GRAPPLING_HOOK, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
+import { GRAPPLING_HOOK, HOOKS, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
 import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen, settleDowned } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
@@ -99,6 +99,7 @@ export function createGame(snapshot) {
   }
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot, game.weatherSeed);
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
+  world.tent = snapshot?.world.tent ?? null;
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
     Object.hasOwn(ARMOR, snapshot?.armor) ? snapshot.armor : null,
     Object.hasOwn(FEET_GEAR, snapshot?.feet) ? snapshot.feet : null);
@@ -516,6 +517,7 @@ export function stepGame(game, input, dt) {
 
 function respawnAfterDeath(game) {
     const { world, player } = game;
+    const atTent = Boolean(world.tent && activeTent(world)?.placed);
     game.player = spawn(world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
     game.player.perfectArmor = player.perfectArmor;
@@ -530,7 +532,7 @@ function respawnAfterDeath(game) {
     game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
-    return 'You woke up back on the island.';
+    return atTent ? 'You woke up at your tent.' : 'You woke up back on the island.';
 }
 
 function stockWreckLoot(world, item, slots, remaining) {
@@ -592,7 +594,7 @@ const EQUIP_SLOTS = {
   head: { items: SNORKELS, get: equippedSnorkel, set: setSnorkel },
   feet: { items: FEET_GEAR, get: equippedFeet, set: setFeet },
   ring: { items: { [ROOT_RING.id]: ROOT_RING }, get: equippedRing, set: (game, id) => { game.progress.ring = id; } },
-  offhand: { items: { [GRAPPLING_HOOK.id]: GRAPPLING_HOOK, [WOODEN_SHIELD.id]: WOODEN_SHIELD }, get: (game) => equippedHook(game) ?? (game.progress.offhand === WOODEN_SHIELD.id ? WOODEN_SHIELD : null), set: (game, id) => { game.progress.offhand = id; } },
+  offhand: { items: { ...HOOKS, [WOODEN_SHIELD.id]: WOODEN_SHIELD }, get: (game) => equippedHook(game) ?? (game.progress.offhand === WOODEN_SHIELD.id ? WOODEN_SHIELD : null), set: (game, id) => { game.progress.offhand = id; } },
   ...Object.fromEntries(['head', 'chest', 'legs', 'feet', 'hands'].map((slot) => ['addon-' + slot, {
     items: Object.fromEntries(Object.values(ADDONS).filter((addon) => addon.addonSlot === slot).map((addon) => [addon.id, addon])),
     get: (game) => equippedAddon(game, slot),
@@ -728,12 +730,13 @@ export function nearestItem(game) {
   return result;
 }
 
-function usesEquippedSnorkel(game, recipe, id) {
-  return id === game.progress.snorkel && Object.hasOwn(SNORKELS, recipe.id);
+function usesEquippedUpgradeSource(game, recipe, id) {
+  return (id === game.progress.snorkel && Object.hasOwn(SNORKELS, recipe.id)) ||
+    (id === game.progress.offhand && Object.hasOwn(HOOKS, recipe.id));
 }
 
 export function craftMaterialCount(game, recipe, id) {
-  return game.inventory.count(id) + Number(usesEquippedSnorkel(game, recipe, id));
+  return game.inventory.count(id) + Number(usesEquippedUpgradeSource(game, recipe, id));
 }
 
 function craftResult(game, recipe, activeStation, outputId = recipe.id) {
@@ -744,7 +747,7 @@ function craftResult(game, recipe, activeStation, outputId = recipe.id) {
   const after = new Inventory(game.inventory);
   let upgrade = false;
   for (const [item, count] of materials) {
-    const worn = usesEquippedSnorkel(game, recipe, item);
+    const worn = usesEquippedUpgradeSource(game, recipe, item);
     after.spend(item, count - Number(worn));
     upgrade ||= worn;
   }
@@ -782,7 +785,10 @@ export function craftItem(game, recipe, station, random = Math.random) {
   if (!result) return false;
   game.inventory = result.inventory;
   if (perfect) game.effects.push({ x: game.player.x, y: game.player.y, color: '#ffe5a2', count: 8, spread: 25, message: 'Perfect Weapon forged! +15% damage.' });
-  if (result.upgrade) setSnorkel(game, recipe.id);
+  if (result.upgrade) {
+    if (Object.hasOwn(SNORKELS, recipe.id)) setSnorkel(game, recipe.id);
+    else if (Object.hasOwn(HOOKS, recipe.id)) game.progress.offhand = recipe.id;
+  }
   game.dirty = true;
   return true;
 }
@@ -792,8 +798,8 @@ export function grantItem(game, id, count) {
   if (Object.hasOwn(ARMOR, id)) {
     game.player.armor = id;
     game.player.perfectArmor = false;
-  } else if (id === GRAPPLING_HOOK.id && !game.progress.offhand) {
-    game.progress.offhand = GRAPPLING_HOOK.id;
+  } else if (Object.hasOwn(HOOKS, id) && !game.progress.offhand) {
+    game.progress.offhand = id;
     if (count > 1 && !game.inventory.add(id, count - 1, { preferHotbar: true })) return false;
   } else if (!game.inventory.add(id, count, { preferHotbar: true })) return false;
   game.dirty = true;
@@ -856,6 +862,8 @@ export function planTileAction(game, target, build, slot) {
   if (!build) {
     const door = doorAt(world, tx, ty);
     if (door) return { ...door, before: MATERIAL.wood, after: MATERIAL.air, door, item: WOODEN_DOOR.id, amount: 1 };
+    const tent = tentAt(world, tx, ty);
+    if (tent) return { tx: tent.tx, ty: tent.ty, before: MATERIAL.wood, after: MATERIAL.air, tent, fixtureId: tent.id, item: TENT.id, amount: 1 };
     const trap = caveTrapAt(world, tx, ty);
     if (trap) return { tx, ty, before: MATERIAL.wood, after: MATERIAL.air, trap, amount: 0 };
     const tree = before === MATERIAL.air && treeAt(world, tx, ty);
@@ -864,11 +872,24 @@ export function planTileAction(game, target, build, slot) {
     if (kelp) return { tx, ty, before, fixtureId: kelp.id, item: 'kelp', amount: kelp.amount };
     const item = DROPS[before];
     if (ORE_MATERIALS.has(before) && !hasOpenFace(world, tx, ty, player)) return;
+    const aboveTent = tentAt(world, tx, ty - 1);
+    const supportedTent = aboveTent && aboveTent.tx === tx && aboveTent.ty === ty - 1 ? aboveTent : null;
     return item && { tx, ty, before, after: MATERIAL.air, item, amount: 1,
-      supportedDoor: doorAt(world, tx, ty - 1), supportedKelp: rootedKelpAt(world, tx, ty) };
+      supportedDoor: doorAt(world, tx, ty - 1), supportedKelp: rootedKelpAt(world, tx, ty),
+      supportedTree: rootedTreeAt(world, tx, ty), supportedTent };
   }
   const item = inventory.hotbar[slot]?.id;
   if (!buildCellFree(world, tx, ty)) return;
+  if (item === TENT.id) {
+    if (buildCellFree(world, tx, ty - 1) && tileAt(world, tx, ty + 1) &&
+      !waterTileAt(world, tx, ty) && !waterTileAt(world, tx, ty - 1)) {
+      return {
+        tx, ty, before, after: MATERIAL.air, tentPlace: true, fixtureId: 'tent',
+        item, slot, amount: -1, message: 'Spawn point set at tent.',
+      };
+    }
+    return;
+  }
   if (item === WOODEN_DOOR.id) {
     if (buildCellFree(world, tx, ty - 1) && tileAt(world, tx, ty + 1)) {
       return { tx, ty, before, after: MATERIAL.door, item, slot, amount: -1 };
@@ -935,16 +956,30 @@ export function applyTerrain(game, tx, ty, material) {
 }
 
 export function commitTileAction(game, action) {
-  if (action.fixtureId) game.world.harvested.add(action.fixtureId);
-  else applyTerrain(game, action.tx, action.ty, action.after);
+  if (action.tentPlace) {
+    game.world.tent = { tx: action.tx, ty: action.ty };
+  } else if (action.tent) {
+    if (action.tent.placed) game.world.tent = null;
+    else game.world.harvested.add(ISLAND_TENT_ID);
+  } else if (action.fixtureId) {
+    game.world.harvested.add(action.fixtureId);
+  } else {
+    if (action.supportedTent) {
+      if (action.supportedTent.placed) game.world.tent = null;
+      else game.world.harvested.add(ISLAND_TENT_ID);
+    }
+    applyTerrain(game, action.tx, action.ty, action.after);
+  }
   awardTileAction(game, action);
 }
 
-export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp }, removedDoor = Boolean(supportedDoor)) {
+export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp, supportedTree, supportedTent }, removedDoor = Boolean(supportedDoor)) {
   if (amount > 0) game.inventory.add(item, amount);
   else if (amount < 0) game.inventory.consume(game.inventory.hotbar, slot, -amount);
   if (removedDoor) game.inventory.add(WOODEN_DOOR.id, 1);
   if (supportedKelp) game.inventory.add('kelp', supportedKelp.amount);
+  if (supportedTree) game.inventory.add('wood', Math.round(supportedTree.height / TILE));
+  if (supportedTent) game.inventory.add(TENT.id, 1);
   game.dirty = true;
 }
 

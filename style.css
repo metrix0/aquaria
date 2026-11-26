@@ -552,17 +552,22 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   .inventory .hotbar-abilities .slot { width: var(--hotbar-slot-width); }
 }
 .hook-skill { border-color: #6b8896; background: #1c313b; }
-.item-grappling-hook {
+.item-grappling-hook, .item-iron-grappling-hook, .item-cobalt-grappling-hook {
+  --hook-shaft: #8da3a8;
+  --hook-claw: #dce5dc;
+  --hook-shade: #69808a;
   position: relative; width: 16px; height: 18px; background: none; box-shadow: none; transform: rotate(35deg);
 }
-.item-grappling-hook::before {
+.item-iron-grappling-hook { --hook-shaft: #b7c9cc; --hook-claw: #e3ecea; --hook-shade: #536874; }
+.item-cobalt-grappling-hook { --hook-shaft: #7a8ee0; --hook-claw: #a6b7ff; --hook-shade: #48568b; }
+.item-grappling-hook::before, .item-iron-grappling-hook::before, .item-cobalt-grappling-hook::before {
   content: ""; position: absolute; left: 7px; top: 3px; width: 2px; height: 14px;
-  background: #8da3a8; box-shadow: 0 -2px #dce5dc, 0 2px #374a57;
+  background: var(--hook-shaft); box-shadow: 0 -2px var(--hook-claw), 0 2px #374a57;
 }
-.item-grappling-hook::after {
+.item-grappling-hook::after, .item-iron-grappling-hook::after, .item-cobalt-grappling-hook::after {
   content: ""; position: absolute; left: 2px; top: 0; width: 12px; height: 9px;
-  border: 2px solid #dce5dc; border-bottom: 0; border-radius: 6px 6px 0 0;
-  box-shadow: inset 0 1px #69808a;
+  border: 2px solid var(--hook-claw); border-bottom: 0; border-radius: 6px 6px 0 0;
+  box-shadow: inset 0 1px var(--hook-shade);
 }
 .ring-skill { border-color: #73945d; background: #253a2b; }
 .ring-skill[data-charging] { background: #13251f; border-color: #3b5141; }

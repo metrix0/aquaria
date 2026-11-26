@@ -3,8 +3,9 @@ import { shipwreckSkeletons } from './world/shipwreck.js';
 import { caveClimbs, caveStructures, islandTraps, mineDecks } from './world/island-cave.js';
 import { jungleCaveClimbs, jungleCaveStructures, jungleCaveTraps } from './world/jungle-cave.js';
 import { MATERIAL, MATERIAL_IDS } from './content.js';
-import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents } from './world/generation.js';
+import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents, groundAt } from './world/generation.js';
 
+export const ISLAND_TENT_ID = 'island-tent';
 export const CHUNK_SIZE = 32;
 export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 // The finite world contains at most ceil(COLS / 32) * ceil(ROWS / 32) chunks.
@@ -33,7 +34,7 @@ export function createWorld() {
   const trees = generateTrees();
   const structures = [...caveStructures, ...jungleCaveStructures, ...shipwreckSkeletons].map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor }));
   return {
-    items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(),
+    items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(), tent: null,
     mobs: generateMobs(),
     krakenDefeated: false,
     jungleCultAggro: false,
@@ -45,7 +46,7 @@ export function createWorld() {
     mineDecks: structures.filter(({ kind }) => Object.hasOwn(mineDecks, kind)),
     projectiles: [],
     get vents() { return baseVents(); },
-    fixtureIds: new Set([CORAL_OPEN_ID, ...[...items, ...trees].map(({ id }) => id)]),
+    fixtureIds: new Set([CORAL_OPEN_ID, ISLAND_TENT_ID, ...[...items, ...trees].map(({ id }) => id)]),
     harvested: new Set(),
     pendingWreckLoot: new Map(),
     chunks: new Map(),
@@ -103,9 +104,27 @@ export function isDoorOpen(door, x, y, height) {
   return Math.abs(x - center) <= 1.5 * TILE && y + height > top && y < top + 2 * TILE;
 }
 
+export function activeTent(world) {
+  if (world.tent && tileAt(world, world.tent.tx, world.tent.ty + 1)) {
+    return { tx: world.tent.tx, ty: world.tent.ty, placed: true, id: 'placed-tent' };
+  }
+  if (!world.harvested?.has(ISLAND_TENT_ID)) {
+    const tx = 53 + WEST_EXTENSION;
+    const floor = groundAt(tx);
+    if (tileAt(world, tx, floor)) return { tx, ty: floor - 1, placed: false, id: ISLAND_TENT_ID };
+  }
+  return null;
+}
+
+export function tentAt(world, tx, ty) {
+  const tent = activeTent(world);
+  if (!tent) return null;
+  return (tx === tent.tx || tx === tent.tx + 1) && (ty === tent.ty || ty === tent.ty - 1) ? tent : null;
+}
+
 export function buildCellFree(world, tx, ty) {
   return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS - 2
-    && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !treeAt(world, tx, ty)
+    && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !tentAt(world, tx, ty) && !treeAt(world, tx, ty)
     && !world.items.some((item) => (item.kind === 'chest' || !world.harvested.has(item.id))
       && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty);
 }
@@ -145,6 +164,10 @@ export function treeAt(world, tx, ty) {
   ));
 }
 
+export function rootedTreeAt(world, tx, ty) {
+  return world.trees.find((tree) => tree.tx === tx && tree.ty === ty && isTreeStanding(world, tree));
+}
+
 export function rootedKelpAt(world, tx, ty) {
   return world.items.find((item) => item.kind === 'kelp' && item.tx === tx && item.ty === ty && !world.harvested.has(item.id));
 }
@@ -177,6 +200,8 @@ export function editTile(world, tx, ty, material) {
   if (cached) cached.tiles[index] = material;
   const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
   if (uprooted) world.harvested.add(uprooted.id);
+  const felledTree = material === MATERIAL.air && rootedTreeAt(world, tx, ty);
+  if (felledTree) world.harvested.add(felledTree.id);
   return true;
 }
 
