@@ -9,7 +9,7 @@ import { skillAttackDamage, strikeMob, stepClassEffects } from '../src/gameplay/
 import { KELP_DRESSING } from '../src/content.js';
 import { STARTER_CLASS_IDS } from '../src/starter-classes.js';
 import { encodeSave, decodeSave } from '../src/save.js';
-import { absorbSouls, activateClass, CLASS_DEFS, createClassProgress, grantDebugSouls, skillBonuses, skillBudget, unlockSkill } from '../src/classes.js';
+import { absorbSouls, activateClass, CLASS_DEFS, createClassProgress, grantDebugSouls, skillBonuses, skillBudget, unlockSkill, equipSkill, equippedSkill, unlockedActiveSkills } from '../src/classes.js';
 
 function game() {
   return { inventory: new Inventory(), classes: createClassProgress(), player: { skillBonuses: {} }, dirty: false };
@@ -228,4 +228,40 @@ test('Wayfarer overdraw pierces two separate real mobs without repeat hits', () 
     'a single greater-star arrow must damage both targets');
   assert.ok(enemies.every((mob) => mob.health >= 30),
     'each target must take damage at most once from a piercing projectile');
+});
+
+test('only two unlocked active skills can be equipped per class and reassignment swaps without duplicates', () => {
+  const g = game();
+  grantDebugSouls(g);
+  activateClass(g, 'warden');
+  assert.match(equipSkill(g, 0, 'unyielding'), /unlock/i);
+  for (const path of CLASS_DEFS.warden.paths) for (const node of path.nodes) assert.equal(unlockSkill(g, node.id), null);
+  assert.equal(unlockedActiveSkills(g.classes).length, 3);
+  assert.deepEqual(g.classes.skillSlots.warden, ['unyielding', 'reavers-oath']);
+  assert.match(equipSkill(g, 2, 'aegis-oath'), /slot/i);
+  assert.match(equipSkill(g, 0, 'ironwall'), /active/i);
+  assert.equal(equipSkill(g, 0, 'aegis-oath'), null);
+  assert.equal(equipSkill(g, 1, 'aegis-oath'), null);
+  assert.deepEqual(g.classes.skillSlots.warden, ['reavers-oath', 'aegis-oath']);
+  assert.equal(equippedSkill(g.classes, 1).ability, 'aegisAura');
+  assert.equal(g.player.skillBonuses.brace, 1);
+  assert.equal(equipSkill(g, 0, null), null);
+  activateClass(g, 'wayfarer');
+  assert.equal(equippedSkill(g.classes, 1), null);
+  for (const path of CLASS_DEFS.wayfarer.paths) for (const node of path.nodes) assert.equal(unlockSkill(g, node.id), null);
+  assert.equal(equipSkill(g, 1, 'far-sight'), null);
+  assert.equal(equippedSkill(g.classes, 1).ability, 'huntersMark');
+  activateClass(g, 'warden');
+  assert.deepEqual(g.classes.skillSlots.warden, [null, 'aegis-oath']);
+  assert.deepEqual(createClassProgress(JSON.parse(JSON.stringify(g.classes))), g.classes);
+});
+
+test('legacy and malformed skill slot saves are normalized without losing purchased skills', () => {
+  const g = game();
+  grantDebugSouls(g); activateClass(g, 'warden');
+  for (const path of CLASS_DEFS.warden.paths) for (const node of path.nodes) unlockSkill(g, node.id);
+  const { skillSlots, ...legacy } = g.classes;
+  assert.deepEqual(createClassProgress(legacy).skillSlots.warden, ['unyielding', 'reavers-oath']);
+  assert.deepEqual(createClassProgress({ ...legacy, skillSlots: { warden: ['aegis-oath', 'aegis-oath', 'reavers-oath'] } }).skillSlots.warden, ['aegis-oath', null]);
+  assert.deepEqual(createClassProgress({ ...legacy, skillSlots: { warden: ['ironwall', 'far-sight'] } }).skillSlots.warden, [null, null]);
 });

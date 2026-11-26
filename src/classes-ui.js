@@ -1,5 +1,5 @@
 
-import { CLASS_DEFS, skillBudget, skillCost, SOUL_ITEMS } from './classes.js';
+import { CLASS_DEFS, skillBudget, skillCost, SOUL_ITEMS, SKILL_KEYS, unlockedActiveSkills, equippedSkill } from './classes.js';
 import { STARTER_CLASS_IDS } from './starter-classes.js';
 
 const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -9,6 +9,29 @@ export function createClassesUI(classPanel, treePanel, actions) {
   const summary = classPanel.querySelector('#class-summary');
   const tree = treePanel.querySelector('#skilltree-content');
   let highlighted = null;
+
+  function loadout(progress) {
+    if (!progress.active) return '';
+    const skills = unlockedActiveSkills(progress);
+    return '<section class="skill-loadout" aria-label="Equipped active skills"><div><strong>Active skills</strong><small>Equip up to two unlocked abilities. Passive skills are always active.</small></div>' +
+      SKILL_KEYS.map((key, slot) => {
+        const current = equippedSkill(progress, slot)?.id;
+        return '<label><kbd>' + key + '</kbd><select aria-label="Equip skill in ' + key + '" data-equip-slot="' + slot + '">' +
+          '<option value="">Empty</option>' +
+          skills.map(skill => '<option value="' + escapeHtml(skill.id) + '"' + (skill.id === current ? ' selected' : '') + '>' + escapeHtml(skill.name) + '</option>').join('') +
+          '</select></label>';
+      }).join('') + '</section>';
+  }
+
+  function bindLoadout(container, rerender) {
+    for (const select of container.querySelectorAll('[data-equip-slot]')) {
+      select.addEventListener('change', () => {
+        const error = actions.equipSkill(Number(select.dataset.equipSlot), select.value || null);
+        if (error) actions.notify(error);
+        rerender();
+      });
+    }
+  }
 
   function renderClasses() {
     const progress = actions.getGame().classes;
@@ -32,12 +55,13 @@ export function createClassesUI(classPanel, treePanel, actions) {
         <div class="calling-paths">${def.paths.map((path) => `<span>${path.icon} ${path.name}</span>`).join('')}</div>
         <button type="button" class="calling-choose" data-class="${def.id}" ${current === def.id ? 'disabled' : ''}>${current === def.id ? '✦ Currently attuned' : 'Awaken ' + def.name}</button>
       </article>`;
-    classCards.innerHTML = groups.map((group) => `
+    classCards.innerHTML = loadout(progress) + groups.map((group) => `
       <section class="calling-group" aria-label="${group.heading}">
         <header class="calling-group-heading"><div><span>${group.eyebrow}</span><h3>${group.heading}</h3></div>
         <p>${group.note}</p></header>
         <div class="calling-group-grid">${group.ids.map((id) => card(CLASS_DEFS[id])).join('')}</div>
       </section>`).join('');
+    bindLoadout(classCards, renderClasses);
     for (const button of classCards.querySelectorAll('[data-class]')) button.addEventListener('click', () => {
       const error = actions.chooseClass(button.dataset.class);
       if (error) actions.notify(error);
@@ -100,6 +124,7 @@ export function createClassesUI(classPanel, treePanel, actions) {
           <span>${def.description}</span></div>
         <div class="skilltree-switch"><button type="button" id="skilltree-switch-class">Change class</button></div>
       </header>
+      ${loadout(progress)}
       <div class="soul-ledger" aria-label="Soul balances">
         ${['lesser', 'greater'].map((type) => `<div class="soul-ledger-item ${type}">
           <span class="soul-ledger-glyph">${type === 'lesser' ? '✧' : '✦'}</span><div>
@@ -120,6 +145,7 @@ export function createClassesUI(classPanel, treePanel, actions) {
         <button type="button" id="awaken-skill" class="soul-action" ${!canBuy ? 'disabled' : ''}>${buttonLabel}</button>
       </section>
       <p class="skilltree-footnote">Soul items come from minibosses and bosses. Attuned souls are shared, but each class keeps its build.</p>`;
+    bindLoadout(tree, renderTree);
     tree.querySelector('#skilltree-switch-class').addEventListener('click', actions.openClasses);
     for (const button of tree.querySelectorAll('[data-skill]')) button.addEventListener('click', () => {
       highlighted = button.dataset.skill;

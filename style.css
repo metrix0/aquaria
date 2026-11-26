@@ -540,15 +540,16 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
   position: absolute; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; gap: 7px;
 }
-.hotbar-abilities--ring { right: calc(100% + 7px); }
-.hotbar-abilities--offhand { left: calc(100% + 7px); }
+.hotbar-abilities--equipment { right: calc(100% + 7px); flex-direction: row-reverse; }
+.hotbar-abilities--skills { left: calc(100% + 7px); }
 @media (max-width: 670px) {
-  .inventory { --hotbar-slot-width: clamp(25px, 8vw, 44px); }
+  .inventory { --hotbar-slot-width: clamp(20px, 8vw, 44px); }
   .inventory .slots { padding: 4px; }
   .inventory .slot { height: clamp(35px, 11vw, 44px); }
-  .hotbar-abilities--ring { right: calc(100% + 4px); }
-  .hotbar-abilities--offhand { left: calc(100% + 4px); }
-  .inventory .hotbar-abilities .slot { width: clamp(29px, 8.8vw, 44px); }
+  .hotbar-abilities { gap: 3px; }
+  .hotbar-abilities--equipment { right: calc(100% + 4px); }
+  .hotbar-abilities--skills { left: calc(100% + 4px); }
+  .inventory .hotbar-abilities .slot { width: var(--hotbar-slot-width); }
 }
 .hook-skill { border-color: #6b8896; background: #1c313b; }
 .item-grappling-hook {
@@ -588,7 +589,12 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 
 .warden-skills { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:4px; font:11px var(--mono); }
 .warden-skills[hidden], .warden-skills [hidden] { display:none; }
-.warden-skills button { padding:3px 6px; min-height:28px; font-size:11px; }
-.warden-skills button.active { color:var(--gold); border-color:var(--gold); opacity:1; }
+.class-skill { background: #252c43; border-color: #8879ac; color: #e4d5ff; }
+.class-skill > span { font: 22px/1 Georgia, serif; }
+.class-skill:disabled > span { opacity: .45; }
+.class-skill.active { color: var(--gold); border-color: var(--gold); }
+.class-skill b { background: #111c28e6; border-radius: 2px; padding: 0 2px; }
+.class-skill b:empty { display: none; }
+@media(max-width: 400px) { .class-skill > span { font-size: 16px; } .inventory .slot kbd { left: 2px; top: 2px; } .class-skill b { right: 1px; font-size: 9px; } }
 #warden-brace { color:var(--gold); align-self:center; }
 #health-fill.bloodrush { filter:hue-rotate(calc(-1 * var(--rage-hue, 0deg))) saturate(1.7); }

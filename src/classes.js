@@ -76,6 +76,41 @@ export const CLASS_DEFS = Object.freeze({
   },
 });
 
+export const SKILL_KEYS = ['Q', 'R'];
+const CASTABLE_SKILLS = new Set(['shieldRush', 'rage', 'aegisAura', 'horizonShot', 'counter', 'huntersMark']);
+
+export function unlockedActiveSkills(progress, classId = progress?.active) {
+  const nodes = CLASS_DEFS[classId]?.paths.flatMap(path => path.nodes) ?? [];
+  return nodes.filter(node => progress?.builds?.[classId]?.includes(node.id))
+    .map(node => ({ ...node, ability: Object.keys(node.effect).find(key => CASTABLE_SKILLS.has(key)) }))
+    .filter(node => node.ability);
+}
+
+export function equippedSkill(progress, slot) {
+  const classId = progress?.active;
+  const id = progress?.skillSlots?.[classId]?.[slot];
+  if (!id || !progress.builds[classId]?.includes(id)) return null;
+  for (const path of CLASS_DEFS[classId]?.paths ?? []) {
+    const node = path.nodes.find(node => node.id === id);
+    if (node) {
+      const ability = Object.keys(node.effect).find(key => CASTABLE_SKILLS.has(key));
+      return ability ? { ...node, ability } : null;
+    }
+  }
+  return null;
+}
+
+export function equipSkill(game, slot, id) {
+  const progress = game.classes, classId = progress.active;
+  if (!CLASS_DEFS[classId] || (slot !== 0 && slot !== 1)) return 'Invalid skill slot.';
+  if (id != null && !unlockedActiveSkills(progress).some(node => node.id === id)) return 'Unlock an active skill first.';
+  const slots = progress.skillSlots[classId], other = 1 - slot;
+  if (id != null && slots[other] === id) slots[other] = slots[slot];
+  slots[slot] = id ?? null;
+  game.dirty = true;
+  return null;
+}
+
 const MAX_SAVED_SOULS = 100000;
 const emptyBuilds = () => Object.fromEntries(Object.keys(CLASS_DEFS).map((id) => [id, []]));
 export function createClassProgress(saved) {
@@ -102,7 +137,21 @@ export function createClassProgress(saved) {
   const claimed = Array.isArray(saved?.claimed)
     ? [...new Set(saved.claimed.filter((id) => typeof id === 'string' && id.length <= 120))].slice(0, 5000)
     : [];
-  return { active: Object.hasOwn(CLASS_DEFS, saved?.active) ? saved.active : null, total, builds, claimed };
+  const skillSlots = {};
+  for (const id of Object.keys(CLASS_DEFS)) {
+    const allowed = unlockedActiveSkills({ builds }, id).map(node => node.id);
+    const stored = saved?.skillSlots?.[id];
+    // Legacy builds retain up to two of their unlocked active abilities.
+    const slots = Array.isArray(stored) ? stored : allowed;
+    const seen = new Set();
+    skillSlots[id] = SKILL_KEYS.map((_, index) => {
+      const skill = slots[index];
+      if (!allowed.includes(skill) || seen.has(skill)) return null;
+      seen.add(skill);
+      return skill;
+    });
+  }
+  return { active: Object.hasOwn(CLASS_DEFS, saved?.active) ? saved.active : null, total, builds, claimed, skillSlots };
 }
 export function skillCost(skill) { return skill.major ? { lesser: 2, greater: 1 } : { lesser: 1, greater: 0 }; }
 export function skillBudget(progress, classId = progress.active) {
@@ -172,6 +221,9 @@ export function unlockSkill(game, id) {
   if (balance.lesser < cost.lesser || balance.greater < cost.greater) return 'Not enough attuned souls.';
   const previousWard = game.player.skillBonuses?.ward ?? 0;
   progress.builds[def.id].push(id);
+  const slots = progress.skillSlots[def.id];
+  const free = slots.indexOf(null);
+  if (free !== -1 && unlockedActiveSkills(progress).some(node => node.id === id)) slots[free] = id;
   game.player.skillBonuses = skillBonuses(progress);
   game.player.wardShield = Math.min(game.player.skillBonuses.ward,
     (game.player.wardShield || 0) + Math.max(0, game.player.skillBonuses.ward - previousWard));

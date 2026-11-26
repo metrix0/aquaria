@@ -8,9 +8,9 @@ import { strikeMob, skillAttackDamage } from './class-effects.js';
 import { wardenAttackBlocked } from './warden.js';
 
 export const WAYFARER_SKILLS = [
-  { id:'horizonShot', name:'Horizon Shot', key:'Q', timer:'beamTime', cooldown:20 },
-  { id:'counter', name:'Counterstance', key:'R', timer:'counterTime', cooldown:20 },
-  { id:'huntersMark', name:'Hunter Mark', key:'T', timer:'markArmed', cooldown:25 },
+  { id:'horizonShot', name:'Horizon Shot', timer:'beamTime', cooldown:20 },
+  { id:'counter', name:'Counterstance', timer:'counterTime', cooldown:20 },
+  { id:'huntersMark', name:'Hunter Mark', timer:'markArmed', cooldown:25 },
 ];
 
 export function screenRange(x,y,dx,dy,camera) {

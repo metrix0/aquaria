@@ -1,7 +1,7 @@
 import { nearestDowned } from './gameplay/revival.js';
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
-import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls } from './classes.js';
+import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls, equipSkill, equippedSkill } from './classes.js';
 import { ARROW, BOW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
@@ -322,6 +322,11 @@ const ui = createUI({
     if (!error) storeProgress();
     return error;
   },
+  equipSkill(slot, id) {
+    const error = equipSkill(game, slot, id);
+    if (!error) storeProgress();
+    return error;
+  },
   grantDebugSouls() {
     grantDebugSouls(game);
     storeProgress();
@@ -442,11 +447,13 @@ const input = bindInput(canvas, camera, {
     if (!editPending) ui.open('backpack-panel', chest);
     return true;
   },
-  castWarden(id) {
+  castSkill(slot) {
     if (game.player.downed || editPending) return;
+    const skill = equippedSkill(game.classes, slot);
+    if (!skill) return;
+    const resolved = skill.ability;
     const pointer = input.pointer;
     const wayfarer = game.classes.active === 'wayfarer';
-    const resolved = wayfarer ? ({ shieldRush:'horizonShot', rage:'counter', aegisAura:'huntersMark' }[id] ?? id) : id;
     const error = wayfarer
       ? useWayfarerSkill(game, resolved, selected, pointer.active ? pointer.x+camera.x : game.player.x+game.player.facing*100, pointer.active ? pointer.y+camera.y : game.player.y+game.player.height/2, camera)
       : useWardenSkill(game, resolved);

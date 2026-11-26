@@ -69,9 +69,8 @@ export function bindInput(canvas, camera, actions) {
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
-    if (code === 'KeyQ') actions.castWarden?.('shieldRush');
-    if (code === 'KeyR') actions.castWarden?.('rage');
-    if (code === 'KeyT') actions.castWarden?.('aegisAura');
+    if (code === 'KeyQ') actions.castSkill?.(0);
+    if (code === 'KeyR') actions.castSkill?.(1);
     if (/^Digit[1-6]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
   });
   window.addEventListener('keyup', ({ code }) => keys.delete(code));
@@ -144,8 +143,8 @@ export function bindInput(canvas, camera, actions) {
       button.addEventListener(event, () => keys.delete(key));
     }
   }
-  for (const button of document.querySelectorAll('[data-warden-skill]')) {
-    button.addEventListener('click', () => { if (!actions.blocked()) actions.castWarden?.(button.dataset.wardenSkill); });
+  for (const button of document.querySelectorAll('[data-skill-slot]')) {
+    button.addEventListener('click', () => { if (!actions.blocked()) actions.castSkill?.(Number(button.dataset.skillSlot)); });
   }
   const grab = document.getElementById('grab');
   grab.addEventListener('pointerdown', event => { grab.setPointerCapture(event.pointerId); keys.add('KeyE'); });
@@ -154,9 +153,16 @@ export function bindInput(canvas, camera, actions) {
   document.getElementById('cast-ring').addEventListener('click', () => {
     if (!actions.blocked()) actions.castRing();
   });
-  document.getElementById('use-hook')?.addEventListener('click', () => {
-    if (!actions.blocked()) actions.useHook?.();
+  const offhand = document.getElementById('use-hook');
+  offhand?.addEventListener('pointerdown', event => {
+    if (actions.blocked()) return;
+    offhand.setPointerCapture(event.pointerId);
+    keys.add('KeyE');
   });
+  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    offhand?.addEventListener(event, () => keys.delete('KeyE'));
+  }
+  offhand?.addEventListener('click', () => { if (!actions.blocked()) actions.interact(); });
   document.getElementById('touch-mode').addEventListener('click', (event) => {
     stopMining();
     placing = !placing;

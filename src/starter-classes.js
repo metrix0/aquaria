@@ -13,17 +13,17 @@ export const STARTER_CLASSES = Object.freeze({
       branch('defender', 'Defender', '⬡', 'Hold the line when danger closes in.', [
         star("shield-discipline", "Shield Discipline", "Take 10% less incoming damage.", {"resist":0.1,"wardenResistance":1}),
         star("ironwall", "Ironwall", "Hold S on land instead of crouching. After 1.5s, take 50% less damage until released. Cannot attack while bracing.", {"brace":1}),
-        star("unyielding", "Shield Rush", "Q: With a shield equipped, rush forward invulnerably and knock enemies back. 18s cooldown.", {"shieldRush":1}, true),
+        star("unyielding", "Shield Rush", "With a shield equipped, rush forward invulnerably and knock enemies back. 18s cooldown.", {"shieldRush":1}, true),
       ]),
       branch('berserker', 'Berserker', '⚔', 'Make desperation your greatest strength.', [
         star("battle-temper", "Battle Temper", "Below 50% health, take 20% less damage.", {"desperateResist":0.2}),
         star("bloodrush", "Bloodrush", "Deal up to 100% extra weapon damage as health falls. Your health bar changes color.", {"missingHealthAttack":1}),
-        star("reavers-oath", "Rage", "R: For 8s, recover 30% of weapon damage dealt as health. 25s cooldown.", {"rage":1}, true),
+        star("reavers-oath", "Rage", "For 8s, recover 30% of weapon damage dealt as health. 25s cooldown.", {"rage":1}, true),
       ]),
       branch('protector', 'Protector', '◈', 'Forge exceptional armor and protect nearby allies.', [
         star("watchers-ward", "Perfect Forge", "Crafted breastplates have a 10% chance to become Perfect Armor (+5 percentage points of protection).", {"perfectArmor":0.1}),
         star("sanctuary-guard", "Guardian Cry", "When a nearby ally is injured, cry out and draw nearby enemies toward you. 20s cooldown.", {"guardianCry":1}),
-        star("aegis-oath", "Aegis Aura", "T: Project a shield in your facing direction for 8s. Nearby allies behind it take 30% less damage. 25s cooldown.", {"aegisAura":1}, true),
+        star("aegis-oath", "Aegis Aura", "Project a shield in your facing direction for 8s. Nearby allies behind it take 30% less damage. 25s cooldown.", {"aegisAura":1}, true),
       ]),
     ],
   },
@@ -35,17 +35,17 @@ export const STARTER_CLASSES = Object.freeze({
       branch('marksman', 'Marksman', '➶', 'Turn every arrow into a deliberate strike.', [
         star("sharpened-eye", "Quickdraw", "Arrows fly 25% faster and bows reload 15% faster.", {"arrowSpeed":0.25,"bowCooldown":0.15}),
         star("quickdraw", "Overdraw", "Hold a fully drawn arrow for one extra second: 25% more speed and pierce one enemy.", {"extraDraw":1}),
-        star("splitting-arrow", "Horizon Shot", "Q: Fire an instant wide shot to the screen edge. Damage increases with distance. Requires a bow. 20s cooldown.", {"horizonShot":1}, true),
+        star("splitting-arrow", "Horizon Shot", "Fire an instant wide shot to the screen edge. Damage increases with distance. Requires a bow. 20s cooldown.", {"horizonShot":1}, true),
       ]),
       branch('trapper', 'Martial Adept', '⟐', 'Master melee weapons, build heat, and counter incoming attacks.', [
         star("snareshot", "Weapon Mastery", "Melee weapons deal 10% more damage.", {"meleePower":0.1}),
         star("barbed-trail", "Heat", "Melee damage dealt within 5s grants up to 30% extra melee damage.", {"heat":1}),
-        star("master-snare", "Counterstance", "R: Enter a counter stance for 3s. Taking damage triggers a powerful melee strike. 20s cooldown.", {"counter":1}, true),
+        star("master-snare", "Counterstance", "Enter a counter stance for 3s. Taking damage triggers a powerful melee strike. 20s cooldown.", {"counter":1}, true),
       ]),
       branch('pathfinder', 'Pathfinder', '✧', 'Know the ground before it knows you.', [
         star("trailrunner", "Perfect Forge", "Crafted weapons have a 10% chance to deal 15% more damage.", {"perfectWeapon":0.1}),
         star("safe-footing", "Safe Landing", "Take 85% less fall damage. Hold S on the ground to catch nearby falling allies, reducing their fall damage by 70%.", {"fall":0.85,"catchAlly":1}),
-        star("far-sight", "Hunter Mark", "T: Mark the next enemy you damage for 12s. It takes 10% more damage from all sources. 25s cooldown.", {"huntersMark":1}, true),
+        star("far-sight", "Hunter Mark", "Mark the next enemy you damage for 12s. It takes 10% more damage from all sources. 25s cooldown.", {"huntersMark":1}, true),
       ]),
     ],
   },

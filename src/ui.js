@@ -12,7 +12,7 @@ import { createDropsUI } from './drops-ui.js';
 import { createClassesUI } from './classes-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
-import { hasHook } from './gameplay/hook.js';
+import { equippedSkill, SKILL_KEYS } from './classes.js';
 import { WARDEN_SKILLS } from './gameplay/warden.js';
 import { WAYFARER_SKILLS } from './gameplay/wayfarer.js';
 import { BOW } from './content.js';
@@ -61,7 +61,9 @@ export function createUI(actions, version) {
   // Reuse the inventory's actual grappling-hook sprite instead of the obsolete CSS glyph.
   setItemIcon(hookSlot.querySelector('span'), GRAPPLING_HOOK.id);
   const wardenSkills = byId('warden-skills');
-  const wardenButtons = [...wardenSkills.querySelectorAll('[data-warden-skill]')];
+  const skillButtons = [...document.querySelectorAll('[data-skill-slot]')];
+  const skillDefs = [...WARDEN_SKILLS, ...WAYFARER_SKILLS];
+  const skillGlyphs = { shieldRush: '\u26e8', rage: '\u2694', aegisAura: '\u2727', horizonShot: '\u27b6', counter: '\u21c4', huntersMark: '\u25ce' };
   const braceLabel = byId('warden-brace');
   const statusEffects = byId('status-effects');
   const statusTooltip = byId('status-tooltip');
@@ -162,8 +164,17 @@ export function createUI(actions, version) {
     renderStatusTooltip();
   }
 
-  function updateHook(game) {
-    if (hookSlot) hookSlot.hidden = !hasHook(game);
+  function updateHook() {
+    const item = actions.getOffhand();
+    hookSlot.hidden = !item;
+    if (!item) return;
+    if (hookSlot.dataset.item !== item.id) {
+      hookSlot.dataset.item = item.id;
+      setItemIcon(hookSlot.querySelector('span'), item.id);
+      const label = item.id === GRAPPLING_HOOK.id ? 'Grappling Hook / Interact' : item.name + ' (passive) / Interact';
+      hookSlot.setAttribute('aria-label', label);
+      hookSlot.title = label;
+    }
   }
 
   function updateRing(game) {
@@ -328,7 +339,7 @@ export function createUI(actions, version) {
     },
     update(game, conditions) {
       updateRing(game);
-      updateHook(game);
+      updateHook();
       updateStatusEffects(game);
        const health = Math.round(game.player.health / MAX_HEALTH * 100);
       const healthValue = health + '%';
@@ -355,16 +366,23 @@ export function createUI(actions, version) {
       fields['health-fill'].classList.toggle('bloodrush', bloodrush);
       if (bloodrush) { const hue = String(Math.round((100 - health) * .38)) + 'deg'; if (fields['health-fill'].style.getPropertyValue('--rage-hue') !== hue) fields['health-fill'].style.setProperty('--rage-hue', hue); }
       let visible = false;
-      for (const [index, skill] of [...WARDEN_SKILLS,...WAYFARER_SKILLS].entries()) {
-        const button = wardenButtons[index];
-        const unlocked = Boolean(player.skillBonuses?.[skill.id]);
-        button.hidden = !unlocked;
-        if (!unlocked) continue;
-        visible = true;
+      for (const [index, button] of skillButtons.entries()) {
+        const node = equippedSkill(game.classes, index);
+        const skill = node && skillDefs.find(def => def.id === node.ability);
+        button.hidden = !skill;
+        if (!skill) continue;
         const cd = Math.ceil(player.wardenCooldowns?.[skill.id] || 0);
         const active = Math.ceil(player[skill.timer] || 0);
-        const text = skill.key + ' ' + skill.name + (skill.id === 'huntersMark' && active ? ' Armed' : active ? ' ' + active + 's' : cd ? ' ' + cd + 's' : '');
-        if (button.textContent !== text) button.textContent = text;
+        const glyph = button.querySelector('span'), timer = button.querySelector('b');
+        const symbol = skillGlyphs[skill.id] ?? node.name.slice(0, 1);
+        const text = skill.id === 'huntersMark' && active ? '!' : active ? active + 's' : cd ? cd + 's' : '';
+        const label = SKILL_KEYS[index] + ' ' + node.name + (text ? ' (' + text + ')' : '');
+        if (glyph.textContent !== symbol) glyph.textContent = symbol;
+        if (timer.textContent !== text) timer.textContent = text;
+        if (button.getAttribute('aria-label') !== label) {
+          button.setAttribute('aria-label', label);
+          button.title = label;
+        }
         button.disabled = Boolean(cd);
         button.classList.toggle('active', Boolean(active));
       }

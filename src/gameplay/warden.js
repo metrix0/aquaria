@@ -5,9 +5,9 @@ import { wakeMimic } from './enemies/mimic.js';
 import { TILE } from '../world/generation.js';
 
 export const WARDEN_SKILLS = [
-  { id: 'shieldRush', name: 'Shield Rush', key: 'Q', timer: 'rushTime', cooldown: 18, duration: .65 },
-  { id: 'rage', name: 'Rage', key: 'R', timer: 'rageTime', cooldown: 25, duration: 8 },
-  { id: 'aegisAura', name: 'Aegis Aura', key: 'T', timer: 'aegisTime', cooldown: 25, duration: 8 },
+  { id: 'shieldRush', name: 'Shield Rush', timer: 'rushTime', cooldown: 18, duration: .65 },
+  { id: 'rage', name: 'Rage', timer: 'rageTime', cooldown: 25, duration: 8 },
+  { id: 'aegisAura', name: 'Aegis Aura', timer: 'aegisTime', cooldown: 25, duration: 8 },
 ];
 
 export const wardenAttackBlocked = p => Boolean(p.bracing || p.rushTime > 0);
