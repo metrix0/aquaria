@@ -176,6 +176,7 @@ export function bindInput(canvas, camera, actions) {
     stopMining,
     holdingMine: () => miningPointer !== null,
     holdingInteract: () => keys.has('KeyE'),
+    holdingDown: () => movement.down.some(code => keys.has(code)),
     sample() {
       const controls = { jump };
       for (const [direction, codes] of Object.entries(movement)) controls[direction] = codes.some((code) => keys.has(code));

@@ -9,7 +9,7 @@ import { wakeMimic } from './gameplay/enemies/mimic.js';
 import { targetMobAt } from './gameplay/mobs.js';
 import { spawnEnemyNear } from './gameplay/enemy-spawner.js';
 import { createScreenShake } from './gameplay/screen-shake.js';
-import { PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
+import { CRAWL_HEIGHT, PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
 import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
@@ -33,7 +33,7 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const newAppearance = consumeNewGame();
 const arrival = newAppearance ? createIslandReveal(reducedMotion) : null;
 const available = Boolean(config.url && config.publishableKey);
-const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0 };
+const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0, crawlSeconds: 0 };
 const particles = [];
 const drowningWarningSeconds = 5;
 const screenShake = createScreenShake();
@@ -266,7 +266,7 @@ function switchView() {
   particles.length = 0;
   screenShake.clear();
   select(0);
-  resetSwimFraming();
+  resetCameraFraming();
   updateCamera(0, true);
 }
 
@@ -545,9 +545,10 @@ const input = bindInput(canvas, camera, {
   pause: () => { if (!game.player.downed) ui.open('pause-panel'); },
 });
 
-function resetSwimFraming() {
+function resetCameraFraming() {
   camera.swimSeconds = 0;
   camera.swimBlend = 0;
+  camera.crawlSeconds = 0;
 }
 
 function updateCamera(dt, snap = false) {
@@ -568,7 +569,11 @@ function updateCamera(dt, snap = false) {
   const standingY = player.y + player.height - PLAYER_SIZE.height;
   const centeredY = standingY + PLAYER_SIZE.height / 2 - camera.height / 2;
   const underwaterY = standingY - camera.height * 0.28;
-  const targetY = centeredY + (underwaterY - centeredY) * camera.swimBlend;
+  const crawling = input.holdingDown() && player.grounded && player.height === CRAWL_HEIGHT &&
+    !player.downed && !player.flightOrigin && !player.climb && !swimming;
+  camera.crawlSeconds = crawling ? Math.min(2, camera.crawlSeconds + dt) : 0;
+  const crawlOffset = camera.crawlSeconds >= 2 ? camera.height * 0.25 : 0;
+  const targetY = centeredY + (underwaterY - centeredY) * camera.swimBlend + crawlOffset;
   const y = clamp(targetY, 0, Math.max(0, ROWS * TILE - camera.height));
   const factor = snap || reducedMotion ? 1 : Math.min(1, dt * 5);
   camera.x += (x - camera.x) * factor;
@@ -668,7 +673,10 @@ function frame(now) {
   const worldTime = room?.worldAge(now) ?? game.worldTime;
   const conditions = worldConditions(worldTime, game.weatherSeed, WEATHER_MODES[weatherModeIndex].id);
   let shake = { x: 0, y: 0 };
-  if (!playing) game.bowDraw = null;
+  if (!playing) {
+    game.bowDraw = null;
+    camera.crawlSeconds = 0;
+  }
   if (playing) {
     if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     time += dt;
@@ -698,7 +706,7 @@ function frame(now) {
       if (game.player !== previousPlayer) {
         input.stopMining();
         miningSwing = null;
-        resetSwimFraming();
+        resetCameraFraming();
       }
       if (note) showAndSave(note);
       accumulator -= timestep;
