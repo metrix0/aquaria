@@ -9,7 +9,7 @@ import { skillAttackDamage, strikeMob, stepClassEffects } from '../src/gameplay/
 import { KELP_DRESSING } from '../src/content.js';
 import { STARTER_CLASS_IDS } from '../src/starter-classes.js';
 import { encodeSave, decodeSave } from '../src/save.js';
-import { absorbSouls, activateClass, CLASS_DEFS, createClassProgress, skillBonuses, skillBudget, unlockSkill } from '../src/classes.js';
+import { absorbSouls, activateClass, CLASS_DEFS, createClassProgress, grantDebugSouls, skillBonuses, skillBudget, unlockSkill } from '../src/classes.js';
 
 function game() {
   return { inventory: new Inventory(), classes: createClassProgress(), player: { skillBonuses: {} }, dirty: false };
@@ -37,6 +37,19 @@ test('souls cannot be used without a class; attunement consumes physical items',
   assert.equal(absorbSouls(state, 'greater'), null);
   assert.equal(state.inventory.count('lesser-soul'), 0);
   assert.deepEqual(state.classes.total, { lesser: 5, greater: 1 });
+});
+test('debug soul grant refills both shared balances and survives restoration', () => {
+  const state = game();
+  grantDebugSouls(state);
+  assert.deepEqual(state.classes.total, { lesser: 100000, greater: 100000 });
+  assert.equal(state.dirty, true);
+  activateClass(state, 'warden');
+  for (const path of CLASS_DEFS.warden.paths) for (const skill of path.nodes) {
+    assert.equal(unlockSkill(state, skill.id), null);
+  }
+  grantDebugSouls(state);
+  assert.deepEqual(createClassProgress(state.classes), state.classes);
+  assert.equal(state.classes.builds.warden.length, 9);
 });
 test('progression requires previous lesser stars and both soul types for milestones', () => {
   const state = game();

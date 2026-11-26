@@ -220,6 +220,7 @@ export function createUI(actions, version) {
   byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('classes').addEventListener('click', () => open('classes-panel'));
   byId('skilltree').addEventListener('click', () => open('skilltree-panel'));
+  byId('debug-souls').addEventListener('click', actions.grantDebugSouls);
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
   byId('resume').addEventListener('click', () => byId('pause-panel').close());

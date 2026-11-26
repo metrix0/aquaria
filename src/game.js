@@ -1,6 +1,6 @@
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
-import { activateClass, unlockSkill as purchaseSkill, absorbSouls } from './classes.js';
+import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls } from './classes.js';
 import { ARROW, BOW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
@@ -320,6 +320,11 @@ const ui = createUI({
     const error = purchaseSkill(game, id);
     if (!error) storeProgress();
     return error;
+  },
+  grantDebugSouls() {
+    grantDebugSouls(game);
+    storeProgress();
+    ui.notify("Lesser and Greater Souls refilled.");
   },
   absorbSoul(type, quantity) {
     const error = absorbSouls(game, type, quantity);

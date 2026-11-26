@@ -76,12 +76,13 @@ export const CLASS_DEFS = Object.freeze({
   },
 });
 
+const MAX_SAVED_SOULS = 100000;
 const emptyBuilds = () => Object.fromEntries(Object.keys(CLASS_DEFS).map((id) => [id, []]));
 export function createClassProgress(saved) {
   const total = {};
   for (const type of ['lesser', 'greater']) {
     const n = saved?.total?.[type];
-    total[type] = Number.isSafeInteger(n) && n >= 0 ? Math.min(n, 100000) : 0;
+    total[type] = Number.isSafeInteger(n) && n >= 0 ? Math.min(n, MAX_SAVED_SOULS) : 0;
   }
   const builds = emptyBuilds();
   for (const [id, def] of Object.entries(CLASS_DEFS)) {
@@ -177,6 +178,13 @@ export function unlockSkill(game, id) {
   game.dirty = true;
   return null;
 }
+export function grantDebugSouls(game) {
+  for (const type of ["lesser", "greater"]) {
+    game.classes.total[type] = Math.max(game.classes.total[type], MAX_SAVED_SOULS);
+  }
+  game.dirty = true;
+}
+
 export function absorbSouls(game, type, amount = 1) {
   if (!game.classes.active) return 'Awaken a class before using souls.';
   const id = SOUL_ITEMS[type];
