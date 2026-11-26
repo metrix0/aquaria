@@ -998,9 +998,9 @@ test('kelp is mined from its stalk or its supporting block and stays harvested o
   const stalk = targetTile(game, x, y);
   const root = targetTile(game, x, (ty + .5) * TILE);
   assert.equal(nearestItem(game), undefined);
-  const mining = advanceMining(game, stalk, null, 0.15);
+  const mining = advanceMining(game, stalk, null, 0.6);
   const tip = targetTile(game, x + 9, y - TILE);
-  const finish = advanceMining(game, tip, mining, 0.15);
+  const finish = advanceMining(game, tip, mining, 0.6);
   assert.ok(finish.progress >= 1);
   commitTileAction(game, finish.action);
   assert.equal(game.inventory.count('kelp'), 1);

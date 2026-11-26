@@ -903,7 +903,8 @@ export function advanceMining(game, target, current, dt, slot = 0) {
     (fixture || (current.tx === tx && current.ty === ty && current.material === before));
   const duration = (tier ? rule.pickaxe * (ITEMS[tool].miningTime ?? 1) : rule.hand) *
     (equippedAddon(game, 'hands')?.miningSpeed ? 1 - equippedAddon(game, 'hands').miningSpeed : 1) *
-    (1 - (game.player.skillBonuses?.mine ?? 0));
+    (1 - (game.player.skillBonuses?.mine ?? 0)) *
+    (playerInWater(game.world, game.player) ? 4 : 1);
   const progress = (same ? current.progress : 0) + dt / duration;
   return { tx, ty, material: before, duration, progress, action, tier, tool };
 }

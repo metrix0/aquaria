@@ -151,7 +151,7 @@ test('ore mining requires an open face, including naturally flooded space', () =
   editTile(game.world, column - 1, row, MATERIAL.air);
   assert.equal(waterTileAt(game.world, column - 1, row), true);
   assert.equal(hasOpenFace(game.world, column, row, game.player), true);
-  assert.ok(advanceMining(game, target, null, 1).progress >= 1);
+  assert.ok(advanceMining(game, target, null, 4).progress >= 1);
 });
 
 
