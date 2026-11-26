@@ -3,6 +3,7 @@ import { ROOT_GROVE } from "./island-cave.js";
 import { JUNGLE_CAVE } from "./jungle-cave.js";
 import { hasBackgroundWall } from "./atmosphere.js";
 import { jungleVillageStructures } from "./jungle-village.js";
+import { waterTempleBraziers } from "./water-temple.js";
 import {
   editedTiles,
   hasOpenFace,
@@ -117,6 +118,37 @@ export const FIREPLACE_LIGHT = Object.freeze({
   radius: TILE * 6,
   alpha: 0.3,
 });
+
+export const WATER_TEMPLE_LIGHT = Object.freeze({
+  level: 46,
+  r: 78,
+  g: 226,
+  b: 212,
+  color: "#4ee2d4",
+  offsetX: 0,
+  offsetY: -18,
+  radius: TILE * 5,
+  alpha: 0.28,
+});
+
+/** Enumerate aqua brazier lights illuminating the sunken Water Temple sanctuary and big door. */
+export function waterTempleLightSources(world, time = 0) {
+  if (!world) return [];
+  const sources = [];
+  for (const { column, floor, main } of waterTempleBraziers) {
+    const tx = column + WEST_EXTENSION;
+    const ty = floor - 1;
+    if (!tileAt(world, tx, floor) || tileAt(world, tx, ty)) continue;
+    const base = main ? WATER_TEMPLE_LIGHT : { ...WATER_TEMPLE_LIGHT, level: 34, radius: TILE * 3.5, alpha: 0.22 };
+    sources.push({
+      tx,
+      ty,
+      floor,
+      emitter: time ? withTorchFlicker(base, { tx, floor }, time * 0.5) : base,
+    });
+  }
+  return sources;
+}
 
 /** Describe emitted cave light color and halo metadata for a cave structure. */
 export function caveStructureLight(structure, time = 0) {
@@ -431,6 +463,15 @@ export function createUndergroundLight() {
         }
       }
       propagateColoredLight(world, player, startIndex, fire.emitter, true);
+    }
+
+    for (const brazier of waterTempleLightSources(world, time)) {
+      const x = brazier.tx - left;
+      const y = brazier.ty - top;
+      if (x < 0 || x >= width || y < 0 || y >= height || isSolid(world, player, y * width + x)) continue;
+      const startIndex = y * width + x;
+      lightCell(startIndex, brazier.emitter.level);
+      propagateColoredLight(world, player, startIndex, brazier.emitter);
     }
 
     for (const [dx, rise] of [

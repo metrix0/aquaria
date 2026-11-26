@@ -3,11 +3,13 @@ import { COLS, ROWS, groundAt } from "./generation.js";
 
 export {
   FIREPLACE_LIGHT,
+  WATER_TEMPLE_LIGHT,
   caveAmbientAt,
   caveStructureLight,
   createUndergroundLight,
   createUndergroundLight as createCaveLight,
   fireplaceLightSources,
+  waterTempleLightSources,
   undergroundAmbientAt,
 } from "./underground-lighting.js";
 

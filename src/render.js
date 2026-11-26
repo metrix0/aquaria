@@ -49,6 +49,7 @@ import {
   noise,
 } from "./world/generation.js";
 import { createShipwreckArt } from "./shipwreck-art.js";
+import { createWaterTempleArt } from "./water-temple-art.js";
 import { birdFlightAt } from "./world/birds.js";
 import { HELMET_WRECK_COLUMN } from "./world/shipwreck.js";
 import { createSurfaceLight } from "./world/lighting.js";
@@ -56,6 +57,7 @@ import {
   caveStructureLight,
   createUndergroundLight as createCaveLight,
   fireplaceLightSources,
+  waterTempleLightSources,
   undergroundAmbientAt,
 } from "./world/underground-lighting.js";
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
@@ -283,6 +285,7 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d", { alpha: false });
   const drawCharacter = createCharacterRenderer(ctx);
   const shipwreckArt = createShipwreckArt(canvas, ctx);
+  const waterTempleArt = createWaterTempleArt(ctx);
   const helmetWreckArt = createHelmetWreckArt(canvas, ctx);
   const glowCoral = makeGlowCoral();
   const caveLight = createCaveLight();
@@ -1640,7 +1643,8 @@ export function createRenderer(canvas) {
     const lightTime = overview || reducedMotion ? 0 : time;
     const structures = world.caveStructures ?? [];
     const fireplaces = fireplaceLightSources(world, lightTime);
-    if (!structures.length && !fireplaces.length) return;
+    const braziers = waterTempleLightSources(world, lightTime);
+    if (!structures.length && !fireplaces.length && !braziers.length) return;
     const margin = 8;
     const drawStructureGlow = (tx, floor, emitter) => {
       if (
@@ -1692,6 +1696,9 @@ export function createRenderer(canvas) {
     }
     for (const fire of fireplaces) {
       drawStructureGlow(fire.tx, fire.floor, fire.emitter);
+    }
+    for (const brazier of braziers) {
+      drawStructureGlow(brazier.tx, brazier.floor, brazier.emitter);
     }
     ctx.restore();
   }
@@ -1970,6 +1977,7 @@ export function createRenderer(canvas) {
   function terrain(world, player, camera, time, bounds, openChestId, overview) {
     const { left, right, top, bottom } = bounds;
     shipwreckArt.backdrop(world, bounds);
+    waterTempleArt.backdrop(world, bounds, time, overview);
     helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
       for (let y = top; y < bottom; y++) {
@@ -1998,7 +2006,7 @@ export function createRenderer(canvas) {
             if (!overview) coral(x * TILE + 8, y * TILE + 15, x * 197 + y);
             continue;
           }
-          if (overview || !shipwreckArt.timber(world, x, y, material))
+          if (overview || (!shipwreckArt.timber(world, x, y, material) && !waterTempleArt.masonry(world, x, y, material, overview)))
             drawTile(world, x, y, material, oreOpacity, overview, time);
           if (ore && !overview && (player.addons?.chest === 'prospectors-brooch' || (player.skillBonuses?.ore ?? 0) > 0) &&
               Math.hypot(x + .5 - player.x / TILE,

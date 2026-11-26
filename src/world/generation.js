@@ -2,6 +2,7 @@ import { EAST_SHIFT, WEST_GROWTH, MERMAIDS } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
+import { placeWaterTemple, protectsWaterTemple, waterTempleFloor } from './water-temple.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
 import { createWildChest } from './wild-chest.js';
@@ -66,7 +67,8 @@ function islandSurface(x) {
 function oceanFloor(x) {
   if (x < -108) {
     const distance = -108 - x;
-    return Math.round(63 + 52 * Math.min(1, distance / (WEST_GROWTH * 110 / 128)) + Math.sin(distance * .12) * 3 * Math.min(1, distance / 12));
+    const natural = Math.round(63 + 52 * Math.min(1, distance / (WEST_GROWTH * 110 / 128)) + Math.sin(distance * .12) * 3 * Math.min(1, distance / 12));
+    return waterTempleFloor(x, natural);
   }
   if (x >= 150 && x < ORIGINAL_COLS + EAST_SHIFT) {
     const t = (x - 150) / (ORIGINAL_COLS + EAST_SHIFT - 150);
@@ -442,7 +444,7 @@ function isEntranceZone(tx, ty) {
 }
 
 function isProtectedCave(x, y) {
-  return protectsIslandCave(x, y) || protectsJungleCave(x, y);
+  return protectsIslandCave(x, y) || protectsJungleCave(x, y) || protectsWaterTemple(x, y);
 }
 
 function isCarvedAt(tx, ty) {
@@ -705,6 +707,7 @@ export function generateChunk(left, top, size) {
       if (isDeepstoneAt(x, y) && get(x, y) === MATERIAL.stone) set(x, y, MATERIAL.deepstone);
     }
   }
+  placeWaterTemple(set, bounds, WEST_EXTENSION);
 
   const chunk = new Uint8Array(size * size);
   const water = new Uint8Array(chunk.length);
