@@ -104,33 +104,20 @@ test('glowshroom torch lasts 90 seconds and spent utility is saved', () => {
   assert.equal(createGame(decodeSave(encodeSave(game))).player.glowSeconds, 90);
 });
 
-test('rope bundle creates a climbable six-block descent that persists', () => {
+test('rope placement ignores terrain and extends overlapping ropes downward, including after reload', () => {
   const game = createGame();
-  game.inventory.add('rope-bundle', 1, { preferHotbar: true });
+  game.inventory.add('rope-bundle', 4, { preferHotbar: true });
   const slot = game.inventory.hotbar.findIndex((stack) => stack?.id === 'rope-bundle');
-  assert.ok(slot >= 0);
-  let target;
-  for (let row = 45; row < 299 && !target; row++) for (let x = -40; x <= 155; x++) {
-    const tx = x + WEST_EXTENSION;
-    if (tileAt(game.world, tx, row - 1) !== MATERIAL.air) continue;
-    let walls = 0, clear = true;
-    for (let yy = row; yy <= row + 6; yy++) {
-      if (tileAt(game.world, tx, yy) !== MATERIAL.air || waterTileAt(game.world, tx, yy)) { clear = false; break; }
-      if (tileAt(game.world, tx - 1, yy) !== MATERIAL.air || tileAt(game.world, tx + 1, yy) !== MATERIAL.air) walls++;
-    }
-    if (clear && walls >= 2 && !game.world.caveClimbs.some((climb) =>
-      climb.tx === tx && climb.top <= row + 6 && climb.bottom >= row)) {
-      target = { tx, ty: row, reachable: true };
-      break;
-    }
-  }
-  assert.ok(target);
+  const tx = WEST_EXTENSION + 4;
+  const target = { tx, ty: 4, reachable: true };
   assert.equal(useUtilityItem(game, slot, { ...target, reachable: false }).inventoryChanged, undefined);
   assert.equal(useUtilityItem(game, slot, target).inventoryChanged, true);
-  const rope = game.world.placedRopes[0];
-  assert.equal(rope.tx, target.tx);
-  assert.equal(rope.bottom - rope.top, 6);
+  assert.equal(useUtilityItem(game, slot, target).inventoryChanged, true);
+  assert.equal(useUtilityItem(game, slot, { ...target, ty: 8 }).inventoryChanged, true);
+  assert.deepEqual(game.world.placedRopes.map(({ top, bottom }) => [top, bottom]), [[4, 10], [10, 16], [16, 22]]);
   const restored = createGame(decodeSave(encodeSave(game)));
-  assert.deepEqual(restored.world.placedRopes, [rope]);
-  assert.ok(restored.world.caveClimbs.some((climb) => climb.tx === rope.tx && climb.top === rope.top));
+  assert.deepEqual(restored.world.placedRopes, game.world.placedRopes);
+  assert.equal(useUtilityItem(restored, slot, target).inventoryChanged, true);
+  assert.equal(restored.world.placedRopes.at(-1).top, 22);
+  assert.equal(restored.inventory.count('rope-bundle'), 0);
 });

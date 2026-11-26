@@ -86,8 +86,7 @@ export function createGame(snapshot) {
   for (const rope of snapshot?.world.placedRopes ?? []) {
     if (!Number.isInteger(rope?.tx) || !Number.isInteger(rope?.top) ||
       !Number.isInteger(rope?.bottom) || rope.bottom - rope.top !== 6 ||
-      rope.tx < 1 || rope.tx >= COLS - 1 || rope.top < 1 || rope.bottom >= ROWS ||
-      world.placedRopes.length >= 50) continue;
+      rope.tx < 1 || rope.tx >= COLS - 1 || rope.top < 1 || rope.bottom >= ROWS) continue;
     const placed = { tx: rope.tx, top: rope.top, bottom: rope.bottom, kind: 'rope', placed: true };
     if (!world.placedRopes.some((other) => other.tx === placed.tx && other.top === placed.top)) {
       world.placedRopes.push(placed);
@@ -817,28 +816,27 @@ export function useUtilityItem(game, slot, target) {
     return { inventoryChanged: true, message: 'Glowshroom lit for ' + Math.round(duration) + ' seconds.' };
   }
   if (held !== 'rope-bundle') return null;
-  if (!target?.reachable) return { message: 'Aim near a ledge to hang a six-block rope.' };
+  if (!target?.reachable) return { message: 'Aim within reach to place rope.' };
   const { world } = game;
-  const { tx, ty } = target;
-  const pathClear = tx > 0 && tx < COLS - 1 && ty > 0 && ty + 6 < ROWS &&
-    !solidAt(world, tx, ty - 1) &&
-    Array.from({ length: 7 }, (_, offset) => ty + offset)
-      .every((row) => !solidAt(world, tx, row) && !inWater(world, (tx + 0.5) * TILE, (row + 0.5) * TILE));
-  let walls = 0;
-  if (pathClear) {
-    for (let row = ty; row <= ty + 6; row++) {
-      if (solidAt(world, tx - 1, row) || solidAt(world, tx + 1, row)) walls++;
-    }
+  const { tx } = target;
+  let top = target.ty;
+  if (!Number.isInteger(tx) || !Number.isInteger(top) ||
+      tx < 1 || tx >= COLS - 1 || top < 1) return { message: 'Aim inside the world.' };
+  // Extend any overlapping rope chain instead of placing another rope over it.
+  const ropes = world.caveClimbs.filter((climb) => climb.tx === tx && climb.kind === 'rope');
+  while (true) {
+    const bottom = ropes.reduce((end, climb) =>
+      climb.top <= top + 6 && climb.bottom > top ? Math.max(end, climb.bottom) : end, top);
+    if (bottom === top) break;
+    top = bottom;
   }
-  if (!pathClear || walls < 2 || world.caveClimbs.some((climb) =>
-    climb.tx === tx && climb.top <= ty + 6 && climb.bottom >= ty))
-    return { message: 'Need six clear blocks beside a rock ledge for the rope.' };
-  const rope = { tx, top: ty, bottom: ty + 6, kind: 'rope', placed: true };
+  if (top + 6 >= ROWS) return { message: 'Not enough world below the rope.' };
+  const rope = { tx, top, bottom: top + 6, kind: 'rope', placed: true };
   world.placedRopes.push(rope);
   world.caveClimbs.push(rope);
   inventory.consume(inventory.hotbar, slot, 1);
   game.dirty = true;
-  return { inventoryChanged: true, message: 'Rope secured along the ledge.' };
+  return { inventoryChanged: true, message: 'Rope placed.' };
 }
 
 export function targetTile(game, x, y) {

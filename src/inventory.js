@@ -63,7 +63,7 @@ export const ITEMS = {
   'broken-gears': { name: 'Broken gears', description: 'Worn-down machine parts; salvage three at a workbench for iron.' },
   'ancient-coins': { name: 'Ancient coins', description: 'Weathered currency from a forgotten settlement. Valuable to collectors, eventually.' },
   'glowshroom-torch': { name: 'Glowshroom torch', description: 'Use from your hotbar for 90 seconds of brighter cave light.' },
-  'rope-bundle': { name: 'Rope bundle', description: 'Use near a clear ledge to hang six blocks of rope.' },
+  'rope-bundle': { name: 'Rope bundle', description: 'Place six blocks of climbing rope. Use on existing rope to extend it downward.' },
   kelp: { name: 'Kelp', description: 'Sailors call it mermaid’s ribbon. Mermaids have lodged complaints.' },
   copper: { name: 'Copper ore', description: 'Little flecks of sunset trapped in stone.' },
   iron: { name: 'Iron ore', description: 'An old forge song calls it the bones of the earth.' },

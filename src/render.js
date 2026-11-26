@@ -2046,7 +2046,8 @@ export function createRenderer(canvas) {
           rect(x - 1, y + 2, 2, 2, '#d0ad7b');
           rect(x, y + 10, 2, 2, '#b59368');
         }
-        if (row === start) {
+        if (row === start && !(kind === 'rope' && world.caveClimbs.some((climb) =>
+          climb.kind === 'rope' && climb.tx === tx && climb.top < start && climb.bottom === start))) {
           // Anchor the line to the adjacent solid ledge, not to thin air.
           const leftLedge = tileAt(world, tx - 1, row) || tileAt(world, tx - 1, row + 1);
           const rightLedge = tileAt(world, tx + 1, row) || tileAt(world, tx + 1, row + 1);
