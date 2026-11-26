@@ -5,6 +5,7 @@ import { TILE, WEST_EXTENSION } from '../src/world/generation.js';
 import { batHasAir, bugHasFloor, caveFaunaInView, spawnCaveFaunaNear } from '../src/world/cave-ambience.js';
 import { groveDistance, isDryIslandCave } from '../src/world/island-cave.js';
 import { isDryJungleCave } from '../src/world/jungle-cave.js';
+import { JUNGLE_ISLAND } from '../src/world/jungle-village.js';
 import { ambientMobSpecs, stepAmbientMob } from '../src/gameplay/ambient-fauna.js';
 import { damageMob, mobSpec, targetMobAt } from '../src/gameplay/mobs.js';
 
@@ -16,7 +17,7 @@ function area(column, row, width, height) {
 test('cave fauna are far rarer, exclude the super tree and stay in dry caves', () => {
   const world = createWorld();
   const island = caveFaunaInView(world, area(-50, 35, 115, 240));
-  const jungle = caveFaunaInView(world, area(323, 25, 90, 425));
+  const jungle = caveFaunaInView(world, area(JUNGLE_ISLAND.center - 41, 25, 90, 425));
   const fauna = [...island, ...jungle];
   assert.ok(island.length > 0, 'island cave has wildlife outside tree sanctuary');
   assert.ok(jungle.length > 0, 'jungle cave has wildlife');
@@ -44,7 +45,7 @@ test('fauna are real, targetable, killable, respawning mobs that wander on their
   const world = createWorld();
   const fauna = [
     ...caveFaunaInView(world, area(-50, 35, 115, 240)),
-    ...caveFaunaInView(world, area(323, 25, 90, 425)),
+    ...caveFaunaInView(world, area(JUNGLE_ISLAND.center - 41, 25, 90, 425)),
   ];
   assert.ok(fauna.length);
   const before = world.mobs.length;

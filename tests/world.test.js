@@ -3825,13 +3825,13 @@ test('renderer emits colored light gradients for cave lamps and orange/green jun
     };
 
     drawAround(lamp);
-    assert.ok(stops.some((c) => c.startsWith('rgba(240, 178, 105,')));
+    assert.ok(stops.some((c) => c.startsWith('rgba(248, 217, 181,')));
 
     drawAround(orangeTorch);
-    assert.ok(stops.some((c) => c.startsWith('rgba(232, 141, 58,')));
+    assert.ok(stops.some((c) => c.startsWith('rgba(244, 199, 157,')));
 
     drawAround(greenTorch);
-    assert.ok(stops.some((c) => c.startsWith('rgba(98, 217, 150,')));
+    assert.ok(stops.some((c) => c.startsWith('rgba(177, 237, 203,')));
 
     const fireTx = 95;
     const fireTy = 23;
@@ -3865,7 +3865,7 @@ test('renderer emits colored light gradients for cave lamps and orange/green jun
       caveShadowsHidden: true,
       openChestId: null,
     });
-    assert.ok(stops.some((c) => c.startsWith('rgba(244, 156, 68,')));
+    assert.ok(stops.some((c) => c.startsWith('rgba(250, 206, 162,')));
   } finally {
     globalThis.Path2D = prevPath2D;
   }
@@ -3928,7 +3928,7 @@ test('deep cave lighting and caveStructureLight stay consistent across Clear Day
         openChestId: null,
       });
       return {
-        lampStops: gradStops.filter((c) => c.startsWith('rgba(240, 178, 105,')),
+        lampStops: gradStops.filter((c) => c.startsWith('rgba(248, 217, 181,')),
         nightCaveFills: fillRectCalls.filter((c) => typeof c.fillStyle === 'string' && c.fillStyle.startsWith('rgba(4, 8, 21,')),
       };
     };
