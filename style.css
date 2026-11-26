@@ -435,6 +435,7 @@ dialog p { font-size: 13px; color: var(--muted); }
 .craft-recipes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .recipe-tile { position: relative; display: grid; grid-template-rows: 1fr auto; place-items: center; min-width: 0; aspect-ratio: 1; gap: 2px; padding: 6px 3px; border: 1px solid #42606b; border-radius: 4px; background: #132934; color: #c9d9d3; }
 .recipe-tile:hover { background: #203943; }
+.recipe-tile:not([data-ready]) > span { opacity: .45; }
 .recipe-tile[aria-pressed="true"] { border-color: var(--gold); background: #3a3128; color: #fff1d7; box-shadow: inset 0 0 0 1px #efc27e30; }
 .recipe-tile[data-ready]::after { content: ""; position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--mint); }
 .recipe-label { font-size: 11px; line-height: 1.1; text-align: center; overflow-wrap: anywhere; }
