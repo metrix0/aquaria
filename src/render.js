@@ -943,6 +943,70 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  // The two-tile beach cap used to end in a perfectly rectangular color
+  // change. Blend only the sand/substrate interface, not the lighting or
+  // the actual tile materials. Cache the small pixel masks by neighbor layout.
+  const beachEdgeMasks = new Map();
+  function blendBeachEdge(world, tx, ty, material) {
+    const depth = ty - groundAt(tx);
+    const isSubstrate = (m) => m === MATERIAL.soil || m === MATERIAL.stone;
+    if (depth < 0 || depth > 3 || (material !== MATERIAL.sand && !isSubstrate(material))) return;
+    const neighbors = [];
+    let hasBlend = false;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = tx + dx, ny = ty + dy;
+        const other = tileAt(world, nx, ny);
+        const otherDepth = ny - groundAt(nx);
+        const blend = otherDepth >= 0 && otherDepth <= 3 &&
+          ((material === MATERIAL.sand && isSubstrate(other)) ||
+           (isSubstrate(material) && other === MATERIAL.sand));
+        neighbors.push(blend ? other : 0);
+        hasBlend ||= blend;
+      }
+    }
+    if (!hasBlend) return;
+    const key = neighbors.join(',');
+    let mask = beachEdgeMasks.get(key);
+    if (!mask) {
+      mask = canvas.ownerDocument.createElement("canvas");
+      mask.width = mask.height = TILE;
+      const maskCtx = mask.getContext("2d");
+      if (!maskCtx?.createImageData || !maskCtx?.putImageData) return;
+      const pixels = maskCtx.createImageData(TILE, TILE);
+      const rgb = neighbors.map((m) => m ? palettes[m][0].slice(1).match(/../g).map((v) => parseInt(v, 16)) : null);
+      for (let y = 0; y < TILE; y++) {
+        for (let x = 0; x < TILE; x++) {
+          // Bilinear weights between tile centers; only the neighboring
+          // material contributes. Centers retain the original tile artwork.
+          const dx = x < TILE / 2 ? -1 : 1;
+          const dy = y < TILE / 2 ? -1 : 1;
+          const wx = Math.abs(x + .5 - TILE / 2) / TILE;
+          const wy = Math.abs(y + .5 - TILE / 2) / TILE;
+          const samples = [[4 + dx, wx * (1 - wy)], [4 + dy * 3, wy * (1 - wx)], [4 + dx + dy * 3, wx * wy]];
+          let weight = 0, r = 0, g = 0, b = 0;
+          for (const [index, w] of samples) {
+            if (!rgb[index]) continue;
+            weight += w;
+            r += rgb[index][0] * w;
+            g += rgb[index][1] * w;
+            b += rgb[index][2] * w;
+          }
+          if (!weight) continue;
+          const i = (y * TILE + x) * 4;
+          pixels.data[i] = r / weight;
+          pixels.data[i + 1] = g / weight;
+          pixels.data[i + 2] = b / weight;
+          pixels.data[i + 3] = weight * 255;
+        }
+      }
+      maskCtx.putImageData(pixels, 0, 0);
+      if (beachEdgeMasks.size >= 256) beachEdgeMasks.clear();
+      beachEdgeMasks.set(key, mask);
+    }
+    ctx.drawImage(mask, tx * TILE, ty * TILE);
+  }
+
   function drawTile(world, tx, ty, material, oreOpacity, overview, time = 0) {
     const x = tx * TILE;
     const y = ty * TILE;
@@ -1075,6 +1139,7 @@ export function createRenderer(canvas) {
         }
       }
     }
+    blendBeachEdge(world, tx, ty, material);
     if (oreOpacity > 0) {
       const [, mineral, shadow, glint] = palettes[material];
       ctx.globalAlpha = oreOpacity;
