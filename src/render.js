@@ -63,6 +63,7 @@ import {
 } from "./world/underground-lighting.js";
 import { atmosphereTint, auroraWorldX, auroraBloomWorldX, hasBackgroundWall, nightShadeAlpha } from "./world/atmosphere.js";
 import { lightningAt, lightningAnchor, distantThunderAt } from "./lightning.js";
+import { visibleMeteors } from "./world/meteors.js";
 
 const woodPalette = ["#85604c", "#bc8b62", "#513a3b", "#e3ae72"];
 
@@ -455,12 +456,9 @@ export function createRenderer(canvas) {
           }
         }
       } else if (atmosphere === "meteors") {
-        ctx.globalAlpha = darkness * (1 - rain * .7);
-        for (let i = 0; i < 5; i++) {
-          const span = width + 300;
-          const x = (((noise(i, 847) * span + time * (28 + i * 8)) % span) + span) % span - 150;
-          const y = 24 + noise(i, 848) * 110 + (x * .17) % 60 - camera.y * .1;
-          polygon([[x, y], [x - 33, y - 12], [x - 24, y - 6], [x + 3, y + 2]], "#c6e8ff72");
+        for (const { x, y, tailX, tailY, alpha } of visibleMeteors(camera, time)) {
+          ctx.globalAlpha = darkness * (1 - rain * .7) * alpha;
+          polygon([[tailX, tailY], [x - 1, y - 1], [x + 3, y + 2], [x - 8, y + 1]], "#c6e8ff72");
           rect(x, y, 3, 2, "#ffffff");
         }
       }
