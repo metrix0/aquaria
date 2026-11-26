@@ -41,45 +41,58 @@ export function lightningAt(seconds, seed, conditions, reducedMotion = false) {
   return null;
 }
 
-// Horizontal distance in world pixels, independent of viewport size or zoom.
+// Move the original strike horizontally only. Its vertical geometry and
+// timing are calculated exactly as before, independently of nearby terrain.
 export const LIGHTNING_NEAR_RADIUS = 10 * TILE;
-const LIGHTNING_MIN_OFFSET = 4 * TILE;
 
-/**
- * Anchor each event near an on-screen character, rather than at the edge of
- * the camera. Keep its world coordinates frozen through the final echo.
- */
 export function lightningAnchor(strike, seed, camera, existing = null, characters = []) {
   if (existing?.event === strike.event) return existing;
-  const margin = Math.min(TILE, camera.width * .1);
-  const left = camera.x + margin;
-  const right = camera.x + camera.width - margin;
-  const nearby = characters.filter(character =>
-    Number.isFinite(character?.x) &&
-    character.x >= left - LIGHTNING_NEAR_RADIUS &&
-    character.x <= right + LIGHTNING_NEAR_RADIUS &&
-    (character.y == null || (character.y >= camera.y - 25 &&
-      character.y <= camera.y + camera.height + 25)));
-  if (!nearby.length) return null;
-  const target = nearby[Math.min(nearby.length - 1,
-    Math.floor(noise(strike.event, 859, seed) * nearby.length))];
-  const low = Math.max(left, target.x - LIGHTNING_NEAR_RADIUS);
-  const high = Math.min(right, target.x + LIGHTNING_NEAR_RADIUS);
-  const offset = LIGHTNING_MIN_OFFSET + noise(strike.event, 861, seed) *
-    (LIGHTNING_NEAR_RADIUS - LIGHTNING_MIN_OFFSET);
-  const direction = noise(strike.event, 860, seed) < .5 ? -1 : 1;
-  const preferred = clamp(target.x + direction * offset, low, high);
-  const opposite = clamp(target.x - direction * offset, low, high);
-  // At the screen edge prefer the other side rather than striking at the player.
-  const worldX = Math.abs(preferred - target.x) >= Math.min(LIGHTNING_MIN_OFFSET, camera.width * .25)
-    ? preferred : opposite;
-  const horizon = Math.min(WATER, groundAt(Math.floor(worldX / TILE)) * TILE);
-  const visibleSky = Math.max(0, Math.min(camera.height, horizon - camera.y));
+  const side = noise(strike.event, 860, seed) < .5;
+  const portion = side
+    ? .12 + noise(strike.event, 861, seed) * .16
+    : .72 + noise(strike.event, 861, seed) * .16;
+  const originalX = camera.x + camera.width * portion;
+  const skyAt = x => Math.min(WATER, groundAt(Math.floor(x / TILE)) * TILE);
+  const visibleSky = Math.max(0, Math.min(camera.height, skyAt(originalX) - camera.y));
+  const worldTop = camera.y + 12 + noise(strike.event, 862, seed) * 16;
+  const worldBottom = camera.y + Math.max(56, visibleSky * (.65 + noise(strike.event, 863, seed) * .12));
+
+  // Relocate only to open sky: a bolt next to a tall island can otherwise
+  // be clipped or disappear. Never discard a scheduled strike.
+  const left = camera.x + 16;
+  const right = camera.x + camera.width - 16;
+  const clearance = x => Math.min(skyAt(x - TILE), skyAt(x), skyAt(x + TILE));
+  const originalClearance = clearance(originalX);
+  const requiredSky = Math.min(worldBottom, originalClearance);
+  let worldX = originalX;
+  let bestDistance = Infinity;
+  for (const character of characters) {
+    if (!Number.isFinite(character?.x) || character.x < camera.x ||
+        character.x > camera.x + camera.width ||
+        (Number.isFinite(character.y) && (character.y < camera.y - 25 ||
+          character.y > camera.y + camera.height + 25))) continue;
+    const low = Math.max(left, character.x - LIGHTNING_NEAR_RADIUS);
+    const high = Math.min(right, character.x + LIGHTNING_NEAR_RADIUS);
+    if (low > high) continue;
+    const preferred = clamp(originalX, low, high);
+    const candidates = [preferred, low, high];
+    for (let x = Math.ceil(low / TILE) * TILE + TILE / 2; x <= high; x += TILE) {
+      candidates.push(x);
+    }
+    for (const x of candidates) {
+      if (clearance(x) < requiredSky) continue;
+      const distance = Math.abs(x - originalX);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        worldX = x;
+      }
+    }
+  }
   return {
     event: strike.event,
     worldX,
-    worldTop: camera.y + 12 + noise(strike.event, 862, seed) * 16,
-    worldBottom: camera.y + Math.max(56, visibleSky * (.65 + noise(strike.event, 863, seed) * .12)),
+    worldTop,
+    worldBottom,
   };
 }
 

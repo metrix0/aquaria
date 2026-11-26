@@ -182,7 +182,7 @@ test('distant lightning is independently scheduled, bolt-free and faint', () => 
   assert.ok(near.some(time => !distantThunderAt(time, seed, storm)?.flash));
 });
 
-test('lightning stays close to visible characters even when zoomed far out', () => {
+test('lightning stays close to visible characters in open sky', () => {
   const camera = { x: 0, y: 0, width: 8000, height: 400 };
   const characters = [{ x: 2200, y: 200 }, { x: 6500, y: 200 },
     { x: 4000, y: 900 }, { x: 9500, y: 200 }];
@@ -195,7 +195,8 @@ test('lightning stays close to visible characters even when zoomed far out', () 
     targets.add(target.x);
   }
   assert.equal(targets.size, 2, 'both visible players can anchor strikes');
-  assert.equal(lightningAnchor({ event: 0 }, 17, camera, null, characters.slice(2)), null);
+  assert.deepEqual(lightningAnchor({ event: 0 }, 17, camera, null, characters.slice(2)),
+    lightningAnchor({ event: 0 }, 17, camera));
 });
 
 test('lightning uses the available side on narrow or edge-aligned views', () => {
@@ -206,6 +207,26 @@ test('lightning uses the available side on narrow or edge-aligned views', () => 
         const anchor = lightningAnchor({ event }, 17, camera, null, [{ x, y: 200 }]);
         assert.ok(anchor.worldX >= camera.x && anchor.worldX <= camera.x + camera.width);
         assert.ok(Math.abs(anchor.worldX - x) <= LIGHTNING_NEAR_RADIUS);
+      }
+    }
+  }
+});
+
+test('relocating a scheduled strike preserves its exact original size and never drops it', () => {
+  for (const camera of [
+    { x: 1400, y: 0, width: 640, height: 380 },
+    { x: 1800, y: 12, width: 300, height: 480 },
+    { x: 100, y: 190, width: 800, height: 380 },
+    { x: 0, y: 0, width: 8000, height: 400 },
+  ]) {
+    for (let event = 0; event < 100; event++) {
+      const strike = { event };
+      const original = lightningAnchor(strike, 17, camera);
+      for (const characters of [[], [{ x: camera.x + camera.width * .42, y: camera.y + 100 }]]) {
+        const moved = lightningAnchor(strike, 17, camera, null, characters);
+        assert.equal(moved.worldTop, original.worldTop);
+        assert.equal(moved.worldBottom, original.worldBottom);
+        assert.equal(moved.event, original.event);
       }
     }
   }
