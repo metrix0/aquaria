@@ -65,6 +65,7 @@ export function bindInput(canvas, camera, actions) {
       if (!event.repeat && movement.up.includes(code)) jump = true;
       keys.add(code);
     }
+    if (code === 'KeyE') keys.add(code);
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
@@ -146,7 +147,10 @@ export function bindInput(canvas, camera, actions) {
   for (const button of document.querySelectorAll('[data-warden-skill]')) {
     button.addEventListener('click', () => { if (!actions.blocked()) actions.castWarden?.(button.dataset.wardenSkill); });
   }
-  document.getElementById('grab').addEventListener('click', actions.interact);
+  const grab = document.getElementById('grab');
+  grab.addEventListener('pointerdown', event => { grab.setPointerCapture(event.pointerId); keys.add('KeyE'); });
+  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) grab.addEventListener(event, () => keys.delete('KeyE'));
+  grab.addEventListener('click', actions.interact);
   document.getElementById('cast-ring').addEventListener('click', () => {
     if (!actions.blocked()) actions.castRing();
   });
@@ -165,6 +169,7 @@ export function bindInput(canvas, camera, actions) {
     clear,
     stopMining,
     holdingMine: () => miningPointer !== null,
+    holdingInteract: () => keys.has('KeyE'),
     sample() {
       const controls = { jump };
       for (const [direction, codes] of Object.entries(movement)) controls[direction] = codes.some((code) => keys.has(code));

@@ -2,7 +2,7 @@ import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MA
 import { GRAPPLING_HOOK, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { editedTiles, isEditableTile } from './world.js';
-import { TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
+import { SPAWN, TILE, WEST_EXTENSION, WORLD_VERSION } from './world/generation.js';
 
 export const SAVE_FORMAT = 3;
 const LEGACY_WIDTH = 224;
@@ -91,8 +91,8 @@ export function encodeSave(game, saveTerrain = true) {
   const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
-  const { x, y, height } = player.flightOrigin ?? player;
-  const position = { x: x - WEST_EXTENSION * TILE, y, health: player.health, oxygen: player.oxygen };
+  const { x, y, height } = player.downed ? SPAWN : (player.flightOrigin ?? player);
+  const position = { x: x - WEST_EXTENSION * TILE, y, health: player.downed ? 100 : player.health, oxygen: player.downed ? undefined : player.oxygen };
   if (player.armor) { position.armor = player.armor; if (player.perfectArmor) position.perfectArmor = true; }
   if (player.feet) position.feet = player.feet;
   if (height === CRAWL_HEIGHT) position.crawling = true;

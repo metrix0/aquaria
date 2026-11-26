@@ -1,3 +1,4 @@
+import { nearestDowned } from './gameplay/revival.js';
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls } from './classes.js';
@@ -338,6 +339,7 @@ const ui = createUI({
   },
   hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
   toggleGodMode() {
+    if (game.player.downed) return;
     const flying = toggleGodMode(game.world, game.player);
     ui.godMode(flying);
     if (flying) {
@@ -398,7 +400,7 @@ const input = bindInput(canvas, camera, {
   blocked: ui.activePanel,
   chestOpen: ui.openChestId,
   interact() {
-    if (editPending) return;
+    if (editPending || game.player.downed || nearestDowned(game.player, game.wayfarerPeers)) return;
     const item = nearestItem(game);
     if (item?.kind === 'mermaid') { ui.notify(singWithMermaid(game.world, item.id)); game.dirty = true; }
     else if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id) ui.open('craft-panel', item);
@@ -422,6 +424,7 @@ const input = bindInput(canvas, camera, {
     if (shot) game.dirty = true;
   },
   interactAtPointer() {
+    if (game.player.downed) return true;
     const { pointer } = input;
     const chest = chestAt(game, pointer.x + camera.x, pointer.y + camera.y);
     if (!chest) return false;
@@ -440,7 +443,7 @@ const input = bindInput(canvas, camera, {
     return true;
   },
   castWarden(id) {
-    if (editPending) return;
+    if (game.player.downed || editPending) return;
     const pointer = input.pointer;
     const wayfarer = game.classes.active === 'wayfarer';
     const resolved = wayfarer ? ({ shieldRush:'horizonShot', rage:'counter', aegisAura:'huntersMark' }[id] ?? id) : id;
@@ -519,17 +522,17 @@ const input = bindInput(canvas, camera, {
   },
   place() {
     const target = aimedTile();
-    if (!target || editPending) return;
+    if (!target || editPending || game.player.downed) return;
     const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty);
     if (bench) ui.open('craft-panel', bench);
     else void editTile(planTileAction(game, target, true, selected));
   },
   stopMining: () => { mining = null; },
   select,
-  craft: () => ui.open('craft-panel'),
-  backpack: () => ui.open('backpack-panel'),
-  character: () => ui.open('customize-panel'),
-  pause: () => ui.open('pause-panel'),
+  craft: () => { if (!game.player.downed) ui.open('craft-panel'); },
+  backpack: () => { if (!game.player.downed) ui.open('backpack-panel'); },
+  character: () => { if (!game.player.downed) ui.open('customize-panel'); },
+  pause: () => { if (!game.player.downed) ui.open('pause-panel'); },
 });
 
 function resetSwimFraming() {
@@ -595,7 +598,7 @@ function updateParticles(dt) {
 
 function updateDrowningWarning(dt) {
   const { player, world } = game;
-  const urgency = !player.flightOrigin && playerHeadInWater(world, player)
+  const urgency = !player.downed && !player.flightOrigin && playerHeadInWater(world, player)
     ? clamp(1 - player.oxygen / drowningWarningSeconds, 0, 1)
     : 0;
   drowning += (urgency - drowning) * Math.min(1, dt * 8);
@@ -647,7 +650,7 @@ function frame(now) {
     ui.close('craft-panel');
     craftingBench = undefined;
   }
-  const playing = !document.hidden && !ui.activePanel() && !arrival?.active;
+  const playing = !document.hidden && (game.player.downed || !ui.activePanel()) && !arrival?.active;
   if (playing && !room) {
     game.worldTime += elapsed;
     game.dirty = true;
@@ -664,6 +667,8 @@ function frame(now) {
       const previousPlayer = game.player;
       const note = stepGame(game, {
         ...input.sample(),
+        multiplayer: Boolean(room),
+        now,
         selectedSlot: selected,
         mining: input.holdingMine(),
         night: conditions.night,
@@ -674,6 +679,12 @@ function frame(now) {
         if (effect.inventoryChanged) inventoryChanged();
       }
       game.effects.length = 0;
+      if (game.player.downed && !previousPlayer.wasDowned) {
+        input.clear();
+        miningSwing = null;
+        game.player.wasDowned = true;
+      }
+      if (!game.player.downed) game.player.wasDowned = false;
       if (game.player !== previousPlayer) {
         input.stopMining();
         miningSwing = null;
@@ -716,12 +727,13 @@ function frame(now) {
       }
     }
   }
+  const reviveTarget = room && playing && input.holdingInteract() ? nearestDowned(game.player, game.wayfarerPeers)?.downed.id : null;
   ui.update(game, conditions);
   const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
-  const peers = Array.from(room?.tick(now, dt, game.player, snorkel) ?? []);
+  const peers = Array.from(room?.tick(now, dt, game.player, snorkel, reviveTarget) ?? []);
   game.wayfarerPeers = peers;
-  if (room) updateWardenAllies(game, peers);
+  if (room && !game.player.downed) updateWardenAllies(game, peers.filter(peer => !peer.downed));
   else game.player.allyAegis = false;
   const targetMob = aimedMob();
   const drawStart = performance.now();

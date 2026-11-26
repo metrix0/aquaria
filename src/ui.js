@@ -18,6 +18,7 @@ import { WAYFARER_SKILLS } from './gameplay/wayfarer.js';
 import { BOW } from './content.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
 import { hudVisibility } from './hud-state.js';
+import { nearestDowned, REVIVE_SECONDS } from './gameplay/revival.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
 export function createUI(actions, version) {
@@ -392,6 +393,20 @@ export function createUI(actions, version) {
         fill.parentElement.setAttribute('aria-valuenow', String(air));
       }
       const prompt = fields.interact;
+      const down = game.player.downed;
+      const ally = nearestDowned(game.player, game.wayfarerPeers);
+      if (down || ally) {
+        const state = down ?? ally.downed;
+        const seconds = Math.ceil(state.remaining);
+        const percent = Math.min(100, Math.floor(state.progress / REVIVE_SECONDS * 100));
+        const action = down ? (state.reviver ? 'Being revived · ' + percent + '%' : 'Respawning in ' + seconds + 's')
+          : (state.reviver ? 'Reviving · ' + percent + '% · timer paused' : (touch ? 'Hold interact' : 'Hold E') + ' to revive · ' + seconds + 's');
+        prompt.hidden = false;
+        prompt.querySelector('kbd').hidden = true;
+        const label = prompt.querySelector('span');
+        if (label.textContent !== action) label.textContent = action;
+        return;
+      }
       const focusedItem = panels.some((panel) => panel.open) ? null : nearestItem(game);
       prompt.hidden = !focusedItem;
       if (focusedItem) {

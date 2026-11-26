@@ -284,6 +284,15 @@ export function createCharacterRenderer(ctx) {
   }
 
   return function drawCharacter(player, appearance, { snorkel = null, ring = false, time = 0, miningSwing = null, held = null, attack = null, hasArrow = false, reducedMotion = false, swimming = false } = {}) {
+    if (player.downed) {
+      // Reuse the complete customized sprite, laid sideways with its back on the ground.
+      ctx.save();
+      ctx.translate(Math.round(player.x), Math.round(player.y + player.height - 7));
+      ctx.rotate(-Math.PI / 2 * player.facing);
+      drawCharacter({ ...player, downed: null, x: 0, y: -11, height: 23, grounded: true, dx: 0, dy: 0, climb: null, hurt: 0 }, appearance, { snorkel, reducedMotion: true });
+      ctx.restore();
+      return;
+    }
     const gear = SNORKELS[snorkel];
     const crawling = player.height === CRAWL_HEIGHT;
     const climb = !crawling && player.climb;

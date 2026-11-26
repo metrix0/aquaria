@@ -146,6 +146,11 @@ export async function connectRoom(config, invite, handlers) {
       aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
       catching: payload.catching === true,
+      downed: roomCodePattern.test(payload.downed?.id ?? '') && Number.isFinite(payload.downed?.remaining)
+        ? { id: payload.downed.id, remaining: clamp(payload.downed.remaining, 0, 20),
+            progress: Number.isFinite(payload.downed.progress) ? clamp(payload.downed.progress, 0, 3) : 0,
+            reviver: roomCodePattern.test(payload.downed.reviver ?? '') ? payload.downed.reviver : null } : null,
+      reviveTarget: roomCodePattern.test(payload.reviveTarget ?? '') ? payload.reviveTarget : null,
     });
     if (!old) handlers.count(peers.size + 1);
   });
@@ -190,7 +195,7 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, snorkel) {
+    tick(now, dt, player, snorkel, reviveTarget = null) {
       const pose = {
         id: peerId,
         x: Math.round(player.x - poseOffset), y: Math.round(player.y),
@@ -203,13 +208,15 @@ export async function connectRoom(config, invite, handlers) {
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
         aegisFacing: player.aegisFacing ?? 1,
         catching: Boolean(player.catching),
+        downed: player.downed ?? null,
+        reviveTarget: player.downed ? null : reviveTarget,
         feet: player.feet,
         crawling: player.height === CRAWL_HEIGHT,
         climbColumn: player.climb ? player.climb.tx - WEST_EXTENSION : null,
       };
       if (connected && now - lastBroadcast >= 125) {
         const fingerprint = JSON.stringify(pose);
-        if (fingerprint !== lastPose || now - lastBroadcast >= 1000) {
+        if (fingerprint !== lastPose || now - lastBroadcast >= 1000 || pose.reviveTarget) {
           lastBroadcast = now;
           lastPose = fingerprint;
           broadcast('pose', pose);

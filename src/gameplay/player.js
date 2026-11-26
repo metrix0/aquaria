@@ -21,7 +21,7 @@ export const MAX_HEALTH = 100;
 export const CONFUSED_GRACE_DURATION = 1;
 
 export function playerImmobilized(player) {
-  return (player.stun ?? 0) > 0 || ((player.confused ?? 0) > 0 && player.confusedStyle === 'stars');
+  return Boolean(player.downed) || (player.stun ?? 0) > 0 || ((player.confused ?? 0) > 0 && player.confusedStyle === 'stars');
 }
 
 /**
@@ -132,7 +132,7 @@ export function spawn(world, oxygen, appearance, armor = null, feet = null) {
 }
 
 export function takeDamage(player, damage, fractional = false) {
-  if (player.rushTime > 0) return 0;
+  if (player.downed || player.rushTime > 0) return 0;
   const protection = (ARMOR[player.armor]?.protection ?? 0) + (player.armor && player.perfectArmor ? .05 : 0);
   const bonuses = player.skillBonuses || {};
   const standingGuard = player.grounded && Math.abs(player.dx || 0) < 10 ? bonuses.guard || 0 : 0;
@@ -291,6 +291,18 @@ function landingDeck(world, player, nextFeet) {
     }
   }
   return landing;
+}
+
+export function settleDowned(world, player, dt) {
+  if (player.grounded) {
+    const deck = landingDeck(world, player, player.y + player.height + 1);
+    if (collides(world, player.x, player.y + 1, player.height) || Number.isFinite(deck)) return;
+    player.grounded = false;
+  }
+  player.dy = Math.min(playerInWater(world, player) ? 35 : 240, Math.max(0, player.dy) + 420 * dt);
+  const deck = landingDeck(world, player, player.y + player.height + player.dy * dt);
+  player.grounded = moveAxis(world, player, 'y', Math.min(player.dy * dt, deck - player.y - player.height)) || Number.isFinite(deck);
+  if (player.grounded) player.dy = 0;
 }
 
 export function movePlayer(world, player, input, dt) {

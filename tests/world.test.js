@@ -146,6 +146,9 @@ test('hard landings apply damage once, scale with distance, and can be fatal', (
     assert.equal(player.health, 100 - expectedDamage);
     if (expectedDamage === 100) {
       assert.match(note, /Fatal fall/);
+      assert.equal(game.player, player);
+      assert.ok(player.downed);
+      for (let i = 0; i < 240; i++) stepGame(game, {}, 1 / 60);
       assert.notEqual(game.player, player);
       assert.equal(game.player.x, SPAWN.x);
       assert.equal(game.player.health, 100);

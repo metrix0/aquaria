@@ -1,3 +1,4 @@
+import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
 import { absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
 import { rollWildChestGroupLoot } from '../world/wild-chest.js';
@@ -12,7 +13,7 @@ import { buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace,
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
 import { GRAPPLING_HOOK, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen, settleDowned } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
@@ -420,6 +421,21 @@ function stepDroppedChests(game, dt) {
 
 export function stepGame(game, input, dt) {
   const { player, world } = game;
+  if (player.downed) {
+    game.elapsed += dt;
+    settleDowned(world, player, dt);
+    const state = advanceRevival(player, input.multiplayer ? (game.wayfarerPeers ?? []) : [], dt, input.now ?? 0);
+    if (state === 'revive') {
+      player.downed = null;
+      player.health = MAX_HEALTH / 2;
+      player.oxygen = oxygenCapacity(game);
+      player.hurt = 0;
+      game.dirty = true;
+      return 'Revived by a teammate.';
+    }
+    if (state === 'respawn') return respawnAfterDeath(game);
+    return;
+  }
   if (player.hook && !hasHook(game)) player.hook = null;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
@@ -482,7 +498,26 @@ export function stepGame(game, input, dt) {
   }
   finishWayfarer(game,dt);
   if (updateOxygen(world, player, dt, capacity, game.enemies.hitCooldown === 0)) {
-    game.player = spawn(world, capacity, player.appearance, player.armor, player.feet);
+    player.health = 0;
+    player.downed = { id: globalThis.crypto.randomUUID(), remaining: input.multiplayer ? MULTIPLAYER_DEATH_SECONDS : SOLO_DEATH_SECONDS, progress: 0, reviver: null };
+    Object.assign(player, { dx: 0, climb: null, hook: null, hurt: 0, stun: 0, confused: 0, confusedGrace: 0, bleed: 0, bleedTick: 0, poison: 0, poisonTick: 0, blindness: 0, neurotoxin: 0, rushTime: 0, rageTime: 0, aegisTime: 0, cryTime: 0, counterTime: 0, catching: false, bracing: false });
+    game.attack = null;
+    game.bowDraw = null;
+    game.projectiles.length = 0;
+    game.rootWave = null;
+    game.dirty = true;
+    return fatalFall ? 'Fatal fall.' : fatalBleed ? 'You bled out.' : fatalPoison ? 'You succumbed to poison.' : 'You are down.';
+  }
+  finishWardenStep(player, dt);
+  if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
+  if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
+  if (soulMessage) return soulMessage;
+  if (fallLoss) return `Hard landing. −${fallLoss} health`;
+}
+
+function respawnAfterDeath(game) {
+    const { world, player } = game;
+    game.player = spawn(world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
     game.player.addons = game.progress.addons;
     game.player.perfectArmor = player.perfectArmor;
     game.player.damageSequence = player.damageSequence;
@@ -496,19 +531,7 @@ export function stepGame(game, input, dt) {
     game.rootWave = null;
     resetHostiles(world);
     game.dirty = true;
-    return fatalFall
-      ? 'Fatal fall. You woke up back on the island.'
-      : fatalBleed
-        ? 'You bled out. You woke up back on the island.'
-        : fatalPoison
-          ? 'You succumbed to pufferfish poison. You woke up back on the island.'
-          : 'You washed back up on the island.';
-  }
-  finishWardenStep(player, dt);
-  if (player.x !== x || player.y !== y || player.health !== health || player.oxygen !== oxygen) game.dirty = true;
-  if (hit) return hit.name + ' bite. −' + (hit.healthLoss ?? 10) + ' health';
-  if (soulMessage) return soulMessage;
-  if (fallLoss) return `Hard landing. −${fallLoss} health`;
+    return 'You woke up back on the island.';
 }
 
 function stockWreckLoot(world, item, slots, remaining) {
