@@ -1725,13 +1725,23 @@ export function createRenderer(canvas) {
     const fade = TILE * 2;
     const end = Math.min(height, Math.max(startTop, endTop) + fade);
     if (end <= 0) return;
+    // Use the exact same solid color as the neighboring flat bands above
+    // the fade. Canvas gradients can quantize even their constant stops
+    // differently from solid fills, leaving stripes all the way into the sky.
+    const scaleY = canvas.height / height;
+    const solidEnd = Math.min(height, Math.max(0, Math.floor(Math.min(startTop, endTop) * scaleY) / scaleY));
+    if (solidEnd > 0) {
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.fillRect(left, 0, width, solidEnd);
+    }
+    if (solidEnd >= end) return;
     const slope = (endTop - startTop) / width;
     const dy = fade / (1 + slope * slope);
     const grad = ctx.createLinearGradient(left, startTop, left - slope * dy, startTop + dy);
     grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
     grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
     ctx.fillStyle = grad;
-    ctx.fillRect(left, 0, width, end);
+    ctx.fillRect(left, solidEnd, width, end - solidEnd);
   }
 
   function shadeAtmosphere(camera, conditions, time, flash = 0) {
@@ -1741,6 +1751,8 @@ export function createRenderer(canvas) {
     const first = Math.floor(camera.x / TILE);
     const last = Math.ceil((camera.x + camera.width) / TILE);
     const nightAlpha = nightShadeAlpha(conditions) * gradeStrength;
+    const scaleX = canvas.width / camera.width;
+    const snapX = (x) => Math.round(x * scaleX) / scaleX;
     // Grade open sky, surface terrain, and water while fading out at the underground wall boundary
     // so deep caves and caveStructureLight stay consistent across day, night, storm, and thunder.
     const fadeAt = (tx) => {
@@ -1754,13 +1766,16 @@ export function createRenderer(canvas) {
       const westTop = (fadeAt(tx - 1) + fadeTop) / 2;
       const eastTop = (fadeAt(tx + 1) + fadeTop) / 2;
       if (Math.max(westTop, fadeTop, eastTop) + TILE * 2 <= 0) continue;
-      const left = Math.round(tx * TILE - camera.x);
-      const width = Math.round((tx + 1) * TILE - camera.x) - left;
+      const left = snapX(Math.round(tx * TILE - camera.x));
+      const right = snapX(Math.round((tx + 1) * TILE - camera.x));
+      const width = right - left;
+      if (width <= 0) continue;
       const tint = atmosphereTint(conditions, jungleMixAt((tx + .5) * TILE), time);
       const band = (r, g, b, alpha) => {
         const shoulder = Math.min(4, width / 2);
-        const west = westTop === fadeTop ? 0 : shoulder;
-        const east = eastTop === fadeTop ? 0 : shoulder;
+        // Adjacent fills must share device-pixel boundaries at fractional zoom.
+        const west = westTop === fadeTop ? 0 : snapX(left + shoulder) - left;
+        const east = eastTop === fadeTop ? 0 : right - snapX(right - shoulder);
         if (west) fillAtmosphereSeam(left, west, westTop, fadeTop, camera.height, r, g, b, alpha);
         if (width > west + east) fillAtmosphereBand(left + west, width - west - east, fadeTop, fadeBottom, camera.height, r, g, b, alpha);
         if (east) fillAtmosphereSeam(left + width - east, east, fadeTop, eastTop, camera.height, r, g, b, alpha);
