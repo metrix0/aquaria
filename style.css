@@ -621,3 +621,49 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 .status-icon-beastTime::before { content:"\2697"; color:#c49c76; font-size:17px; }
 .status-icon-spinachTime::before { content:"\2663"; color:#83cb72; font-size:19px; }
 .status-icon-carrotTime::before { content:"\2191"; color:#f4ae63; font-size:19px; }
+
+/* Cinematic discovery title, independent of the HUD and never intercepting input. */
+.zone-title {
+  position: absolute; z-index: 12; top: 27%; left: 0; right: 0;
+  display: grid; justify-items: center; gap: 10px; pointer-events: none;
+  isolation: isolate; padding: 18px 16px 22px; text-align: center;
+  animation: zone-title-reveal 4.8s both;
+}
+.zone-title::before {
+  content: ''; position: absolute; inset: -32px 0; z-index: -1;
+  background: radial-gradient(ellipse at center, #040b13cf 0%, #040b136b 40%, transparent 72%);
+}
+.zone-title-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 5.2vw, 68px); font-weight: 400;
+  line-height: 1.15; letter-spacing: .105em; text-transform: uppercase;
+  color: #f8f3e5; text-shadow: 0 2px 5px #000, 0 0 28px var(--zone-accent);
+  animation: zone-title-lettering 4.8s both;
+}
+.zone-title-ornament { font-size: 14px; color: var(--zone-accent); text-shadow: 0 0 15px var(--zone-accent); }
+.zone-title-rule {
+  width: min(70vw, 430px); height: 2px; position: relative;
+  background: linear-gradient(90deg, transparent, var(--zone-accent), transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--zone-accent) 45%, transparent);
+  animation: zone-title-rule 4.8s both;
+}
+.zone-title-rule::after {
+  content: ''; position: absolute; width: 6px; height: 6px; top: -2px; left: calc(50% - 3px);
+  transform: rotate(45deg); background: var(--zone-accent);
+}
+@keyframes zone-title-reveal {
+  0% { opacity: 0; transform: translateY(12px); }
+  17%, 70% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes zone-title-lettering {
+  0% { letter-spacing: .22em; filter: blur(5px); }
+  20%, 100% { letter-spacing: .105em; filter: blur(0); }
+}
+@keyframes zone-title-rule {
+  0% { transform: scaleX(.05); opacity: 0; }
+  23%, 100% { transform: scaleX(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zone-title, .zone-title-name, .zone-title-rule { animation: none; }
+}

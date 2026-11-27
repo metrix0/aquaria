@@ -23,6 +23,8 @@ import { createPerformanceStats } from './performance-stats.js';
 import { createBrowserSave } from './save.js';
 import { consumeNewGame, createIslandReveal } from './start-flow.js';
 import { createUI } from './ui.js';
+import { createZoneTitle, createZoneTracker } from './zone-title.js';
+import { zoneAt } from './world/zones.js';
 import { version } from './build-info.js';
 import { inWater } from './world.js';
 import { COLS, ROWS, TILE, clamp } from './world/generation.js';
@@ -662,6 +664,9 @@ if (invite && available) void enterRoom(invite);
 
 const performanceStats = createPerformanceStats(document.getElementById('performance-stats'));
 document.addEventListener('visibilitychange', () => performanceStats.reset());
+const zoneTitle = createZoneTitle(document.getElementById('game'));
+let zoneGame = game;
+let zoneTracker = createZoneTracker(zoneAt(game.player));
 let last = performance.now();
 let accumulator = 0;
 const timestep = 1 / 60;
@@ -753,6 +758,15 @@ function frame(now) {
         }
       }
     }
+  }
+  if (zoneGame !== game) {
+    zoneGame = game;
+    zoneTitle.clear();
+    zoneTracker = createZoneTracker(zoneAt(game.player));
+  }
+  if (playing && !game.player.downed) {
+    const enteredZone = zoneTracker.update(zoneAt(game.player), now);
+    if (enteredZone) zoneTitle.show(enteredZone);
   }
   const reviveTarget = room && playing && input.holdingInteract() ? nearestDowned(game.player, game.wayfarerPeers)?.downed.id : null;
   ui.update(game, conditions);

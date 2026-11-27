@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createZoneTracker } from '../src/zone-title.js';
+import { zoneAt } from '../src/world/zones.js';
+import { SPAWN, TILE, WEST_EXTENSION, JUNGLE_ISLAND } from '../src/world/generation.js';
+
+const at = (column, row) => zoneAt({ x: (column + WEST_EXTENSION) * TILE + 8, y: row * TILE - 11, height: 23 });
+test('recognizes spawn, ocean, caves, grove, underground, jungle and water temple', () => {
+  assert.equal(zoneAt({ ...SPAWN, height: 23 }), 'island');
+  assert.equal(at(100, 20), 'ocean');
+  assert.equal(at(55, 29), 'caves');
+  assert.equal(at(-36, 188), 'grove');
+  assert.equal(at(JUNGLE_ISLAND.center, 8), 'jungle');
+  assert.equal(at(JUNGLE_ISLAND.center, 26), 'jungleCave');
+  assert.equal(at(60, 350), 'underground');
+  assert.equal(at(900, 380), 'temple');
+  assert.equal(at(900, 430), 'sanctum');
+  assert.equal(at(-412, 90), 'waterTemple');
+});
+test('debounces entry, never announces starting island, and suppresses repeat entries', () => {
+  const tracker = createZoneTracker('island');
+  assert.equal(tracker.update('island', 0), null);
+  assert.equal(tracker.update('ocean', 100), null);
+  assert.equal(tracker.update('island', 400), null);
+  assert.equal(tracker.update('ocean', 500), null);
+  assert.equal(tracker.update('ocean', 1150), 'ocean');
+  assert.equal(tracker.update('island', 2000), null);
+  assert.equal(tracker.update('island', 2650), null);
+  tracker.update('ocean', 3000);
+  assert.equal(tracker.update('ocean', 3650), null);
+  assert.equal(tracker.update('ocean', 35000), null);
+  tracker.update('island', 36000);
+  tracker.update('island', 36650);
+  tracker.update('ocean', 37000);
+  assert.equal(tracker.update('ocean', 37650), 'ocean');
+});
+test('global cooldown waits only for a still-current zone and initial load is quiet', () => {
+  const tracker = createZoneTracker('caves');
+  assert.equal(tracker.update('caves', 0), null);
+  tracker.update('ocean', 100);
+  assert.equal(tracker.update('ocean', 750), 'ocean');
+  tracker.update('jungle', 1000);
+  assert.equal(tracker.update('jungle', 1650), null);
+  tracker.update('island', 2000);
+  tracker.update('island', 2650);
+  assert.equal(tracker.update('island', 7000), null);
+  tracker.update('temple', 7100);
+  assert.equal(tracker.update('temple', 7750), 'temple');
+  tracker.update('sanctum', 8000);
+  assert.equal(tracker.update('sanctum', 8650), null);
+  assert.equal(tracker.update('sanctum', 13750), 'sanctum');
+});
