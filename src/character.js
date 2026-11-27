@@ -101,13 +101,56 @@ export function createCharacterRenderer(ctx) {
   function drawTome(x, y, spellId) {
     const spell = SPELLS[spellId];
     if (!spell) return;
-    // Cover, spine, page block and a small gilded clasp. The hand overlaps the spine.
-    rect(x, y - 7, 7, 9, '#293039');
-    rect(x + 1, y - 6, 5, 6, spell.cover);
-    rect(x + 1, y - 6, 1, 6, spell.color);
-    rect(x + 2, y + 1, 4, 1, '#e6cfa0');
-    rect(x + 3, y - 4, 2, 1, spell.color);
-    rect(x + 4, y - 5, 1, 3, spell.color);
+    // An open folio, with raised outer corners and a recessed center gutter.
+    // The near hand supports the lower left binding.
+    const left = x - 1;
+    const top = y - 7;
+    const ink = '#302b32';
+    const paper = '#f5e4bb';
+    const shade = '#d3b78a';
+    const at = (dx, dy, w, h, color) => rect(left + dx, top + dy, w, h, color);
+    at(0, 1, 15, 7, ink);
+    at(0, 0, 6, 7, ink);
+    at(9, 0, 6, 7, ink);
+    at(1, 1, 5, 6, spell.cover);
+    at(9, 1, 5, 6, spell.cover);
+    at(1, 6, 13, 2, spell.cover);
+    at(6, 7, 3, 2, ink);
+    at(7, 7, 1, 1, spell.color);
+    // Stacked leaves and the two ivory page faces.
+    at(1, 1, 5, 5, shade);
+    at(2, 0, 4, 1, paper);
+    at(2, 1, 4, 4, paper);
+    at(6, 2, 1, 5, shade);
+    at(8, 2, 1, 5, shade);
+    at(9, 1, 5, 5, shade);
+    at(9, 0, 4, 1, paper);
+    at(9, 1, 4, 4, paper);
+    at(2, 6, 4, 1, '#e6cfa0');
+    at(9, 6, 4, 1, '#e6cfa0');
+    at(7, 2, 1, 5, '#80664f');
+    // Tiny handwritten lines on the left and a colored spell glyph on the right.
+    at(3, 1, 2, 1, '#9c8062');
+    at(2, 3, 3, 1, '#b79a76');
+    at(3, 5, 2, 1, '#9c8062');
+    if (spellId === 'firebolt') {
+      at(10, 2, 1, 1, spell.cover);
+      at(11, 1, 1, 3, spell.color);
+      at(10, 3, 3, 2, spell.cover);
+      at(11, 3, 1, 1, '#ffe6a3');
+    } else if (spellId === 'frost-lance') {
+      at(11, 1, 1, 4, spell.cover);
+      at(10, 2, 3, 1, spell.color);
+      at(10, 4, 3, 1, spell.cover);
+      at(11, 2, 1, 1, '#f0fbff');
+    } else {
+      at(11, 1, 1, 4, spell.cover);
+      at(9, 2, 5, 1, spell.cover);
+      at(11, 2, 1, 1, spell.color);
+      at(11, 3, 1, 1, spell.color);
+    }
+    at(0, 5, 1, 1, '#d8b578');
+    at(14, 5, 1, 1, '#d8b578');
   }
 
   function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false, venom) {
