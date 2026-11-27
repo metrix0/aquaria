@@ -97,7 +97,7 @@ export function createCharacterRenderer(ctx) {
     if (!far) rect(x + (swimming ? -2 : 1), y - 1, 1, 1, bootLight);
   }
 
-  function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false) {
+  function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false, venom) {
     pixelLine(shoulder, elbow, 3, shirt.wet);
     pixelLine(elbow, hand, 3, skin.shade);
     pixelLine(shoulder, elbow, 2, far ? shirt.wet : shirt.base);
@@ -106,12 +106,13 @@ export function createCharacterRenderer(ctx) {
       rect(elbow[0], elbow[1], 1, 1, shirt.light);
       rect(hand[0], hand[1] - 1, 1, 1, skin.arm);
       rect(hand[0], hand[1], 1, 1, ring ? '#a8f184' : skin.hand);
+      venom?.(hand[0], hand[1]);
     }
   }
 
-  function arm(x, y, swing, skin, shirt, far, ring = false) {
+  function arm(x, y, swing, skin, shirt, far, ring = false, venom) {
     bentArm([x, y], [x + Math.round(swing * 0.4), y + 3],
-      [x + swing, y + 5 - Math.floor(Math.abs(swing) / 2)], skin, shirt, far, ring);
+      [x + swing, y + 5 - Math.floor(Math.abs(swing) / 2)], skin, shirt, far, ring, venom);
   }
 
   function head(style, hair, skin, x, y, sway) {
@@ -184,7 +185,7 @@ export function createCharacterRenderer(ctx) {
     rect(7, 0, 1, 1, skin.hand);
   }
 
-  function carryPickaxe(x, y, sway, tilt, skin, shirt, tier, swimming, crawling, ring) {
+  function carryPickaxe(x, y, sway, tilt, skin, shirt, tier, swimming, crawling, ring, venom) {
     const shoulder = [x, y];
     const elbow = [x + Math.round(sway * .2), y + 4];
     const hand = [x + 4 + Math.round(sway * .4), y + (crawling ? 3 : 5)];
@@ -199,10 +200,11 @@ export function createCharacterRenderer(ctx) {
     ctx.translate(-6, 0);
     pickaxeGrip(tier, skin);
     if (ring) rect(7, 0, 1, 1, '#a8f184');
+    venom?.(7, 0);
     ctx.restore();
   }
 
-  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, ring) {
+  function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, ring, venom) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
     ctx.translate(x, y);
@@ -213,10 +215,11 @@ export function createCharacterRenderer(ctx) {
     if (tier) pickaxeGrip(tier, skin);
     else rect(5, -1, 2, 2, skin.arm);
     if (ring) rect(6, 0, 1, 1, '#a8f184');
+    venom?.(6, 0);
     ctx.restore();
   }
 
-  function weaponArm(x, y, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring) {
+  function weaponArm(x, y, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring, venom) {
     const active = attack?.kind === weapon;
     const melee = active && attack.hitMobs ? meleePose(attack) : null;
     const baseAngle = melee ? melee.angle - tilt : active
@@ -231,6 +234,7 @@ export function createCharacterRenderer(ctx) {
       rect(2, -1, 5 + melee.thrust, 3, skin.face);
       rect(5 + melee.thrust, -2, 2, 4, skin.arm);
       if (ring) rect(6 + melee.thrust, 0, 1, 1, '#a8f184');
+      venom?.(6 + melee.thrust, 0);
       ctx.restore();
       return;
     }
@@ -280,6 +284,7 @@ export function createCharacterRenderer(ctx) {
       }
     }
     if (ring) rect(6, 0, 1, 1, '#a8f184');
+    venom?.(6, 0);
     ctx.restore();
   }
 
@@ -289,7 +294,7 @@ export function createCharacterRenderer(ctx) {
       ctx.save();
       ctx.translate(Math.round(player.x), Math.round(player.y + player.height - 7));
       ctx.rotate(-Math.PI / 2 * player.facing);
-      drawCharacter({ ...player, downed: null, x: 0, y: -11, height: 23, grounded: true, dx: 0, dy: 0, climb: null, hurt: 0 }, appearance, { snorkel, reducedMotion: true });
+      drawCharacter({ ...player, downed: null, skillBonuses: null, x: 0, y: -11, height: 23, grounded: true, dx: 0, dy: 0, climb: null, hurt: 0 }, appearance, { snorkel, reducedMotion: true });
       ctx.restore();
       return;
     }
@@ -338,13 +343,28 @@ export function createCharacterRenderer(ctx) {
     const heldItem = ITEMS[held];
     const weapon = attack?.kind ?? heldItem?.weapon?.id;
 
+    const venom = player.skillBonuses?.confusingTouch && !(player.wardenCooldowns?.confusingTouch > 0)
+      ? (x, y) => {
+          const m = ctx.getTransform();
+          const px = m.a * Math.round(x) + m.c * Math.round(y) + m.e;
+          const py = m.b * Math.round(x) + m.d * Math.round(y) + m.f;
+          const scale = Math.hypot(m.a, m.b);
+          ctx.save();
+          // Keep the drop attached to the moving hand but falling vertically.
+          ctx.setTransform(scale, 0, 0, scale, px, py);
+          rect(-1, 0, 2, 2, '#b2e97b');
+          const drop = Math.floor(time * 14) % 5;
+          rect(0, 2 + drop, 1, 2, '#7dcc65');
+          ctx.restore();
+        }
+      : undefined;
     function drawClimbArm(side, rung) {
       const far = side < 0;
       const [y, lift] = reducedMotion ? [far ? 6 : 10, 0] : climbStep(pixelY, 12, rung, rungGap * 2);
       const grip = rope ? gripCenter + side : clamp(side * 5, gripCenter - railReach, gripCenter + railReach);
       const hand = [grip + (rope ? -lift : side * lift), y];
       const elbow = [(side * shoulderX + hand[0]) / 2 + side * 2, 12 - (12 - y) * .35];
-      bentArm([side * shoulderX, 11], elbow, hand, skin, shirt, far, ring);
+      bentArm([side * shoulderX, 11], elbow, hand, skin, shirt, far, ring, far ? undefined : venom);
     }
 
     function climbFoot(side, rung) {
@@ -360,7 +380,7 @@ export function createCharacterRenderer(ctx) {
         const lift = reducedMotion ? 1 : Math.min(1, phase / .25, (1 - phase) / .2);
         const hand = [shoulderX + 5 - 3 * lift, restY + 4 - 8 * lift];
         const elbow = [shoulderX + 4, restY + 3 - 2 * lift];
-        bentArm([shoulderX, restY], elbow, hand, skin, shirt, false, ring);
+        bentArm([shoulderX, restY], elbow, hand, skin, shirt, false, ring, venom);
         ctx.save();
         ctx.translate(Math.round(hand[0]), Math.round(hand[1] - 2));
         ctx.rotate(-lift * .65);
@@ -369,13 +389,13 @@ export function createCharacterRenderer(ctx) {
         rect(-2,0,1,3,'#ecf8c6'); rect(1,2,1,2,'#58854a');
         ctx.restore();
       } else if (attack || (weapon && !miningSwing)) {
-        weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring);
+        weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring, venom);
       } else if (miningSwing) {
-        miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, ring);
+        miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, ring, venom);
       } else if (heldItem?.pickaxe) {
-        carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring);
+        carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring, venom);
       } else {
-        arm(shoulderX, restY, restSwing, skin, shirt, false, ring);
+        arm(shoulderX, restY, restSwing, skin, shirt, false, ring, venom);
       }
     }
 
@@ -423,11 +443,6 @@ export function createCharacterRenderer(ctx) {
         rect(shoulderX+2,y,w,6,skin.base ?? '#c99f7d');
         rect(shoulderX+2,y,w,1,skin.light ?? '#e3b998');
         if(player.beastTime>0) {rect(-5,y-3,11,3,'#78634a');rect(-5,y-4,2,2,'#e8d6af');rect(4,y-4,2,2,'#e8d6af');}
-      }
-      if(player.skillBonuses?.confusingTouch && !(player.wardenCooldowns?.confusingTouch>0)) {
-        const drop=Math.floor(time*14)%5;
-        rect(shoulderX+4,y+5+drop,1,2,'#7dcc65');
-        rect(shoulderX+3,y+4,2,2,'#b2e97b');
       }
     };
     if (crawling) {

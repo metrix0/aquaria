@@ -133,3 +133,41 @@ test('Feast receive works without a simulation step and does not reapply or affe
  far.wayfarerPeers=ally.wayfarerPeers;
  receiveFeasts(far);assert.ok(!far.player.spinachTime);
 });
+
+test('Confusing Touch triggers through real bare-handed attacks, redirects enemies and recharges',()=>{
+ const g=scholar(...alchemist),p=g.player;
+ const shark=g.world.mobs.find(m=>m.kind==='shark');
+ const spec=mobSpec(shark);
+ const target={...shark,x:p.x+10,y:p.y+11-spec.centerY,health:100,maxHealth:100};
+ const ally={...shark,id:'confusion-ally',x:p.x+27,y:target.y,health:100,maxHealth:100};
+ g.world.mobs=[target];
+ g.inventory.hotbar[5]=null;
+ useWeapon(g,5,target.x,p.y+11);
+ for(let i=0;i<24;i++) {target.x=p.x+10;target.y=p.y+11-spec.centerY;stepGame(g,{},1/60);}
+ assert.ok(target.health<100,'punch hit');
+ assert.ok(target.scholarConfused>4,'punch confused');
+ assert.ok(p.wardenCooldowns.confusingTouch>11,'cooldown started');
+ g.world.mobs.push(ally);
+ ally.x=target.x+15;ally.y=target.y;
+ stepGame(g,{},1/60);
+ assert.ok(ally.health<100,'confused enemy damaged ally');
+ g.world.mobs=[ally];
+ const old=p.wardenCooldowns.confusingTouch;
+ useWeapon(g,5,ally.x,p.y+11);
+ for(let i=0;i<25;i++) {ally.x=p.x+10;ally.y=p.y+11-spec.centerY;stepGame(g,{},1/60);}
+ assert.ok(!ally.scholarConfused,'cannot confuse during cooldown');
+ assert.ok(p.wardenCooldowns.confusingTouch<old);
+ g.world.mobs=[];
+ for(let i=0;i<720;i++)stepGame(g,{},1/60);
+ assert.equal(p.wardenCooldowns.confusingTouch,0);
+ g.world.mobs=[ally];ally.health=100;ally.hurt=0;
+ g.inventory.hotbar[0]={id:'spear',count:1};
+ useWeapon(g,0,p.x+20,p.y+11);
+ for(let i=0;i<60;i++){ally.x=p.x+18;ally.y=p.y+11-spec.centerY;stepGame(g,{},1/60);}
+ assert.ok(ally.health<100,'weapon hit');
+ assert.ok(!ally.scholarConfused,'weapon does not apply confusion');
+ assert.equal(p.wardenCooldowns.confusingTouch,0);
+ useWeapon(g,5,p.x+10,p.y+11);
+ for(let i=0;i<24;i++){ally.x=p.x+10;ally.y=p.y+11-spec.centerY;stepGame(g,{},1/60);}
+ assert.ok(ally.scholarConfused>4,'punch works again');
+});
