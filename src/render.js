@@ -438,23 +438,26 @@ export function createRenderer(canvas) {
         // Give each curtain its own hue all the way to transparency; a
         // shared green end-stop made even violet/blue curtains turn green.
         const ribbons = [
-          ["#7cdcc779", "#7cdcc700"], // a single restrained seafoam curtain
-          ["#85b8f584", "#85b8f500"],
-          ["#c1a2f48b", "#c1a2f400"],
-          ["#80c9e478", "#80c9e400"],
+          ["#b7f6deaa", "#b7f6de00"], // a single restrained seafoam curtain
+          ["#b6d5ffaa", "#b6d5ff00"],
+          ["#e2c5ffb5", "#e2c5ff00"],
+          ["#b2edffaa", "#b2edff00"],
         ];
-        ctx.globalAlpha = darkness * (1 - rain * .7);
+        ctx.save();
+        ctx.globalCompositeOperation = "overlay";
+        ctx.globalAlpha = darkness * (1 - rain * .7) * .85;
         for (let band = 0; band < ribbons.length; band++) {
-          for (let x = -12; x < width + 12; x += 6) {
+          for (let x = -12; x < width + 12; x += 3) {
             const worldX = auroraWorldX(x, camera.x);
             const wave = Math.sin(worldX * .012 + time * .075 + band * 1.4);
             const ripple = Math.sin(worldX * .032 - time * .045 + band * 2) * 6;
             const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y;
             const tail = 62 + band * 12 + Math.sin(worldX * .021 + time * .08) * 12;
-            gradient(x, y, 6, tail,
-              [[0, ribbons[band][0]], [.2, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
+            gradient(x, y, 3, tail,
+              [[0, ribbons[band][1]], [.18, ribbons[band][0]], [.32, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
           }
         }
+        ctx.restore();
       } else if (atmosphere === "meteors") {
         for (const { x, y, tailX, tailY, alpha } of visibleMeteors(camera, time)) {
           ctx.globalAlpha = darkness * (1 - rain * .7) * alpha;
@@ -1846,18 +1849,18 @@ export function createRenderer(canvas) {
     ctx.beginPath();
     ctx.rect(0, 0, width, reach);
     ctx.clip();
-    ctx.globalCompositeOperation = "screen";
+    ctx.globalCompositeOperation = "overlay";
     ctx.globalAlpha = conditions.darkness * (1 - conditions.rain * .7)
       * (.70 + Math.sin(time * .07) * .06);
     const colors = [
-      ["rgba(117,180,250,.24)", "rgba(104,170,237,.08)", "rgba(103,161,231,0)"],
-      ["rgba(178,151,255,.26)", "rgba(150,138,239,.09)", "rgba(134,119,234,0)"],
-      ["rgba(112,210,210,.25)", "rgba(92,180,216,.08)", "rgba(87,174,224,0)"],
-      ["rgba(125,213,167,.12)", "rgba(107,187,159,.04)", "rgba(98,178,149,0)"],
+      ["rgba(170,215,255,.48)", "rgba(170,215,255,.15)", "rgba(170,215,255,0)"],
+      ["rgba(224,190,255,.48)", "rgba(224,190,255,.15)", "rgba(224,190,255,0)"],
+      ["rgba(170,245,245,.48)", "rgba(170,245,245,.15)", "rgba(170,245,245,0)"],
+      ["rgba(184,248,209,.28)", "rgba(184,248,209,.09)", "rgba(184,248,209,0)"],
     ];
     const worldStart = auroraWorldX(0, camera.x);
     const spacing = 420;
-    const radius = 260;
+    const radius = Math.min(260, WATER + 135 - 95 - 1);
     const y = 95 - camera.y;
     const first = Math.floor((worldStart - radius - 24) / spacing);
     const last = Math.ceil((worldStart + width + radius + 24) / spacing);
