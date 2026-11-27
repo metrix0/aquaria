@@ -1,3 +1,4 @@
+import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
 import { absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
@@ -60,6 +61,7 @@ export function createGame(snapshot) {
     elapsed: 0,
     rootWave: null,
     rootReadyAt: snapshot?.progress?.ringCooldown ?? 0,
+    spellReadyAt: restoreSpellCooldowns(snapshot?.progress?.spellCooldowns),
     worldTime: snapshot?.worldTime ?? START_WORLD_TIME,
     weatherSeed: snapshot?.weatherSeed ?? Math.floor(Math.random() * 0x80000000),
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -155,6 +157,7 @@ export function resetRoomProgress(previous) {
     elapsed: 0,
     rootWave: null,
     rootReadyAt: 0,
+    spellReadyAt: {},
     worldTime: previous.worldTime,
     weatherSeed: previous.weatherSeed,
     enemies: { spawnIn: 14, hitCooldown: 0 },
@@ -173,7 +176,8 @@ function stepProjectiles(game, dt) {
       projectiles.splice(i, 1);
       continue;
     }
-    if (inWater(world, arrow.x, arrow.y)) {
+    if (arrow.spell) { /* magic travels in a straight line in water and air */ }
+    else if (inWater(world, arrow.x, arrow.y)) {
       const drag = Math.exp(-1.1 * dt);
       arrow.dx *= drag;
       arrow.dy = arrow.dy * drag + 45 * dt;
@@ -202,7 +206,12 @@ function stepProjectiles(game, dt) {
           : Math.hypot(arrow.x - mob.x, arrow.y - (mob.y + spec.centerY)) <= spec.radius * (mob.inflateScale ?? 1) + 4;
         if (hit) {
           const damage = arrow.damage + ((mob.rooted || 0) > 0 ? arrow.rootedDamage || 0 : 0);
-          strikeMob(game, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, true);
+          if (arrow.spell) {
+            damageMob(world, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects, { melee: false, attacker: game.player });
+            if (arrow.root && mob.health > 0 && mob.kind !== "kraken") { mob.rooted = Math.max(mob.rooted || 0, arrow.root); mob.rootLift = 0; }
+            effects.push({ x: arrow.x, y: arrow.y, color: arrow.color, count: 8, spread: 42 });
+            game.dirty = true;
+          } else strikeMob(game, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, true);
           arrow.hitMobs?.add(mob);
           if (arrow.poisonDuration > 0 && mob.health > 0) {
             mob.poison = Math.max(mob.poison ?? 0, arrow.poisonDuration);
@@ -293,7 +302,36 @@ export function useFood(game, slot, random = Math.random) {
   };
 }
 
+export function useSpell(game, slot, wx, wy) {
+  const item = ITEMS[game.inventory.hotbar[slot]?.id];
+  const spell = SPELLS[item?.spell];
+  if (!spell) return null;
+  const player = game.player;
+  if (player.downed || player.flightOrigin || player.stun > 0 || game.attack || wardenAttackBlocked(player)) return { handled: true };
+  const remaining = spellCooldown(game, item);
+  if (remaining > 0) return { handled: true, message: spell.name + ' recharging (' + Math.ceil(remaining) + 's).' };
+  if (spell.heal && player.health >= MAX_HEALTH) return { handled: true, message: 'Health is already full.' };
+  if (spell.heal) {
+    player.health = Math.min(MAX_HEALTH, player.health + spell.heal);
+    game.effects.push({ x: player.x, y: player.y + player.height / 2, color: spell.color, count: 18, spread: 65 });
+  } else {
+    const x = player.x, y = player.y + player.height / 2;
+    const angle = Math.atan2(wy - y, wx - x);
+    const dx = Math.cos(angle), dy = Math.sin(angle);
+    player.facing = Math.sign(dx) || player.facing;
+    game.projectiles.push({ spell: item.spell, color: spell.color, x: x + dx * 8, y: y + dy * 8,
+      dx: dx * spell.speed, dy: dy * spell.speed, damage: spell.damage, root: spell.root,
+      knockback: 110, life: 1.2 });
+  }
+  if (item.form === 'scroll') game.inventory.consume(game.inventory.hotbar, slot, 1);
+  else (game.spellReadyAt ??= {})[item.spell] = game.elapsed + spell.cooldown;
+  game.dirty = true;
+  return { handled: true, inventoryChanged: item.form === 'scroll', message: spell.name + ' cast.' };
+}
+
 export function useWeapon(game, slot, wx, wy, draw = null) {
+  const magic = useSpell(game, slot, wx, wy);
+  if (magic) return magic;
   const itemId = game.inventory.hotbar[slot]?.id;
   const item = ITEMS[itemId];
   const weapon = item?.weapon;

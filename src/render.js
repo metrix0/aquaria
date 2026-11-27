@@ -2408,6 +2408,14 @@ export function createRenderer(canvas) {
       ctx.save();
       ctx.translate(Math.round(arrow.x), Math.round(arrow.y));
       ctx.rotate(Math.atan2(arrow.dy, arrow.dx));
+      if (arrow.spell) {
+        const frost = arrow.spell === "frost-lance";
+        polygon([[-10, 0], [-3, -3], [4, -4], [8, 0], [4, 4], [-3, 3]], frost ? "#396a94" : "#9a493b");
+        polygon([[-7, 0], [1, -3], [7, 0], [1, 3]], arrow.color);
+        rect(1, -1, 4, 2, "#fff1ca");
+        ctx.restore();
+        continue;
+      }
       rect(-6, -1, 10, 2, "#85604c");
       rect(-5, -1, 8, 1, "#d29c65");
       const poisoned = (arrow.poisonDuration ?? 0) > 0;

@@ -1,6 +1,8 @@
 import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
+import { SPELL_ITEMS } from './spells.js';
+
 export const HOTBAR_SIZE = 6;
 export const BACKPACK_SIZE = 24;
 
@@ -48,6 +50,7 @@ export const HOOKS = Object.freeze(Object.fromEntries(
 export const WOODEN_SHIELD = { id: 'wooden-shield', name: 'Wooden shield', station: WORKBENCH.id, cost: { wood: 4, copper: 2 }, description: 'Equip in your off-hand to use Shield Rush.' };
 
 export const ITEMS = {
+  ...SPELL_ITEMS,
   [WOODEN_SHIELD.id]: WOODEN_SHIELD,
   [BROKEN_PICKAXE.id]: {
     name: 'Broken Pickaxe', description: 'One tooth left. The mountain still counts it.', hotbar: 0, pickaxe: 1,

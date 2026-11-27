@@ -5,6 +5,7 @@ export const WILD_CHEST_CATEGORIES = Object.freeze([
   { id: 'resources', name: 'Resources' },
   { id: 'utilities', name: 'Utilities' },
   { id: 'addons', name: 'Addons' },
+  { id: 'spells', name: 'Spells' },
 ]);
 
 export const WILD_CHEST_LOOT_TABLES = Object.freeze({
@@ -15,11 +16,11 @@ export const WILD_CHEST_LOOT_TABLES = Object.freeze({
     guaranteedPerChest: ['resources', 'utilities'],
     guaranteedPerBiome: ['addons'],
     entries: Object.freeze([
-      { id: 'rusty-metal-scraps', category: 'scrap', weight: 16, min: 2, max: 5 },
-      { id: 'torn-cloth', category: 'scrap', weight: 12, min: 1, max: 3 },
-      { id: 'broken-gears', category: 'scrap', weight: 10, min: 1, max: 2 },
-      { id: 'ancient-coins', category: 'scrap', weight: 10, min: 1, max: 4 },
-      { id: 'copper', category: 'resources', weight: 12, min: 2, max: 5 },
+      { id: 'rusty-metal-scraps', category: 'scrap', weight: 12, min: 2, max: 5 },
+      { id: 'torn-cloth', category: 'scrap', weight: 9, min: 1, max: 3 },
+      { id: 'broken-gears', category: 'scrap', weight: 7, min: 1, max: 2 },
+      { id: 'ancient-coins', category: 'scrap', weight: 7, min: 1, max: 4 },
+      { id: 'copper', category: 'resources', weight: 10, min: 2, max: 5 },
       { id: 'wood', category: 'resources', weight: 7, min: 2, max: 5 },
       { id: 'iron', category: 'resources', weight: 5, min: 1, max: 2 },
       { id: 'kelp-dressing', category: 'utilities', weight: 8, min: 1, max: 1 },
@@ -29,6 +30,12 @@ export const WILD_CHEST_LOOT_TABLES = Object.freeze({
       { id: 'explorers-anklet', category: 'addons', weight: 3, min: 1, max: 1 },
       { id: 'padded-leg-wraps', category: 'addons', weight: 1, min: 1, max: 1 },
       { id: 'prospectors-brooch', category: 'addons', weight: 1, min: 1, max: 1 },
+      { id: 'firebolt-tome', category: 'spells', weight: 1, min: 1, max: 1 },
+      { id: 'firebolt-scroll', category: 'spells', weight: 4, min: 1, max: 1 },
+      { id: 'frost-lance-tome', category: 'spells', weight: 1, min: 1, max: 1 },
+      { id: 'frost-lance-scroll', category: 'spells', weight: 4, min: 1, max: 1 },
+      { id: 'mend-tome', category: 'spells', weight: 1, min: 1, max: 1 },
+      { id: 'mend-scroll', category: 'spells', weight: 4, min: 1, max: 1 },
     ]),
   }),
 });

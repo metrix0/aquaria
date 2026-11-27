@@ -132,6 +132,10 @@ ITEMS = {
     'cobalt-breastplate': armor(COBALT),
 }
 
+for spell, palette in [('firebolt', ('#b64e43', '#f8aa64', '#71383c')), ('frost-lance', ('#4a83ab', '#a6e5eb', '#355879')), ('mend', ('#538c63', '#a6db9b', '#355d4e'))]:
+    ITEMS[spell + '-tome'] = art('hhhhhhh/hbbbbbs/hbbabbs/hbaaabs/hbbabbs/hbbbbbs/aaaaaas/sssssss', palette, extra='#e6cfa0')
+    ITEMS[spell + '-scroll'] = art('hhhhhhs/habbbas/.aaaaa./.aabaa./.abbba./.aabaa./habbbas/sssssss', CLOTH, extra=palette[0], outline=WARM)
+
 for name, image in ITEMS.items():
     image.save(ROOT / (name + '.png'), optimize=True)
 (ROOT / 'manifest.js').write_text(
@@ -151,4 +155,3 @@ for i, (name, icon) in enumerate(ITEMS.items()):
     d.text((x+7,y+76), name[:20], fill='#d6e2d0')
 sheet.save(Path(gettempdir()) / 'aquaria-item-sprites-preview.png')
 print('Generated', len(ITEMS), 'chunky 24px sprites in', ROOT)
-

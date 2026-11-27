@@ -6,6 +6,8 @@ const GEAR_IDS = new Set([GRAPPLING_HOOK.id, 'explorers-map', 'glowshroom-torch'
 const CONSUMABLE_IDS = new Set([KELP_DRESSING.id, 'raw-fish', 'cooked-fish', 'raw-crab', 'cooked-crab']);
 
 export function itemCategory(id, item) {
+  if (item?.form === 'scroll') return 'consumables';
+  if (item?.form === 'tome') return 'weapons';
   if (item?.weapon || id === ARROW.id || id === POISON_ARROW.id || id === ROOT_RING.id) return 'weapons';
   if (
     item?.pickaxe ||

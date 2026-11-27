@@ -1,3 +1,4 @@
+import { restoreSpellCooldowns } from './spells.js';
 import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
 import { HOOKS, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE, respawnPoint } from './gameplay/player.js';
@@ -78,6 +79,7 @@ export function decodeSave(data) {
         ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
       ring: gear.ring === ROOT_RING.id ? gear.ring : null,
       offhand: (Object.hasOwn(HOOKS, gear.offhand ?? gear.hands) || (gear.offhand ?? gear.hands) === WOODEN_SHIELD.id) ? (gear.offhand ?? gear.hands) : null,
+      ...(Object.values(restoreSpellCooldowns(gear.spellCooldowns)).some(Boolean) ? { spellCooldowns: restoreSpellCooldowns(gear.spellCooldowns) } : {}),
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, tent, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
@@ -92,6 +94,7 @@ export function decodeSave(data) {
 export function encodeSave(game, saveTerrain = true) {
   const { player, inventory, progress, world } = game;
   const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
+  const spellCooldowns = restoreSpellCooldowns(Object.fromEntries(Object.entries(game.spellReadyAt ?? {}).map(([id, ready]) => [id, ready - game.elapsed])));
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const tent = saveTerrain && world.tent ? [world.tent.tx - WEST_EXTENSION, world.tent.ty] : null;
@@ -114,6 +117,7 @@ export function encodeSave(game, saveTerrain = true) {
       ...(player.glowSeconds > 0 ? { glowSeconds: player.glowSeconds } : {}),
       ...(progress.ring ? { ring: progress.ring } : {}),
       ...(progress.offhand ? { offhand: progress.offhand } : {}),
+      ...(Object.values(spellCooldowns).some(Boolean) ? { spellCooldowns } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, ...(tent ? { tent } : {}), harvested: Array.from(world.harvested),

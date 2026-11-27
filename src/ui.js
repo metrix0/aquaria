@@ -6,7 +6,8 @@ import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi, setItemIcon } from './inventory-ui.js';
-import { GRAPPLING_HOOK } from './inventory.js';
+import { GRAPPLING_HOOK, ITEMS } from './inventory.js';
+import { spellCooldown } from './spells.js';
 import { createItemsMenu } from './items-menu.js';
 import { createDropsUI } from './drops-ui.js';
 import { createClassesUI } from './classes-ui.js';
@@ -177,6 +178,16 @@ export function createUI(actions, version) {
     }
   }
 
+  const spellSlots = document.querySelectorAll('#hotbar-slots .slot');
+  function updateSpellTimers(game) {
+    spellSlots.forEach((slot, i) => {
+      const item = ITEMS[game.inventory.hotbar[i]?.id];
+      const remaining = Math.ceil(spellCooldown(game, item));
+      if (remaining > 0) slot.dataset.spellCooldown = remaining + 's';
+      else delete slot.dataset.spellCooldown;
+    });
+  }
+
   function updateRing(game) {
     const equipped = Boolean(actions.getRing());
     ringSlot.hidden = !equipped;
@@ -339,6 +350,7 @@ export function createUI(actions, version) {
     },
     update(game, conditions) {
       updateRing(game);
+      updateSpellTimers(game);
       updateHook();
       updateStatusEffects(game);
        const health = Math.round(game.player.health / MAX_HEALTH * 100);

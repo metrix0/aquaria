@@ -496,6 +496,12 @@ const input = bindInput(canvas, camera, {
     const wx = pointer.x + camera.x;
     const wy = pointer.y + camera.y;
     if (game.inventory.hotbar[selected]?.id === 'explorers-map') return true;
+    if (ITEMS[game.inventory.hotbar[selected]?.id]?.spell) {
+      const result = useWeapon(game, selected, wx, wy);
+      if (result.inventoryChanged) inventoryChanged();
+      if (result.message) ui.notify(result.message);
+      return true;
+    }
     const utility = useUtilityItem(game, selected, aimedTile());
     if (utility) {
       if (utility.inventoryChanged) inventoryChanged();

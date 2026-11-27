@@ -13,7 +13,7 @@ test('first cave drop rates are shared with the Drops table and fulfill both gua
   assert.equal(table.entries.reduce((total, item) => total + item.weight, 0), 100);
   assert.deepEqual(WILD_CHEST_CATEGORIES.map((category) =>
     table.entries.filter((entry) => entry.category === category.id)
-      .reduce((total, entry) => total + entry.weight, 0)), [48, 24, 19, 9]);
+      .reduce((total, entry) => total + entry.weight, 0)), [35, 22, 19, 9, 15]);
   const wild = createGame().world.items.filter((chest) => chest.chestType === 'wild');
   assert.equal(wild.length, 12);
   for (let seed = 1; seed <= 40; seed++) {

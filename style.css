@@ -603,3 +603,7 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 @media(max-width: 400px) { .class-skill > span { font-size: 16px; } .inventory .slot kbd { left: 2px; top: 2px; } .class-skill b { right: 1px; font-size: 9px; } }
 #warden-brace { color:var(--gold); align-self:center; }
 #health-fill.bloodrush { filter:hue-rotate(calc(-1 * var(--rage-hue, 0deg))) saturate(1.7); }
+
+/* Tome recharge overlay on the numbered hotbar. */
+#hotbar-slots .slot[data-spell-cooldown] > .item { opacity: .45; }
+#hotbar-slots .slot[data-spell-cooldown]::after { content: attr(data-spell-cooldown); position: absolute; inset: 0; display: grid; place-items: center; color: white; font-size: 12px; font-weight: bold; text-shadow: 0 1px 3px #000; pointer-events: none; }
