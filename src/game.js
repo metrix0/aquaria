@@ -350,18 +350,9 @@ const ui = createUI({
     ui.setZoom(zoomLevels[zoomIndex], zoomIndex === 0, zoomIndex === zoomLevels.length - 1);
   },
   hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
-  toggleGodMode() {
-    if (game.player.downed) return;
-    const flying = toggleGodMode(game.world, game.player);
-    ui.godMode(flying);
-    if (flying) {
-      ui.notify('Fly with WASD, arrow keys, or touch controls.');
-    } else {
-      game.dirty = true;
-      storeProgress();
-      ui.clearNotice();
-    }
-  },
+  toggleGodMode: toggleGodModeState,
+  emitEmoji,
+  dance: toggleDance,
   adjustFlightSpeed(step) {
     if (!game.player.flightOrigin) return;
     const last = flightSpeedLevels.length - 1;
@@ -507,7 +498,7 @@ const input = bindInput(canvas, camera, {
       if (result.message) ui.notify(result.message);
       return true;
     }
-    const utility = useUtilityItem(game, selected, aimedTile());
+    const utility = useUtilityItem(game, selected, aimedTile(), { wx, wy });
     if (utility) {
       if (utility.inventoryChanged) inventoryChanged();
       ui.notify(utility.message);
@@ -542,8 +533,22 @@ const input = bindInput(canvas, camera, {
     return result.handled;
   },
   place() {
+    if (editPending || game.player.downed) return;
+    const heldItem = ITEMS[game.inventory.hotbar[selected]?.id];
+    if (heldItem?.spawnKind) {
+      const { pointer } = input;
+      const utility = useUtilityItem(game, selected, aimedTile(), {
+        wx: pointer.x + camera.x,
+        wy: pointer.y + camera.y,
+      });
+      if (utility) {
+        if (utility.inventoryChanged) inventoryChanged();
+        ui.notify(utility.message);
+      }
+      return;
+    }
     const target = aimedTile();
-    if (!target || editPending || game.player.downed) return;
+    if (!target) return;
     const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty) ?? cauldronAt(game,target.tx,target.ty);
     if (bench) ui.open('craft-panel', bench);
     else void editTile(planTileAction(game, target, true, selected));
@@ -554,7 +559,34 @@ const input = bindInput(canvas, camera, {
   backpack: () => { if (!game.player.downed) ui.open('backpack-panel'); },
   character: () => { if (!game.player.downed) ui.open('customize-panel'); },
   pause: () => { if (!game.player.downed) ui.open('pause-panel'); },
+  toggleGodMode: toggleGodModeState,
+  emotes: () => { if (!game.player.downed) ui.toggleEmotes(); },
+  dance: toggleDance,
 });
+
+function toggleGodModeState() {
+  if (game.player.downed) return;
+  const flying = toggleGodMode(game.world, game.player);
+  ui.godMode(flying);
+  if (flying) {
+    ui.notify('Fly with WASD, arrow keys, or touch controls.');
+  } else {
+    game.dirty = true;
+    storeProgress();
+    ui.clearNotice();
+  }
+}
+
+function emitEmoji(symbol) {
+  if (!symbol || game.player.downed) return;
+  game.player.emoji = { symbol, timer: 2.6, duration: 2.6 };
+}
+
+function toggleDance() {
+  if (game.player.downed) return;
+  game.player.dancing = (game.player.dancing ?? 0) > 0 ? 0 : 4.5;
+  ui.dancing(game.player.dancing > 0);
+}
 
 function resetCameraFraming() {
   camera.swimSeconds = 0;
@@ -728,6 +760,7 @@ function frame(now) {
     updateParticles(dt);
     updateDrowningWarning(dt);
     updateCamera(dt);
+    ui.dancing((game.player.dancing ?? 0) > 0);
     if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     shake = screenShake.step(dt, time, reducedMotion);
     if (miningSwing) {

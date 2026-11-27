@@ -3968,6 +3968,27 @@ export function createRenderer(canvas) {
       reducedMotion,
       swimming: playerInWater(world, player),
     });
+    for (const actor of [...peers, player]) {
+      const emoji = actor.emoji;
+      if (!emoji?.symbol || !(emoji.timer > 0)) continue;
+      const progress = 1 - Math.min(1, emoji.timer / (emoji.duration || 2.6));
+      const rise = reducedMotion ? 0 : Math.round(progress * 6);
+      const bx = Math.round(actor.x);
+      const by = Math.round(actor.y - 14 - rise);
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, emoji.timer / 0.45);
+      rect(bx - 7, by - 7, 14, 13, '#10212b');
+      rect(bx - 6, by - 6, 12, 11, '#f3f7ee');
+      rect(bx - 2, by + 6, 4, 2, '#10212b');
+      rect(bx - 1, by + 5, 2, 2, '#f3f7ee');
+      if (typeof ctx.fillText === 'function') {
+        ctx.font = '10px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emoji.symbol, bx, by);
+      }
+      ctx.restore();
+    }
     if ((player.confused ?? 0) > 0) {
       if (player.confusedStyle === "stars") {
         for (let i = 0; i < 4; i++) {

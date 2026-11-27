@@ -116,12 +116,26 @@
         </div>
         <div class="footer-actions">
           <button id="multiplayer" class="room-button">Multiplayer</button>
+          <div class="emote-anchor">
+            <button id="emotes" type="button" aria-expanded="false" aria-controls="emote-bar" aria-keyshortcuts="T"><kbd>T</kbd> Emotes</button>
+            <div id="emote-bar" class="emote-bar" role="group" aria-label="Emotes and dance" hidden>
+              <button id="emote-dance" type="button" aria-pressed="false" title="Toggle Dance (B)"><kbd>B</kbd> Dance</button>
+              <button type="button" data-emoji="😀" aria-label="Smile emoji">😀</button>
+              <button type="button" data-emoji="❤️" aria-label="Heart emoji">❤️</button>
+              <button type="button" data-emoji="👍" aria-label="Thumbs up emoji">👍</button>
+              <button type="button" data-emoji="🎉" aria-label="Party emoji">🎉</button>
+              <button type="button" data-emoji="😭" aria-label="Crying emoji">😭</button>
+              <button type="button" data-emoji="😡" aria-label="Angry emoji">😡</button>
+              <button type="button" data-emoji="😱" aria-label="Shocked emoji">😱</button>
+              <button type="button" data-emoji="💀" aria-label="Skull emoji">💀</button>
+            </div>
+          </div>
           <button id="customize" class="customize" aria-haspopup="dialog" aria-controls="customize-panel" aria-keyshortcuts="V"><kbd>V</kbd> Character</button>
           <button id="backpack" class="backpack" aria-haspopup="dialog" aria-controls="backpack-panel" aria-keyshortcuts="Tab"><kbd>Tab</kbd> Backpack</button>
           <button id="craft" class="craft" aria-haspopup="dialog" aria-controls="craft-panel" aria-keyshortcuts="C"><kbd>C</kbd> Crafting</button>
           <button id="hide-cave-shadows" class="shadows" type="button" aria-label="Hide cave shadows" aria-pressed="false">Shadows</button>
           <div class="god-mode-anchor">
-            <button id="god-mode" class="god-mode" type="button" aria-pressed="false">God mode</button>
+            <button id="god-mode" class="god-mode" type="button" aria-pressed="false" aria-keyshortcuts="G"><kbd>G</kbd> God mode</button>
             <div id="flight-speed" class="footer-stepper flight-speed" role="group" aria-label="God mode flight speed" hidden>
               <button id="flight-slower" type="button" aria-label="Decrease flight speed">−</button>
               <output id="flight-speed-value" aria-label="Flight speed multiplier">Speed 1×</output>
@@ -247,6 +261,7 @@
         <button type="button" role="tab" data-tab="consumables" aria-selected="false">Consumables</button>
         <button type="button" role="tab" data-tab="blocks" aria-selected="false">Blocks</button>
         <button type="button" role="tab" data-tab="materials" aria-selected="false">Materials</button>
+        <button type="button" role="tab" data-tab="spawns" aria-selected="false">Spawns</button>
       </div>
       <p class="items-help">Select an item to add it. Equipment goes straight into its slot.</p>
       <div class="items-grid" id="items-grid"></div>

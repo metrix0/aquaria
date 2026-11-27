@@ -1,4 +1,5 @@
 import { drawPickaxe } from './pickaxe-art.js';
+import { drawSpawnHead } from './spawn-icon-art.js';
 import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, FEET_GEAR, SNORKELS, SPEAR } from './content.js';
 import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
@@ -260,6 +261,24 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
+  function carrySpawnItem(x, y, sway, tilt, skin, shirt, kind, swimming, crawling, ring) {
+    const shoulder = [x, y];
+    const elbow = [x + Math.round(sway * .2), y + 4];
+    const hand = [x + 4 + Math.round(sway * .4), y + (crawling ? 3 : 5)];
+    pixelLine(shoulder, elbow, 3, shirt.wet);
+    pixelLine(shoulder, elbow, 2, shirt.base);
+    pixelLine(elbow, hand, 3, skin.shade);
+    pixelLine(elbow, hand, 2, skin.face);
+
+    ctx.save();
+    ctx.translate(hand[0] + 1, hand[1] - 1);
+    ctx.rotate((swimming || crawling ? -.15 : -.25) + sway * .03 - tilt);
+    ctx.scale(0.45, 0.45);
+    drawSpawnHead((hx, hy, hw, hh, color) => rect(hx - 8, hy - 8, hw, hh, color), kind);
+    ctx.restore();
+    if (ring) rect(hand[0], hand[1], 1, 1, '#a8f184');
+  }
+
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, ring, venom) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
@@ -371,6 +390,10 @@ export function createCharacterRenderer(ctx) {
     const rope = climb?.kind === 'rope';
     const climbCenter = climb ? (climb.tx + .5) * TILE - Math.round(player.x) : 0;
     const speed = Math.abs(player.dx);
+    const dancing = (player.dancing ?? 0) > 0 && !reducedMotion;
+    const danceBeat = dancing ? Math.sin(time * 9) : 0;
+    const danceBob = dancing ? Math.round(-Math.abs(danceBeat) * 2.5) : 0;
+    const danceSway = dancing ? Math.round(Math.sin(time * 4.5) * 1.4) : 0;
     const strideWeight = !climb && !reducedMotion && player.grounded && !swimming
       ? clamp((speed - 8) / (crawling ? 32 : 52), 0, 1) : 0;
     const phase = player.walkPhase;
@@ -386,7 +409,7 @@ export function createCharacterRenderer(ctx) {
     const secondRung = firstRung + rungGap;
     const railReach = climb?.kind === 'headframe' ? 9 : shaft ? 6 : 4;
     const tilt = characterTilt(player, swimming, facing);
-    const armSwing = Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
+    const armSwing = dancing ? Math.round(danceBeat * 4) : Math.round(Math.cos(angle + 0.18) * (crawling ? 5 : 3) * strideWeight);
     const kick = swimming && !reducedMotion ? Math.round(Math.sin(time * 10) * (1 + 2 * clamp(speed / 70, 0, 1))) : 0;
     const { shoulder, waist } = CHARACTER_BODIES[appearance.body];
     const skin = APPEARANCE.skin[appearance.skin];
@@ -471,6 +494,11 @@ export function createCharacterRenderer(ctx) {
         bentArm([shoulderX, restY], [shoulderX + 2, restY + 4], hand, skin, shirt, false, ring, tomeHand);
       } else if (heldItem?.pickaxe) {
         carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring, venom);
+      } else if (heldItem?.spawnKind) {
+        carrySpawnItem(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.spawnKind, swimming, crawling, ring);
+      } else if (dancing) {
+        const lift = Math.round(danceBeat * 3);
+        bentArm([shoulderX, restY], [shoulderX + 3, restY - 1 + Math.round(danceBeat * 2)], [shoulderX + 5, restY - 5 + lift], skin, shirt, false, ring, venom);
       } else {
         arm(shoulderX, restY, restSwing, skin, shirt, false, ring, venom);
       }
@@ -480,7 +508,16 @@ export function createCharacterRenderer(ctx) {
     const flashTimer = player.hurt > 0 ? player.hurt : (player.confusedGrace ?? 0);
     if (flashTimer > 0 && Math.floor(flashTimer * 14) % 2 === 1) ctx.globalAlpha = 0.65;
     const jitter = (player.stun ?? 0) > 0 && !reducedMotion ? Math.round(Math.sin(time * 48)) : 0;
-    ctx.translate(Math.round(player.x) + jitter, pixelY);
+    ctx.translate(Math.round(player.x) + jitter + danceSway, pixelY + danceBob);
+    if ((player.dancing ?? 0) > 0) {
+      const noteY = -7 + (reducedMotion ? 0 : Math.round(Math.sin(time * 7) * 2));
+      const noteX = (reducedMotion ? 4 : Math.round(Math.cos(time * 4.5) * 6));
+      rect(noteX, noteY, 2, 2, '#ffe066');
+      rect(noteX + 1, noteY - 3, 1, 3, '#ffe066');
+      rect(noteX + 1, noteY - 3, 2, 1, '#fff3b0');
+      rect(-noteX - 2, noteY - 2, 2, 2, '#a6eee0');
+      rect(-noteX - 1, noteY - 5, 1, 3, '#a6eee0');
+    }
     const drawElectricStun = (cy) => {
       if (!((player.stun ?? 0) > 0)) return;
       const tick = Math.floor(time * 24);

@@ -258,6 +258,23 @@ export function createUI(actions, version) {
   zoomIn.addEventListener('click', () => actions.zoomBy(1));
   const godMode = byId('god-mode');
   godMode.addEventListener('click', actions.toggleGodMode);
+  const emotesButton = byId('emotes');
+  const emoteBar = byId('emote-bar');
+  const danceButton = byId('emote-dance');
+  function toggleEmotes(open) {
+    if (!emoteBar || !emotesButton) return;
+    const next = typeof open === 'boolean' ? open : emoteBar.hidden;
+    emoteBar.hidden = !next;
+    emotesButton.setAttribute('aria-expanded', String(next));
+  }
+  emotesButton?.addEventListener('click', () => toggleEmotes());
+  danceButton?.addEventListener('click', () => actions.dance?.());
+  for (const button of emoteBar?.querySelectorAll('[data-emoji]') ?? []) {
+    button.addEventListener('click', () => {
+      actions.emitEmoji?.(button.dataset.emoji);
+      toggleEmotes(false);
+    });
+  }
   const flightSpeed = byId('flight-speed');
   const flightSpeedValue = byId('flight-speed-value');
   const flightSlower = byId('flight-slower');
@@ -291,6 +308,10 @@ export function createUI(actions, version) {
     godMode(enabled) {
       godMode.setAttribute('aria-pressed', String(enabled));
       flightSpeed.hidden = !enabled;
+    },
+    toggleEmotes,
+    dancing(enabled) {
+      danceButton?.setAttribute('aria-pressed', String(enabled));
     },
     setFlightSpeed(multiplier, atMinimum, atMaximum) {
       flightSpeedValue.value = 'Speed ' + multiplier + '×';

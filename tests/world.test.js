@@ -16,7 +16,7 @@ import { isInsideShipwreck } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
 import { COBALT_GRAPPLING_HOOK, EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, IRON_GRAPPLING_HOOK, ITEMS } from '../src/inventory.js';
 import { createItemsMenu, itemCategory } from '../src/items-menu.js';
-import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
+import { advanceMining, applyTerrain, canCraftItem, chestAt, commitTileAction, createGame, craftItem, equippedFeet, fireplaceAt, grantItem, moveInventoryStack, nearestItem, oxygenCapacity, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from '../src/gameplay/simulation.js';
 import { decodeSave, encodeSave } from '../src/save.js';
 import { createRenderer } from '../src/render.js';
 import { CHUNK_SIZE, activeTent, buildCellFree, createWorld, editTile, inWater, isTreeStanding, tileAt, waterTileAt } from '../src/world.js';
@@ -4224,7 +4224,7 @@ test('items menu divides items into tabs and opens on the All tab by default', (
   globalThis.document = { createElement: (tag) => makeEl(tag) };
   try {
     const catalog = { ...ITEMS, ...EQUIPMENT_ITEMS };
-    const counts = { weapons: 0, gear: 0, consumables: 0, blocks: 0, materials: 0 };
+    const counts = { weapons: 0, gear: 0, consumables: 0, blocks: 0, materials: 0, spawns: 0 };
     for (const [id, item] of Object.entries(catalog)) {
       const cat = itemCategory(id, item);
       assert.ok(Object.hasOwn(counts, cat), `unexpected category ${cat} for ${id}`);
@@ -4239,7 +4239,7 @@ test('items menu divides items into tabs and opens on the All tab by default', (
     const quantity = makeEl('input');
     const empty = makeEl('p');
     const status = makeEl('p');
-    const tabButtons = ['all', 'weapons', 'gear', 'consumables', 'blocks', 'materials'].map((tab) => {
+    const tabButtons = ['all', 'weapons', 'gear', 'consumables', 'blocks', 'materials', 'spawns'].map((tab) => {
       const btn = makeEl('button', { tab });
       btn.setAttribute('aria-selected', tab === 'all' ? 'true' : 'false');
       return btn;
@@ -4962,4 +4962,107 @@ test('grappling hook starts with reduced 9-block reach and upgrades through iron
 
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(equippedHook(restored)?.id, COBALT_GRAPPLING_HOOK.id);
+});
+
+test('spawn items cover monsters and friends, show head icons, and spawn creatures where aimed', () => {
+  const game = createGame();
+  const { world, player } = game;
+  assert.ok(ITEMS['spawn-crab']?.spawnKind === 'crab');
+  assert.ok(ITEMS['spawn-fish']?.spawnKind === 'fish');
+  assert.ok(ITEMS['spawn-pufferfish']?.spawnKind === 'pufferfish');
+  assert.ok(ITEMS['spawn-kraken']?.spawnKind === 'kraken');
+
+  game.inventory.hotbar[4] = { id: 'spawn-crab', count: 1 };
+  game.inventory.hotbar[5] = { id: 'spawn-pufferfish', count: 2 };
+
+  const mobsBefore = world.mobs.length;
+  const crabResult = useUtilityItem(game, 4, null);
+  assert.equal(crabResult.inventoryChanged, true);
+  assert.equal(crabResult.mob.kind, 'crab');
+  assert.equal(game.inventory.hotbar[4], null);
+  assert.equal(world.mobs.length, mobsBefore + 1);
+
+  const pufferResult = useUtilityItem(game, 5, null, { wx: player.x + 80, wy: WATER + 20 * TILE });
+  assert.equal(pufferResult.inventoryChanged, true);
+  assert.equal(pufferResult.mob.kind, 'pufferfish');
+  assert.equal(game.inventory.hotbar[5].count, 1);
+  assert.equal(world.mobs.length, mobsBefore + 2);
+
+  // Aiming above an island floor spawns a grounded creature directly under the pointer X.
+  const dropCol = Math.floor(SPAWN.x / TILE) + 2;
+  const floorRow = 14;
+  for (let y = floorRow - 4; y < floorRow; y++) editTile(world, dropCol, y, MATERIAL.air);
+  editTile(world, dropCol, floorRow, MATERIAL.stone);
+  game.inventory.hotbar[4] = { id: 'spawn-crab', count: 1 };
+  const aimedX = (dropCol + 0.5) * TILE;
+  const aimedAboveResult = useUtilityItem(game, 4, null, { wx: aimedX, wy: (floorRow - 3) * TILE });
+  assert.equal(aimedAboveResult.inventoryChanged, true);
+  assert.ok(Math.abs(aimedAboveResult.mob.x - aimedX) < 1);
+});
+
+test('player can dance, emit floating emojis, and render both cleanly', () => {
+  const game = createGame();
+  const { player } = game;
+  player.dancing = 4.5;
+  player.emoji = { symbol: '😀', timer: 2.6, duration: 2.6 };
+
+  for (let i = 0; i < 30; i++) stepGame(game, {}, 1 / 60);
+  assert.ok(player.dancing > 3.5 && player.dancing < 4.5);
+  assert.ok(player.emoji && player.emoji.timer < 2.6 && player.emoji.timer > 1.5);
+
+  stepGame(game, { right: true }, 1 / 60);
+  assert.equal(player.dancing, 0);
+
+  player.dancing = 3;
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} };
+  try {
+    const noop = () => {};
+    const texts = [];
+    const fillColors = [];
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill: noop, stroke: noop, translate: noop,
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop: noop }),
+      fillRect() { fillColors.push(this.fillStyle); },
+      fillText(text) { texts.push(text); },
+    });
+    const canvas = {
+      width: 640,
+      height: 360,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) },
+      getContext: () => makeCtx(),
+    };
+    const renderer = createRenderer(canvas);
+    renderer.draw({
+      world: game.world,
+      player,
+      snorkel: null,
+      camera: { x: player.x - 160, y: player.y - 90, width: 320, height: 180 },
+      time: 1,
+      elapsed: 1,
+      aim: null,
+      mining: null,
+      miningSwing: null,
+      held: null,
+      attack: null,
+      hasArrow: false,
+      playerArrows: [],
+      targetMob: null,
+      particles: [],
+      reducedMotion: false,
+      conditions: { darkness: 0, rain: 0, night: false, skyProgress: 0.5, atmosphere: 'clear' },
+      worldTime: 0,
+      weatherSeed: 0,
+      caveShadowsHidden: true,
+      openChestId: null,
+    });
+    assert.ok(texts.includes('😀'));
+    assert.ok(fillColors.includes('#ffe066'));
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
 });

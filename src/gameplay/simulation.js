@@ -6,6 +6,7 @@ import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
 import { equippedHook, hasHook } from './hook.js';
+import { spawnCreature } from './enemy-spawner.js';
 import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocked } from './warden.js';
 import { beneficial, harmful, foodYield, confuseOnHit, stepScholar, tomeEffect, spendTomeCooldown } from './scholar.js';
 import { stepWayfarer, finishWayfarer, catchFallMultiplier } from './wayfarer.js';
@@ -875,9 +876,17 @@ export function grantItem(game, id, count) {
   return true;
 }
 
-export function useUtilityItem(game, slot, target) {
+export function useUtilityItem(game, slot, target, pointerWorld = null) {
   const inventory = game.inventory;
   const held = inventory.hotbar[slot]?.id;
+  const item = ITEMS[held];
+  if (item?.spawnKind) {
+    const result = spawnCreature(game.world, game.player, item.spawnKind, pointerWorld?.wx, pointerWorld?.wy);
+    if (result.error) return { message: result.error };
+    inventory.consume(inventory.hotbar, slot, 1);
+    game.dirty = true;
+    return { inventoryChanged: true, mob: result.mob, message: 'Spawned ' + result.name + '.' };
+  }
   if (held === SOUL_ITEMS.lesser || held === SOUL_ITEMS.greater) {
     const type = held === SOUL_ITEMS.lesser ? 'lesser' : 'greater';
     const error = absorbSouls(game, type, 1);

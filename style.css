@@ -309,7 +309,21 @@ footer { width: 100%; min-height: 51px; background: #08151df5; border-top: 1px s
 .craft { color: var(--gold); background: #201f1a; border-color: #b78c5b75; }
 .backpack, .customize { color: var(--mint); background: #152730; }
 .shadows, .god-mode, .deploy, .items, .spawn, .drops, #classes, #skilltree, #debug-souls { color: #cbdad0; background: #152730; }
-.god-mode-anchor { position: relative; display: flex; flex: none; }
+.god-mode-anchor, .emote-anchor { position: relative; display: flex; flex: none; }
+.emote-bar {
+  position: absolute; bottom: calc(100% + 7px); left: 0; z-index: 30;
+  display: flex; align-items: center; gap: 4px; padding: 5px 7px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--pane);
+  box-shadow: 0 5px 16px #02080b9c; white-space: nowrap;
+}
+.emote-bar[hidden] { display: none; }
+.emote-bar button {
+  min-width: 28px; min-height: 28px; padding: 3px 6px; border: 1px solid #42606b;
+  border-radius: 4px; background: #132934; font-size: 14px; line-height: 1;
+}
+.emote-bar button:hover { background: #203943; }
+#emote-dance { font-size: 12px; font-weight: 600; }
+#emote-dance[aria-pressed="true"] { border-color: var(--gold); background: #243b3e; color: var(--gold); }
 .god-mode-anchor .flight-speed { position: absolute; bottom: calc(100% + 7px); right: 0; z-index: 7; white-space: nowrap; box-shadow: 0 5px 16px #02080b9c; }
 .god-mode-anchor .flight-speed[hidden] { display: none; }
 .flight-speed output { min-width: 9ch; color: var(--gold); }

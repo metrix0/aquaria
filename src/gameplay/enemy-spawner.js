@@ -2,40 +2,20 @@ import { solidAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, generateMobs } from '../world/generation.js';
 import { mobSpec } from './mobs.js';
 import { pickEnemyType } from './enemies/enemy-fish.js';
+import { ALL_SPAWN_ENTRIES, FRIEND_SPAWN_ENTRIES, SPAWN_CATEGORIES } from './spawn-catalog.js';
 
-// The categories are deliberately explicit: passive crabs and ordinary fish
-// aren't enemies, while the two hostile fish species are individually testable.
-export const SPAWN_CATEGORIES = Object.freeze([
-  { name: 'Ocean', entries: [
-    ['jellyfish', 'Jellyfish'], ['squid', 'Squid'], ['shark', 'Shark'],
-    ['lionfish', 'Lionfish'], ['pufferfish', 'Pufferfish'], ['reef-snapper', 'Reef snapper'],
-    ['lanternfish', 'Lanternfish'], ['kraken', 'Kraken'],
-  ] },
-  { name: 'Island caves', entries: [
-    ['spider', 'Cave spider'], ['archer', 'Skeleton archer'],
-    ['miner', 'Skeletal miner'], ['scorpion', 'Scorpion'],
-    ['hammer', 'Hammer skeleton'], ['greatsword', 'Greatsword skeleton'], ['armored-skeleton', 'Armoured skeleton'], ['mimic', 'Mimic'],
-    ['blood-bat', 'Blood bat'],
-  ] },
-  { name: 'Jungle', entries: [
-    ['cannibal-spear', 'Spear cannibal'], ['cannibal-bow', 'Bow cannibal'],
-    ['shaman', 'Native shaman'], ['cave-frog', 'Giant cave frog'],
-    ['frog', 'Frog cultist'], ['worm', 'Jungle worm'],
-  ] },
-  { name: 'Shipwreck', entries: [['ghost', 'Wreck ghost']] },
-  { name: 'Passive cave wildlife', entries: [
-    ['ambient-ant', 'Ant'], ['ambient-spider', 'Tiny spider'], ['ambient-bat', 'Bat'],
-  ] },
-]);
+export { ALL_SPAWN_ENTRIES, FRIEND_SPAWN_ENTRIES, SPAWN_CATEGORIES };
 
 const allowed = new Map(SPAWN_CATEGORIES.flatMap(category => category.entries));
+const allAllowed = new Map(ALL_SPAWN_ENTRIES);
 const groundedKinds = new Set([
+  'crab',
   'spider', 'archer', 'miner', 'scorpion', 'hammer', 'greatsword', 'armored-skeleton', 'mimic',
   'cannibal-spear', 'cannibal-bow', 'shaman', 'cave-frog', 'frog',
   'ambient-ant', 'ambient-spider',
 ]);
 const waterKinds = new Set([
-  'jellyfish', 'squid', 'shark', 'lionfish', 'pufferfish', 'kraken', 'reef-snapper', 'lanternfish',
+  'fish', 'jellyfish', 'squid', 'shark', 'lionfish', 'pufferfish', 'kraken', 'reef-snapper', 'lanternfish',
 ]);
 
 function clearSpace(world, x, y, spec, ground = false) {
@@ -83,14 +63,40 @@ function spawnLocation(world, player, kind, spec) {
 
 let spawnSerial = 0;
 
-export function spawnEnemyNear(world, player, kind) {
-  if (!allowed.has(kind)) return { error: 'Unknown enemy.' };
+function spawnMobFromMap(world, player, kind, registry, wx, wy) {
+  if (!registry.has(kind)) return { error: 'Unknown creature.' };
   const fishType = kind === 'reef-snapper' || kind === 'lanternfish';
   const actualKind = fishType ? 'fish' : kind;
   const template = generateMobs().find(mob => mob.kind === actualKind) ?? { kind: actualKind };
   const spec = mobSpec(template);
-  if (!spec) return { error: 'This enemy cannot be spawned.' };
-  const position = spawnLocation(world, player, actualKind, spec);
+  if (!spec) return { error: 'This creature cannot be spawned.' };
+  const ground = groundedKinds.has(actualKind);
+  let position = null;
+  if (Number.isFinite(wx) && Number.isFinite(wy)) {
+    const px = Math.max(TILE * 2, Math.min((COLS - 2) * TILE, wx));
+    if (actualKind === 'worm') {
+      const py = Math.max(TILE * 2, Math.min((ROWS - 2) * TILE, wy));
+      if (!solidAt(world, Math.floor(px / TILE), Math.floor(py / TILE))) {
+        position = { x: px, y: py };
+      }
+    } else if (ground) {
+      const startRow = Math.floor(wy / TILE);
+      for (let drop = 0; drop <= 6; drop++) {
+        const candidateY = (startRow + drop + 1) * TILE - (spec.centerY + spec.height / 2);
+        if (candidateY + spec.height >= (ROWS - 2) * TILE) break;
+        if (clearSpace(world, px, candidateY, spec, true)) {
+          position = { x: px, y: candidateY };
+          break;
+        }
+      }
+    } else {
+      const py = Math.max(TILE * 2, Math.min((ROWS - 2) * TILE, wy));
+      if (clearSpace(world, px, py, spec, false)) {
+        position = { x: px, y: py };
+      }
+    }
+  }
+  position = position ?? spawnLocation(world, player, actualKind, spec);
   if (!position) return { error: 'No clear space near your character. Move and try again.' };
 
   const index = ++spawnSerial;
@@ -125,5 +131,15 @@ export function spawnEnemyNear(world, player, kind) {
   // Test spawns are ephemeral and won't silently respawn or pollute saved games.
   mob.testSpawn = true;
   world.mobs.push(mob);
-  return { mob, name: allowed.get(kind) };
+  return { mob, name: registry.get(kind) };
+}
+
+export function spawnEnemyNear(world, player, kind) {
+  if (!allowed.has(kind)) return { error: 'Unknown enemy.' };
+  return spawnMobFromMap(world, player, kind, allowed);
+}
+
+/** Spawn any hostile or friendly creature near the target world point or player. */
+export function spawnCreature(world, player, kind, wx, wy) {
+  return spawnMobFromMap(world, player, kind, allAllowed, wx, wy);
 }

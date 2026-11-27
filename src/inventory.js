@@ -1,5 +1,6 @@
 import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, MORNINGSTAR, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
+import { ALL_SPAWN_ENTRIES } from './gameplay/spawn-catalog.js';
 
 import { SPELL_ITEMS } from './spells.js';
 
@@ -106,6 +107,14 @@ export const ITEMS = {
   copper: { name: 'Copper ore', description: 'Little flecks of sunset trapped in stone.' },
   iron: { name: 'Iron ore', description: 'An old forge song calls it the bones of the earth.' },
   cobalt: { name: 'Cobalt ore', description: 'A vein of midnight blue. The deep keeps its finest colors to itself.' },
+  ...Object.fromEntries(ALL_SPAWN_ENTRIES.map(([kind, name]) => [
+    'spawn-' + kind,
+    {
+      name: name + ' spawn',
+      spawnKind: kind,
+      description: 'Use from your hotbar to spawn a ' + name.toLowerCase() + ' where you aim.',
+    },
+  ])),
 };
 
 // Separate quality variants retain the original weapon art and moves.

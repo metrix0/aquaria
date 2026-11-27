@@ -141,7 +141,7 @@ export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   const point = respawnPoint(world);
   let y = point.y;
   while (y > 0 && collides(world, point.x, y)) y = Math.max(0, y - TILE);
-  return { x: point.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, appearance: normalizeAppearance(appearance) };
+  return { x: point.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, dancing: 0, emoji: null, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage, fractional = false) {
@@ -336,6 +336,11 @@ export function movePlayer(world, player, input, dt) {
   player.bleed = player.bleed ?? 0;
   player.blindness = Math.max(0, (player.blindness ?? 0) - dt);
   player.neurotoxin = Math.max(0, (player.neurotoxin ?? 0) - dt);
+  player.dancing = (left || right || up || down || jump) ? 0 : Math.max(0, (player.dancing ?? 0) - dt);
+  if (player.emoji) {
+    player.emoji.timer = Math.max(0, player.emoji.timer - dt);
+    if (player.emoji.timer === 0) player.emoji = null;
+  }
   player.inkCooldown = Math.max(0, (player.inkCooldown ?? 0) - dt);
   if (player.inkSplats?.length) {
     for (let i = player.inkSplats.length - 1; i >= 0; i--) {

@@ -69,6 +69,9 @@ export function bindInput(canvas, camera, actions) {
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
+    if (code === 'KeyG') actions.toggleGodMode?.();
+    if (code === 'KeyT') actions.emotes?.();
+    if (code === 'KeyB') actions.dance?.();
     if (code === 'KeyQ') actions.castSkill?.(0);
     if (code === 'KeyR') actions.castSkill?.(1);
     if (/^Digit[1-6]$/.test(code)) actions.select(Number(code.slice(-1)) - 1);
