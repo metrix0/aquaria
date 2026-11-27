@@ -2612,7 +2612,7 @@ export function createRenderer(canvas) {
       const caveEnemy = Boolean(caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]);
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
-      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
+      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : mob.kind === "greatsword" ? 64 : 32;
       const marginY = mob.kind === "kraken" ? 2000 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)

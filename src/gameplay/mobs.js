@@ -22,6 +22,7 @@ import { skeletonArcherSpec, stepCaveArrow, stepSkeletonArcher } from './enemies
 import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.js';
 import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies/cave-scorpion.js';
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
+import { greatswordSkeletonSpec, stepGreatswordSkeleton } from './enemies/greatsword-skeleton.js';
 import { mimicSpec, stepMimic, wakeMimic } from './enemies/mimic.js';
 import { bloodBatSpec, stepBloodBat } from './enemies/blood-bat.js';
 import { cannibalBowSpec, cannibalSpearSpec, stepCannibalBow, stepCannibalSpear } from './enemies/cannibal.js';
@@ -53,6 +54,7 @@ const caveEnemyModules = {
   miner: { spec: skeletalMinerSpec, step: stepSkeletalMiner },
   scorpion: { spec: caveScorpionSpec, step: stepCaveScorpion },
   hammer: { spec: hammerSkeletonSpec, step: stepHammerSkeleton },
+  greatsword: { spec: greatswordSkeletonSpec, step: stepGreatswordSkeleton },
   mimic: { spec: mimicSpec, step: stepMimic },
   'blood-bat': { spec: bloodBatSpec, step: stepBloodBat },
 };
@@ -434,6 +436,10 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
     mob.dx = 0;
     mob.dy = 0;
     mob.flee = 0;
+  } else if (mob.kind === 'greatsword') {
+    // Heavy dungeon greatsword skeleton stands its ground with zero knockback.
+    mob.dx = 0;
+    mob.flee = 0;
   } else if (mob.kind === 'worm') {
     mob.dx *= 0.65;
     mob.dy *= 0.65;
@@ -482,7 +488,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       mob.respawn = mob.respawnDelay ?? 45;
     }
     const rewardType = mob.kind === 'kraken' ? 'greater'
-      : ['mimic', 'hammer', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
+      : ['mimic', 'hammer', 'greatsword', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
     if (rewardType && !mob.krakenMinion) {
       world.soulRewards ??= [];
       world.soulRewards.push({ id: mob.id ?? mob.kind + ':' + Math.floor(mob.homeX || mob.x), type: rewardType });

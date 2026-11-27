@@ -1,4 +1,5 @@
 import { CLAW_SLASH_DURATION } from './gameplay/enemies/frog-cultist.js';
+import { GREATSWORD_SWING_DURATION } from './gameplay/enemies/greatsword-skeleton.js';
 import { pickaxePose } from './gameplay/melee.js';
 import { drawPickaxe } from './pickaxe-art.js';
 
@@ -366,6 +367,11 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
 
   const archer = mob.kind === 'archer';
   const heavy = mob.kind === 'hammer';
+  const greatsword = mob.kind === 'greatsword';
+  if (greatsword) {
+    drawGreatswordSkeleton(ctx, rect, polygon, mob, time, stride, moving);
+    return;
+  }
   const bone = heavy ? '#b5ae9e' : '#e3cfaf';
   const shade = '#918578';
   const cloth = heavy ? '#454151' : archer ? '#5e6363' : '#755652';
@@ -411,4 +417,104 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
       drawPickaxe(rect, 1);
     }
   }
+}
+
+function drawGreatswordBlade(rect, polygon) {
+  rect(-4, -1, 2, 2, '#5a6370');
+  rect(-2, -1, 3, 2, '#634435');
+  rect(1, -4, 2, 8, '#6e7987');
+  rect(1, -3, 1, 6, '#b7c2cc');
+  rect(3, -2, 14, 4, '#6b7785');
+  rect(3, -2, 14, 2, '#bcc7cf');
+  rect(4, -1, 11, 1, '#e8eff2');
+  polygon([[17, -2], [21, 0], [17, 2]], '#dce5ea');
+}
+
+function drawGreatswordSkeleton(ctx, rect, polygon, mob, time, stride, moving) {
+  const bone = '#dfd6be';
+  const boneHi = '#f0ead8';
+  const shade = '#94887a';
+  const cavity = '#261e24';
+  const swing = mob.greatswordSwing;
+  const winding = Boolean(swing && swing.windup > 0) || mob.windup > 0;
+  const swinging = Boolean(swing && swing.windup === 0);
+
+  ctx.scale(1.77, 1.71);
+
+  // Bare leg bones & skeletal feet (no armor or cloth)
+  rect(-4 - stride, -8, 2, 6, shade);
+  rect(-5 - stride, -2, 4, 2, shade);
+  rect(-4 - stride, -5, 2, 1, bone);
+  rect(2 + stride, -8, 2, 6, bone);
+  rect(2 + stride, -2, 5, 2, bone);
+  rect(2 + stride, -5, 3, 1, boneHi);
+
+  // Pelvis & exposed spine + open ribcage (unarmored skeleton)
+  rect(-4, -10, 8, 2, bone);
+  rect(-3, -9, 6, 1, shade);
+  rect(-1, -17, 2, 8, shade);
+  rect(-1, -16, 1, 6, bone);
+  rect(-5, -17, 10, 2, bone);
+  rect(-4, -17, 8, 1, boneHi);
+  for (const ry of [-15, -13, -11]) {
+    rect(-4, ry, 3, 1, bone);
+    rect(1, ry, 3, 1, bone);
+    rect(-3, ry + 1, 2, 1, cavity);
+    rect(1, ry + 1, 2, 1, cavity);
+  }
+
+  // Bare skull with no helmet and one glowing crimson eye
+  rect(-5, -24, 10, 6, shade);
+  rect(-4, -25, 8, 7, bone);
+  rect(-3, -25, 6, 2, boneHi);
+  rect(-2, -18, 6, 2, bone);
+  rect(0, -18, 1, 1, cavity);
+  rect(2, -18, 1, 1, cavity);
+  // Left/rear socket empty hollow, right/leading socket lit with one red eye
+  rect(0, -22, 2, 2, cavity);
+  rect(3, -22, 2, 2, winding || swinging ? '#ff3a3a' : '#d62229');
+  rect(4, -22, 1, 1, '#ff8b82');
+
+  // Greatsword pose: drags behind on the ground when idle/moving, cleaves front/back in swings
+  let pivotX = -5;
+  let pivotY = -10;
+  let angle = Math.PI - Math.asin(0.5);
+  if (swinging) {
+    const progress = Math.min(1, swing.elapsed / GREATSWORD_SWING_DURATION);
+    const front = swing.phase % 2 === 0;
+    pivotX = front ? 3 : -3;
+    pivotY = -15;
+    angle = front ? -1.55 + progress * 1.95 : -1.6 - progress * 1.95;
+    // Wide slash trail arc
+    ctx.save();
+    ctx.globalAlpha = 0.34 * (1 - progress * 0.45);
+    ctx.strokeStyle = front ? '#e8eef2' : '#ff7b76';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    if (front) ctx.arc(pivotX, pivotY, 17, -1.55, angle);
+    else ctx.arc(pivotX, pivotY, 17, angle, -1.6);
+    ctx.stroke();
+    ctx.restore();
+    polygon([[-1, -16], [pivotX, pivotY], [pivotX - 1, pivotY + 2], [-1, -14]], bone);
+  } else if (winding) {
+    pivotX = -2;
+    pivotY = -19;
+    angle = -2.2;
+    polygon([[0, -16], [-2, -20], [-4, -19], [-1, -14]], bone);
+  } else {
+    // Dragging on ground behind skeleton when idle or walking
+    const bounce = moving ? Math.abs(Math.sin(time * 16 + mob.phase)) * -0.045 : 0;
+    angle += bounce;
+    polygon([[-2, -16], [-5, -10], [-3, -9], [0, -15]], bone);
+    if (moving) {
+      rect(-22, -1, 2, 1, '#e6bf86');
+      rect(-20, -2, 1, 1, '#cfd7de');
+    }
+  }
+
+  ctx.save();
+  ctx.translate(pivotX, pivotY);
+  ctx.rotate(angle);
+  drawGreatswordBlade(rect, polygon);
+  ctx.restore();
 }

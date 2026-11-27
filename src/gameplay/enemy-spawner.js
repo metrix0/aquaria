@@ -14,7 +14,7 @@ export const SPAWN_CATEGORIES = Object.freeze([
   { name: 'Island caves', entries: [
     ['spider', 'Cave spider'], ['archer', 'Skeleton archer'],
     ['miner', 'Skeletal miner'], ['scorpion', 'Scorpion'],
-    ['hammer', 'Hammer skeleton'], ['mimic', 'Mimic'],
+    ['hammer', 'Hammer skeleton'], ['greatsword', 'Greatsword skeleton'], ['mimic', 'Mimic'],
     ['blood-bat', 'Blood bat'],
   ] },
   { name: 'Jungle', entries: [
@@ -30,7 +30,7 @@ export const SPAWN_CATEGORIES = Object.freeze([
 
 const allowed = new Map(SPAWN_CATEGORIES.flatMap(category => category.entries));
 const groundedKinds = new Set([
-  'spider', 'archer', 'miner', 'scorpion', 'hammer', 'mimic',
+  'spider', 'archer', 'miner', 'scorpion', 'hammer', 'greatsword', 'mimic',
   'cannibal-spear', 'cannibal-bow', 'shaman', 'cave-frog', 'frog',
   'ambient-ant', 'ambient-spider',
 ]);

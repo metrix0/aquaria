@@ -38,7 +38,7 @@ export const MOB_HEALTH = Object.freeze({
   pufferfish: 4,
   kraken: 80,
   ghost: 5,
-  spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9, mimic: 8, 'blood-bat': 4,
+  spider: 3, archer: 4, miner: 5, scorpion: 6, hammer: 9, greatsword: 10, mimic: 8, 'blood-bat': 4,
   'cannibal-spear': 5, 'cannibal-bow': 4,
   shaman: 5,
   'cave-frog': 7,

@@ -708,7 +708,7 @@ test('Root Ring hits high and low targets on its aimed path rather than its laun
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
   const { player, world } = createGame();
   const foes = world.mobs.filter((mob) => caveEnemySpecs[mob.kind]);
-  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 7);
+  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 8);
   for (const mob of foes) {
     const x = Math.floor(mob.x / TILE);
     const feet = mob.y / TILE;
@@ -4318,7 +4318,7 @@ test('cave and dungeon enemies step up 1-block heights and jump across gaps and 
   const floorRow = 12;
 
   // 1. Wide and narrow cave/dungeon enemies climb a 1-block staircase without getting stuck.
-  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer']) {
+  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer', 'greatsword']) {
     const game = createGame();
     const { world, player } = game;
     buildCaveLane(world, baseCol, floorRow);
@@ -4368,7 +4368,7 @@ test('cave and dungeon enemies step up 1-block heights and jump across gaps and 
   }
 
   // 2. Cave/dungeon enemies jump over a 2-block wall and across a 2-tile pit.
-  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer']) {
+  for (const kind of ['spider', 'archer', 'miner', 'scorpion', 'hammer', 'greatsword']) {
     const wallGame = createGame();
     buildCaveLane(wallGame.world, baseCol, floorRow);
     editTile(wallGame.world, baseCol + 2, floorRow - 1, MATERIAL.deepstone);
