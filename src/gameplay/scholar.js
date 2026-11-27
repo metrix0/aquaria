@@ -10,6 +10,7 @@ export const SCHOLAR_SKILLS = [
   { id: 'beastFlask', timer: 'beastTime', cooldown: 40 },
   { id: 'feast', timer: 'feastSelecting', cooldown: 30 },
 ];
+export const BEAST_DRINK_SECONDS = .7;
 export const FEAST_RADIUS = 6 * TILE;
 export const FEAST_DURATION = 12;
 export const FEAST_FOODS = ['spinach', 'garlic', 'carrot'];
@@ -71,7 +72,9 @@ export function useScholarSkill(game, id, wx, wy, camera) {
       })) damageMob(game.world,mob,skillAttackDamage(p,tomeEffect(p,mana*1.5),false,false),angle,150,game.effects,{attacker:p});
     }
   } else if (id === 'beastFlask') {
-    p.beastTime = beneficial(p,10); p.wardenCooldowns[id] = 40;
+    p.beastDrinkTime = BEAST_DRINK_SECONDS;
+    p.wardenCooldowns[id] = 40;
+    game.attack = game.bowDraw = null;
   } else if (id === 'feast') {
     if (!p.feastSelecting) { p.feastSelecting = 1; p.feastCycle = 0; return null; }
     const food = feastChoice(p);
@@ -96,12 +99,26 @@ export function stepScholar(game,dt) {
   const p=game.player, cap=p.skillBonuses?.manaCapacity || 0;
   if (cap) { const old=p.mana; p.mana=clamp((p.mana ?? cap)+dt*.1,0,cap); if(old!==p.mana) game.dirty=true; }
   for (const key of ['beastTime','hyperBeamTime','spinachTime','carrotTime']) p[key]=Math.max(0,(p[key]||0)-dt);
+  if (p.beastDrinkTime > 0) {
+    if (playerImmobilized(p) || p.flightOrigin || !p.skillBonuses?.beastFlask) p.beastDrinkTime = 0;
+    else {
+      p.beastDrinkTime = Math.max(0, p.beastDrinkTime - dt);
+      if (!p.beastDrinkTime) {
+        p.beastTime = beneficial(p, 10);
+        game.effects.push({x:p.x,y:p.y+8,color:'#b7d78b',count:18,spread:60});
+      }
+    }
+  }
   if (p.feastSelecting) { p.feastCycle=(p.feastCycle||0)+dt; if(p.feastCycle>12 || playerImmobilized(p)) p.feastSelecting=0; }
   if(p.feastPulse) { p.feastPulse.remaining-=dt; if(p.feastPulse.remaining<=0) p.feastPulse=null; }
+  receiveFeasts(game);
+}
+export function receiveFeasts(game) {
+  const p=game.player;
   game.receivedFeasts ??= new Set();
   for(const peer of game.wayfarerPeers ?? []) {
     const pulse=peer.feastPulse;
-    if(!pulse || game.receivedFeasts.has(pulse.id)) continue;
+    if(!pulse || peer.downed || game.receivedFeasts.has(pulse.id)) continue;
     game.receivedFeasts.add(pulse.id);
     if(game.receivedFeasts.size>256) game.receivedFeasts.delete(game.receivedFeasts.values().next().value);
     if(Math.hypot(p.x-pulse.x,p.y+p.height/2-pulse.y)<=FEAST_RADIUS) applyFeast(p,pulse.food);

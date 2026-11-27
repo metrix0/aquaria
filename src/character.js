@@ -354,7 +354,21 @@ export function createCharacterRenderer(ctx) {
     }
 
     function drawFrontArm(restSwing, restY) {
-      if (attack || (weapon && !miningSwing)) {
+      if (player.beastDrinkTime > 0) {
+        // Raise the flask to the mouth, tilt it during the sip, then lower it.
+        const phase = clamp(1 - player.beastDrinkTime / .7, 0, 1);
+        const lift = reducedMotion ? 1 : Math.min(1, phase / .25, (1 - phase) / .2);
+        const hand = [shoulderX + 5 - 3 * lift, restY + 4 - 8 * lift];
+        const elbow = [shoulderX + 4, restY + 3 - 2 * lift];
+        bentArm([shoulderX, restY], elbow, hand, skin, shirt, false, ring);
+        ctx.save();
+        ctx.translate(Math.round(hand[0]), Math.round(hand[1] - 2));
+        ctx.rotate(-lift * .65);
+        rect(-2,-5,4,2,'#c8b58d'); rect(-1,-3,2,2,'#d6ddd0');
+        rect(-3,-1,6,6,'#202f35'); rect(-2,0,4,4,'#a4dd72');
+        rect(-2,0,1,3,'#ecf8c6'); rect(1,2,1,2,'#58854a');
+        ctx.restore();
+      } else if (attack || (weapon && !miningSwing)) {
         weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring);
       } else if (miningSwing) {
         miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, ring);
@@ -463,7 +477,7 @@ export function createCharacterRenderer(ctx) {
     rect(-2, 10, 2, 1, '#b4755a');
 
     if (armor) chestArmor(-(shoulder - 1) / 2, 10, shoulder, armor);
-    if (climb && !attack && !miningSwing) drawClimbArm(1, firstRung);
+    if (climb && !attack && !miningSwing && !(player.beastDrinkTime > 0)) drawClimbArm(1, firstRung);
     else drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
     drawMuscles(11);
 

@@ -196,7 +196,7 @@ export function activateClass(game, id) {
   game.classes.active = id;
   game.player.skillBonuses = skillBonuses(game.classes);
   game.player.catalystSeconds = 0;
-  game.player.beastTime = game.player.feastSelecting = game.player.hyperBeamTime = 0;
+  game.player.beastDrinkTime = game.player.beastTime = game.player.feastSelecting = game.player.hyperBeamTime = 0;
   game.player.braceTime = game.player.rushTime = game.player.rageTime = game.player.aegisTime = 0;
   game.player.bracing = false;
   game.bowDraw = null;

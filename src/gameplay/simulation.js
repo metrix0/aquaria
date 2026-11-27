@@ -323,7 +323,7 @@ export function useSpell(game, slot, wx, wy) {
   const spell = SPELLS[item?.spell];
   if (!spell) return null;
   const player = game.player;
-  if (player.downed || player.flightOrigin || player.stun > 0 || game.attack || wardenAttackBlocked(player)) return { handled: true };
+  if (player.downed || player.flightOrigin || player.stun > 0 || player.beastDrinkTime > 0 || game.attack || wardenAttackBlocked(player)) return { handled: true };
   const remaining = spellCooldown(game, item);
   if (spell.heal && player.health >= MAX_HEALTH) return { handled: true, message: 'Health is already full.' };
   const tome = item.form === 'tome';
@@ -349,6 +349,7 @@ export function useSpell(game, slot, wx, wy) {
 }
 
 export function useWeapon(game, slot, wx, wy, draw = null) {
+  if (game.player.beastDrinkTime > 0) return { handled: true };
   const magic = useSpell(game, slot, wx, wy);
   if (magic) return magic;
   const itemId = game.inventory.hotbar[slot]?.id;
@@ -481,7 +482,7 @@ function stepDroppedChests(game, dt) {
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   if (player.downed) {
-    player.beastTime = player.feastSelecting = player.spinachTime = player.carrotTime = player.hyperBeamTime = 0;
+    player.beastDrinkTime = player.beastTime = player.feastSelecting = player.spinachTime = player.carrotTime = player.hyperBeamTime = 0;
     player.feastPulse = null;
     game.elapsed += dt;
     settleDowned(world, player, dt);

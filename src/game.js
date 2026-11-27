@@ -14,7 +14,7 @@ import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
 import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
-import { useScholarSkill } from './gameplay/scholar.js';
+import { useScholarSkill, receiveFeasts } from './gameplay/scholar.js';
 import { useWayfarerSkill } from './gameplay/wayfarer.js';
 import { useWardenSkill, updateWardenAllies, wardenAttackBlocked } from './gameplay/warden.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
@@ -760,6 +760,7 @@ function frame(now) {
   const held = game.inventory.hotbar[selected]?.id;
   const peers = Array.from(room?.tick(now, dt, game.player, snorkel, reviveTarget) ?? []);
   game.wayfarerPeers = peers;
+  if (room) receiveFeasts(game);
   if (room && !game.player.downed) updateWardenAllies(game, peers.filter(peer => !peer.downed));
   else game.player.allyAegis = false;
   const targetMob = aimedMob();

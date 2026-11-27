@@ -147,10 +147,11 @@ export async function connectRoom(config, invite, handlers) {
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
       catching: payload.catching === true,
       spinachTime: Number.isFinite(payload.spinachTime) ? clamp(payload.spinachTime,0,14) : 0,
+      beastDrinkTime: Number.isFinite(payload.beastDrinkTime) ? clamp(payload.beastDrinkTime,0,.7) : 0,
       beastTime: Number.isFinite(payload.beastTime) ? clamp(payload.beastTime,0,12) : 0,
       feastPulse: payload.feastPulse && ['spinach','garlic','carrot'].includes(payload.feastPulse.food) &&
         roomCodePattern.test(payload.feastPulse.id ?? '') && Number.isFinite(payload.feastPulse.x) && Number.isFinite(payload.feastPulse.y)
-        ? {id:payload.feastPulse.id,food:payload.feastPulse.food,x:payload.feastPulse.x+poseOffset,y:payload.feastPulse.y} : null,
+        ? {id:payload.feastPulse.id,food:payload.feastPulse.food,x:payload.feastPulse.x+poseOffset,y:payload.feastPulse.y,remaining:clamp(Number(payload.feastPulse.remaining)||0,0,1.5)} : null,
       downed: roomCodePattern.test(payload.downed?.id ?? '') && Number.isFinite(payload.downed?.remaining)
         ? { id: payload.downed.id, remaining: clamp(payload.downed.remaining, 0, 20),
             progress: Number.isFinite(payload.downed.progress) ? clamp(payload.downed.progress, 0, 3) : 0,
@@ -214,6 +215,7 @@ export async function connectRoom(config, invite, handlers) {
         aegisFacing: player.aegisFacing ?? 1,
         catching: Boolean(player.catching),
         spinachTime: Math.ceil((player.spinachTime||0)*4)/4,
+        beastDrinkTime: Math.min(.7, Math.ceil((player.beastDrinkTime||0)*10)/10),
         beastTime: Math.ceil((player.beastTime||0)*4)/4,
         feastPulse: player.feastPulse ? {...player.feastPulse,x:player.feastPulse.x-poseOffset} : null,
         downed: player.downed ?? null,
@@ -235,7 +237,9 @@ export async function connectRoom(config, invite, handlers) {
           forgetPeer(remoteId);
           continue;
         }
+        if(peer.feastPulse) { peer.feastPulse.remaining -= dt; if(peer.feastPulse.remaining <= 0) peer.feastPulse = null; }
         peer.spinachTime = Math.max(0,(peer.spinachTime||0)-dt);
+        peer.beastDrinkTime = Math.max(0,(peer.beastDrinkTime||0)-dt);
         peer.beastTime = Math.max(0,(peer.beastTime||0)-dt);
         peer.aegisTime = Math.max(0, (peer.aegisTime || 0) - dt);
         const blend = Math.min(1, dt * 14);

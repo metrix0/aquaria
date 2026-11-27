@@ -5,7 +5,7 @@ import { CAULDRON, MATERIAL, STEWS, STEW_RECIPES } from '../src/content.js';
 import { createGame, craftItem, canCraftItem, useFood, useDressing, cauldronAt, stepGame, useWeapon } from '../src/gameplay/simulation.js';
 import { applyConfusion, takeDamage } from '../src/gameplay/player.js';
 import { skillAttackDamage } from '../src/gameplay/class-effects.js';
-import { applyFeast, beneficial, harmful, confuseOnHit, foodYield, spendTomeCooldown, stepScholar, tomeEffect, useScholarSkill } from '../src/gameplay/scholar.js';
+import { applyFeast, beneficial, harmful, confuseOnHit, foodYield, spendTomeCooldown, stepScholar, receiveFeasts, tomeEffect, useScholarSkill } from '../src/gameplay/scholar.js';
 import { mobSpec, stepMobs } from '../src/gameplay/mobs.js';
 import { editTile } from '../src/world.js';
 import { TILE } from '../src/world/generation.js';
@@ -53,7 +53,10 @@ test('Alchemist scales existing effects and beast transformation expires',()=>{
  p.health=20;g.inventory.hotbar[0]={id:'kelp-dressing',count:1};
  assert.ok(useDressing(g,0).inventoryChanged);near(p.health,54.5);
  applyConfusion(p,10);near(p.confused,8.5);p.confused=0;
- assert.equal(useScholarSkill(g,'beastFlask'),null);near(p.beastTime,11.5);
+ assert.equal(useScholarSkill(g,'beastFlask'),null);near(p.beastDrinkTime,.7);
+ assert.ok(!p.beastTime);near(skillAttackDamage(p,5),5);
+ stepScholar(g,.3);assert.ok(p.beastDrinkTime>0);
+ stepScholar(g,.4);near(p.beastTime,11.5);
  near(skillAttackDamage(p,5),15);near(takeDamage(p,20,true),10.8);
  assert.match(useScholarSkill(g,'beastFlask'),/recharging/);
  stepScholar(g,12);assert.equal(p.beastTime,0);near(skillAttackDamage(p,5),5);
@@ -108,4 +111,25 @@ test('All three active skills can be unlocked but only two equipped',()=>{
  assert.equal(equippedSkill(g.classes,0).ability,'hyperBeam');
  assert.equal(equippedSkill(g.classes,1).ability,'beastFlask');
  assert.equal(equipSkill(g,1,'purifying-tonic'),null);assert.equal(equippedSkill(g.classes,1).ability,'feast');
+});
+
+test('Beast Flask drinking is cancelled by incapacitation before transformation',()=>{
+ const g=scholar(...alchemist),p=g.player;
+ assert.equal(useScholarSkill(g,'beastFlask'),null);
+ p.stun=2;stepScholar(g,.2);
+ assert.equal(p.beastDrinkTime,0);assert.equal(p.beastTime,0);
+});
+test('Feast receive works without a simulation step and does not reapply or affect distant allies',()=>{
+ const g=scholar(...chef),p=g.player;
+ useScholarSkill(g,'feast');useScholarSkill(g,'feast');
+ const ally=createGame();
+ ally.player.x=p.x;ally.player.y=p.y;
+ ally.wayfarerPeers=[{feastPulse:p.feastPulse}];
+ receiveFeasts(ally);assert.equal(ally.player.spinachTime,12);
+ ally.player.spinachTime=10;
+ receiveFeasts(ally);assert.equal(ally.player.spinachTime,10);
+ const far=createGame();
+ far.player.x=p.x+7*TILE;far.player.y=p.y;
+ far.wayfarerPeers=ally.wayfarerPeers;
+ receiveFeasts(far);assert.ok(!far.player.spinachTime);
 });
