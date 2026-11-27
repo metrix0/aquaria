@@ -2033,7 +2033,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function terrain(world, player, camera, time, bounds, openChestId, overview) {
+  function terrain(world, player, camera, time, bounds, openChestId, overview, chests) {
     const { left, right, top, bottom } = bounds;
     shipwreckArt.backdrop(world, bounds);
     waterTempleArt.backdrop(world, bounds, time, overview);
@@ -2397,7 +2397,8 @@ export function createRenderer(canvas) {
         rect(x-1, sy+10, 7, 4, "#4b9c9d"); rect(x+4, sy+13, 7, 2, "#80d7c0");
         rect(x+8, sy+10, 3, 6, "#80d7c0");
       } else if (item.kind === "chest") {
-        drawChest(x, y, item.id === openChestId);
+        const empty = Boolean(chests?.get(item.id)?.every((slot) => !slot));
+        drawChest(x, y, item.id === openChestId || empty);
       }
     }
   }
@@ -3798,6 +3799,7 @@ export function createRenderer(canvas) {
     worldTime,
     weatherSeed,
     caveShadowsHidden,
+    chests,
     openChestId,
     drowning = 0,
     shake = { x: 0, y: 0 },
@@ -3853,7 +3855,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
-    terrain(world, player, camera, time, bounds, openChestId, overview);
+    terrain(world, player, camera, time, bounds, openChestId, overview, chests);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);
     drawRootWave(rootWave, player);

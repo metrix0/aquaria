@@ -769,7 +769,7 @@ function frame(now) {
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held: ITEMS[held]?.weapon?.id ?? held, attack: game.bowDraw ? {kind:BOW.id,angle:game.bowDraw.angle,drawProgress:Math.min(1,game.bowDraw.elapsed/BOW.drawTime),extra:game.bowDraw.extra,charging:true} : game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0 || game.inventory.count(POISON_ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
-    caveShadowsHidden, openChestId: ui.openChestId(), shake, drowning,
+    caveShadowsHidden, chests: game.chests, openChestId: ui.openChestId(), shake, drowning,
   });
   const drawEnd = performance.now();
   arrival?.reveal();

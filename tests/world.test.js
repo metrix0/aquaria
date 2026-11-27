@@ -4878,6 +4878,64 @@ test('breaking first-island tent collects it, placing sets respawn point, and de
   assert.ok(Math.abs(reloaded.player.x - SPAWN.x) < TILE, 'should respawn on first island once tent is removed');
 });
 
+test('empty chests render with the open chest texture even when closed in UI', () => {
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class {
+    rect() {}
+    addPath() {}
+  };
+  try {
+    const game = createGame();
+    const { world, player, chests } = game;
+    const chest = world.items.find((item) => item.kind === 'chest' && chests.get(item.id)?.some(Boolean));
+    assert.ok(chest, 'expected a populated chest');
+
+    const fillColors = [];
+    const noop = () => {};
+    const grad = { addColorStop: noop };
+    const ctx = {
+      save: noop, restore: noop, scale: noop, rotate: noop, translate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      putImageData: noop, stroke: noop,
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      fill() { fillColors.push(this.fillStyle); },
+      fillRect() { fillColors.push(this.fillStyle); },
+      clearRect: noop,
+      createLinearGradient: () => grad,
+      createRadialGradient: () => grad,
+    };
+    const renderer = createRenderer({
+      width: 120,
+      height: 120,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) },
+      getContext: () => ctx,
+    });
+    const frameArgs = {
+      world, player, snorkel: null, chests, openChestId: null,
+      camera: { x: chest.x - 60, y: chest.y - 60, width: 120, height: 120 },
+      time: 1, elapsed: 1, effects: [], particles: [],
+      held: null, attack: null, hasArrow: false, playerArrows: [], targetMob: null,
+      aim: null, mining: null, miningSwing: null,
+      conditions: { ambient: 1, darkness: 0, rain: 0, night: false, sky: '#000', skyLow: '#000' },
+      overview: false, reducedMotion: false,
+    };
+
+    // 1. Non-empty chest renders closed lid (#ac7649), not open interior (#392a2b).
+    renderer.draw(frameArgs);
+    assert.equal(fillColors.includes('#ac7649'), true);
+    assert.equal(fillColors.includes('#392a2b'), false);
+
+    // 2. Empty chest renders open interior (#392a2b) even when openChestId is null.
+    fillColors.length = 0;
+    chests.get(chest.id).fill(null);
+    renderer.draw(frameArgs);
+    assert.equal(fillColors.includes('#392a2b'), true);
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
+});
+
 test('grappling hook starts with reduced 9-block reach and upgrades through iron and cobalt tiers', () => {
   const game = createGame();
   assert.ok(GRAPPLING_HOOK.range < IRON_GRAPPLING_HOOK.range);
