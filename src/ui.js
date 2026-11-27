@@ -13,7 +13,7 @@ import { createDropsUI } from './drops-ui.js';
 import { createClassesUI } from './classes-ui.js';
 import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
-import { equippedSkill, SKILL_KEYS } from './classes.js';
+import { CLASS_DEFS, equippedSkill, SKILL_KEYS } from './classes.js';
 import { WARDEN_SKILLS } from './gameplay/warden.js';
 import { SCHOLAR_SKILLS, feastChoice } from './gameplay/scholar.js';
 import { WAYFARER_SKILLS } from './gameplay/wayfarer.js';
@@ -245,6 +245,7 @@ export function createUI(actions, version) {
   byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('classes').addEventListener('click', () => open('classes-panel'));
   byId('skilltree').addEventListener('click', () => open('skilltree-panel'));
+  byId('backpack-class').addEventListener('click', () => open('skilltree-panel'));
   byId('debug-souls').addEventListener('click', actions.grantDebugSouls);
   byId('pause')?.addEventListener('click', () => open('pause-panel'));
   byId('multiplayer').addEventListener('click', () => open('room-panel'));
@@ -305,6 +306,11 @@ export function createUI(actions, version) {
     openChestId: inventoryUI.openChestId,
     updateCustomize: (game) => characterEditor.open(game.player.appearance),
     updateBackpack(game) {
+      const classButton = byId('backpack-class');
+      const activeClass = CLASS_DEFS[game.classes.active];
+      classButton.hidden = !activeClass;
+      classButton.textContent = activeClass?.name ?? '';
+      classButton.style.setProperty('--class-accent', activeClass?.accent ?? '');
       const armor = ARMOR[game.player.armor];
       const icon = byId('backpack-armor');
       const slot = icon.parentElement;
