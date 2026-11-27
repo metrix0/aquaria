@@ -342,6 +342,58 @@ export function createRenderer(canvas) {
     ctx.fillRect(x, y, w, h);
   }
 
+  // Bake seamless curtains once, then move them at separate sky depths.
+  // No per-column gradients or overlay operations in the animation loop.
+  let auroraCurtains;
+  function drawAuroraCurtains(camera, time, opacity, reducedMotion) {
+    if (!auroraCurtains) {
+      const period = 1024;
+      const tau = Math.PI * 2;
+      auroraCurtains = [
+        { color: "94,158,255", depth: .18, base: 4, speed: 3, phase: 0, strength: .26 },
+        { color: "255,105,202", depth: .32, base: 22, speed: -5, phase: 2, strength: .76 },
+        { color: "26,255,83", depth: .48, base: 84, speed: 7, phase: 4, strength: .9 },
+      ].map(layer => {
+        const texture = canvas.ownerDocument.createElement("canvas");
+        texture.width = period;
+        texture.height = 216;
+        const paint = texture.getContext("2d");
+        for (let x = 0; x < period; x++) {
+          const angle = x / period * tau;
+          const y = 28 + Math.sin(angle * 2 + layer.phase) * 15
+            + Math.sin(angle * 5 - layer.phase) * 7;
+          const tail = 82 + Math.sin(angle * 3 + layer.phase) * 16;
+          const strength = layer.strength * (.76 + .24 * Math.cos(angle * 4 + layer.phase));
+          const fade = paint.createLinearGradient(0, y, 0, y + tail);
+          fade.addColorStop(0, "rgba(" + layer.color + ",0)");
+          fade.addColorStop(.20, "rgba(" + layer.color + "," + strength + ")");
+          fade.addColorStop(.36, "rgba(" + layer.color + "," + strength * .8 + ")");
+          fade.addColorStop(1, "rgba(" + layer.color + ",0)");
+          paint.fillStyle = fade;
+          paint.fillRect(x, y, 1, tail);
+        }
+        return { ...layer, texture };
+      });
+    }
+    ctx.save();
+    // Screen keeps the emitted pink/green light visible on the dark sky;
+    // terrain illumination still uses overlay, preserving its texture.
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = opacity;
+    ctx.imageSmoothingEnabled = true;
+    const motionTime = reducedMotion ? 0 : time;
+    for (const layer of auroraCurtains) {
+      const offset = auroraWorldX(0, camera.x, layer.depth) + motionTime * layer.speed;
+      const period = layer.texture.width;
+      const start = -((offset % period + period) % period);
+      const y = layer.base - camera.y + Math.sin(motionTime * .075 + layer.phase) * 5;
+      for (let x = start; x < camera.width; x += period) {
+        ctx.drawImage(layer.texture, x, y);
+      }
+    }
+    ctx.restore();
+  }
+
   function sky(camera, surface, time, { darkness, night, skyProgress, rain, atmosphere, dayAtmosphere, sunIntensity = 1 }, reducedMotion = false) {
     if (surface <= 0) return;
     const { width } = camera;
@@ -393,11 +445,11 @@ export function createRenderer(canvas) {
         // Four world-anchored sky washes in overlay blend mode, behind terrain.
         const colors = [
           ["rgba(116,174,255,.78)", "rgba(116,174,255,0)"], // blue
-          ["rgba(197,146,255,.80)", "rgba(197,146,255,0)"], // violet
+          ["rgba(255,135,208,.80)", "rgba(255,135,208,0)"], // violet
           ["rgba(107,225,238,.77)", "rgba(107,225,238,0)"], // cyan
-          ["rgba(145,219,171,.52)", "rgba(145,219,171,0)"], // soft green
+          ["rgba(100,255,155,.72)", "rgba(100,255,155,0)"], // soft green
         ];
-        const worldStart = auroraWorldX(0, camera.x);
+        const worldStart = auroraWorldX(0, camera.x, .32);
         const spacing = 420;
         const radius = 330;
         const y = 95 - camera.y;
@@ -435,30 +487,7 @@ export function createRenderer(canvas) {
         rect(x, y, size, size, bright ? "#ffffff" : i % 4 === 0 ? "#eaf4ff" : "#c0d5f0");
       }
       if (atmosphere === "aurora") {
-        // Layered, slow-moving curtains stay anchored to the sky as the camera pans.
-        // Give each curtain its own hue all the way to transparency; a
-        // shared green end-stop made even violet/blue curtains turn green.
-        const ribbons = [
-          ["#b7f6deaa", "#b7f6de00"], // a single restrained seafoam curtain
-          ["#b6d5ffaa", "#b6d5ff00"],
-          ["#e2c5ffb5", "#e2c5ff00"],
-          ["#b2edffaa", "#b2edff00"],
-        ];
-        ctx.save();
-        ctx.globalCompositeOperation = "overlay";
-        ctx.globalAlpha = darkness * (1 - rain * .7) * .85;
-        for (let band = 0; band < ribbons.length; band++) {
-          for (let x = -12; x < width + 12; x += 3) {
-            const worldX = auroraWorldX(x, camera.x);
-            const wave = Math.sin(worldX * .012 + time * .075 + band * 1.4);
-            const ripple = Math.sin(worldX * .032 - time * .045 + band * 2) * 6;
-            const y = 32 + band * 20 + wave * (13 + band * 3) + ripple - camera.y;
-            const tail = 62 + band * 12 + Math.sin(worldX * .021 + time * .08) * 12;
-            gradient(x, y, 3, tail,
-              [[0, ribbons[band][1]], [.18, ribbons[band][0]], [.32, ribbons[band][0]], [1, ribbons[band][1]]], y, y + tail);
-          }
-        }
-        ctx.restore();
+        drawAuroraCurtains(camera, time, darkness * (1 - rain * .7), reducedMotion);
       } else if (atmosphere === "meteors") {
         for (const { x, y, tailX, tailY, alpha, size, brightness } of visibleMeteors(camera, time)) {
           ctx.globalAlpha = darkness * (1 - rain * .7) * alpha * brightness;
@@ -1882,11 +1911,11 @@ export function createRenderer(canvas) {
       * (.70 + Math.sin(time * .07) * .06);
     const colors = [
       ["rgba(170,215,255,.48)", "rgba(170,215,255,.15)", "rgba(170,215,255,0)"],
-      ["rgba(224,190,255,.48)", "rgba(224,190,255,.15)", "rgba(224,190,255,0)"],
+      ["rgba(255,158,224,.48)", "rgba(255,158,224,.15)", "rgba(255,158,224,0)"],
       ["rgba(170,245,245,.48)", "rgba(170,245,245,.15)", "rgba(170,245,245,0)"],
-      ["rgba(184,248,209,.28)", "rgba(184,248,209,.09)", "rgba(184,248,209,0)"],
+      ["rgba(145,255,176,.48)", "rgba(145,255,176,.15)", "rgba(145,255,176,0)"],
     ];
-    const worldStart = auroraWorldX(0, camera.x);
+    const worldStart = auroraWorldX(0, camera.x, .32);
     const spacing = 420;
     const radius = Math.min(260, WATER + 135 - 95 - 1);
     const y = 95 - camera.y;

@@ -231,3 +231,12 @@ test('relocating a scheduled strike preserves its exact original size and never 
     }
   }
 });
+
+test('aurora sky layers pan at distinct fractions of camera movement', () => {
+  for (const depth of [.18, .32, .48]) {
+    const a = auroraWorldX(0, 1400, depth);
+    const b = auroraWorldX(0, 1700, depth);
+    assert.ok(Math.abs(b - a - 300 * depth) < 1e-9);
+    assert.ok(Math.abs(auroraWorldX(250, 1400, depth) - auroraWorldX(250 - 300 * depth, 1700, depth)) < 1e-9);
+  }
+});

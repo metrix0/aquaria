@@ -2,8 +2,8 @@ import { COLS, TILE, WEST_EXTENSION, WATER_ROW, groundAt, clamp } from './genera
 
 // World-based aurora projections. Camera movement shifts the visible sky
 // instead of dragging the light along with the character.
-export function auroraWorldX(screenX, cameraX) {
-  return screenX + cameraX - WEST_EXTENSION * TILE;
+export function auroraWorldX(screenX, cameraX, depth = 1) {
+  return screenX + (cameraX - WEST_EXTENSION * TILE) * depth;
 }
 
 export function auroraBloomWorldX(index, time) {
