@@ -140,8 +140,8 @@ export class Inventory {
   add(id, count, { preferHotbar = false } = {}) {
     if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(count) || count < 1) return false;
     const preferred = ITEMS[id].hotbar;
-    const preferredFree = preferred !== undefined && this.hotbar[preferred] === null;
-    const hotbarSlot = preferredFree ? preferred : this.hotbar.indexOf(null);
+    const preferredFree = preferred !== undefined && preferred < HOTBAR_SIZE - 1 && this.hotbar[preferred] === null;
+    const hotbarSlot = preferredFree ? preferred : this.hotbar.findIndex((stack, index) => index < HOTBAR_SIZE - 1 && stack === null);
     const existing = this.hotbar.find((stack) => stack?.id === id) ??
       ((!preferHotbar || hotbarSlot === -1) ? this.backpack.find((stack) => stack?.id === id) : undefined);
     if (existing) {

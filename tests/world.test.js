@@ -1513,11 +1513,12 @@ test('crafting prefers an empty hotbar slot and falls back to backpack stacks', 
 
   assert.equal(game.inventory.move({ group: 'hotbar', index: 1 }, { group: 'backpack', index: 0 }), true);
   for (const filler of ['sand', 'stone', 'copper', 'iron', 'cobalt']) {
-    if (game.inventory.hotbar.some((stack) => !stack)) game.inventory.add(filler, 1, { preferHotbar: true });
+    if (game.inventory.hotbar.slice(0, -1).some((stack) => !stack)) game.inventory.add(filler, 1, { preferHotbar: true });
   }
   assert.equal(craftItem(game, WOODEN_DOOR), true);
   assert.equal(game.inventory.backpack[0].count, 5);
-  assert.ok(game.inventory.hotbar.every((stack) => stack && stack.id !== WOODEN_DOOR.id));
+  assert.ok(game.inventory.hotbar.slice(0, -1).every((stack) => stack && stack.id !== WOODEN_DOOR.id));
+  assert.equal(game.inventory.hotbar[5], null);
 });
 
 test('items menu grants persist for both inventory stacks and equipped gear', () => {
@@ -4563,7 +4564,10 @@ test('fish and crabs drop raw food that can be eaten with poison risk or cooked 
 
   for (const [id, count] of Object.entries(FIREPLACE.cost)) grantItem(game, id, count);
   assert.equal(craftItem(game, FIREPLACE), true);
-  const fpSlot = game.inventory.hotbar.findIndex((s) => s?.id === FIREPLACE.id);
+  const fpBackpack = game.inventory.backpack.findIndex((s) => s?.id === FIREPLACE.id);
+  assert.ok(fpBackpack >= 0);
+  assert.equal(moveInventoryStack(game, null, { group: 'backpack', index: fpBackpack }, { group: 'hotbar', index: 5 }), true);
+  const fpSlot = 5;
   const tx = Math.floor(player.x / TILE) + 2;
   const ty = Math.floor((player.y + player.height) / TILE) - 1;
   editTile(world, tx, ty, MATERIAL.air);

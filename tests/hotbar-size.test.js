@@ -21,3 +21,28 @@ test('new inventories have six slots', () => {
   assert.equal(inventory.hotbar.length, HOTBAR_SIZE);
   assert.equal(inventory.hotbar[5], null);
 });
+test('automatic additions skip an empty sixth slot but manual moves still work', () => {
+  const inventory = new Inventory({
+    hotbar: ['sand', 'stone', 'wood', 'copper', 'iron'].map(id => ({ id, count: 1 })),
+    backpack: [],
+  });
+  assert.equal(inventory.add('kelp', 2, { preferHotbar: true }), true);
+  assert.equal(inventory.hotbar[5], null);
+  assert.deepEqual(inventory.backpack[0], { id: 'kelp', count: 2 });
+  assert.equal(inventory.move({ group: 'backpack', index: 0 }, { group: 'hotbar', index: 5 }), true);
+  assert.deepEqual(inventory.hotbar[5], { id: 'kelp', count: 2 });
+  assert.equal(new Inventory(inventory).hotbar[5].id, 'kelp');
+  assert.equal(inventory.add('kelp', 1), true);
+  assert.equal(inventory.hotbar[5].count, 3);
+});
+
+test('a full backpack does not cause automatic placement into slot six', () => {
+  const inventory = new Inventory({
+    hotbar: ['sand', 'stone', 'wood', 'copper', 'iron'].map(id => ({ id, count: 1 })),
+    backpack: Array.from({ length: 24 }, () => ({ id: 'wood', count: 1 })),
+  });
+  assert.equal(inventory.canAdd('kelp', 1), false);
+  assert.equal(inventory.add('kelp', 1), false);
+  assert.equal(inventory.add('kelp', 1, { preferHotbar: true }), false);
+  assert.equal(inventory.hotbar[5], null);
+});
