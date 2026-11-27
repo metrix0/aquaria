@@ -58,7 +58,9 @@ try {
   await tree.locator('[data-clear-slot="1"]').click();
   assert.match(await tree.locator('[data-equip-slot="1"]').textContent(),/Empty/);
   assert.equal(await tree.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
-  await tree.locator('#skilltree-switch-class').click();
+  assert.equal(await tree.getByRole('button', {name:'Change class'}).count(),0);
+  await tree.locator('[data-close]').click();
+  await page.locator('#classes').click();
   await page.locator('[data-class="scholar"]').click();
   await page.locator('#classes-panel [data-close]').click();
   await page.keyboard.press('Tab');await backpack.waitFor();

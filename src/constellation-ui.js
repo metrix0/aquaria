@@ -45,7 +45,7 @@ export function renderConstellation(tree, actions, previous) {
     rerender();
   };
   tree.innerHTML = `<div class="celestial-tree" style="--soul-accent:${def.accent}">
-    <header class="celestial-header"><div><small>${esc(def.title)}</small><h3>${esc(def.name)}</h3></div><button type="button" id="skilltree-switch-class">Change class</button></header>
+    <header class="celestial-header"><div><small>${esc(def.title)}</small><h3>${esc(def.name)}</h3></div></header>
     <div class="celestial-layout">
       <div class="celestial-main">
         <div class="celestial-map" aria-label="${figure.name} constellation">
@@ -96,7 +96,6 @@ export function renderConstellation(tree, actions, previous) {
     inspect(id);
   }
   select(selected);
-  tree.querySelector('#skilltree-switch-class').addEventListener('click', actions.openClasses);
   for (const b of tree.querySelectorAll('[data-skill], [data-pick-skill]')) {
     const id = b.dataset.skill || b.dataset.pickSkill;
     b.addEventListener('click', () => select(id));
