@@ -5,6 +5,7 @@ import {
   WATER_TEMPLE,
   waterTempleBraziers,
   waterTempleDoorBounds,
+  waterTemplePuzzleDoorBounds,
   waterTempleStoneAt,
   waterTempleTone,
 } from './world/water-temple.js';
@@ -35,6 +36,7 @@ export function createWaterTempleArt(ctx) {
   const rightX = (WATER_TEMPLE.right + WEST_EXTENSION + 1) * TILE;
   const topY = WATER_TEMPLE.topRow * TILE;
   const door = waterTempleDoorBounds(WEST_EXTENSION);
+  const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);
 
   function rect(x, y, width, height, color) {
     ctx.fillStyle = color;
@@ -117,27 +119,88 @@ export function createWaterTempleArt(ctx) {
   function drawWing(sideX, towardCenter, overview) {
     // Wing colonnade rests one tier below main portico on deckRow + 1.
     const wingY = (WATER_TEMPLE.deckRow + 1) * TILE;
-    const width = 112;
+    const width = 144;
     const wallX = towardCenter > 0 ? sideX : sideX - width;
-    const wallH = 98;
+    const wallH = 160;
     drawAshlarWall(wallX, wingY - wallH, width, wallH);
     // Arch niche carved into the wing wall
     const nicheCenter = wallX + width / 2;
-    rect(nicheCenter - 15, wingY - 58, 30, 58, PALETTE.deepSlate);
-    rect(nicheCenter - 11, wingY - 54, 22, 54, '#0d1d26');
-    rect(nicheCenter - 17, wingY - 62, 34, 4, PALETTE.carvedHi);
-    // Wing cornice and broken/full flanking columns
-    rect(wallX - 4, wingY - wallH - 8, width + 8, 8, PALETTE.wallLight);
-    rect(wallX - 4, wingY - wallH - 8, width + 8, 2, PALETTE.carvedPale);
-    drawFlutedPillar(wallX + 14, wingY, 98, 16, false);
-    drawFlutedPillar(wallX + width - 14, wingY, 72, 16, true);
+    rect(nicheCenter - 18, wingY - 82, 36, 82, PALETTE.deepSlate);
+    rect(nicheCenter - 13, wingY - 76, 26, 76, '#0d1d26');
+    rect(nicheCenter - 20, wingY - 86, 40, 4, PALETTE.carvedHi);
+    // Wing cornice and flanking columns
+    rect(wallX - 4, wingY - wallH - 10, width + 8, 10, PALETTE.wallLight);
+    rect(wallX - 4, wingY - wallH - 10, width + 8, 2, PALETTE.carvedPale);
+    drawFlutedPillar(wallX + 18, wingY, wallH, 18, false);
+    drawFlutedPillar(wallX + width - 18, wingY, 122, 18, true);
     if (!overview) {
-      for (let i = 0; i < 4; i++) {
-        const kx = wallX + 18 + i * 24;
-        const drop = 10 + Math.round(noise(Math.floor(kx), wingY, 709) * 14);
+      for (let i = 0; i < 5; i++) {
+        const kx = wallX + 20 + i * 24;
+        const drop = 12 + Math.round(noise(Math.floor(kx), wingY, 709) * 18);
         rect(kx, wingY - wallH, 3, drop, PALETTE.moss);
         rect(kx + 1, wingY - wallH + 2, 1, Math.max(2, drop - 4), PALETTE.mossBright);
       }
+    }
+  }
+
+  function drawCrossingAndPuzzleWing(bodyRight, time, overview) {
+    const wingY = (WATER_TEMPLE.deckRow + 1) * TILE;
+    const wingRight = rightX - 16;
+    const wingW = Math.max(64, wingRight - bodyRight);
+    const bridgeH = 148;
+    // Lower causeway & sanctuary wall crossing the coral wall to the right-side chamber.
+    drawAshlarWall(bodyRight, wingY - bridgeH, wingW, bridgeH);
+    rect(bodyRight - 4, wingY - bridgeH - 10, wingW + 8, 10, PALETTE.wallLight);
+    rect(bodyRight - 4, wingY - bridgeH - 10, wingW + 8, 2, PALETTE.carvedPale);
+    // Stepped sanctuary pavilion framing the east puzzle door on the right side of the coral wall.
+    const pavX = puzzleDoor.x - 42;
+    const pavW = puzzleDoor.width + 84;
+    const pavH = 186;
+    drawAshlarWall(pavX, wingY - pavH, pavW, pavH);
+    rect(pavX - 5, wingY - pavH - 10, pavW + 10, 10, PALETTE.carvedHi);
+    rect(pavX - 5, wingY - pavH - 10, pavW + 10, 2, PALETTE.carvedPale);
+    drawAshlarWall(pavX + 16, wingY - pavH - 28, pavW - 32, 18);
+    rect(pavX + 14, wingY - pavH - 28, pavW - 28, 3, PALETTE.carvedPale);
+
+    // Recessed corridor arches along the crossing causeway.
+    for (let ax = bodyRight + 32; ax < pavX - 24; ax += 48) {
+      rect(ax - 12, wingY - 78, 24, 78, PALETTE.deepSlate);
+      rect(ax - 8, wingY - 72, 16, 72, '#0d1d26');
+      rect(ax - 14, wingY - 82, 28, 4, PALETTE.carvedHi);
+    }
+
+    drawFlutedPillar(pavX + 14, wingY, pavH, 16, false);
+    drawFlutedPillar(pavX + pavW - 14, wingY, pavH, 16, false);
+
+    // Smaller Puzzle Door on the right side of the coral wall
+    const { x, y, width, height } = puzzleDoor;
+    const midX = x + width / 2;
+    const midY = y + height / 2;
+    const pulse = overview ? 0.75 : 0.72 + Math.sin(time * 2.8 + 1.1) * 0.28;
+    rect(x - 8, y - 10, width + 16, height + 10, PALETTE.deepSlate);
+    rect(x - 6, y - 8, width + 12, height + 8, PALETTE.wallLight);
+    rect(x - 4, y - 6, width + 8, height + 6, PALETTE.carvedHi);
+    rect(x - 8, y - 10, width + 16, 2, PALETTE.carvedPale);
+    rect(x, y, width, height, PALETTE.doorLeafDark);
+    rect(x + 2, y + 2, width - 4, height - 3, PALETTE.doorLeafMid);
+    rect(x + 5, y + 7, width - 10, height - 16, PALETTE.doorLeafDark);
+    rect(midX - 1, y, 2, height, '#09141b');
+    ctx.beginPath();
+    ctx.arc(midX, midY, 8, 0, Math.PI * 2);
+    ctx.fillStyle = PALETTE.bronzeTrim;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(midX, midY, 5, 0, Math.PI * 2);
+    ctx.fillStyle = PALETTE.doorLeafDark;
+    ctx.fill();
+    if (!overview) {
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.beginPath();
+      ctx.arc(midX, midY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = PALETTE.aquaCore;
+      ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -237,64 +300,75 @@ export function createWaterTempleArt(ctx) {
       return;
     }
 
-    // Back sanctuary body spanning columns center-13 .. center+13
-    const bodyHalfW = 13 * TILE;
-    const bodyH = 10 * TILE;
+    // Main sanctuary body spanning 40 tiles wide and rising high below the ocean surface
+    const bodyHalfW = 20 * TILE;
+    const bodyH = 27 * TILE;
     const bodyLeft = centerX - bodyHalfW;
     const bodyTop = deckY - bodyH;
 
-    // Outer colonnade wings framing left and right flanks
-    drawWing(bodyLeft + 4, -1, overview);
-    drawWing(bodyLeft + bodyHalfW * 2 - 4, 1, overview);
+    // Outer left colonnade wing + eastern crossing causeway & puzzle wing across the coral wall
+    drawWing(bodyLeft + 8, -1, overview);
+    drawCrossingAndPuzzleWing(bodyLeft + bodyHalfW * 2 - 8, time, overview);
 
     // Main central temple facade wall
     drawAshlarWall(bodyLeft, bodyTop, bodyHalfW * 2, bodyH);
 
-    // Subtle shadowed portico alcove behind the main columns
-    rect(centerX - 8.5 * TILE, bodyTop + 12, 17 * TILE, bodyH - 12, PALETTE.deepSlate);
-    drawAshlarWall(centerX - 8 * TILE, bodyTop + 16, 16 * TILE, bodyH - 16);
+    // Upper colonnade gallery tier inside the monumental sanctuary
+    const galleryY = bodyTop + 11 * TILE;
+    rect(bodyLeft + 10, galleryY - 8, bodyHalfW * 2 - 20, 8, PALETTE.carvedHi);
+    rect(bodyLeft + 10, galleryY - 8, bodyHalfW * 2 - 20, 2, PALETTE.carvedPale);
+    for (const gx of [-13.5, -6.5, 0, 6.5, 13.5]) {
+      const nx = centerX + gx * TILE;
+      rect(nx - 14, bodyTop + 26, 28, galleryY - bodyTop - 34, PALETTE.deepSlate);
+      rect(nx - 10, bodyTop + 30, 20, galleryY - bodyTop - 38, '#0c1b24');
+      rect(nx - 2, bodyTop + 52, 4, 18, PALETTE.aquaGlow);
+    }
 
-    // Massive Central Big Door on the main part of the temple
+    // Deep shadowed lower portico alcove behind the main columns
+    rect(centerX - 13 * TILE, galleryY + 4, 26 * TILE, deckY - galleryY - 4, PALETTE.deepSlate);
+    drawAshlarWall(centerX - 12.5 * TILE, galleryY + 10, 25 * TILE, deckY - galleryY - 10);
+
+    // Massive Central Big Door on the main left-side sanctuary
     drawBigDoor(time, overview);
 
-    // Four monumental fluted sanctuary pillars
-    for (const offset of [-10.2, -4.4, 4.4, 10.2]) {
-      drawFlutedPillar(centerX + offset * TILE, deckY, bodyH, 20, false);
+    // Six monumental fluted sanctuary pillars
+    for (const offset of [-16.5, -10.5, -5.6, 5.6, 10.5, 16.5]) {
+      drawFlutedPillar(centerX + offset * TILE, deckY, bodyH, 24, false);
     }
 
     // Carved Architrave & Glyph Frieze above the pillars
-    const entY = bodyTop - 3 * TILE;
-    rect(bodyLeft - 10, bodyTop - 6, bodyHalfW * 2 + 20, 6, PALETTE.carvedHi);
-    rect(bodyLeft - 10, bodyTop - 6, bodyHalfW * 2 + 20, 2, PALETTE.carvedPale);
-    rect(bodyLeft - 6, entY + 12, bodyHalfW * 2 + 12, 30, PALETTE.wallMid);
-    rect(bodyLeft - 12, entY, bodyHalfW * 2 + 24, 12, PALETTE.wallLight);
-    rect(bodyLeft - 12, entY, bodyHalfW * 2 + 24, 2, PALETTE.carvedPale);
+    const entY = bodyTop - 5 * TILE;
+    rect(bodyLeft - 14, bodyTop - 8, bodyHalfW * 2 + 28, 8, PALETTE.carvedHi);
+    rect(bodyLeft - 14, bodyTop - 8, bodyHalfW * 2 + 28, 2, PALETTE.carvedPale);
+    rect(bodyLeft - 8, entY + 16, bodyHalfW * 2 + 16, 56, PALETTE.wallMid);
+    rect(bodyLeft - 16, entY, bodyHalfW * 2 + 32, 16, PALETTE.wallLight);
+    rect(bodyLeft - 16, entY, bodyHalfW * 2 + 32, 3, PALETTE.carvedPale);
     // Recessed wave-glyph blocks along the frieze
-    for (let gx = centerX - 11.5 * TILE; gx <= centerX + 10.5 * TILE; gx += 32) {
-      rect(gx, entY + 18, 18, 16, PALETTE.deepSlate);
-      rect(gx + 3, entY + 21, 12, 2, PALETTE.carvedHi);
-      rect(gx + 5, entY + 26, 8, 3, PALETTE.aquaGlow);
+    for (let gx = centerX - 17.5 * TILE; gx <= centerX + 16.5 * TILE; gx += 38) {
+      rect(gx, entY + 26, 24, 30, PALETTE.deepSlate);
+      rect(gx + 4, entY + 31, 16, 3, PALETTE.carvedHi);
+      rect(gx + 6, entY + 40, 12, 6, PALETTE.aquaGlow);
     }
 
-    // Stepped Pyramid Pediment & Sanctuary Crown rising to topY
-    const tierWidths = [22, 16, 10, 4];
+    // Tall Stepped Pyramid Pediment & Sanctuary Crown rising deep below the surface (topRow = 36)
+    const tierWidths = [34, 27, 20, 13, 6];
+    const tierHeight = 56;
     tierWidths.forEach((tilesWide, idx) => {
       const w = tilesWide * TILE;
-      const th = 20;
-      const ty = entY - (idx + 1) * th;
+      const ty = entY - (idx + 1) * tierHeight;
       const tx = centerX - w / 2;
-      drawAshlarWall(tx, ty, w, th);
-      rect(tx - 3, ty, w + 6, 3, PALETTE.carvedPale);
+      drawAshlarWall(tx, ty, w, tierHeight);
+      rect(tx - 4, ty, w + 8, 4, PALETTE.carvedPale);
     });
-    // Crown trident crest at apex
-    const apexY = entY - tierWidths.length * 20;
-    rect(centerX - 10, apexY - 12, 20, 12, PALETTE.carvedHi);
-    rect(centerX - 2, apexY - 26, 4, 26, PALETTE.carvedPale);
-    rect(centerX - 9, apexY - 22, 3, 12, PALETTE.carvedPale);
-    rect(centerX + 6, apexY - 22, 3, 12, PALETTE.carvedPale);
-    rect(centerX - 9, apexY - 13, 18, 3, PALETTE.carvedHi);
+    // Monumental Crown trident crest at apex
+    const apexY = entY - tierWidths.length * tierHeight;
+    rect(centerX - 18, apexY - 22, 36, 22, PALETTE.carvedHi);
+    rect(centerX - 4, apexY - 56, 8, 56, PALETTE.carvedPale);
+    rect(centerX - 18, apexY - 46, 5, 24, PALETTE.carvedPale);
+    rect(centerX + 13, apexY - 46, 5, 24, PALETTE.carvedPale);
+    rect(centerX - 18, apexY - 25, 36, 5, PALETTE.carvedHi);
     ctx.beginPath();
-    ctx.arc(centerX, apexY - 6, 3, 0, Math.PI * 2);
+    ctx.arc(centerX, apexY - 12, 5, 0, Math.PI * 2);
     ctx.fillStyle = PALETTE.aquaCore;
     ctx.fill();
 

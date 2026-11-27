@@ -512,7 +512,7 @@ export function generateVents(get) {
       vents.push({ x: column * TILE + TILE / 2, y: floor * TILE });
     }
   }
-  for (const x of [-151, 229, -210, -275, -315, -345, -390, -445, 300, 365, 420, 490, 560, 625, 690]) {
+  for (const x of [-151, 229, -210, -275, -315, -330, -452, -468, 300, 365, 420, 490, 560, 625, 690]) {
     const tx = x + WEST_EXTENSION;
     vents.push({ x: (tx + .5) * TILE, y: groundAt(tx) * TILE });
   }

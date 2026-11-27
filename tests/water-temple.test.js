@@ -4,20 +4,25 @@ import { MATERIAL } from '../src/content.js';
 import { createGame } from '../src/gameplay/simulation.js';
 import { createRenderer } from '../src/render.js';
 import { createWorld, tileAt, waterTileAt } from '../src/world.js';
-import { TILE, WEST_EXTENSION, groundAt } from '../src/world/generation.js';
+import { TILE, WATER_ROW, WEST_EXTENSION, groundAt } from '../src/world/generation.js';
 import { CORAL_COLUMN, CORAL_OPEN_ID, MERMAID_SONG, singWithMermaid } from '../src/world/ocean-layout.js';
 import { WATER_TEMPLE_LIGHT, createUndergroundLight, waterTempleLightSources } from '../src/world/lighting.js';
 import {
   WATER_TEMPLE,
   WATER_TEMPLE_DOOR,
+  WATER_TEMPLE_PUZZLE_DOOR,
   protectsWaterTemple,
   waterTempleDoorBounds,
+  waterTemplePuzzleDoorBounds,
   waterTempleStoneAt,
 } from '../src/world/water-temple.js';
 
-test('water temple sits west of the coral wall on a stepped solid plinth with an open flooded doorway', () => {
+test('water temple spans across the coral wall, stays below surface, and hosts big west door and smaller east puzzle door', () => {
   const world = createWorld();
-  assert.ok(WATER_TEMPLE.right < CORAL_COLUMN - 2, 'temple stands entirely west of the coral wall');
+  assert.ok(WATER_TEMPLE.left < CORAL_COLUMN - 2 && WATER_TEMPLE.right > CORAL_COLUMN + 2, 'temple crosses the coral wall');
+  assert.ok(WATER_TEMPLE.topRow > WATER_ROW + 10, 'enlarged temple stays well below the ocean surface');
+  assert.ok(WATER_TEMPLE_DOOR.column < CORAL_COLUMN - 2, 'main door stands on the left side of the coral wall');
+  assert.ok(WATER_TEMPLE_PUZZLE_DOOR.column > CORAL_COLUMN + 2, 'smaller puzzle door stands on the right side of the coral wall');
 
   // Blocked by coral wall until mermaid song opens it.
   const coralWallTx = CORAL_COLUMN + WEST_EXTENSION;
@@ -29,10 +34,10 @@ test('water temple sits west of the coral wall on a stepped solid plinth with an
   // Level seabed foundation with clean stepped stone plinth up to deckRow.
   assert.equal(groundAt(WATER_TEMPLE.center + WEST_EXTENSION), WATER_TEMPLE.seabedRow);
   const door = waterTempleDoorBounds(WEST_EXTENSION);
-  assert.equal(WATER_TEMPLE_DOOR.widthTiles, 4);
-  assert.equal(WATER_TEMPLE_DOOR.heightTiles, 6);
-  assert.equal(door.width, 4 * TILE);
-  assert.equal(door.height, 6 * TILE);
+  const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);
+  assert.equal(WATER_TEMPLE_DOOR.widthTiles, 6);
+  assert.equal(WATER_TEMPLE_DOOR.heightTiles, 9);
+  assert.ok(puzzleDoor.width < door.width && puzzleDoor.height < door.height, 'east puzzle door is smaller than main door');
   assert.equal(door.floor, WATER_TEMPLE.deckRow);
 
   // All sanctuary steps are uninterrupted carved stone and open doorway in front is swimmable water.
@@ -41,18 +46,19 @@ test('water temple sits west of the coral wall on a stepped solid plinth with an
     assert.equal(tileAt(world, tx, WATER_TEMPLE.seabedRow), MATERIAL.stone);
     assert.equal(waterTileAt(world, tx, WATER_TEMPLE.deckRow - 1), true, `portico above column ${col} must stay open water`);
   }
-  for (let col = WATER_TEMPLE.center - 2; col <= WATER_TEMPLE.center + 2; col++) {
+  for (let col = WATER_TEMPLE.center - 3; col <= WATER_TEMPLE.center + 3; col++) {
     const tx = col + WEST_EXTENSION;
     assert.equal(tileAt(world, tx, WATER_TEMPLE.deckRow), MATERIAL.stone);
     assert.equal(waterTempleStoneAt(col, WATER_TEMPLE.deckRow), true);
-    for (let row = WATER_TEMPLE.deckRow - 6; row < WATER_TEMPLE.deckRow; row++) {
+    for (let row = WATER_TEMPLE.deckRow - 9; row < WATER_TEMPLE.deckRow; row++) {
       assert.equal(waterTileAt(world, tx, row), true, `big door space at (${col}, ${row}) must stay flooded open water`);
     }
   }
+  assert.equal(tileAt(world, WATER_TEMPLE_PUZZLE_DOOR.column + WEST_EXTENSION, WATER_TEMPLE_PUZZLE_DOOR.floor), MATERIAL.stone);
   assert.equal(protectsWaterTemple(WATER_TEMPLE.center, WATER_TEMPLE.seabedRow), true);
 
   // Neighboring breathing vents stay unobstructed outside temple flanks.
-  for (const ventCol of [-390, -445]) {
+  for (const ventCol of [-330, -452]) {
     const vent = world.vents.find((v) => Math.floor(v.x / TILE) === ventCol + WEST_EXTENSION);
     assert.ok(vent, `west vent at ${ventCol} remains available`);
     assert.equal(tileAt(world, ventCol + WEST_EXTENSION, groundAt(ventCol + WEST_EXTENSION) - 1), MATERIAL.air);
@@ -67,11 +73,11 @@ test('water temple braziers emit aqua sanctuary glow and renderer draws the temp
   const deckY = WATER_TEMPLE.deckRow;
 
   const sources = waterTempleLightSources(world, 1.0);
-  assert.equal(sources.length, 4);
+  assert.equal(sources.length, 6);
   const player = { x: (centerTx + 0.5) * TILE, y: (deckY - 2) * TILE, height: TILE, glowSeconds: 0 };
   const bounds = { left: centerTx - 26, right: centerTx + 26, top: WATER_TEMPLE.topRow - 4, bottom: WATER_TEMPLE.seabedRow + 6 };
   underground.update(world, player, bounds, 1.0);
-  const glow = underground.colorAt(centerTx - 6, deckY - 1);
+  const glow = underground.colorAt(centerTx - 8, deckY - 1);
   assert.ok(glow.strength > 0.4);
   assert.equal(glow.r, WATER_TEMPLE_LIGHT.r);
   assert.equal(glow.g, WATER_TEMPLE_LIGHT.g);
@@ -138,6 +144,17 @@ test('water temple braziers emit aqua sanctuary glow and renderer draws the temp
     assert.ok(gradStops.some((c) => c.startsWith('rgba(167, 241, 234,')), 'renders aqua brazier light');
 
     renderer.draw({ ...frame, overview: true });
+
+    // Also render east puzzle wing & smaller puzzle door on the right side of the coral wall.
+    const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);
+    const puzzleMidX = puzzleDoor.x + puzzleDoor.width / 2;
+    const puzzleMidY = puzzleDoor.y + puzzleDoor.height / 2;
+    arcs.length = 0;
+    renderer.draw({
+      ...frame,
+      camera: { x: puzzleMidX - 320, y: puzzleMidY - 180, width: 640, height: 360 },
+    });
+    assert.ok(arcs.some((a) => Math.abs(a.x - puzzleMidX) < 1 && Math.abs(a.y - puzzleMidY) < 1 && a.r >= 7), 'renders smaller east puzzle door medallion');
   } finally {
     globalThis.Path2D = prevPath2D;
   }
