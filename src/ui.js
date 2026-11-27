@@ -241,7 +241,6 @@ export function createUI(actions, version) {
   byId('customize').addEventListener('click', () => open('customize-panel'));
   byId('craft').addEventListener('click', () => open('craft-panel'));
   byId('items').addEventListener('click', () => open('items-panel'));
-  byId('spawn').addEventListener('click', () => open('spawn-panel'));
   byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('classes').addEventListener('click', () => open('classes-panel'));
   byId('skilltree').addEventListener('click', () => open('skilltree-panel'));
