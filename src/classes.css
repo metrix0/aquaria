@@ -88,3 +88,48 @@
 .skill-loadout>div{flex:1;min-width:180px}.skill-loadout strong,.skill-loadout small{display:block}.skill-loadout strong{color:#e4ceaa;font-size:14px}.skill-loadout small{font-size:11px;color:#a8bfc4;margin-top:3px}
 .skill-loadout label{display:flex;align-items:center;gap:7px;flex:0 1 185px;min-width:0}.skill-loadout kbd{color:#e4ceaa;font:700 13px var(--mono);padding:5px;border:1px solid #536d78;border-radius:4px}.skill-loadout select{min-width:0;width:100%;padding:8px;color:#d7e3e7;border:1px solid #536d78;border-radius:4px;background:#182e3a;font:12px var(--mono)}
 @media(max-width:500px){.skill-loadout>div{flex-basis:100%}.skill-loadout label{flex:1 1 125px}}
+
+/* Soul constellations: the sky is the interface, not a grid of cards. */
+#skilltree-panel{width:min(1120px,calc(100vw - 24px));max-width:1120px;padding:clamp(14px,2.5vw,30px);border:1px solid #52617080;border-radius:4px;background:radial-gradient(ellipse at 26% 30%,#152237 0%,#090e1b 47%,#050911 85%);color:#d6e0ec}
+#skilltree-panel .dialog-head{margin-bottom:0}
+#skilltree-panel .dialog-head h2{font:10px var(--mono,monospace);letter-spacing:.25em;text-transform:uppercase;color:#9baabd}
+.celestial-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 12px;border-bottom:1px solid #d2e6ff20}
+.celestial-header small{color:var(--soul-accent);text-transform:uppercase;letter-spacing:.18em;font-size:10px}
+.celestial-header h3{font:400 clamp(27px,4vw,42px)/1.15 Georgia,serif;color:#f3e9db;margin:5px 0 0;letter-spacing:.04em}
+.celestial-tree button:not(.celestial-star){font:inherit;color:#dbe7ed;background:#101a28;border:1px solid #6d80924d;border-radius:3px;padding:8px 12px;cursor:pointer}
+.celestial-tree button:not(.celestial-star):hover:not(:disabled),.celestial-tree button[aria-pressed=true]:not(.celestial-star){border-color:var(--soul-accent);color:var(--soul-accent)}
+.celestial-tree button:disabled{opacity:.4;cursor:default}
+.celestial-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,29%);gap:clamp(18px,4vw,50px)}
+.celestial-main{min-width:0}
+.celestial-map{position:relative;margin:10px auto 0;width:min(100%,470px);aspect-ratio:1.25;isolation:isolate;background:radial-gradient(ellipse at 50% 45%,color-mix(in srgb,var(--soul-accent) 7%,transparent),transparent 70%)}
+.celestial-map svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.celestial-outline{fill:none;stroke:var(--soul-accent);stroke-width:.45;opacity:.2;stroke-dasharray:1 1.5;stroke-linecap:round;stroke-linejoin:round}
+.celestial-link{stroke:#8fa8c1;stroke-width:.42;opacity:.56;stroke-linecap:round}
+.celestial-link.lit{stroke:var(--soul-accent);opacity:1;filter:drop-shadow(0 0 2px var(--soul-accent))}
+.celestial-star{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);display:grid;place-items:center;width:clamp(29px,4vw,44px);height:clamp(29px,4vw,44px);padding:0;border:0;border-radius:50%;background:transparent;color:#8297b4;cursor:pointer;touch-action:manipulation}
+.celestial-star span{font:25px/1 Georgia,serif;text-shadow:0 0 8px currentColor;pointer-events:none}
+.celestial-star.major span{font-size:34px}
+.celestial-star.available{color:#e1f1ff}.celestial-star.unlocked{color:var(--soul-accent);background:radial-gradient(circle,color-mix(in srgb,var(--soul-accent) 24%,transparent),transparent 70%)}
+.celestial-star[aria-pressed=true],.celestial-star:hover,.celestial-star:focus-visible{outline:1px solid var(--soul-accent);outline-offset:1px;color:#fff}
+.celestial-name{text-align:center;color:#b9c6d7;font:italic 15px Georgia,serif;letter-spacing:.15em;margin:0 0 12px}
+.celestial-souls{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-block:1px solid #d2e6ff20;padding:12px 0}
+.celestial-souls>div{display:flex;align-items:center;gap:8px;min-width:0}.celestial-souls>div>div{flex:1;min-width:0}
+.celestial-souls strong{display:block;font:24px Georgia,serif;color:#f3e9db}.celestial-souls small{display:block;font:11px/1.4 sans-serif;color:#9eafc3}.celestial-souls strong small{display:inline;color:#d6e0ec;font-size:12px;text-transform:capitalize}
+.soul-dot{font:24px Georgia,serif;color:#a9dcff;text-shadow:0 0 10px currentColor}.soul-dot.greater{color:#eac18a}
+.celestial-souls button{font-size:11px!important;padding:6px!important}
+.celestial-loadout{padding-top:12px}.celestial-loadout-head strong{display:block;font:17px Georgia,serif;color:#e6e0d7}.celestial-loadout small{font-size:11px;line-height:1.5;color:#a7b5c6}
+.celestial-pool{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.celestial-pool button{font-size:11px!important;cursor:grab!important}
+.celestial-slots{display:grid;grid-template-columns:1fr 1fr;gap:9px}.celestial-slot{display:flex;min-width:0;border:1px dashed #70879c80;border-radius:4px}.celestial-slot.drop-ready{border-color:var(--soul-accent);background:#b7d6ff20}
+.celestial-slot button[data-equip-slot]{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-align:left;border:0;background:transparent;padding:9px;font-size:12px}.celestial-slot button span{overflow-wrap:anywhere}
+.celestial-slot kbd{font:700 13px monospace;color:var(--soul-accent);border:1px solid #6d809280;padding:3px 5px;border-radius:3px}
+.celestial-slot button[data-clear-slot]{border:0;background:transparent;color:#a7b5c6;padding:6px 9px}
+.celestial-inspector{align-self:start;min-width:0;margin-top:25px;padding:20px 0 20px 24px;border-left:1px solid #d2e6ff25;min-height:300px}
+.celestial-path{color:var(--soul-accent);letter-spacing:.12em;text-transform:uppercase;font-size:10px}
+.celestial-inspector-glyph{display:block;font:58px/1.2 Georgia,serif;color:var(--soul-accent);text-shadow:0 0 24px var(--soul-accent);margin:18px 0 5px}
+.celestial-inspector h4{font:400 28px/1.15 Georgia,serif;color:#f2e8d7;margin:0 0 15px}
+.celestial-inspector p{font-size:14px;line-height:1.65;color:#b9c7d6;margin:0 0 22px}
+.celestial-cost{border-top:1px solid #d2e6ff25;padding-top:12px;color:#e1d3b7;font-size:13px}
+.celestial-inspector>small:not(.celestial-path){display:block;font-size:11px;color:#a4b4c6;margin-top:8px}
+.celestial-inspector #awaken-skill{width:100%;margin-top:12px;padding:12px;border-color:var(--soul-accent)}
+@media(max-width:720px){.celestial-layout{grid-template-columns:1fr;gap:8px}.celestial-main{display:contents}.celestial-map{grid-row:1;margin-top:12px;width:min(100%,420px)}.celestial-name{grid-row:2}.celestial-inspector{grid-row:3;min-height:0;margin:0;padding:12px 0;border-left:0;border-block:1px solid #d2e6ff25}.celestial-inspector-glyph{display:none}.celestial-inspector h4{font-size:22px;margin:5px 0}.celestial-inspector p{margin:0 0 8px}.celestial-souls{grid-row:4;border-top:0}.celestial-loadout{grid-row:5}.celestial-star{width:32px;height:32px}.celestial-star span{font-size:22px}.celestial-star.major span{font-size:29px}}
+@media(max-width:380px){.celestial-souls>div{flex-wrap:wrap}.celestial-souls button{margin-left:24px}.celestial-header h3{font-size:27px}}
