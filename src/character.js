@@ -3,6 +3,7 @@ import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, CO
 import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
 import { ITEMS } from './inventory.js';
+import { SPELLS } from './spells.js';
 import { TILE, clamp } from './world/generation.js';
 
 const eye = '#35303d';
@@ -95,6 +96,18 @@ export function createCharacterRenderer(ctx) {
     rect(bootLeft, y - 1, far ? 4 : 5, 2, sole);
     rect(bootLeft + 1, y - 1, far ? 2 : 4, 1, far ? '#625051' : boot);
     if (!far) rect(x + (swimming ? -2 : 1), y - 1, 1, 1, bootLight);
+  }
+
+  function drawTome(x, y, spellId) {
+    const spell = SPELLS[spellId];
+    if (!spell) return;
+    // Cover, spine, page block and a small gilded clasp. The hand overlaps the spine.
+    rect(x, y - 7, 7, 9, '#293039');
+    rect(x + 1, y - 6, 5, 6, spell.cover);
+    rect(x + 1, y - 6, 1, 6, spell.color);
+    rect(x + 2, y + 1, 4, 1, '#e6cfa0');
+    rect(x + 3, y - 4, 2, 1, spell.color);
+    rect(x + 4, y - 5, 1, 3, spell.color);
   }
 
   function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false, venom) {
@@ -358,13 +371,19 @@ export function createCharacterRenderer(ctx) {
           ctx.restore();
         }
       : undefined;
+    const tome = heldItem?.form === 'tome' ? heldItem.spell : null;
+    const tomeHand = tome ? (x, y) => {
+      drawTome(Math.round(x), Math.round(y), tome);
+      rect(x, y, 1, 1, ring ? '#a8f184' : skin.hand);
+      venom?.(x, y);
+    } : venom;
     function drawClimbArm(side, rung) {
       const far = side < 0;
       const [y, lift] = reducedMotion ? [far ? 6 : 10, 0] : climbStep(pixelY, 12, rung, rungGap * 2);
       const grip = rope ? gripCenter + side : clamp(side * 5, gripCenter - railReach, gripCenter + railReach);
       const hand = [grip + (rope ? -lift : side * lift), y];
       const elbow = [(side * shoulderX + hand[0]) / 2 + side * 2, 12 - (12 - y) * .35];
-      bentArm([side * shoulderX, 11], elbow, hand, skin, shirt, far, ring, far ? undefined : venom);
+      bentArm([side * shoulderX, 11], elbow, hand, skin, shirt, far, ring, far ? undefined : tomeHand);
     }
 
     function climbFoot(side, rung) {
@@ -392,6 +411,10 @@ export function createCharacterRenderer(ctx) {
         weaponArm(shoulderX, shoulderY, weapon, attack, swimming, tilt, skin, shirt, hasArrow, reducedMotion, ring, venom);
       } else if (miningSwing) {
         miningArm(shoulderX, shoulderY, Math.abs(targetX), targetY, tilt, swingPhase, skin, shirt, miningSwing.tier, ring, venom);
+      } else if (tome) {
+        const sway = Math.round(restSwing * .35);
+        const hand = [shoulderX + 4 + sway, restY + (crawling ? 4 : 3)];
+        bentArm([shoulderX, restY], [shoulderX + 2, restY + 4], hand, skin, shirt, false, ring, tomeHand);
       } else if (heldItem?.pickaxe) {
         carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring, venom);
       } else {

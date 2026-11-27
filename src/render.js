@@ -3877,6 +3877,7 @@ export function createRenderer(canvas) {
         continue;
       drawCharacter(remote, remote.appearance, {
         snorkel: playerHeadInWater(world, remote) ? remote.snorkel : null,
+        held: remote.heldTome,
         time,
         reducedMotion,
         swimming: playerInWater(world, remote),

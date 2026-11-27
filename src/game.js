@@ -758,7 +758,7 @@ function frame(now) {
   ui.update(game, conditions);
   const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
-  const peers = Array.from(room?.tick(now, dt, game.player, snorkel, reviveTarget) ?? []);
+  const peers = Array.from(room?.tick(now, dt, game.player, snorkel, reviveTarget, held) ?? []);
   game.wayfarerPeers = peers;
   if (room) receiveFeasts(game);
   if (room && !game.player.downed) updateWardenAllies(game, peers.filter(peer => !peer.downed));

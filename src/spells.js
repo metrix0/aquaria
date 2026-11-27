@@ -1,8 +1,8 @@
 // Shared spell definitions for items, loot, casting and saves.
 export const SPELLS = {
-  firebolt: { name: 'Firebolt', damage: 7, speed: 240, cooldown: 8, color: '#ff9857', detail: 'Launches a fiery bolt for 7 damage.' },
-  'frost-lance': { name: 'Frost Lance', damage: 4, speed: 300, cooldown: 12, root: 2, color: '#8dddf5', detail: 'Launches an icy lance for 4 damage and roots enemies for 2 seconds.' },
-  mend: { name: 'Mend', heal: 15, cooldown: 30, color: '#9ce6a3', detail: 'Restores 15 health.' },
+  firebolt: { name: 'Firebolt', damage: 7, speed: 240, cooldown: 8, color: '#ff9857', cover: '#b64e43', detail: 'Launches a fiery bolt for 7 damage.' },
+  'frost-lance': { name: 'Frost Lance', damage: 4, speed: 300, cooldown: 12, root: 2, color: '#8dddf5', cover: '#4a83ab', detail: 'Launches an icy lance for 4 damage and roots enemies for 2 seconds.' },
+  mend: { name: 'Mend', heal: 15, cooldown: 30, color: '#9ce6a3', cover: '#538c63', detail: 'Restores 15 health.' },
 };
 export const SPELL_ITEMS = Object.fromEntries(Object.entries(SPELLS).flatMap(([id, spell]) =>
   ['tome', 'scroll'].map(form => [id + '-' + form, {

@@ -1,4 +1,5 @@
 import { ARMOR, FEET_GEAR, MATERIAL, MATERIAL_IDS, normalizeAppearance, normalizeSnorkel, WALK_CYCLE_DISTANCE } from '../content.js';
+import { SPELL_ITEMS } from '../spells.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
@@ -142,6 +143,7 @@ export async function connectRoom(config, invite, handlers) {
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
+      heldTome: SPELL_ITEMS[payload.heldTome]?.form === 'tome' ? payload.heldTome : null,
       damageSequence: Number.isSafeInteger(payload.damageSequence) && payload.damageSequence >= 0 ? payload.damageSequence : 0,
       aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
@@ -201,7 +203,7 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, snorkel, reviveTarget = null) {
+    tick(now, dt, player, snorkel, reviveTarget = null, held = null) {
       const pose = {
         id: peerId,
         x: Math.round(player.x - poseOffset), y: Math.round(player.y),
@@ -210,6 +212,7 @@ export async function connectRoom(config, invite, handlers) {
         dy: clamp(Math.round(player.dy), -maxPeerVelocity, maxPeerVelocity),
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
+        heldTome: SPELL_ITEMS[held]?.form === 'tome' ? held : null,
         damageSequence: player.damageSequence ?? 0,
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
         aegisFacing: player.aegisFacing ?? 1,
