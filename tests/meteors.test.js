@@ -37,3 +37,38 @@ test('panning and resizing project the same meteor positions, including their ta
     assert.ok(shifted.some(n => Math.abs(n.x - m.x + 2.4) < 1e-8 && n.y === m.y - 10 && n.alpha === m.alpha));
   }
 });
+
+test('meteor sizes, tail lengths and brightness vary between streaks but stay stable during flight', () => {
+  const sizes = new Set();
+  const lengths = new Set();
+  const brightnesses = new Set();
+  for (let lane = -20; lane <= 20; lane++) {
+    const m = meteorAt(lane, 8);
+    sizes.add(m.size);
+    lengths.add(m.x - m.tailX);
+    brightnesses.add(m.brightness);
+    assert.ok(m.size >= 1.2 && m.size <= 4.5);
+    assert.ok(m.x - m.tailX >= 20 && m.x - m.tailX <= 72);
+    const next = meteorAt(lane, 8.01);
+    if (m.alpha > .001 && next.alpha > .001) {
+      assert.equal(next.size, m.size);
+      assert.equal(next.brightness, m.brightness);
+      assert.ok(Math.abs((next.x - next.tailX) - (m.x - m.tailX)) < 1e-8);
+    }
+  }
+  assert.ok(sizes.size > 30 && lengths.size > 30 && brightnesses.size > 30);
+});
+
+test('meteor opacity fades gently over many frames', () => {
+  for (let lane = 0; lane < 20; lane++) {
+    let previous = meteorAt(lane, 0);
+    let transitions = 0;
+    for (let t = .05; t < 20; t += .05) {
+      const next = meteorAt(lane, t);
+      assert.ok(Math.abs(next.alpha - previous.alpha) < .075);
+      if (next.alpha > .05 && next.alpha < .95) transitions++;
+      previous = next;
+    }
+    assert.ok(transitions > 130);
+  }
+});

@@ -459,10 +459,31 @@ export function createRenderer(canvas) {
         }
         ctx.restore();
       } else if (atmosphere === "meteors") {
-        for (const { x, y, tailX, tailY, alpha } of visibleMeteors(camera, time)) {
-          ctx.globalAlpha = darkness * (1 - rain * .7) * alpha;
-          polygon([[tailX, tailY], [x - 1, y - 1], [x + 3, y + 2], [x - 8, y + 1]], "#c6e8ff72");
-          rect(x, y, 3, 2, "#ffffff");
+        for (const { x, y, tailX, tailY, alpha, size, brightness } of visibleMeteors(camera, time)) {
+          ctx.globalAlpha = darkness * (1 - rain * .7) * alpha * brightness;
+          const streak = ctx.createLinearGradient(tailX, tailY, x, y);
+          streak.addColorStop(0, "rgba(112,165,240,0)");
+          streak.addColorStop(.42, "rgba(135,190,247,.18)");
+          streak.addColorStop(.78, "rgba(179,220,255,.55)");
+          streak.addColorStop(1, "rgba(224,242,255,.95)");
+          const dx = x - tailX, dy = y - tailY;
+          const length = Math.hypot(dx, dy);
+          const nx = -dy / length, ny = dx / length;
+          const half = size * .48;
+          // A tapered, transparent tail and a compact bright head.
+          polygon([[tailX, tailY], [x + nx * half, y + ny * half],
+            [x + dx / length * half, y + dy / length * half],
+            [x - nx * half, y - ny * half]], streak);
+          if (size > 2.7) {
+            const radius = size * 2.4;
+            const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            glow.addColorStop(0, "rgba(183,221,255,.24)");
+            glow.addColorStop(1, "rgba(183,221,255,0)");
+            ctx.fillStyle = glow;
+            ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+          }
+          const head = Math.max(1, Math.round(size));
+          rect(x - head / 2, y - head / 3, head, Math.max(1, Math.round(head * .6)), "#f5fbff");
         }
       }
     }
