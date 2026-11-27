@@ -20,6 +20,10 @@ try {
  await r.waitFor(); await page.waitForFunction(()=>!document.getElementById('Rafael').disabled&&!document.getElementById('Joao').disabled);
  assert.equal(await r.inputValue(),'initial R'); assert.equal(await j.inputValue(),'initial J');
  assert.ok((await j.boundingBox()).x>(await r.boundingBox()).x);
+ await page.setViewportSize({width:1700,height:850});
+ assert.ok((await r.boundingBox()).width>790);
+ assert.ok((await r.boundingBox()).height>700);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight),true);
  await r.fill('R updated'); 
  assert.equal(await page.locator('#Rafael-status').textContent(),'Saving…');
  assert.equal(await page.evaluate(()=>!window.dispatchEvent(new Event('beforeunload',{cancelable:true}))),true);
