@@ -7,7 +7,7 @@ import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi, setItemIcon } from './inventory-ui.js';
 import { GRAPPLING_HOOK, ITEMS } from './inventory.js';
-import { spellCooldown } from './spells.js';
+import { SPELLS, spellCooldown } from './spells.js';
 import { createItemsMenu } from './items-menu.js';
 import { createDropsUI } from './drops-ui.js';
 import { createClassesUI } from './classes-ui.js';
@@ -15,6 +15,7 @@ import { createSpawnMenu } from './spawn-menu.js';
 import { ringCooldown } from './gameplay/root-ring.js';
 import { equippedSkill, SKILL_KEYS } from './classes.js';
 import { WARDEN_SKILLS } from './gameplay/warden.js';
+import { SCHOLAR_SKILLS, feastChoice } from './gameplay/scholar.js';
 import { WAYFARER_SKILLS } from './gameplay/wayfarer.js';
 import { BOW } from './content.js';
 import { MAX_HEALTH, playerStatusEffects } from './gameplay/player.js';
@@ -63,8 +64,8 @@ export function createUI(actions, version) {
   setItemIcon(hookSlot.querySelector('span'), GRAPPLING_HOOK.id);
   const wardenSkills = byId('warden-skills');
   const skillButtons = [...document.querySelectorAll('[data-skill-slot]')];
-  const skillDefs = [...WARDEN_SKILLS, ...WAYFARER_SKILLS];
-  const skillGlyphs = { shieldRush: '\u26e8', rage: '\u2694', aegisAura: '\u2727', horizonShot: '\u27b6', counter: '\u21c4', huntersMark: '\u25ce' };
+  const skillDefs = [...WARDEN_SKILLS, ...WAYFARER_SKILLS, ...SCHOLAR_SKILLS];
+  const skillGlyphs = { shieldRush: '\u26e8', rage: '\u2694', aegisAura: '\u2727', horizonShot: '\u27b6', counter: '\u21c4', huntersMark: '\u25ce', hyperBeam: '\u2726', beastFlask: '\u2697', feast: '\u2668' };
   const braceLabel = byId('warden-brace');
   const statusEffects = byId('status-effects');
   const statusTooltip = byId('status-tooltip');
@@ -182,7 +183,8 @@ export function createUI(actions, version) {
   function updateSpellTimers(game) {
     spellSlots.forEach((slot, i) => {
       const item = ITEMS[game.inventory.hotbar[i]?.id];
-      const remaining = Math.ceil(spellCooldown(game, item));
+      const manaReady = item?.form === 'tome' && game.player.skillBonuses?.manaCapacity && game.player.mana >= SPELLS[item.spell]?.cooldown;
+      const remaining = manaReady ? 0 : Math.ceil(spellCooldown(game, item));
       if (remaining > 0) slot.dataset.spellCooldown = remaining + 's';
       else delete slot.dataset.spellCooldown;
     });
@@ -374,6 +376,14 @@ export function createUI(actions, version) {
       setText('health-label', String(health));
       const healthTrack = fields['health-fill'].parentElement;
       const player = game.player;
+      const manaBar = byId('mana-meter'), manaCap = player.skillBonuses?.manaCapacity || 0;
+      manaBar.hidden = !manaCap;
+      if (manaCap) {
+        const mana = Math.max(0,Math.min(manaCap,player.mana ?? manaCap));
+        byId('mana-fill').style.width = (mana/manaCap*100)+'%';
+        byId('mana-label').textContent = Math.floor(mana)+' / '+manaCap;
+        manaBar.setAttribute('aria-valuenow',String(Math.floor(mana)));
+      }
       const bloodrush = Boolean(player.skillBonuses?.missingHealthAttack && health < 100);
       fields['health-fill'].classList.toggle('bloodrush', bloodrush);
       if (bloodrush) { const hue = String(Math.round((100 - health) * .38)) + 'deg'; if (fields['health-fill'].style.getPropertyValue('--rage-hue') !== hue) fields['health-fill'].style.setProperty('--rage-hue', hue); }
@@ -387,7 +397,7 @@ export function createUI(actions, version) {
         const active = Math.ceil(player[skill.timer] || 0);
         const glyph = button.querySelector('span'), timer = button.querySelector('b');
         const symbol = skillGlyphs[skill.id] ?? node.name.slice(0, 1);
-        const text = skill.id === 'huntersMark' && active ? '!' : active ? active + 's' : cd ? cd + 's' : '';
+        const text = skill.id === 'feast' && active ? 'Pick' : skill.id === 'huntersMark' && active ? '!' : active ? active + 's' : cd ? cd + 's' : '';
         const label = SKILL_KEYS[index] + ' ' + node.name + (text ? ' (' + text + ')' : '');
         if (glyph.textContent !== symbol) glyph.textContent = symbol;
         if (timer.textContent !== text) timer.textContent = text;
@@ -395,7 +405,7 @@ export function createUI(actions, version) {
           button.setAttribute('aria-label', label);
           button.title = label;
         }
-        button.disabled = Boolean(cd);
+        button.disabled = Boolean(cd || (skill.id==='hyperBeam' && (player.mana||0)<5));
         button.classList.toggle('active', Boolean(active));
       }
       braceLabel.hidden = !player.bracing;
@@ -406,6 +416,7 @@ export function createUI(actions, version) {
       if (draw) labels.push(draw.extra ? 'Overdraw ready' : draw.elapsed>=BOW.drawTime-1e-6 ? (player.skillBonuses?.extraDraw ? 'Ready / Overdraw '+Math.min(100,Math.round((draw.elapsed-BOW.drawTime)*100))+'%' : 'Ready') : 'Drawing '+Math.round(draw.elapsed/BOW.drawTime*100)+'%');
       if (player.skillBonuses?.heat) labels.push('Heat +'+Math.round((player.heatBonus||0)*100)+'%');
       if (player.catching) labels.push('Ready to catch');
+      if(player.feastSelecting) labels.push('Feast: '+feastChoice(player)+' (press skill again)');
       const statusText=labels.join(' | ');
       if(wayfarerStatus.textContent!==statusText)wayfarerStatus.textContent=statusText;
       wayfarerStatus.hidden=!statusText;

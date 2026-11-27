@@ -1,3 +1,4 @@
+import { harmful } from '../effect-potency.js';
 import { isCaveRefuge } from '../../world/island-cave.js';
 import { clamp, TILE, WEST_EXTENSION } from '../../world/generation.js';
 import { clearPath, dryCell, hurtPlayer, makeCaveEnemySpec } from './cave-shared.js';
@@ -49,11 +50,11 @@ export function stepBloodBat(world, player, mob, dt, effects) {
         let message = 'Bitten by a blood bat!';
         let color = '#9e2030';
         if (roll < 0.30) {
-          player.blindness = Math.max(player.blindness ?? 0, BLOOD_BAT_BLIND_DURATION);
+          player.blindness = Math.max(player.blindness ?? 0, harmful(player,BLOOD_BAT_BLIND_DURATION));
           message = 'Struck by a blood bat! Blinded!';
           color = '#5d121d';
         } else if (roll < 0.70) {
-          player.bleed = Math.max(player.bleed ?? 0, BLOOD_BAT_BLEED_DURATION);
+          player.bleed = Math.max(player.bleed ?? 0, harmful(player,BLOOD_BAT_BLEED_DURATION));
           if (!(player.bleedTick > 0)) player.bleedTick = 1;
           message = 'Bitten by a blood bat! Bleeding!';
           color = '#c4313d';

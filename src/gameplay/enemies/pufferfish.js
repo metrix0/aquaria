@@ -1,3 +1,4 @@
+import { harmful } from '../effect-potency.js';
 import { MATERIAL } from '../../content.js';
 import { COLS, MOB_HEALTH, TILE, WATER, clamp } from '../../world/generation.js';
 import { fishCollides } from '../friends/fish.js';
@@ -132,7 +133,7 @@ export function stepPufferfish(world, player, mob, dt, time, effects, ctx) {
       player.dy = (toPlayerY / dist) * 140 - 26;
       const loss = takeDamage(player, 14);
       player.oxygen = Math.max(0, player.oxygen - 2);
-      player.poison = Math.max(player.poison ?? 0, PUFFERFISH_POISON_DURATION);
+      player.poison = Math.max(player.poison ?? 0, harmful(player,PUFFERFISH_POISON_DURATION));
       effects?.push({
         x: mob.x,
         y: mob.y,

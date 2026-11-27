@@ -103,6 +103,8 @@ ITEMS = {
     'door': art('.hhhhh./hbbbbbh/hbbbsbs/hbbbsbs/hbbbsas/hbbbsbs/hbbbsbs/sssssss', WOOD, extra='#eacb80', outline=WARM),
     'workbench': art('....hh.../...abbs../hhhhhhhhh/bbbbbbbbs/sssssssss/.b.....b./.bbbbbbb./.s.....s.', WOOD, extra='#9aafb0', outline=WARM),
     'fireplace': art('....h..../...hh..../...hbb.../..hbbbs../.hbbabs../.sbabss../aaddddaaa/.ccccccc.', ('#dc6843','#f8be68','#ae4c39'), extra='#8c6047 #607982 #c89863', outline=WARM),
+    'cauldron': art('.hhhhh./hbbbbbh/sssssss/.bbbbb./.bbabs./..sss../.s...s.', IRON, extra='#8bb66c'),
+    'stew': art('..ah.a./.haaha./hhhhhhh/hbbbbbs/.bbabs./..sss..', WOOD, extra='#83b76c', outline=WARM),
     'raw-fish': fish(False),
     'cooked-fish': fish(True),
     'raw-crab': crab(False),

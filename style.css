@@ -607,3 +607,16 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 /* Tome recharge overlay on the numbered hotbar. */
 #hotbar-slots .slot[data-spell-cooldown] > .item { opacity: .45; }
 #hotbar-slots .slot[data-spell-cooldown]::after { content: attr(data-spell-cooldown); position: absolute; inset: 0; display: grid; place-items: center; color: white; font-size: 12px; font-weight: bold; text-shadow: 0 1px 3px #000; pointer-events: none; }
+.mana-meter[hidden], .stew-ingredients[hidden], #craft-recipes[hidden] { display:none; }
+.mana-meter { margin-top:4px; }
+.mana-crest { color:#c8a5ff; font-size:18px; }
+#mana-fill { height:100%; width:100%; background:linear-gradient(90deg,#7152b9,#b99af4); }
+.stew-ingredients { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.stew-ingredients select { min-width:0; flex:1; padding:8px; color:inherit; background:#233944; border:1px solid #68818b; border-radius:4px; }
+
+.mana-meter .health-number { width:7ch; color:#d7c5fa; }
+.mana-meter .health-track { border-color:#8b79b4; }
+.mana-crest { flex:0 0 19px; text-align:center; }
+.status-icon-beastTime::before { content:"\2697"; color:#c49c76; font-size:17px; }
+.status-icon-spinachTime::before { content:"\2663"; color:#83cb72; font-size:19px; }
+.status-icon-carrotTime::before { content:"\2191"; color:#f4ae63; font-size:19px; }

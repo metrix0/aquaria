@@ -401,6 +401,21 @@ export function createCharacterRenderer(ctx) {
       }
     };
     ctx.scale(facing, 1);
+    const enlargedArms = player.spinachTime > 0 || player.beastTime > 0;
+    const drawMuscles = (y) => {
+      if(enlargedArms) {
+        const w=player.beastTime>0?5:4;
+        rect(-shoulderX-w,y,w,6,skin.shadow ?? skin.dark ?? '#9e795c');
+        rect(shoulderX+2,y,w,6,skin.base ?? '#c99f7d');
+        rect(shoulderX+2,y,w,1,skin.light ?? '#e3b998');
+        if(player.beastTime>0) {rect(-5,y-3,11,3,'#78634a');rect(-5,y-4,2,2,'#e8d6af');rect(4,y-4,2,2,'#e8d6af');}
+      }
+      if(player.skillBonuses?.confusingTouch && !(player.wardenCooldowns?.confusingTouch>0)) {
+        const drop=Math.floor(time*14)%5;
+        rect(shoulderX+4,y+5+drop,1,2,'#7dcc65');
+        rect(shoulderX+3,y+4,2,2,'#b2e97b');
+      }
+    };
     if (crawling) {
       const shuffle = Math.round(armSwing * 0.4);
       if (feetGear) {
@@ -420,6 +435,7 @@ export function createCharacterRenderer(ctx) {
       head(hairStyles[appearance.hair], hair, skin, 3, 2, Math.sign(shuffle));
       if (gear) divingSnorkel(3, 2, gear);
       drawFrontArm(2 - shuffle, 9);
+      drawMuscles(9);
       drawElectricStun(12);
       ctx.restore();
       return;
@@ -449,6 +465,7 @@ export function createCharacterRenderer(ctx) {
     if (armor) chestArmor(-(shoulder - 1) / 2, 10, shoulder, armor);
     if (climb && !attack && !miningSwing) drawClimbArm(1, firstRung);
     else drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
+    drawMuscles(11);
 
     if (swimming) {
       for (let i = 0; i < 3; i++) {

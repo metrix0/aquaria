@@ -257,6 +257,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           hurt: 0,
           rooted: 0,
           markedTime: 0,
+          scholarConfused: 0, scholarAttack: 0,
           rootLift: 0,
           health: mob.maxHealth,
           grounded: mob.kind === 'crab' || mob.kind === 'mimic',
@@ -300,6 +301,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       if (mob.health <= 0) continue;
     }
     if (mob.rooted > 0 && mob.health > 0) {
+      if(mob.scholarConfused>0) mob.scholarConfused=Math.max(0,mob.scholarConfused-dt);
       mob.rooted = Math.max(0, mob.rooted - dt);
       if (mob.rootLift > 0) {
         const spec = mobSpec(mob);
@@ -319,6 +321,31 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       }
       mob.dx = 0;
       mob.dy = 0;
+      continue;
+    }
+    if (mob.scholarConfused > 0 && mob.health > 0) {
+      mob.scholarConfused = Math.max(0,mob.scholarConfused-dt);
+      mob.scholarAttack = Math.max(0,(mob.scholarAttack||0)-dt);
+      const spec=mobSpec(mob);
+      const target=world.mobs.filter(other=>other!==mob && other.health>0 && !other.respawn && !other.scholarConfused &&
+        (seaEnemySteps[other.kind] || caveEnemyModules[other.kind] || jungleEnemyModules[other.kind] || other.kind==='ghost'))
+        .map(other=>({other,d:Math.hypot(other.x-mob.x,other.y-mob.y)})).filter(a=>a.d<8*TILE).sort((a,b)=>a.d-b.d)[0];
+      mob.dx=mob.dy=0;
+      if(target && spec) {
+        const other=target.other, os=mobSpec(other), dx=other.x-mob.x,dy=other.y+(os?.centerY||0)-mob.y-spec.centerY;
+        const distance=Math.hypot(dx,dy)||1;
+        const reach=(spec.width+(os?.width||12))/2+8;
+        let clear=true;
+        for(let t=4;t<distance;t+=4) if(solidAt(world,Math.floor((mob.x+dx*t/distance)/TILE),Math.floor((mob.y+spec.centerY+dy*t/distance)/TILE))) {clear=false;break;}
+        mob.facing=dx<0?-1:1;
+        if(clear && distance<=reach && !mob.scholarAttack) {
+          mob.scholarAttack=.8;
+          damageMob(world,other,Math.max(1,(spec.maxHealth||10)*.15),Math.atan2(dy,dx),65,effects);
+        } else if(clear && distance>reach) {
+          const step=Math.min(distance-reach,50*dt), nx=mob.x+dx/distance*step, ny=mob.y+dy/distance*step;
+          if(!solidAt(world,Math.floor(nx/TILE),Math.floor((ny+spec.centerY)/TILE))) { mob.x=nx;mob.y=ny; }
+        }
+      }
       continue;
     }
     if (mob.kind === 'ghost') {

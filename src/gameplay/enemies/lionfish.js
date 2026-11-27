@@ -1,3 +1,4 @@
+import { harmful } from '../effect-potency.js';
 import { MATERIAL } from '../../content.js';
 import { solidAt, waterTileAt } from '../../world.js';
 import { MOB_HEALTH, TILE, WATER, clamp, waterwayAt } from '../../world/generation.js';
@@ -143,7 +144,7 @@ export function stepLionfishSpine(world, player, spine, dt, effects) {
   spine.y = ny;
 
   if (!player.flightOrigin && playerInWater && Math.hypot(spine.x - px, spine.y - py) <= 9) {
-    player.neurotoxin = Math.max(player.neurotoxin ?? 0, NEUROTOXIN_DURATION * 1.4);
+    player.neurotoxin = Math.max(player.neurotoxin ?? 0, harmful(player,NEUROTOXIN_DURATION * 1.4));
     if ((player.hurt ?? 0) <= 0) {
       player.hurt = 0.85;
       const loss = takeDamage(player, SPINE_DAMAGE);
@@ -169,7 +170,7 @@ export function stepNeurotoxinCloud(world, player, cloud, dt) {
   const py = player.y + Math.ceil(player.height / 2);
   const activeRadius = cloud.radius * Math.min(1, 0.4 + ((cloud.maxLife - cloud.life) / 0.25) * 0.6);
   if (!player.flightOrigin && playerWaterborne(world, player) && Math.hypot(px - cloud.x, py - cloud.y) <= activeRadius + 6) {
-    player.neurotoxin = Math.max(player.neurotoxin ?? 0, NEUROTOXIN_DURATION);
+    player.neurotoxin = Math.max(player.neurotoxin ?? 0, harmful(player,NEUROTOXIN_DURATION));
   }
   return true;
 }

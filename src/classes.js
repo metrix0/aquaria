@@ -77,7 +77,7 @@ export const CLASS_DEFS = Object.freeze({
 });
 
 export const SKILL_KEYS = ['Q', 'R'];
-const CASTABLE_SKILLS = new Set(['shieldRush', 'rage', 'aegisAura', 'horizonShot', 'counter', 'huntersMark']);
+const CASTABLE_SKILLS = new Set(['shieldRush', 'rage', 'aegisAura', 'horizonShot', 'counter', 'huntersMark', 'hyperBeam', 'beastFlask', 'feast']);
 
 export function unlockedActiveSkills(progress, classId = progress?.active) {
   const nodes = CLASS_DEFS[classId]?.paths.flatMap(path => path.nodes) ?? [];
@@ -173,7 +173,7 @@ export function skillBonuses(progress) {
     brace: 0, shieldRush: 0, desperateResist: 0, missingHealthAttack: 0, rage: 0, perfectArmor: 0, guardianCry: 0, aegisAura: 0,
     bowDamage: 0, arrowSpeed: 0, bowCooldown: 0, arrowPierce: 0, snare: 0, rootedDamage: 0,
     healBoost: 0, cleanse: 0, torchDuration: 0, catalystSeconds: 0, catalystMove: 0, catalystAttack: 0,
-    poison: 0, poisonDuration: 0 };
+    poison: 0, poisonDuration: 0, tomePower: 0, manaCapacity: 0, hyperBeam: 0, effectPower: 0, confusingTouch: 0, beastFlask: 0, foodDouble: 0, cauldron: 0, feast: 0 };
   const def = CLASS_DEFS[progress?.active];
   if (!def) return buffs;
   const unlocked = new Set(progress.builds[def.id] || []);
@@ -196,6 +196,7 @@ export function activateClass(game, id) {
   game.classes.active = id;
   game.player.skillBonuses = skillBonuses(game.classes);
   game.player.catalystSeconds = 0;
+  game.player.beastTime = game.player.feastSelecting = game.player.hyperBeamTime = 0;
   game.player.braceTime = game.player.rushTime = game.player.rageTime = game.player.aegisTime = 0;
   game.player.bracing = false;
   game.bowDraw = null;
@@ -220,11 +221,13 @@ export function unlockSkill(game, id) {
   const balance = skillBudget(progress);
   if (balance.lesser < cost.lesser || balance.greater < cost.greater) return 'Not enough attuned souls.';
   const previousWard = game.player.skillBonuses?.ward ?? 0;
+  const previousMana = game.player.skillBonuses?.manaCapacity ?? 0;
   progress.builds[def.id].push(id);
   const slots = progress.skillSlots[def.id];
   const free = slots.indexOf(null);
   if (free !== -1 && unlockedActiveSkills(progress).some(node => node.id === id)) slots[free] = id;
   game.player.skillBonuses = skillBonuses(progress);
+  if (!previousMana && game.player.skillBonuses.manaCapacity) game.player.mana ??= game.player.skillBonuses.manaCapacity;
   game.player.wardShield = Math.min(game.player.skillBonuses.ward,
     (game.player.wardShield || 0) + Math.max(0, game.player.skillBonuses.ward - previousWard));
   game.dirty = true;

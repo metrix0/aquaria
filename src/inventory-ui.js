@@ -31,7 +31,7 @@ export function setItemIcon(icon, id) {
   const item = ITEMS[id] ?? EQUIPMENT_ITEMS[id];
   const appearance = item?.icon ?? id;
   // Placeable terrain cubes use their original block icon, not a loose-resource sprite.
-  const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench && item.block !== MATERIAL.fireplace);
+  const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench && item.block !== MATERIAL.fireplace && item.block !== MATERIAL.cauldron);
   const sprite = Boolean(!cubeBlock && appearance && ITEM_ICON_IDS.has(appearance));
   icon.className = id ? 'item item-' + appearance : '';
   if (item?.pickaxe) icon.classList.add('item-pickaxe');

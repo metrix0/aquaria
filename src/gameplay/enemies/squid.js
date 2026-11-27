@@ -1,3 +1,4 @@
+import { harmful } from '../effect-potency.js';
 import { MATERIAL } from '../../content.js';
 import { playerWaterborne, takeDamage } from '../player.js';
 import { solidAt, waterTileAt } from '../../world.js';
@@ -135,7 +136,7 @@ export function stepInkBubble(world, player, bubble, dt, time, effects) {
       const splatCount = 3 + Math.floor(Math.random() * 3);
       for (let s = 0; s < splatCount; s++) {
         const isMainSplat = s === 0;
-        const duration = INK_EFFECT_DURATION * (0.8 + Math.random() * 0.35);
+        const duration = harmful(player,INK_EFFECT_DURATION * (0.8 + Math.random() * 0.35));
 
         player.inkSplats.push({
           nx: 0.1 + Math.random() * 0.8,

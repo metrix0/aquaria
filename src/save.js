@@ -76,10 +76,11 @@ export function decodeSave(data) {
         })),
       } : {}),
       ...(Number.isFinite(gear.glowSeconds) && gear.glowSeconds > 0
-        ? { glowSeconds: Math.min(90, gear.glowSeconds) } : {}),
+        ? { glowSeconds: Math.min(104, gear.glowSeconds) } : {}),
       ring: gear.ring === ROOT_RING.id ? gear.ring : null,
       offhand: (Object.hasOwn(HOOKS, gear.offhand ?? gear.hands) || (gear.offhand ?? gear.hands) === WOODEN_SHIELD.id) ? (gear.offhand ?? gear.hands) : null,
       ...(Object.values(restoreSpellCooldowns(gear.spellCooldowns)).some(Boolean) ? { spellCooldowns: restoreSpellCooldowns(gear.spellCooldowns) } : {}),
+      ...(Number.isFinite(gear.mana) ? { mana: Math.max(0,Math.min(30,gear.mana)) } : {}),
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, tent, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
@@ -118,6 +119,7 @@ export function encodeSave(game, saveTerrain = true) {
       ...(progress.ring ? { ring: progress.ring } : {}),
       ...(progress.offhand ? { offhand: progress.offhand } : {}),
       ...(Object.values(spellCooldowns).some(Boolean) ? { spellCooldowns } : {}),
+      ...(Number.isFinite(player.mana) && player.mana !== 30 ? { mana: player.mana } : {}),
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, ...(tent ? { tent } : {}), harvested: Array.from(world.harvested),

@@ -134,7 +134,7 @@ test('starter trees save and switch independently without weakening the original
   activateClass(loaded, 'wayfarer');
   assert.equal(loaded.player.skillBonuses.arrowSpeed, .25);
   activateClass(loaded, 'scholar');
-  assert.equal(loaded.player.skillBonuses.healBoost, .3);
+  assert.equal(loaded.player.skillBonuses.foodDouble, .5);
   activateClass(loaded, 'stormborn');
   assert.equal(loaded.player.skillBonuses.move, .10);
 });
@@ -152,52 +152,6 @@ test('Wayfarer keeps new branch bonuses and does not carry removed traps or expl
   assert.equal(b.snare,0); assert.equal(b.ore,0);
   activateClass(state,'scholar');
   assert.equal(state.player.skillBonuses.heat,0);
-});
-
-test('Scholar remedies cleanse conditions and catalysis strengthens existing consumables', () => {
-  const state = createGame();
-  state.classes.total = { lesser: 30, greater: 4 };
-  activateClass(state, 'scholar');
-  for (const node of ['field-dressing','naturalists-care','purifying-tonic',
-    'luminous-formula','invigorating-elixir','perfected-catalyst']) {
-    assert.equal(unlockSkill(state, node), null, node);
-  }
-  state.player.health = 45;
-  state.player.bleed = 7;
-  state.player.neurotoxin = 5;
-  state.player.stun = 2;
-  state.player.confused = 4;
-  state.inventory.hotbar[0] = { id: 'kelp-dressing', count: 1 };
-  const result = useDressing(state, 0);
-  assert.equal(result.inventoryChanged, true);
-  assert.equal(state.player.health, 45 + KELP_DRESSING.heal * 1.55);
-  assert.equal(state.player.bleed, 0);
-  assert.equal(state.player.neurotoxin, 0);
-  assert.equal(state.player.stun, 0);
-  assert.equal(state.player.confused, 0);
-  assert.equal(state.player.catalystSeconds, 36);
-  assert.ok(skillAttackDamage(state.player, 1) >= 4);
-  stepClassEffects(state, 1);
-  assert.equal(state.player.catalystSeconds, 35);
-  activateClass(state, 'wayfarer');
-  assert.equal(state.player.catalystSeconds, 0, 'catalyst buff does not leak between classes');
-});
-
-test('Scholar poison deals real damage over time and has no effect without its skill', () => {
-  const state = createGame();
-  state.classes.total = { lesser: 5, greater: 1 };
-  activateClass(state, 'scholar');
-  for (const id of ['bitter-extract','debilitating-compound','venom-mist']) {
-    assert.equal(unlockSkill(state, id), null, id);
-  }
-  const crab = state.world.mobs.find((mob) => mob.kind === 'crab');
-  const before = crab.health;
-  strikeMob(state, crab, 1, 0, 0);
-  assert.equal(crab.skillVenom.damage, 5);
-  assert.equal(crab.skillVenom.remaining, 5);
-  stepClassEffects(state, 1);
-  assert.equal(crab.health, Math.max(0, before - 6));
-  assert.ok(state.effects.some((effect) => effect.color === '#b3dc71'));
 });
 
 test('Wayfarer overdraw pierces two separate real mobs without repeat hits', () => {

@@ -146,6 +146,11 @@ export async function connectRoom(config, invite, handlers) {
       aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
       catching: payload.catching === true,
+      spinachTime: Number.isFinite(payload.spinachTime) ? clamp(payload.spinachTime,0,14) : 0,
+      beastTime: Number.isFinite(payload.beastTime) ? clamp(payload.beastTime,0,12) : 0,
+      feastPulse: payload.feastPulse && ['spinach','garlic','carrot'].includes(payload.feastPulse.food) &&
+        roomCodePattern.test(payload.feastPulse.id ?? '') && Number.isFinite(payload.feastPulse.x) && Number.isFinite(payload.feastPulse.y)
+        ? {id:payload.feastPulse.id,food:payload.feastPulse.food,x:payload.feastPulse.x+poseOffset,y:payload.feastPulse.y} : null,
       downed: roomCodePattern.test(payload.downed?.id ?? '') && Number.isFinite(payload.downed?.remaining)
         ? { id: payload.downed.id, remaining: clamp(payload.downed.remaining, 0, 20),
             progress: Number.isFinite(payload.downed.progress) ? clamp(payload.downed.progress, 0, 3) : 0,
@@ -208,6 +213,9 @@ export async function connectRoom(config, invite, handlers) {
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
         aegisFacing: player.aegisFacing ?? 1,
         catching: Boolean(player.catching),
+        spinachTime: Math.ceil((player.spinachTime||0)*4)/4,
+        beastTime: Math.ceil((player.beastTime||0)*4)/4,
+        feastPulse: player.feastPulse ? {...player.feastPulse,x:player.feastPulse.x-poseOffset} : null,
         downed: player.downed ?? null,
         reviveTarget: player.downed ? null : reviveTarget,
         feet: player.feet,
@@ -227,6 +235,8 @@ export async function connectRoom(config, invite, handlers) {
           forgetPeer(remoteId);
           continue;
         }
+        peer.spinachTime = Math.max(0,(peer.spinachTime||0)-dt);
+        peer.beastTime = Math.max(0,(peer.beastTime||0)-dt);
         peer.aegisTime = Math.max(0, (peer.aegisTime || 0) - dt);
         const blend = Math.min(1, dt * 14);
         const horizontal = (peer.targetX - peer.x) * blend;

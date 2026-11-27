@@ -50,24 +50,24 @@ export const STARTER_CLASSES = Object.freeze({
     ],
   },
   scholar: {
-    id: 'scholar', name: 'Scholar', title: 'Keeper of Hidden Lore', symbol: '✥', accent: '#ceaff2',
-    description: 'A learned explorer who turns remedies, experiments, and unusual ingredients into power.',
-    domain: 'Healing · Concoctions · Poison',
+    id: 'scholar', name: 'Scholar', title: 'Keeper of Hidden Lore', symbol: '\u2725', accent: '#ceaff2',
+    description: 'Master magic, experimental alchemy and the art of cooking.',
+    domain: 'Tomes ? Alchemy ? Cuisine',
     paths: [
-      branch('remedies', 'Remedies', '✚', 'Know how to mend body and spirit.', [
-        star('field-dressing', 'Field Dressing', 'Kelp dressings heal 30% more.', { healBoost: .30 }),
-        star('naturalists-care', "Naturalist's Care", 'Regenerate 0.45 health per second.', { regen: .45 }),
-        star('purifying-tonic', 'Purifying Tonic', 'Dressings heal another 25%, cleanse bleeding, poison, shock and confusion, and regenerate 0.6 more health per second.', { healBoost: .25, regen: .6, cleanse: 1 }, true),
+      branch('catalyst', 'Catalyst', '?', 'Channel arcane energy.', [
+        star('luminous-formula', 'Tome Mastery', 'Tomes are 7% more effective.', { tomePower: .07 }),
+        star('invigorating-elixir', 'Mana', 'Gain 30 mana, regenerating 0.1 per second. Tome casts spend mana equal to their cooldown instead of triggering it when affordable.', { manaCapacity: 30 }),
+        star('perfected-catalyst', 'Hyper Beam', 'Spend your mana on a powerful beam toward the cursor. Requires at least 5 mana.', { hyperBeam: 1 }, true),
       ]),
-      branch('catalysis', 'Catalysis', '⚗', 'Extract more from every ingredient.', [
-        star('luminous-formula', 'Luminous Formula', 'Glowshroom torches last 50% longer; mine 6% faster.', { torchDuration: .5, mine: .06 }),
-        star('invigorating-elixir', 'Invigorating Elixir', 'Using a dressing also grants 16 seconds of +12% movement speed and +1 damage.', { catalystSeconds: 16, catalystMove: .12, catalystAttack: 1 }),
-        star('perfected-catalyst', 'Perfected Catalyst', 'Add 20 seconds, +13% movement and +2 damage to the elixir, and double torch duration.', { catalystSeconds: 20, catalystMove: .13, catalystAttack: 2, torchDuration: .5 }, true),
+      branch('alchemist', 'Alchemist', '?', 'Transform the effects of every compound.', [
+        star('bitter-extract', 'Potency', 'Positive effects on you are 15% stronger; negative effects are 15% weaker.', { effectPower: .15 }),
+        star('debilitating-compound', 'Confusing Touch', 'Empty-handed hits confuse enemies for 5s. They attack nearby enemies or become stunned. 12s cooldown; venom drips when ready.', { confusingTouch: 1 }),
+        star('venom-mist', 'Beast Flask', 'Drink a flask to transform for 10s: triple damage, 25% faster movement and 40% damage resistance. 40s cooldown.', { beastFlask: 1 }, true),
       ]),
-      branch('toxicology', 'Toxicology', '☿', 'Study the slow strength of venom.', [
-        star('bitter-extract', 'Bitter Extract', 'Weapon hits poison enemies for 3 seconds, dealing 1 damage per second.', { poison: 1 }),
-        star('debilitating-compound', 'Debilitating Compound', 'Weapon poison deals another 1 damage each second.', { poison: 1 }),
-        star('venom-mist', 'Venom Mist', 'Weapon poison deals another 3 damage per second and lasts 2 more seconds.', { poison: 3, poisonDuration: 2 }, true),
+      branch('chef', 'Chef', '?', 'Turn the harvest into a feast.', [
+        star('field-dressing', 'Bountiful Harvest', '50% chance to double food and kelp drops.', { foodDouble: .5 }),
+        star('naturalists-care', 'Cauldron', 'Craft a cauldron and combine up to three foods into a stew.', { cauldron: 1 }),
+        star('purifying-tonic', 'Feast', 'Activate to cycle spinach, garlic and carrot; press again to select. Spinach: +20% damage, garlic: cleanse, carrot: +15% speed and triple jump height. 12s buffs, 30s cooldown.', { feast: 1 }, true),
       ]),
     ],
   },

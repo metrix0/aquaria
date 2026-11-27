@@ -1,11 +1,13 @@
 // Mechanics shared by the three starter classes. The class definitions own the
 // numbers; these hooks keep combat and consumable behavior in the simulation.
+import { beneficial } from './effect-potency.js';
 import { MAX_HEALTH } from './player.js';
 import { damageMob } from './mobs.js';
 
 export function skillAttackDamage(player, base, bow = false, meleeWeapon = !bow) {
   const bonus = player.skillBonuses || {};
   if (meleeWeapon && !bow) base *= (1 + (bonus.meleePower || 0)) * (1 + (player.heatBonus || 0));
+  base *= ((player.beastTime || 0) > 0 ? 3 : 1) * ((player.spinachTime || 0) > 0 ? 1 + beneficial(player,.2) : 1);
   return base + Math.round(base * (bonus.missingHealthAttack || 0) * (1 - Math.max(0, player.health) / MAX_HEALTH)) + (bonus.attack || 0) + (bow ? bonus.bowDamage || 0 : 0)
     + (player.health <= MAX_HEALTH * .4 ? bonus.lowHealthAttack || 0 : 0)
     + ((player.catalystSeconds || 0) > 0 ? bonus.catalystAttack || 0 : 0);

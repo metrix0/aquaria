@@ -2,7 +2,7 @@ import { nearestDowned } from './gameplay/revival.js';
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls, equipSkill, equippedSkill } from './classes.js';
-import { ARROW, BOW, FIREPLACE, POISON_ARROW, WORKBENCH } from './content.js';
+import { ARROW, BOW, FIREPLACE, CAULDRON, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
 import { wakeMimic } from './gameplay/enemies/mimic.js';
@@ -12,8 +12,9 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
-import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
+import { useScholarSkill } from './gameplay/scholar.js';
 import { useWayfarerSkill } from './gameplay/wayfarer.js';
 import { useWardenSkill, updateWardenAllies, wardenAttackBlocked } from './gameplay/warden.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
@@ -126,6 +127,7 @@ function showTileEffect({ tx, ty, before, amount, item }) {
 function craftingStation() {
   if (!craftingBench) return;
   if (craftingBench.kind === WORKBENCH.id && workbenchAt(game, craftingBench.tx, craftingBench.ty)) return WORKBENCH.id;
+  if (craftingBench.kind === CAULDRON.id && cauldronAt(game,craftingBench.tx,craftingBench.ty)) return CAULDRON.id;
   if (craftingBench.kind === FIREPLACE.id && fireplaceAt(game, craftingBench.tx, craftingBench.ty)) return FIREPLACE.id;
 }
 
@@ -411,7 +413,7 @@ const input = bindInput(canvas, camera, {
     if (editPending || game.player.downed || nearestDowned(game.player, game.wayfarerPeers)) return;
     const item = nearestItem(game);
     if (item?.kind === 'mermaid') { ui.notify(singWithMermaid(game.world, item.id)); game.dirty = true; }
-    else if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id) ui.open('craft-panel', item);
+    else if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id || item?.kind === CAULDRON.id) ui.open('craft-panel', item);
     else if (item?.kind === 'mimic') {
       if (wakeMimic(game.world, item.mob, game.player, game.effects)) {
         for (const effect of game.effects) {
@@ -459,6 +461,7 @@ const input = bindInput(canvas, camera, {
     const wayfarer = game.classes.active === 'wayfarer';
     const error = wayfarer
       ? useWayfarerSkill(game, resolved, selected, pointer.active ? pointer.x+camera.x : game.player.x+game.player.facing*100, pointer.active ? pointer.y+camera.y : game.player.y+game.player.height/2, camera)
+      : game.classes.active === 'scholar' ? useScholarSkill(game,resolved,pointer.active ? pointer.x+camera.x : game.player.x+game.player.facing*100,pointer.active ? pointer.y+camera.y : game.player.y+game.player.height/2,camera)
       : useWardenSkill(game, resolved);
     if (!error && wayfarer) inventoryChanged();
     if (error) ui.notify(error);
@@ -539,7 +542,7 @@ const input = bindInput(canvas, camera, {
   place() {
     const target = aimedTile();
     if (!target || editPending || game.player.downed) return;
-    const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty);
+    const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty) ?? cauldronAt(game,target.tx,target.ty);
     if (bench) ui.open('craft-panel', bench);
     else void editTile(planTileAction(game, target, true, selected));
   },

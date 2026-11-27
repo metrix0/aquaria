@@ -1,3 +1,4 @@
+import { harmful } from '../effect-potency.js';
 import { MATERIAL } from '../../content.js';
 import { takeDamage } from '../player.js';
 import { MOB_HEALTH, clamp } from '../../world/generation.js';
@@ -43,7 +44,7 @@ export function stepJellyfish(world, player, mob, dt, time, effects, ctx) {
       ) {
         mob.shockHit = true;
         player.hurt = 1.2;
-        player.stun = 2.5;
+        player.stun = harmful(player,2.5);
         mob.cooldown = 1.8;
         player.dx = (toPlayerX / dist) * 115;
         player.dy = (toPlayerY / dist) * 95 - 12;

@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
 import { SPELL_ITEMS } from './spells.js';
@@ -85,6 +85,8 @@ export const ITEMS = {
   door: { name: 'Wooden door', description: 'A good door makes even a rented cave feel like a castle.' },
   [WORKBENCH.id]: { name: 'Workbench', description: 'Its legs are uneven. Its claim to have built a kingdom is unproven.', block: MATERIAL.workbench },
   [FIREPLACE.id]: { name: 'Fireplace', description: 'A stone hearth for cooking raw catch into safe, hearty meals.', block: MATERIAL.fireplace },
+  [CAULDRON.id]: { ...CAULDRON, block: MATERIAL.cauldron, description: "Combine up to three foods into a stew." },
+  ...Object.fromEntries(Object.entries(STEWS).map(([id,recipe])=>[id,{...recipe,description:"Combines all ingredient effects."}])),
   [TENT.id]: { name: 'Tent', description: 'A sturdy canvas shelter. Place it on dry ground to set your respawn point.' },
   [RAW_FISH.id]: { ...RAW_FISH, description: 'Fresh from the reef. Restores 5 seconds of oxygen, with a 10% chance of poison.' },
   [COOKED_FISH.id]: { ...COOKED_FISH, description: 'Seared over open coals. Safely restores 15 seconds of oxygen.' },

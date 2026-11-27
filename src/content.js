@@ -1,4 +1,4 @@
-export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12, workbench: 13, fireplace: 14 });
+export const MATERIAL = Object.freeze({ air: 0, sand: 1, stone: 2, reef: 3, wood: 5, bedrock: 6, soil: 7, copper: 8, iron: 9, cobalt: 10, door: 11, deepstone: 12, workbench: 13, fireplace: 14, cauldron: 15 });
 export const MATERIAL_IDS = Object.freeze(Object.fromEntries(Object.entries(MATERIAL).map(([id, code]) => [code, id])));
 export const ORE_MATERIALS = new Set([MATERIAL.copper, MATERIAL.iron, MATERIAL.cobalt]);
 export const DROPS = Object.freeze({
@@ -10,6 +10,7 @@ export const DROPS = Object.freeze({
   [MATERIAL.wood]: 'wood',
   [MATERIAL.workbench]: 'workbench',
   [MATERIAL.fireplace]: 'fireplace',
+  [MATERIAL.cauldron]: 'cauldron',
   [MATERIAL.copper]: 'copper',
   [MATERIAL.iron]: 'iron',
   [MATERIAL.cobalt]: 'cobalt',
@@ -23,6 +24,7 @@ export const MINING_RULES = {
   [MATERIAL.wood]: WOOD_MINING_RULE,
   [MATERIAL.workbench]: WOOD_MINING_RULE,
   [MATERIAL.fireplace]: { hand: 0.9, pickaxe: 0.45 },
+  [MATERIAL.cauldron]: { hand: 1.2, pickaxe: 0.5 },
   [MATERIAL.reef]: { hand: 2.7, pickaxe: 0.6 },
   [MATERIAL.stone]: { hand: 3.6, pickaxe: 0.7 },
   [MATERIAL.copper]: { name: 'Copper ore', tier: 1, pickaxe: 0.85 },
@@ -38,6 +40,7 @@ export const BREATH_SECONDS = 18;
 
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 export const FIREPLACE = { id: 'fireplace', cost: { stone: 4, wood: 4 } };
+export const CAULDRON = { id: 'cauldron', name: 'Cauldron', cost: { iron: 4, stone: 3 }, station: WORKBENCH.id, requiresSkill: 'cauldron' };
 export const TENT = { id: 'tent' };
 
 export const SNORKEL_CHEST_ID = 'wreck-chest';
@@ -125,6 +128,26 @@ export const COOKED_CRAB = {
 export const FOODS = Object.freeze(
   Object.fromEntries([RAW_FISH, COOKED_FISH, RAW_CRAB, COOKED_CRAB].map((food) => [food.id, food])),
 );
+// Stable item IDs encode the ingredients, so different stews never merge in inventory.
+const stewRecipes = [];
+const foodIds = Object.keys(FOODS).sort();
+function addStews(ingredients=[],start=0) {
+  if (ingredients.length) {
+    const cost = {};
+    for (const id of ingredients) cost[id] = (cost[id] || 0) + 1;
+    stewRecipes.push({
+      id: 'stew-' + ingredients.join('+'), name: 'Stew (' + ingredients.map(id=>FOODS[id].name).join(' + ') + ')',
+      icon: 'stew', station: CAULDRON.id, cost, ingredients,
+      heal: ingredients.reduce((sum,id)=>sum+(FOODS[id].heal||0),0),
+      oxygen: ingredients.reduce((sum,id)=>sum+(FOODS[id].oxygen||0),0),
+      poisonIngredients: ingredients.filter(id=>FOODS[id].poisonChance),
+    });
+  }
+  if(ingredients.length<3) for(let i=start;i<foodIds.length;i++) addStews([...ingredients,foodIds[i]],i);
+}
+addStews();
+export const STEW_RECIPES = Object.freeze(stewRecipes);
+export const STEWS = Object.freeze(Object.fromEntries(STEW_RECIPES.map(recipe=>[recipe.id,recipe])));
 export const SPEAR = { id: 'spear', station: WORKBENCH.id, cost: { wood: 2, stone: 1 }, amount: 1, damage: 2, cooldown: 0.34, knockback: 165 };
 export const COPPER_SPEAR = { id: 'copper-spear', station: WORKBENCH.id, cost: { copper: 2, wood: 2 }, amount: 1, damage: 3, cooldown: 0.3, knockback: 195 };
 export const IRON_SWORD = {

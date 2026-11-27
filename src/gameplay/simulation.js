@@ -7,9 +7,10 @@ import { stepRootWave } from './root-ring.js';
 import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
 import { equippedHook, hasHook } from './hook.js';
 import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocked } from './warden.js';
+import { beneficial, harmful, foodYield, confuseOnHit, stepScholar, tomeEffect, spendTomeCooldown } from './scholar.js';
 import { stepWayfarer, finishWayfarer, catchFallMultiplier } from './wayfarer.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { ISLAND_TENT_ID, activeTent, buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, rootedTreeAt, setDoor, solidAt, tentAt, tileAt, treeAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
@@ -121,6 +122,7 @@ export function createGame(snapshot) {
   game.player.addons = game.progress.addons;
   game.player.perfectArmor = Boolean(game.player.armor && snapshot?.perfectArmor);
   game.player.skillBonuses = skillBonuses(game.classes);
+  game.player.mana = Math.max(0, Math.min(30, snapshot?.progress?.mana ?? 30));
   activateWard(game.player, true);
   game.world.soulRewards = snapshot?.world?.soulRewards ?? [];
   game.player.glowSeconds = Math.max(0, snapshot?.progress?.glowSeconds ?? 0);
@@ -235,7 +237,7 @@ export function useDressing(game, slot) {
   const { player, inventory } = game;
   if (inventory.hotbar[slot]?.id !== KELP_DRESSING.id) return;
   const buffs = player.skillBonuses || {};
-  const healed = Math.min(KELP_DRESSING.heal * (1 + (buffs.healBoost || 0)), MAX_HEALTH - player.health);
+  const healed = Math.min(beneficial(player, KELP_DRESSING.heal * (1 + (buffs.healBoost || 0))), MAX_HEALTH - player.health);
   const afflicted = (player.bleed || 0) > 0 || (player.neurotoxin || 0) > 0 ||
     (player.stun || 0) > 0 || (player.confused || 0) > 0 ||
     (player.poison || 0) > 0 || (player.blindness || 0) > 0;
@@ -266,6 +268,20 @@ export function useDressing(game, slot) {
 export function useFood(game, slot, random = Math.random) {
   const { player, inventory } = game;
   const id = inventory.hotbar[slot]?.id;
+  const stew = STEWS[id];
+  if(stew) {
+    const heal = Math.min(MAX_HEALTH-player.health,beneficial(player,stew.heal));
+    const oxygen = Math.min(oxygenCapacity(game)-player.oxygen,beneficial(player,stew.oxygen));
+    if(heal<=0 && oxygen<=0) return {message:'Health and oxygen are already full.'};
+    inventory.consume(inventory.hotbar,slot,1);
+    player.health += Math.max(0,heal); player.oxygen += Math.max(0,oxygen);
+    let poisoned=false;
+    for(const ingredient of stew.poisonIngredients) if(random()<harmful(player,FOODS[ingredient].poisonChance)) {
+      player.poison=Math.max(player.poison||0,harmful(player,FOODS[ingredient].poisonDuration));poisoned=true;
+    }
+    game.dirty=true;
+    return {inventoryChanged:true,poisoned,message:'Stew: +'+Math.round(heal)+' health, +'+Math.round(oxygen)+' oxygen'+(poisoned?' (poisoned!)':'.')};
+  }
   const food = FOODS[id];
   if (!food) return;
 
@@ -274,14 +290,14 @@ export function useFood(game, slot, random = Math.random) {
   if (food.heal) {
     const missing = MAX_HEALTH - player.health;
     if (missing <= 0) return { message: 'Health is already full.' };
-    restored = Math.min(food.heal, missing);
+    restored = Math.min(beneficial(player, food.heal), missing);
     player.health += restored;
     unit = 'health';
   } else if (food.oxygen) {
     const capacity = oxygenCapacity(game);
     const missing = capacity - player.oxygen;
     if (missing <= 0) return { message: 'Oxygen is already full.' };
-    restored = Math.min(food.oxygen, missing);
+    restored = Math.min(beneficial(player, food.oxygen), missing);
     player.oxygen += restored;
     unit = 'seconds of oxygen';
   } else {
@@ -289,9 +305,9 @@ export function useFood(game, slot, random = Math.random) {
   }
 
   inventory.consume(inventory.hotbar, slot, 1);
-  const poisoned = Boolean(food.poisonChance && random() < food.poisonChance);
+  const poisoned = Boolean(food.poisonChance && random() < harmful(player, food.poisonChance));
   if (poisoned) {
-    player.poison = Math.max(player.poison ?? 0, food.poisonDuration ?? 5);
+    player.poison = Math.max(player.poison ?? 0, harmful(player, food.poisonDuration ?? 5));
   }
   game.dirty = true;
   const amountText = Number.isInteger(restored) ? String(restored) : restored.toFixed(1).replace(/\.0$/, '');
@@ -309,10 +325,13 @@ export function useSpell(game, slot, wx, wy) {
   const player = game.player;
   if (player.downed || player.flightOrigin || player.stun > 0 || game.attack || wardenAttackBlocked(player)) return { handled: true };
   const remaining = spellCooldown(game, item);
-  if (remaining > 0) return { handled: true, message: spell.name + ' recharging (' + Math.ceil(remaining) + 's).' };
   if (spell.heal && player.health >= MAX_HEALTH) return { handled: true, message: 'Health is already full.' };
+  const tome = item.form === 'tome';
+  const payment = tome ? spendTomeCooldown(player, spell.cooldown, remaining) : { allowed: true };
+  if (!payment.allowed) return { handled: true, message: spell.name + ' recharging (' + Math.ceil(remaining) + 's).' };
+  const power = amount => tome ? tomeEffect(player, amount) : amount;
   if (spell.heal) {
-    player.health = Math.min(MAX_HEALTH, player.health + spell.heal);
+    player.health = Math.min(MAX_HEALTH, player.health + beneficial(player, power(spell.heal)));
     game.effects.push({ x: player.x, y: player.y + player.height / 2, color: spell.color, count: 18, spread: 65 });
   } else {
     const x = player.x, y = player.y + player.height / 2;
@@ -320,11 +339,11 @@ export function useSpell(game, slot, wx, wy) {
     const dx = Math.cos(angle), dy = Math.sin(angle);
     player.facing = Math.sign(dx) || player.facing;
     game.projectiles.push({ spell: item.spell, color: spell.color, x: x + dx * 8, y: y + dy * 8,
-      dx: dx * spell.speed, dy: dy * spell.speed, damage: spell.damage, root: spell.root,
+      dx: dx * spell.speed, dy: dy * spell.speed, damage: skillAttackDamage(player, power(spell.damage), false, false), root: spell.root ? power(spell.root) : undefined,
       knockback: 110, life: 1.2 });
   }
   if (item.form === 'scroll') game.inventory.consume(game.inventory.hotbar, slot, 1);
-  else (game.spellReadyAt ??= {})[item.spell] = game.elapsed + spell.cooldown;
+  else if (!payment.manaSpent) (game.spellReadyAt ??= {})[item.spell] = game.elapsed + payment.cooldown;
   game.dirty = true;
   return { handled: true, inventoryChanged: item.form === 'scroll', message: spell.name + ' cast.' };
 }
@@ -346,7 +365,7 @@ export function useWeapon(game, slot, wx, wy, draw = null) {
     game.player.facing = facing;
     game.attack = {
       kind: weapon?.id ?? 'melee', angle, facing, timer: duration, duration,
-      tier: item?.pickaxe, damage: skillAttackDamage(game.player, (weapon?.damage ?? 1) * (item?.perfectWeapon ? 1.15 : 1), false, Boolean(weapon)), knockback: weapon?.knockback, hitMobs: new Set(),
+      tier: item?.pickaxe, emptyHand: !itemId, damage: skillAttackDamage(game.player, (weapon?.damage ?? 1) * (item?.perfectWeapon ? 1.15 : 1), false, Boolean(weapon)), knockback: weapon?.knockback, hitMobs: new Set(),
     };
     return { handled: true };
   }
@@ -429,7 +448,9 @@ function stepAttack(game, dt) {
     const spec = mobSpec(mob);
     if (spec && overlapsMob(hitbox, mob, spec)) {
       attack.hitMobs.add(mob);
+      const before = mob.health;
       strikeMob(game, mob, attack.damage, angle, attack.knockback);
+      if (attack.emptyHand && mob.health < before) confuseOnHit(game,mob);
     }
   }
 }
@@ -460,6 +481,8 @@ function stepDroppedChests(game, dt) {
 export function stepGame(game, input, dt) {
   const { player, world } = game;
   if (player.downed) {
+    player.beastTime = player.feastSelecting = player.spinachTime = player.carrotTime = player.hyperBeamTime = 0;
+    player.feastPulse = null;
     game.elapsed += dt;
     settleDowned(world, player, dt);
     const state = advanceRevival(player, input.multiplayer ? (game.wayfarerPeers ?? []) : [], dt, input.now ?? 0);
@@ -479,6 +502,7 @@ export function stepGame(game, input, dt) {
   const { x, y, health, oxygen } = player;
   stepWardenBefore(game, input, dt);
   stepWayfarer(game, input, dt);
+  stepScholar(game,dt);
   const fallDamage = movePlayer(world, player, input, dt);
   stepWardenAfter(game, x, dt);
   if (player.glowSeconds > 0) player.glowSeconds = Math.max(0, player.glowSeconds - dt);
@@ -514,7 +538,7 @@ export function stepGame(game, input, dt) {
   for (const effect of game.effects) {
     if (!effect.drop || effect.collected) continue;
     effect.collected = true;
-    const added = game.inventory.add(effect.drop.id, effect.drop.count);
+    const added = game.inventory.add(effect.drop.id, foodYield(player,effect.drop.id,effect.drop.count));
     const itemName = ITEMS[effect.drop.id]?.name ?? effect.drop.id;
     if (added) {
       game.dirty = true;
@@ -561,6 +585,7 @@ function respawnAfterDeath(game) {
     game.player.perfectArmor = player.perfectArmor;
     game.player.damageSequence = player.damageSequence;
     game.player.wardenCooldowns = player.wardenCooldowns;
+    game.player.mana = player.mana;
     game.player.skillBonuses = skillBonuses(game.classes);
     activateWard(game.player, true);
     game.player.glowSeconds = player.glowSeconds;
@@ -715,6 +740,8 @@ export function workbenchAt(game, tx, ty) {
   return stationAt(game, tx, ty, MATERIAL.workbench, WORKBENCH.id);
 }
 
+export function cauldronAt(game,tx,ty) { return stationAt(game,tx,ty,MATERIAL.cauldron,CAULDRON.id); }
+
 export function fireplaceAt(game, tx, ty) {
   const placed = stationAt(game, tx, ty, MATERIAL.fireplace, FIREPLACE.id);
   if (placed) return placed;
@@ -756,7 +783,7 @@ export function nearestItem(game) {
   const bottom = Math.floor((row + distance) / TILE);
   for (let ty = top; ty <= bottom; ty++) {
     for (let tx = left; tx <= right; tx++) {
-      const station = workbenchAt(game, tx, ty) ?? fireplaceAt(game, tx, ty);
+      const station = workbenchAt(game, tx, ty) ?? fireplaceAt(game, tx, ty) ?? cauldronAt(game,tx,ty);
       if (!station) continue;
       const difference = itemDistance(player, station);
       if (difference < distance) {
@@ -780,6 +807,8 @@ export function craftMaterialCount(game, recipe, id) {
 function craftResult(game, recipe, activeStation, outputId = recipe.id) {
   const { id, cost, amount = 1, station } = recipe;
   if (station && station !== activeStation) return null;
+  if (recipe.requiresSkill && !game.player.skillBonuses?.[recipe.requiresSkill]) return null;
+  if (station === CAULDRON.id && !STEWS[id]) return null;
   const materials = Object.entries(cost);
   if (!materials.every(([item, count]) => craftMaterialCount(game, recipe, item) >= count)) return null;
   const after = new Inventory(game.inventory);
@@ -803,6 +832,7 @@ export function equipmentCraftStatus(game, recipe) {
 
 export function canCraftItem(game, recipe, station) {
   if (recipe.station && recipe.station !== station) return false;
+  if (recipe.requiresSkill && !game.player.skillBonuses?.[recipe.requiresSkill]) return false;
   if (!recipe.equipment) return Boolean(craftResult(game, recipe, station));
   return !equipmentCraftStatus(game, recipe) &&
     Object.entries(recipe.cost).every(([id, count]) => game.inventory.count(id) >= count);
@@ -854,7 +884,7 @@ export function useUtilityItem(game, slot, target) {
   }
   if (held === 'glowshroom-torch') {
     inventory.consume(inventory.hotbar, slot, 1);
-    const duration = 90 * (1 + (game.player.skillBonuses?.torchDuration || 0));
+    const duration = beneficial(game.player,90 * (1 + (game.player.skillBonuses?.torchDuration || 0)));
     game.player.glowSeconds = Math.max(game.player.glowSeconds ?? 0, duration);
     game.dirty = true;
     return { inventoryChanged: true, message: 'Glowshroom lit for ' + Math.round(duration) + ' seconds.' };
@@ -1012,10 +1042,10 @@ export function commitTileAction(game, action) {
 }
 
 export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp, supportedTree, supportedTent }, removedDoor = Boolean(supportedDoor)) {
-  if (amount > 0) game.inventory.add(item, amount);
+  if (amount > 0) game.inventory.add(item, foodYield(game.player,item,amount));
   else if (amount < 0) game.inventory.consume(game.inventory.hotbar, slot, -amount);
   if (removedDoor) game.inventory.add(WOODEN_DOOR.id, 1);
-  if (supportedKelp) game.inventory.add('kelp', supportedKelp.amount);
+  if (supportedKelp) game.inventory.add('kelp', foodYield(game.player,'kelp',supportedKelp.amount));
   if (supportedTree) game.inventory.add('wood', Math.round(supportedTree.height / TILE));
   if (supportedTent) game.inventory.add(TENT.id, 1);
   game.dirty = true;

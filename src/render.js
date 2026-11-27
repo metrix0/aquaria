@@ -74,6 +74,7 @@ const palettes = {
   [MATERIAL.reef]: ["#436b6e", "#608781", "#315563", "#8eb096"],
   [MATERIAL.wood]: woodPalette,
   [MATERIAL.workbench]: woodPalette,
+  [MATERIAL.cauldron]: ["#343b43","#6c7880","#232b36","#a4c676"],
   [MATERIAL.fireplace]: ["#414f55", "#627379", "#2b363b", "#f09c46"],
   [MATERIAL.bedrock]: ["#192b3e", "#24374a", "#111d2f", "#35485a"],
   [MATERIAL.copper]: ["#35464d", "#bc7659", "#704d4b", "#efae7c"],
@@ -1036,6 +1037,12 @@ export function createRenderer(canvas) {
   function drawTile(world, tx, ty, material, oreOpacity, overview, time = 0) {
     const x = tx * TILE;
     const y = ty * TILE;
+    if (material === MATERIAL.cauldron) {
+      rect(x+2,y+6,12,8,"#252c36"); rect(x+3,y+7,10,6,"#59656e");
+      rect(x+1,y+5,14,3,"#252c36");rect(x+3,y+5,10,1,"#b0cf83");
+      rect(x+4,y+14,2,2,"#252c36");rect(x+10,y+14,2,2,"#252c36");
+      return;
+    }
     if (material === MATERIAL.fireplace) {
       rect(x + 1, y + 12, 14, 4, "#2b363b");
       rect(x + 2, y + 11, 12, 3, "#414f55");
@@ -2006,7 +2013,7 @@ export function createRenderer(canvas) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         const ore = ORE_MATERIALS.has(material);
-        if (overview && material && !ore && material !== MATERIAL.workbench && material !== MATERIAL.fireplace) {
+        if (overview && material && !ore && material !== MATERIAL.workbench && material !== MATERIAL.fireplace && material !== MATERIAL.cauldron) {
           // At this scale each tile is only a few pixels wide. Paint continuous rock in one pass.
           const start = y;
           while (y + 1 < bottom && tileAt(world, x, y + 1) === material) y++;
@@ -3870,6 +3877,24 @@ export function createRenderer(canvas) {
     if (player.cryTime > 0) {
       ctx.save(); ctx.strokeStyle = '#f3d39a99'; ctx.beginPath(); ctx.arc(player.x, player.y + 8, (1 - player.cryTime / .8) * 12 * TILE, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
     }
+    if (player.hyperBeamTime > 0 && player.hyperBeam) {
+      const beam=player.hyperBeam;
+      ctx.save(); ctx.globalAlpha=Math.min(1,player.hyperBeamTime/.22);
+      for(const [width,color] of [[30,'#9a65e044'],[15,'#c2a0ffaa'],[5,'#e6d5ff'],[2,'#fffaff']]) {
+        ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(beam.x,beam.y);ctx.lineTo(beam.endX,beam.endY);ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (player.feastSelecting) {
+      const choice=Math.floor((player.feastCycle||0)/.45)%3, x=Math.round(player.x),y=Math.round(player.y)-13;
+      rect(x-8,y-8,16,16,'#172a36');rect(x-7,y-7,14,14,'#b8a77b');
+      if(choice===0) {rect(x-4,y-5,4,7,'#397b4b');rect(x,y-3,4,6,'#63a85c');rect(x-1,y+1,2,5,'#2f704c');}
+      else if(choice===1) {rect(x-4,y-1,8,5,'#eee1bc');rect(x-2,y-4,4,9,'#fff2cc');rect(x,y-6,1,3,'#94ae71');}
+      else {rect(x-2,y-3,5,7,'#d67d35');rect(x-1,y+3,2,3,'#d67d35');rect(x-2,y-6,5,3,'#6eae66');}
+    }
+    if(player.feastPulse) {
+      ctx.save();ctx.strokeStyle='#b4dda1aa';ctx.lineWidth=1;ctx.beginPath();ctx.arc(player.feastPulse.x,player.feastPulse.y,6*TILE,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
     if (player.beamTime > 0 && player.horizonBeam) {
       const beam=player.horizonBeam;
       ctx.save(); ctx.globalAlpha=Math.min(1,player.beamTime/.18);
@@ -3888,6 +3913,11 @@ export function createRenderer(canvas) {
       }
       rect(player.x-10,player.y-10,20,2,'#293943');
       rect(player.x-10,player.y-10,Math.round(20*attack.drawProgress),2,attack.extra?'#9affcc':'#fff2a7');
+    }
+    for (const mob of world.mobs) if (mob.scholarConfused>0 && mob.health>0 && mob.x>camera.x-20 && mob.x<camera.x+camera.width+20 && mob.y>camera.y-20 && mob.y<camera.y+camera.height+20) {
+      const spec=mobSpec(mob);if(!spec)continue;
+      const y=mob.y+spec.centerY-spec.height/2-6;
+      for(let i=0;i<3;i++) {const a=time*4+i*2.094;rect(mob.x+Math.cos(a)*7,y+Math.sin(a)*2,2,2,'#b2e97b');}
     }
     for (const mob of world.mobs) if (mob.markedTime>0 && mob.health>0 && mob.x>camera.x-20 && mob.x<camera.x+camera.width+20 && mob.y>camera.y-20 && mob.y<camera.y+camera.height+20) {
       const spec=mobSpec(mob);if(!spec)continue;

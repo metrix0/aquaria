@@ -1,3 +1,4 @@
+import { harmful } from './effect-potency.js';
 import { applyConfusion, takeDamage } from './player.js';
 import { MATERIAL } from '../content.js';
 import { editTile, hasTileEdit, tileAt } from '../world.js';
@@ -40,7 +41,7 @@ function hitPlayer(player, effects, damage, x, y, message, status = {}) {
   takeDamage(player, damage);
   player.hurt = 1;
   if (status.bleed) {
-    player.bleed = Math.max(player.bleed ?? 0, status.bleed);
+    player.bleed = Math.max(player.bleed ?? 0, harmful(player,status.bleed));
     if (!(player.bleedTick > 0)) player.bleedTick = 1;
   }
   if (status.confused) {
