@@ -298,7 +298,18 @@ export function createCharacterRenderer(ctx) {
     if (weapon === 'melee') pickaxeGrip(attack.tier, skin);
     else rect(5, -1, 2, 2, skin.arm);
     const blade = ITEMS[weapon]?.weapon?.blade;
-    if (weapon === CAPTAINS_CUTLASS.id) {
+    if (weapon === 'morningstar') {
+      rect(5, -1, 5, 2, '#7a5438');
+      rect(9, -2, 2, 4, '#4f5866');
+      rect(11, -1, 3, 2, '#8f9cab');
+      rect(13, -3, 6, 6, '#4f5866');
+      rect(14, -2, 4, 4, '#7d8999');
+      rect(15, -1, 2, 2, '#b6c2d1');
+      rect(15, -4, 2, 1, '#d8e0eb');
+      rect(15, 3, 2, 1, '#d8e0eb');
+      rect(12, 0, 1, 2, '#d8e0eb');
+      rect(19, 0, 1, 2, '#d8e0eb');
+    } else if (weapon === CAPTAINS_CUTLASS.id) {
       const [left, top, width, height] = blade;
       rect(5, -1, 4, 2, '#65483f');
       rect(5, 2, 5, 1, '#bd9659');

@@ -99,6 +99,7 @@ ITEMS = {
     'cobalt-grappling-hook': hook(COBALT),
     'explorers-map': art('hh.hhh.hh/hbbbbbbbh/hbsbbsbbh/hbsbasbbh/hbsabasbh/hbbbbbbbs/ss.sss.ss', CLOTH, extra='#b65a4f', outline=WARM),
     'kelp-dressing': art('..hhhh.../.hbbabb../hbbabbas./hbabbabs./hbbababs./.ssssss..', CLOTH, extra='#609970', outline=WARM),
+    'morningstar': art('...h.h.../..hhhhh../h.hbbbh.h/..hbbbh../h.sbbbs.h/..sssss../...s.s.../....a..../...a...../..a......', IRON, extra='#8c6047'),
     'captains-cutlass': sword(IRON, True),
     'iron-sword': sword(IRON),
     'cobalt-spear': spear(COBALT),

@@ -1,4 +1,4 @@
-import { RAW_CRAB, RAW_FISH } from '../content.js';
+import { MORNINGSTAR, RAW_CRAB, RAW_FISH } from '../content.js';
 import { POISON_NEEDLE, STRING } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
@@ -23,6 +23,7 @@ import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.j
 import { caveScorpionSpec, stepCaveScorpion, stepScorpionVenom } from './enemies/cave-scorpion.js';
 import { hammerSkeletonSpec, stepHammerSkeleton } from './enemies/hammer-skeleton.js';
 import { greatswordSkeletonSpec, stepGreatswordSkeleton } from './enemies/greatsword-skeleton.js';
+import { armoredSkeletonSpec, stepArmoredSkeleton } from './enemies/armored-skeleton.js';
 import { mimicSpec, stepMimic, wakeMimic } from './enemies/mimic.js';
 import { bloodBatSpec, stepBloodBat } from './enemies/blood-bat.js';
 import { cannibalBowSpec, cannibalSpearSpec, stepCannibalBow, stepCannibalSpear } from './enemies/cannibal.js';
@@ -55,6 +56,7 @@ const caveEnemyModules = {
   scorpion: { spec: caveScorpionSpec, step: stepCaveScorpion },
   hammer: { spec: hammerSkeletonSpec, step: stepHammerSkeleton },
   greatsword: { spec: greatswordSkeletonSpec, step: stepGreatswordSkeleton },
+  'armored-skeleton': { spec: armoredSkeletonSpec, step: stepArmoredSkeleton },
   mimic: { spec: mimicSpec, step: stepMimic },
   'blood-bat': { spec: bloodBatSpec, step: stepBloodBat },
 };
@@ -436,9 +438,10 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
     mob.dx = 0;
     mob.dy = 0;
     mob.flee = 0;
-  } else if (mob.kind === 'greatsword') {
-    // Heavy dungeon greatsword skeleton stands its ground with zero knockback.
+  } else if (mob.kind === 'greatsword' || mob.kind === 'armored-skeleton' || spec.noKnockback) {
+    // Heavy dungeon greatsword/armored skeleton stands its ground with zero knockback.
     mob.dx = 0;
+    mob.dy = 0;
     mob.flee = 0;
   } else if (mob.kind === 'worm') {
     mob.dx *= 0.65;
@@ -488,7 +491,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       mob.respawn = mob.respawnDelay ?? 45;
     }
     const rewardType = mob.kind === 'kraken' ? 'greater'
-      : ['mimic', 'hammer', 'greatsword', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
+      : ['mimic', 'hammer', 'greatsword', 'armored-skeleton', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
     if (rewardType && !mob.krakenMinion) {
       world.soulRewards ??= [];
       world.soulRewards.push({ id: mob.id ?? mob.kind + ':' + Math.floor(mob.homeX || mob.x), type: rewardType });
@@ -501,6 +504,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
+    const dropRng = mob.kind === 'armored-skeleton' ? (options.random ?? Math.random)() : 0;
     const dropId = mob.kind === 'fish'
       ? RAW_FISH.id
       : mob.kind === 'crab'
@@ -509,7 +513,9 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
           ? POISON_NEEDLE.id
           : mob.kind === 'spider'
             ? STRING.id
-            : null;
+            : mob.kind === 'armored-skeleton' && dropRng < 0.10
+              ? MORNINGSTAR.id
+              : null;
     const dropCount = mob.kind === 'lionfish' ? 2 : 1;
     effect = {
       x: mob.x,

@@ -708,7 +708,7 @@ test('Root Ring hits high and low targets on its aimed path rather than its laun
 test('cave enemies start on dry floors and archer shots and venom can hurt the player', () => {
   const { player, world } = createGame();
   const foes = world.mobs.filter((mob) => caveEnemySpecs[mob.kind]);
-  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 8);
+  assert.equal(new Set(foes.map((mob) => mob.kind)).size, 9);
   for (const mob of foes) {
     const x = Math.floor(mob.x / TILE);
     const feet = mob.y / TILE;

@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, MORNINGSTAR, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 
 import { SPELL_ITEMS } from './spells.js';
@@ -67,6 +67,9 @@ export const ITEMS = {
   [KELP_DRESSING.id]: { name: 'Kelp dressing', description: 'A tidewitch’s remedy. Cold, slimy, and annoyingly effective.' },
   [CAPTAINS_CUTLASS.id]: {
     name: CAPTAINS_CUTLASS.name, description: 'The captain went down with the ship. His grudges came back up.', weapon: CAPTAINS_CUTLASS,
+  },
+  [MORNINGSTAR.id]: {
+    name: MORNINGSTAR.name, description: 'A chained iron ball rimmed with wicked spikes. Crushes armor on impact.', weapon: MORNINGSTAR,
   },
   [IRON_SWORD.id]: { name: 'Iron sword', description: 'The smith etched a prayer on the edge, where it would do the most good.', weapon: IRON_SWORD },
   [COBALT_SPEAR.id]: { name: 'Cobalt spear', description: 'A blue glint is often the last thing a cave beast sees.', weapon: COBALT_SPEAR },

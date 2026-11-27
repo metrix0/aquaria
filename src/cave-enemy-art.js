@@ -1,5 +1,6 @@
 import { CLAW_SLASH_DURATION } from './gameplay/enemies/frog-cultist.js';
 import { GREATSWORD_SWING_DURATION } from './gameplay/enemies/greatsword-skeleton.js';
+import { MORNINGSTAR_MAX_RANGE } from './gameplay/enemies/armored-skeleton.js';
 import { pickaxePose } from './gameplay/melee.js';
 import { drawPickaxe } from './pickaxe-art.js';
 
@@ -366,7 +367,8 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   }
 
   const archer = mob.kind === 'archer';
-  const heavy = mob.kind === 'hammer';
+  const armored = mob.kind === 'armored-skeleton';
+  const heavy = mob.kind === 'hammer' || armored;
   const greatsword = mob.kind === 'greatsword';
   if (greatsword) {
     drawGreatswordSkeleton(ctx, rect, polygon, mob, time, stride, moving);
@@ -374,22 +376,36 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
   }
   const bone = heavy ? '#b5ae9e' : '#e3cfaf';
   const shade = '#918578';
-  const cloth = heavy ? '#454151' : archer ? '#5e6363' : '#755652';
+  const cloth = armored ? '#3b424d' : heavy ? '#454151' : archer ? '#5e6363' : '#755652';
   if (heavy) ctx.scale(1.77, 1.71);
 
-  rect(-5 - stride, -5, 4, 4, cloth);
-  rect(2 + stride, -5, 4, 4, shade);
+  rect(-5 - stride, -5, 4, 4, armored ? '#5b6573' : cloth);
+  rect(2 + stride, -5, 4, 4, armored ? '#4c5563' : shade);
   rect(-6 - stride, -2, 5, 2, shade);
   rect(1 + stride, -2, 5, 2, bone);
   rect(-5, -16, 10, 11, cloth);
-  rect(0, -15, 2, 8, bone);
-  rect(-3, -14, 6, 1, shade);
-  rect(-3, -11, 7, 1, bone);
-  rect(-2, -8, 6, 1, shade);
+  if (armored) {
+    // Iron chestplate & riveted waist
+    rect(-5, -16, 10, 10, '#4f5866');
+    rect(-4, -15, 8, 4, '#6d7988');
+    rect(-1, -15, 2, 8, '#8d99a8');
+    rect(-4, -8, 8, 2, '#3d4552');
+    // Shoulder pads (pauldrons)
+    polygon([[-7, -17], [-3, -17], [-2, -13], [-7, -13]], '#5b6573');
+    rect(-7, -17, 4, 1, '#99a6b8');
+    polygon([[1, -17], [7, -17], [7, -13], [2, -13]], '#6d7988');
+    rect(2, -17, 5, 1, '#b1bdcf');
+    rect(5, -19, 1, 2, '#cfd8e3');
+  } else {
+    rect(0, -15, 2, 8, bone);
+    rect(-3, -14, 6, 1, shade);
+    rect(-3, -11, 7, 1, bone);
+    rect(-2, -8, 6, 1, shade);
+  }
   rect(-5, -23, 10, 7, shade);
   rect(-4, -24, 8, 7, bone);
-  rect(0, -21, 2, 2, '#392f39');
-  rect(4, -21, 1, 2, '#392f39');
+  rect(0, -21, 2, 2, armored ? '#ff7357' : '#392f39');
+  rect(4, -21, 1, 2, armored ? '#ff7357' : '#392f39');
   rect(-1, -17, 5, 2, bone);
   rect(-1, -18, 4, 1, shade);
 
@@ -399,6 +415,60 @@ export function drawCaveEnemy(ctx, rect, polygon, mob, time) {
     polygon([[bowX - 2, -20], [bowX + 2, -17], [bowX + 2, -10], [bowX - 2, -7], [bowX + 1, -11], [bowX + 1, -16]], '#be9368');
     rect(bowX - 2, -19, 1, 11, '#ccc0b1');
     if (windingUp) rect(3, -14, 13, 1, '#e6ceaa');
+  } else if (armored) {
+    // Horned steel helmet
+    rect(-6, -24, 12, 4, '#596370');
+    rect(-4, -26, 8, 3, '#7b8796');
+    polygon([[-5, -24], [-9, -28], [-7, -30], [-4, -25]], '#d8cfb8');
+    polygon([[4, -24], [8, -28], [6, -30], [3, -25]], '#e6dec9');
+
+    const drawChain = (x0, y0, x1, y1, links) => {
+      for (let i = 1; i < links; i++) {
+        const t = i / links;
+        rect(Math.round(x0 + (x1 - x0) * t) - 1, Math.round(y0 + (y1 - y0) * t) - 1, 2, 2, i % 2 ? '#8f9cab' : '#5e6875');
+      }
+    };
+    const drawSpikedBall = (bx, by) => {
+      const rx = Math.round(bx);
+      const ry = Math.round(by);
+      rect(rx - 3, ry - 3, 6, 6, '#4f5866');
+      rect(rx - 2, ry - 2, 4, 4, '#7d8999');
+      rect(rx - 1, ry - 1, 2, 2, '#b6c2d1');
+      rect(rx, ry - 4, 1, 1, '#d8e0eb');
+      rect(rx, ry + 3, 1, 1, '#d8e0eb');
+      rect(rx - 4, ry, 1, 1, '#d8e0eb');
+      rect(rx + 3, ry, 1, 1, '#d8e0eb');
+    };
+
+    const handX = 4;
+    const handY = -13;
+    if (mob.flail) {
+      const t = Math.min(1, mob.flail.progress);
+      const reach = Math.sin(t * Math.PI) * MORNINGSTAR_MAX_RANGE;
+      const lx = (Math.cos(mob.flail.angle) * mob.facing * reach) / 1.77;
+      const ly = (Math.sin(mob.flail.angle) * reach) / 1.71;
+      const tipX = handX + 4;
+      const tipY = handY - 1;
+      rect(handX, handY - 1, 5, 2, '#7a5438');
+      drawChain(tipX, tipY, handX + lx, handY + ly, Math.max(3, Math.ceil(Math.hypot(lx - 4, ly + 1) / 3)));
+      drawSpikedBall(handX + lx, handY + ly);
+    } else if (mob.morningstarWindup != null) {
+      const spin = mob.morningstarWindup * 16;
+      const tipX = handX + 1;
+      const tipY = handY - 5;
+      rect(handX, handY - 5, 2, 6, '#7a5438');
+      rect(handX, handY - 6, 2, 1, '#9aa7b8');
+      const bx = tipX + Math.cos(spin) * 7;
+      const by = tipY + Math.sin(spin) * 7;
+      drawChain(tipX, tipY, bx, by, 4);
+      drawSpikedBall(bx, by);
+    } else {
+      const sway = Math.round(stride * 0.5);
+      rect(handX, handY - 1, 2, 7, '#7a5438');
+      rect(handX, handY - 2, 2, 1, '#9aa7b8');
+      drawChain(handX + 1, handY + 6, handX + 1 + sway, handY + 10, 3);
+      drawSpikedBall(handX + 1 + sway, handY + 10);
+    }
   } else {
     rect(-7, -23, 13, 3, heavy ? '#656476' : '#9d784b');
     rect(-4, -25, 8, 3, heavy ? '#777789' : '#b69159');
