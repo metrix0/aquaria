@@ -6,7 +6,7 @@ import { createCharacterEditor } from './character-editor.js';
 import { createCraftingUi } from './crafting-ui.js';
 import { createDeployUi } from './deploy-ui.js';
 import { createInventoryUi, setItemIcon } from './inventory-ui.js';
-import { GRAPPLING_HOOK, ITEMS } from './inventory.js';
+import { GRAPPLING_HOOK, HOOKS, ITEMS } from './inventory.js';
 import { SPELLS, spellCooldown } from './spells.js';
 import { createItemsMenu } from './items-menu.js';
 import { createDropsUI } from './drops-ui.js';
@@ -173,7 +173,7 @@ export function createUI(actions, version) {
     if (hookSlot.dataset.item !== item.id) {
       hookSlot.dataset.item = item.id;
       setItemIcon(hookSlot.querySelector('span'), item.id);
-      const label = item.id === GRAPPLING_HOOK.id ? 'Grappling Hook / Interact' : item.name + ' (passive) / Interact';
+      const label = Object.hasOwn(HOOKS, item.id) ? item.name + ' / Interact' : item.name + ' (passive) / Interact';
       hookSlot.setAttribute('aria-label', label);
       hookSlot.title = label;
     }

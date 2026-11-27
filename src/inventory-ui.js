@@ -95,7 +95,7 @@ function itemStats(id, item) {
     return item.miningTime ? tier + ' · ' + Math.round((1 - item.miningTime) * 100) + '% less mining time' : tier;
   }
   if (id === ROOT_RING.id) return `F · Lift and bind a foe · ${ROOT_RING.cooldown}s recharge`;
-  if (id === GRAPPLING_HOOK.id) return 'E · Fire hook toward cursor · Space to jump off';
+  if (Object.hasOwn(HOOKS, id)) return 'E · Fire hook toward cursor · Space to jump off';
   if (id === 'explorers-map') return 'Opens while held';
   return '';
 }
@@ -367,7 +367,7 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
         const equipped = get?.();
         drawSlots([slot], [equipped && { id: equipped.id, count: 1 }]);
         label.textContent = group === 'ring' && equipped ? 'Root ring [F]'
-          : group === 'offhand' && equipped?.id === GRAPPLING_HOOK.id ? 'Grappling hook [E]'
+          : group === 'offhand' && Object.hasOwn(HOOKS, equipped?.id) ? `${equipped.name} [E]`
           : (equipped?.name ?? fallback);
       }
       if (chestId) {

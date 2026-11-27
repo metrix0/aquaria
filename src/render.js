@@ -2583,20 +2583,21 @@ export function createRenderer(canvas) {
     const dy = hy - oy;
     const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx) || hook.angle || 0;
-    const [shade, shine] = hook.colors ?? ['#69808a', '#dce5dc'];
+    const [shade, shine, chainLight = shade, chainDark = '#23313d', hub = '#374a57'] =
+      hook.colors ?? ['#5f7880', '#9cb4b6', '#a77850', '#634330', '#384a52'];
     const step = 4;
     const count = Math.floor(dist / step);
     for (let i = 1; i < count; i++) {
       const t = i / Math.max(1, count);
       const lx = Math.round(ox + dx * t);
       const ly = Math.round(oy + dy * t);
-      rect(lx - 1, ly - 1, 2, 2, i % 2 ? '#23313d' : shade);
+      rect(lx - 1, ly - 1, 2, 2, i % 2 ? chainDark : chainLight);
       if (i % 2 === 0) rect(lx - 1, ly - 1, 1, 1, shine);
     }
     ctx.save();
     ctx.translate(hx, hy);
     ctx.rotate(angle);
-    rect(-4, -1, 7, 2, '#374a57');
+    rect(-4, -1, 7, 2, hub);
     rect(-3, -1, 5, 1, shade);
     rect(-1, -4, 3, 2, shade);
     rect(1, -5, 3, 2, shine);

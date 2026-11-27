@@ -13,33 +13,31 @@ export const GRAPPLING_HOOK = {
   range: 9 * TILE,
   speed: 420,
   pullSpeed: 300,
-  colors: ['#69808a', '#dce5dc'],
+  colors: ['#5f7880', '#9cb4b6', '#a77850', '#634330', '#384a52'],
   description: 'A climber’s hooked line. Reaches up to 9 blocks.',
 };
 
 export const IRON_GRAPPLING_HOOK = {
   id: 'iron-grappling-hook',
   name: 'Iron grappling hook',
-  icon: 'grappling-hook',
   station: WORKBENCH.id,
   cost: { [GRAPPLING_HOOK.id]: 1, iron: 4 },
   range: 14 * TILE,
   speed: 470,
   pullSpeed: 330,
-  colors: ['#536874', '#d6e3df'],
+  colors: ['#9aafb0', '#e3ece0', '#9aafb0', '#4f646d', '#546b75'],
   description: 'Reinforced iron chain and claws. Reaches up to 14 blocks.',
 };
 
 export const COBALT_GRAPPLING_HOOK = {
   id: 'cobalt-grappling-hook',
   name: 'Cobalt grappling hook',
-  icon: 'grappling-hook',
   station: WORKBENCH.id,
   cost: { [IRON_GRAPPLING_HOOK.id]: 1, cobalt: 3 },
   range: 20 * TILE,
   speed: 530,
   pullSpeed: 370,
-  colors: ['#48568b', '#a6b7ff'],
+  colors: ['#687ac8', '#bfd0ff', '#6274c2', '#313d73', '#3c4a82'],
   description: 'Deep-forged cobalt winch with maximum reach. Reaches up to 20 blocks.',
 };
 

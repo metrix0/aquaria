@@ -75,6 +75,12 @@ def arrow(metal):
     return art('.......hh/......hbs/.....hbs./.....bs../....ad.../...ad..../..ad...../.cad...../cda....../cc.......',
                metal, extra='#c39b64 #609970 #78513f')
 
+def hook(metal, rope=''):
+    pattern = ('...h..../h..b..h./b..b..b./bh.b.hb./.bbbbbs./..sbs.../...a..../..c.c.../...a....'
+               if rope else
+               '...h..../h..b..h./b..b..b./bh.b.hb./.bbbbbs./..sbs.../...b..../..b.b.../...b....')
+    return art(pattern, metal, extra=rope)
+
 def fish(cooked):
     colors = ('#c98248','#edb473','#955938') if cooked else ('#70a4b9','#aed8d9','#4e7893')
     return art('...s....../..hhh...s./.hhbbbb.bs/habbbbbsbs/hbbbbbbbs./.bbsss.bs./..sss.....', colors, extra='#35434b')
@@ -88,7 +94,9 @@ ITEMS = {
     'root-ring': art('.....aa../....aab../.hhhbs.../hbs..bs../hb....b../hb....s../.bb..bs../..ssss...', WOOD, extra='#609970', outline=WARM),
     'lesser-soul': art('...h.../..hhh../..hbb../.hbbbs./hbbbbbs/hbbbbbs/.sbbbs./..sss..', ('#73baf2','#bce9f6','#437caa')),
     'greater-soul': art('...h.../..hhh../..hab../.habbs./habbbbs/hbbbbbs/.sbbbs./..sss..', ('#dba968','#fff0b4','#8b6491'), extra='#f8d593'),
-    'grappling-hook': art('...h..../h..b..h./b..b..b./bh.b.hb./.bbbbbs./..sbs.../...b..../..b.b.../...b....', IRON),
+    'grappling-hook': hook(STONE, '#a77850 #78513f'),
+    'iron-grappling-hook': hook(IRON),
+    'cobalt-grappling-hook': hook(COBALT),
     'explorers-map': art('hh.hhh.hh/hbbbbbbbh/hbsbbsbbh/hbsbasbbh/hbsabasbh/hbbbbbbbs/ss.sss.ss', CLOTH, extra='#b65a4f', outline=WARM),
     'kelp-dressing': art('..hhhh.../.hbbabb../hbbabbas./hbabbabs./hbbababs./.ssssss..', CLOTH, extra='#609970', outline=WARM),
     'captains-cutlass': sword(IRON, True),

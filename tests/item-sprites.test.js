@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { ITEMS, EQUIPMENT_ITEMS } from '../src/inventory.js';
+import { ITEMS, EQUIPMENT_ITEMS, HOOKS } from '../src/inventory.js';
+import { createGame } from '../src/gameplay/simulation.js';
+import { createRenderer } from '../src/render.js';
+import { TILE } from '../src/world/generation.js';
 import { MATERIAL } from '../src/content.js';
 import { ITEM_ICON_IDS } from '../src/art/items/manifest.js';
 
@@ -39,4 +42,82 @@ test('off-hand E action renders the same grappling-hook sprite as inventory', ()
   assert.ok(ui.includes("import { createInventoryUi, setItemIcon } from './inventory-ui.js';"));
   assert.ok(ui.includes("setItemIcon(hookSlot.querySelector('span'), GRAPPLING_HOOK.id);"));
   assert.ok(ITEM_ICON_IDS.has('grappling-hook'));
+});
+
+test('each grappling hook tier has its own material PNG texture and distinct in-world colors', () => {
+  const hookIds = Object.keys(HOOKS);
+  const pngBytes = new Set();
+  const colorSignatures = new Set();
+  for (const id of hookIds) {
+    assert.equal(HOOKS[id].icon, undefined, id + ' should resolve its own sprite texture');
+    assert.ok(ITEM_ICON_IDS.has(id), 'missing manifest entry for ' + id);
+    const png = readFileSync(new URL('../src/art/items/' + id + '.png', import.meta.url));
+    pngBytes.add(png.toString('hex'));
+    colorSignatures.add(HOOKS[id].colors.join(','));
+  }
+  assert.equal(pngBytes.size, hookIds.length, 'each hook tier must have distinct PNG pixel art');
+  assert.equal(colorSignatures.size, hookIds.length, 'each hook tier must have distinct material colors');
+
+  const prevPath2D = globalThis.Path2D;
+  globalThis.Path2D = class { rect() {} addPath() {} };
+  try {
+    const noop = () => {};
+    const fills = [];
+    const makeCtx = () => ({
+      save: noop, restore: noop, scale: noop, rotate: noop, setTransform: noop,
+      beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop,
+      quadraticCurveTo: noop, rect: noop, strokeRect: noop, clip: noop, drawImage: noop,
+      fill: noop, stroke: noop, translate: noop,
+      fillStyle: '#000',
+      fillRect(x, y, w, h) { fills.push(this.fillStyle); },
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop: noop }),
+    });
+    const canvas = {
+      width: 320,
+      height: 180,
+      ownerDocument: { createElement: () => ({ width: 0, height: 0, getContext: () => makeCtx() }) },
+      getContext: () => makeCtx(),
+    };
+    const renderer = createRenderer(canvas);
+    const game = createGame();
+    for (const id of hookIds) {
+      fills.length = 0;
+      const hook = {
+        state: 'latched',
+        x: game.player.x + 3 * TILE,
+        y: game.player.y - TILE,
+        angle: 0,
+        colors: HOOKS[id].colors,
+      };
+      renderer.draw({
+        world: game.world,
+        player: game.player,
+        snorkel: null,
+        camera: { x: game.player.x - 120, y: game.player.y - 90, width: 320, height: 180 },
+        time: 0,
+        elapsed: 0,
+        aim: null,
+        mining: null,
+        miningSwing: null,
+        held: null,
+        attack: null,
+        hasArrow: false,
+        playerArrows: [],
+        hook,
+        targetMob: null,
+        particles: [],
+        reducedMotion: false,
+        conditions: { darkness: 0, rain: 0, night: false },
+        worldTime: 0.25,
+        weatherSeed: 0,
+        caveShadowsHidden: true,
+        openChestId: null,
+      });
+      assert.ok(fills.includes(HOOKS[id].colors[0]), `${id} renders primary material claw color`);
+      assert.ok(fills.includes(HOOKS[id].colors[2]), `${id} renders material chain/line color`);
+    }
+  } finally {
+    globalThis.Path2D = prevPath2D;
+  }
 });
