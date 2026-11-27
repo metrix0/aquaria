@@ -1,19 +1,39 @@
 import { CLASS_DEFS, skillBudget, skillCost, SKILL_KEYS, unlockedActiveSkills, equippedSkill } from './classes.js';
 
-// Each consecutive triple is a prerequisite path. Fainter strokes complete the silhouette,
-// without implying additional gameplay prerequisites.
+// Each consecutive triple follows the silhouette in prerequisite order.
+// Outline strokes only bridge separate branches; they never repeat a skill link.
 const figures = {
-  warden: { name: 'The Shield', points: [[18,20],[15,50],[30,76],[50,15],[50,48],[50,91],[82,20],[85,50],[70,76]], outline: 'M18 20 L50 15 L82 20 L85 50 L70 76 L50 91 L30 76 L15 50 Z M15 50 H85 M50 15 V91' },
-  wayfarer: { name: 'The Bow', points: [[22,15],[61,24],[80,50],[22,50],[49,50],[94,50],[22,85],[61,76],[22,70]], outline: 'M22 15 Q92 19 80 50 Q92 81 22 85 L22 15 M22 50 H94 M86 42 L94 50 L86 58 M22 85 L61 76 L80 50' },
-  scholar: { name: 'The Arcane Staff', points: [[50,78],[50,48],[50,10],[50,33],[30,22],[24,6],[50,63],[70,22],[76,6]], outline: 'M50 92 V10 M24 6 L30 22 L50 33 L70 22 L76 6 M24 6 L50 10 L76 6 M50 78 L43 90 L57 90 Z' },
-  stormborn: { name: 'The Thunderbolt', points: [[51,9],[31,34],[15,57],[70,10],[53,39],[81,41],[40,57],[29,76],[20,92]], outline: 'M51 9 L70 10 L53 39 L81 41 L20 92 L40 57 L15 57 Z' },
-  tideweaver: { name: 'The Cresting Wave', points: [[12,74],[27,46],[47,21],[47,21],[68,15],[83,36],[76,53],[61,46],[91,78]], outline: 'M12 74 Q20 39 47 21 Q69 3 83 36 Q89 59 61 46 Q70 77 91 78 M12 74 Q49 96 91 78' },
-  stonebound: { name: 'The Mountain', points: [[9,83],[27,49],[42,23],[42,23],[53,9],[72,49],[72,49],[83,62],[94,83]], outline: 'M9 83 L42 23 L53 9 L72 49 L83 62 L94 83 Z M27 49 L42 40 L53 49 L63 34 M42 23 L53 9' },
+  warden: {
+    name: 'The Shield',
+    points: [[17,18],[17,46],[30,70],[50,10],[50,45],[50,91],[83,18],[83,46],[70,70]],
+    outline: 'M17 18 L50 10 L83 18 M30 70 L50 91 L70 70',
+  },
+  wayfarer: {
+    name: 'The Bow',
+    points: [[22,10],[48,20],[64,34],[22,90],[48,80],[64,66],[22,50],[44,50],[91,50]],
+    outline: 'M22 10 V50 V90 M64 34 Q77 50 64 66 M82 42 L91 50 L82 58',
+  },
+  scholar: {
+    name: 'The Arcane Staff',
+    points: [[50,8],[25,22],[35,43],[75,22],[75,37],[65,49],[50,91],[50,74],[50,57]],
+    outline: 'M50 8 L75 22 M35 43 L50 57 L65 49',
+  },
+  stormborn: {
+    name: 'The Thunderbolt',
+    points: [[58,8],[29,33],[12,53],[40,53],[28,74],[16,92],[91,38],[63,38],[77,12]],
+    outline: 'M12 53 H40 M16 92 L91 38 M77 12 L58 8',
+  },
+  tideweaver: {
+    name: 'The Cresting Wave',
+    points: [[10,77],[24,47],[43,25],[62,14],[82,27],[85,49],[65,58],[73,77],[92,80]],
+    outline: 'M43 25 Q52 16 62 14 M85 49 Q81 64 65 58 M10 77 Q46 91 92 80',
+  },
+  stonebound: {
+    name: 'The Mountain',
+    points: [[8,83],[23,58],[43,14],[42,83],[50,65],[62,45],[92,83],[82,61],[73,23]],
+    outline: 'M43 14 L62 45 L73 23 M8 83 H42 H92',
+  },
 };
-// Keep every interactive star distinct, including where branches meet visually.
-figures.tideweaver.points[3] = [52,35];
-figures.stonebound.points[3] = [48,58];
-figures.stonebound.points[6] = [69,72];
 
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const starfield = Array.from({length: 95}, (_, i) => {
@@ -54,9 +74,9 @@ export function renderConstellation(tree, actions, previous) {
             <path class="celestial-outline" d="${figure.outline}"/>
             ${entries.map((e,i) => e.index ? `<line class="celestial-link ${active.has(e.skill.id) ? 'lit' : ''}" x1="${figure.points[i-1][0]}" y1="${figure.points[i-1][1]}" x2="${figure.points[i][0]}" y2="${figure.points[i][1]}"/>` : '').join('')}
           </svg>
-          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.skill.major ? 'Greater star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span></button>`).join('')}
+          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''} ${e.index === 0 ? 'entry-star' : ''} ${figure.points[i][1] >= 75 ? 'label-above' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.skill.major ? 'Greater star' : e.index === 0 ? 'Starting star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span>${e.index === 0 ? '<small class="entry-label" aria-hidden="true">Start</small>' : ''}</button>`).join('')}
         </div>
-        <p class="celestial-name">${figure.name}</p>
+        <div class="celestial-name"><span>${figure.name}</span><small>Begin at any of the three marked stars.</small></div>
         <section class="celestial-souls" aria-label="Soul balances">
           ${['lesser','greater'].map(type => `<div><span class="soul-dot ${type}">&#10022;</span><div><strong>${balance[type]} <small>${type} souls</small></strong></div></div>`).join('')}
         </section>
@@ -80,7 +100,7 @@ export function renderConstellation(tree, actions, previous) {
     const e = byId(id);
     const {skill,branch,index} = e;
     const {cost,prerequisite,affordable,status} = state(e);
-    inspector.innerHTML = `<small class="celestial-path ${skill.major ? 'major' : ''}">${esc(branch.name)} &middot; ${skill.major ? 'Greater star' : 'Lesser star'}</small><span class="celestial-inspector-glyph ${skill.major ? 'major' : ''}" aria-hidden="true">${skill.major ? '&#10037;' : '&#10022;'}</span><h4>${esc(skill.name)}</h4><p>${esc(skill.detail)}</p><div class="celestial-cost">${cost.lesser} lesser ${cost.lesser === 1 ? 'soul' : 'souls'}${cost.greater ? ' + 1 greater soul' : ''}</div>${prerequisite ? `<small>Requires ${esc(branch.nodes[index-1].name)}</small>` : ''}<button type="button" id="awaken-skill" ${status !== 'available' ? 'disabled' : ''}>${status === 'unlocked' ? 'Awakened' : prerequisite ? 'Previous star required' : !affordable ? 'More souls required' : 'Awaken star'}</button>${canEquip(id) ? '<small>Active skill &middot; drag to Q or R</small>' : ''}`;
+    inspector.innerHTML = `<small class="celestial-path ${skill.major ? 'major' : ''}">${esc(branch.name)} &middot; ${skill.major ? 'Greater star' : index === 0 ? 'Starting star' : 'Lesser star'}</small><span class="celestial-inspector-glyph ${skill.major ? 'major' : ''}" aria-hidden="true">${skill.major ? '&#10037;' : '&#10022;'}</span><h4>${esc(skill.name)}</h4><p>${esc(skill.detail)}</p><div class="celestial-cost">${cost.lesser} lesser ${cost.lesser === 1 ? 'soul' : 'souls'}${cost.greater ? ' + 1 greater soul' : ''}</div>${prerequisite ? `<small>Requires ${esc(branch.nodes[index-1].name)}</small>` : ''}<button type="button" id="awaken-skill" ${status !== 'available' ? 'disabled' : ''}>${status === 'unlocked' ? 'Awakened' : prerequisite ? 'Previous star required' : !affordable ? 'More souls required' : 'Awaken star'}</button>${canEquip(id) ? '<small>Active skill &middot; drag to Q or R</small>' : ''}`;
     inspector.querySelector('#awaken-skill').addEventListener('click', () => {
       const error = actions.unlockSkill(id);
       if (error) actions.notify(error);

@@ -28,6 +28,10 @@ try {
   assert.equal(await backpack.isVisible(),false);
   assert.equal(await tree.locator('.celestial-header h3').textContent(),'Warden');
   assert.equal(await tree.locator('[data-skill]').count(),9);
+  assert.equal(await tree.locator('.celestial-star.entry-star').count(),3);
+  assert.equal(await tree.locator('.celestial-star.entry-star.available').count(),3);
+  assert.equal(await tree.locator('.entry-label').count(),3);
+  assert.equal(await shortcut.evaluate(e=>e.style.getPropertyValue('--class-accent')),'');
   assert.equal(await tree.locator('.celestial-star.major.locked').count(),3);
   assert.equal(await tree.locator('.celestial-souls button').count(),0);
   assert.doesNotMatch(await tree.locator('.celestial-souls').textContent(),/in bag|defeat|absorb/i);

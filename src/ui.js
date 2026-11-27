@@ -310,7 +310,6 @@ export function createUI(actions, version) {
       const activeClass = CLASS_DEFS[game.classes.active];
       classButton.hidden = !activeClass;
       classButton.textContent = activeClass?.name ?? '';
-      classButton.style.setProperty('--class-accent', activeClass?.accent ?? '');
       const armor = ARMOR[game.player.armor];
       const icon = byId('backpack-armor');
       const slot = icon.parentElement;
