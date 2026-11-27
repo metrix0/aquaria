@@ -19,7 +19,7 @@ export function createZoneTracker(initialZone) {
       }
       if (candidate !== current && now - since >= ENTRY_DELAY) {
         current = candidate;
-        pending = current === 'island' || now - (shownAt.get(current) ?? -Infinity) < ZONE_COOLDOWN
+        pending = !Object.hasOwn(ZONES, current) || now - (shownAt.get(current) ?? -Infinity) < ZONE_COOLDOWN
           ? null : current;
       }
       if (pending && pending === candidate && now - lastTitle >= GLOBAL_COOLDOWN) {
