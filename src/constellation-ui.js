@@ -1,4 +1,4 @@
-import { CLASS_DEFS, skillBudget, skillCost, SOUL_ITEMS, SKILL_KEYS, unlockedActiveSkills, equippedSkill } from './classes.js';
+import { CLASS_DEFS, skillBudget, skillCost, SKILL_KEYS, unlockedActiveSkills, equippedSkill } from './classes.js';
 
 // Each consecutive triple is a prerequisite path. Fainter strokes complete the silhouette,
 // without implying additional gameplay prerequisites.
@@ -32,7 +32,6 @@ export function renderConstellation(tree, actions, previous) {
   const castable = unlockedActiveSkills(progress);
   const canEquip = id => castable.some(skill => skill.id === id);
   const balance = skillBudget(progress);
-  const owned = Object.fromEntries(['lesser','greater'].map(t => [t, game.inventory.count(SOUL_ITEMS[t])]));
   const state = ({skill, branch, index}) => {
     const cost = skillCost(skill);
     const prerequisite = index > 0 && !active.has(branch.nodes[index-1].id);
@@ -55,11 +54,11 @@ export function renderConstellation(tree, actions, previous) {
             <path class="celestial-outline" d="${figure.outline}"/>
             ${entries.map((e,i) => e.index ? `<line class="celestial-link ${active.has(e.skill.id) ? 'lit' : ''}" x1="${figure.points[i-1][0]}" y1="${figure.points[i-1][1]}" x2="${figure.points[i][0]}" y2="${figure.points[i][1]}"/>` : '').join('')}
           </svg>
-          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">&#10022;</span></button>`).join('')}
+          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.skill.major ? 'Greater star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span></button>`).join('')}
         </div>
         <p class="celestial-name">${figure.name}</p>
         <section class="celestial-souls" aria-label="Soul balances">
-          ${['lesser','greater'].map(type => `<div><span class="soul-dot ${type}">&#10022;</span><div><strong>${balance[type]} <small>${type} souls</small></strong><small>${type === 'lesser' ? 'Defeat minibosses' : 'Defeat bosses'} &middot; ${owned[type]} in bag</small></div><button type="button" data-absorb="${type}" ${owned[type] ? '' : 'disabled'}>Absorb</button></div>`).join('')}
+          ${['lesser','greater'].map(type => `<div><span class="soul-dot ${type}">&#10022;</span><div><strong>${balance[type]} <small>${type} souls</small></strong></div></div>`).join('')}
         </section>
         <section class="celestial-loadout" aria-label="Equipped active skills">
           <div class="celestial-loadout-head"><strong>Active skills</strong><small>Drag an unlocked skill to Q or R, or select it then tap a slot.</small></div>
@@ -81,7 +80,7 @@ export function renderConstellation(tree, actions, previous) {
     const e = byId(id);
     const {skill,branch,index} = e;
     const {cost,prerequisite,affordable,status} = state(e);
-    inspector.innerHTML = `<small class="celestial-path">${esc(branch.name)} &middot; ${skill.major ? 'Greater star' : 'Lesser star'}</small><span class="celestial-inspector-glyph" aria-hidden="true">&#10022;</span><h4>${esc(skill.name)}</h4><p>${esc(skill.detail)}</p><div class="celestial-cost">${cost.lesser} lesser ${cost.lesser === 1 ? 'soul' : 'souls'}${cost.greater ? ' + 1 greater soul' : ''}</div>${prerequisite ? `<small>Requires ${esc(branch.nodes[index-1].name)}</small>` : ''}<button type="button" id="awaken-skill" ${status !== 'available' ? 'disabled' : ''}>${status === 'unlocked' ? 'Awakened' : prerequisite ? 'Previous star required' : !affordable ? 'More souls required' : 'Awaken star'}</button>${canEquip(id) ? '<small>Active skill &middot; drag to Q or R</small>' : ''}`;
+    inspector.innerHTML = `<small class="celestial-path ${skill.major ? 'major' : ''}">${esc(branch.name)} &middot; ${skill.major ? 'Greater star' : 'Lesser star'}</small><span class="celestial-inspector-glyph ${skill.major ? 'major' : ''}" aria-hidden="true">${skill.major ? '&#10037;' : '&#10022;'}</span><h4>${esc(skill.name)}</h4><p>${esc(skill.detail)}</p><div class="celestial-cost">${cost.lesser} lesser ${cost.lesser === 1 ? 'soul' : 'souls'}${cost.greater ? ' + 1 greater soul' : ''}</div>${prerequisite ? `<small>Requires ${esc(branch.nodes[index-1].name)}</small>` : ''}<button type="button" id="awaken-skill" ${status !== 'available' ? 'disabled' : ''}>${status === 'unlocked' ? 'Awakened' : prerequisite ? 'Previous star required' : !affordable ? 'More souls required' : 'Awaken star'}</button>${canEquip(id) ? '<small>Active skill &middot; drag to Q or R</small>' : ''}`;
     inspector.querySelector('#awaken-skill').addEventListener('click', () => {
       const error = actions.unlockSkill(id);
       if (error) actions.notify(error);
@@ -114,12 +113,6 @@ export function renderConstellation(tree, actions, previous) {
       select(id);
     });
   }
-  for (const b of tree.querySelectorAll('[data-absorb]')) b.addEventListener('click', () => {
-    const type = b.dataset.absorb;
-    const error = actions.absorbSoul(type, owned[type]);
-    if (error) actions.notify(error);
-    rerender();
-  });
   for (const slot of tree.querySelectorAll('[data-drop-slot]')) {
     const index = Number(slot.dataset.dropSlot);
     slot.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; slot.classList.add('drop-ready'); });

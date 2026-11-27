@@ -28,6 +28,16 @@ try {
   assert.equal(await backpack.isVisible(),false);
   assert.equal(await tree.locator('.celestial-header h3').textContent(),'Warden');
   assert.equal(await tree.locator('[data-skill]').count(),9);
+  assert.equal(await tree.locator('.celestial-star.major.locked').count(),3);
+  assert.equal(await tree.locator('.celestial-souls button').count(),0);
+  assert.doesNotMatch(await tree.locator('.celestial-souls').textContent(),/in bag|defeat|absorb/i);
+  assert.match(await tree.locator('.celestial-souls').textContent(),/100000 lesser souls.*100000 greater souls/);
+  const major=tree.locator('[data-skill="unyielding"]');
+  const minor=tree.locator('[data-skill="shield-discipline"]');
+  assert.notEqual(await major.textContent(),await minor.textContent());
+  assert.notEqual(await major.evaluate(e=>getComputedStyle(e).color),await minor.evaluate(e=>getComputedStyle(e).color));
+  await major.hover();
+  assert.match(await tree.locator('.celestial-path').textContent(),/Greater star/);
   for(const id of ['shield-discipline','ironwall','unyielding','battle-temper','bloodrush','reavers-oath']){
    await tree.locator('[data-skill="'+id+'"]').click();
    await tree.locator('#awaken-skill').click();
@@ -41,6 +51,7 @@ try {
    await tree.locator('[data-equip-slot="1"]').click();
   }
   assert.match(await tree.locator('[data-equip-slot="1"]').textContent(),/Shield Rush/);
+  assert.equal(await tree.locator('.celestial-star.major.unlocked').count(),2);
   await tree.locator('[data-pick-skill="reavers-oath"]').click();
   await tree.locator('[data-equip-slot="1"]').click();
   assert.match(await tree.locator('[data-equip-slot="1"]').textContent(),/Rage/);

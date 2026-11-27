@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Inventory } from '../src/inventory.js';
-import { beginBowDraw, releaseBowDraw, createGame, stepGame, useDressing, useWeapon } from '../src/gameplay/simulation.js';
+import { beginBowDraw, releaseBowDraw, createGame, stepGame, useDressing, useUtilityItem, useWeapon } from '../src/gameplay/simulation.js';
 import { damageMob } from '../src/gameplay/mobs.js';
 import { takeDamage, MAX_HEALTH } from '../src/gameplay/player.js';
 import { skillAttackDamage, strikeMob, stepClassEffects } from '../src/gameplay/class-effects.js';
@@ -218,4 +218,18 @@ test('legacy and malformed skill slot saves are normalized without losing purcha
   assert.deepEqual(createClassProgress(legacy).skillSlots.warden, ['unyielding', 'reavers-oath']);
   assert.deepEqual(createClassProgress({ ...legacy, skillSlots: { warden: ['aegis-oath', 'aegis-oath', 'reavers-oath'] } }).skillSlots.warden, ['aegis-oath', null]);
   assert.deepEqual(createClassProgress({ ...legacy, skillSlots: { warden: ['ironwall', 'far-sight'] } }).skillSlots.warden, [null, null]);
+});
+
+test('soul items remain usable from hotbar without a skill tree absorb button', () => {
+  const state = game();
+  activateClass(state, 'warden');
+  for (const type of ['lesser', 'greater']) {
+    const id = type + '-soul';
+    state.inventory.add(id, 1, { preferHotbar: true });
+    const slot = state.inventory.hotbar.findIndex(stack => stack?.id === id);
+    assert.notEqual(slot, -1);
+    assert.equal(useUtilityItem(state, slot).inventoryChanged, true);
+    assert.equal(state.inventory.count(id), 0);
+    assert.equal(state.classes.total[type], 1);
+  }
 });
