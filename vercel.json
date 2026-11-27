@@ -13,6 +13,8 @@
     {
       "source": "/start/",
       "destination": "/start/index.html"
-    }
+    },
+    { "source": "/todo", "destination": "/todo/index.html" },
+    { "source": "/todo/", "destination": "/todo/index.html" }
   ]
 }
