@@ -580,8 +580,8 @@ function updateCamera(dt, snap = false) {
   const underwaterY = standingY - camera.height * 0.28;
   const crawling = input.holdingDown() && player.grounded && player.height === CRAWL_HEIGHT &&
     !player.downed && !player.flightOrigin && !player.climb && !swimming;
-  camera.crawlSeconds = crawling ? Math.min(2, camera.crawlSeconds + dt) : 0;
-  const crawlOffset = camera.crawlSeconds >= 2 ? camera.height * 0.25 : 0;
+  camera.crawlSeconds = crawling ? Math.min(1, camera.crawlSeconds + dt) : 0;
+  const crawlOffset = camera.crawlSeconds >= 1 ? camera.height * 0.25 : 0;
   const targetY = centeredY + (underwaterY - centeredY) * camera.swimBlend + crawlOffset;
   const y = clamp(targetY, 0, Math.max(0, ROWS * TILE - camera.height));
   const factor = snap || reducedMotion ? 1 : Math.min(1, dt * 5);
