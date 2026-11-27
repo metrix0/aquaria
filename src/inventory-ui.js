@@ -183,8 +183,11 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
     const { offsetWidth: width, offsetHeight: height } = tooltip;
     const { clientWidth, clientHeight } = document.documentElement;
     const left = (anchor.left + anchor.right - width) / 2;
-    const above = anchor.top - height - gap;
-    const top = above >= gap ? above : anchor.bottom + gap;
+    // HUD slots sit below the vitals; anchor above the entire HUD, not over its meters.
+    const hud = !bounds && game.querySelector('.hud-above-hotbar');
+    const upperEdge = hud ? Math.min(anchor.top, hud.getBoundingClientRect().top) : anchor.top;
+    const above = upperEdge - height - gap;
+    const top = above >= gap || hud ? above : anchor.bottom + gap;
     tooltip.style.left = Math.max(gap, Math.min(left, clientWidth - width - gap)) + 'px';
     tooltip.style.top = Math.max(gap, Math.min(top, clientHeight - height - gap)) + 'px';
   }
