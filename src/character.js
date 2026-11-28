@@ -102,48 +102,61 @@ export function createCharacterRenderer(ctx) {
   function drawTome(x, y, spellId) {
     const spell = SPELLS[spellId];
     if (!spell) return;
-    // Three-quarter reading view: the upper edge leans away from the reader,
-    // the diagonal gutter runs back down toward the supporting hand.
-    // All coordinates are in facing-right character space (mirrored with the body).
+    // The two leaves form a shallow V in three-quarter view. The gutter
+    // slopes toward the reader and ends at the hand supporting the spine.
     const ink = '#302b32';
     const paper = '#f5e4bb';
     const shade = '#d3b78a';
+    const edge = '#ab8b66';
     const at = (dx, dy, w, h, color) => rect(x + dx, y + dy, w, h, color);
     const rows = (top, spans, color) => spans.forEach(([left, right], i) =>
       at(left, top + i, right - left + 1, 1, color));
 
-    // Stepped silhouette and the leather cover beneath the leaves.
-    rows(-9, [[5,7],[3,8],[1,9],[0,10],[-1,10],[-1,9],[-2,8],[-2,7],[-1,5],[0,4],[0,3]], ink);
-    rows(-8, [[4,6],[2,8],[1,9],[0,9],[0,8],[-1,7],[-1,6],[0,4],[1,3]], spell.cover);
-    at(1, 1, 3, 1, spell.cover);
+    // Leather boards, with an exposed lower lip and rounded corners.
+    rows(-10, [[2,4],[1,6],[0,10],[-1,11],[-1,10],[-2,10],[-2,9],[-3,8],[-3,7],[-2,7],[-1,6],[0,5],[1,4]], ink);
+    rows(-9, [[2,4],[1,9],[0,10],[0,9],[-1,9],[-1,8],[-2,7],[-2,6],[-1,6],[0,5],[1,4]], spell.cover);
 
-    // The far leaf is foreshortened; the near leaf opens toward the reader.
-    rows(-8, [[4,5],[2,5],[1,4],[0,3],[0,2],[-1,1],[-1,0]], shade);
-    rows(-7, [[3,5],[2,4],[1,3],[1,2],[0,1]], paper);
-    rows(-7, [[7,7],[6,8],[5,9],[4,8],[3,7],[2,6],[1,4],[1,2]], shade);
-    rows(-6, [[7,8],[6,8],[5,7],[4,6],[3,5],[2,3]], paper);
+    // Layered parchment edges, slightly inset from the leather.
+    rows(-9, [[2,3],[1,4],[1,4],[0,3],[0,3],[-1,2],[-1,1],[-2,0],[-1,0]], edge);
+    rows(-8, [[7,9],[6,10],[5,9],[5,9],[4,8],[3,7],[3,6],[2,6],[2,5]], edge);
+    rows(-9, [[2,3],[1,4],[1,4],[0,3],[0,3],[-1,2],[-1,1],[-1,0]], shade);
+    rows(-8, [[7,9],[6,10],[5,9],[5,9],[4,8],[3,7],[3,6],[2,5]], shade);
 
-    // An angled binding, ink strokes and a tiny spell-colored rune.
-    for (let i = 0; i < 8; i++) at(6 - i, -8 + i, 1, 1, '#80664f');
-    at(3, -7, 2, 1, '#9c8062');
-    at(2, -5, 2, 1, '#9c8062');
-    at(0, -3, 2, 1, '#9c8062');
-    if (spellId === 'firebolt') {
-      at(7, -5, 1, 1, spell.color);
-      at(6, -4, 2, 1, spell.cover);
-      at(6, -3, 1, 1, spell.color);
-    } else if (spellId === 'frost-lance') {
-      at(7, -5, 1, 1, spell.color);
-      at(5, -4, 3, 1, spell.color);
-      at(6, -3, 1, 1, spell.cover);
-    } else {
-      at(6, -5, 1, 3, spell.cover);
-      at(5, -4, 3, 1, spell.cover);
-      at(6, -4, 1, 1, spell.color);
+    // Far leaf and broad near leaf, each with a separate page face.
+    rows(-8, [[2,3],[1,4],[1,3],[0,3],[0,2],[-1,1],[-1,0]], '#e9d5ac');
+    rows(-7, [[7,9],[6,9],[6,8],[5,8],[4,7],[4,6],[3,5]], paper);
+    at(2,-8,2,1,paper);
+    at(7,-7,3,1,'#fff0cf');
+
+    // The crease is recessed rather than painted over a single flat page.
+    for (const [gx,gy] of [[5,-8],[5,-7],[4,-6],[4,-5],[3,-4],[2,-3],[2,-2],[1,-1],[1,0]]) {
+      at(gx,gy,1,1,'#80664f');
     }
-    at(4, -2, 2, 1, '#9c8062');
-    at(9, -5, 1, 1, '#d8b578');
-    at(2, 0, 1, 1, spell.color);
+
+    // Fine ink lines follow the page angle. Distinct miniature spell seals
+    // remain legible at the native pixel resolution.
+    at(2,-7,2,1,'#9c8062');
+    at(1,-5,2,1,'#9c8062');
+    at(0,-3,2,1,'#b79a76');
+    if (spellId === 'firebolt') {
+      at(8,-6,1,1,spell.color);
+      at(7,-5,2,1,spell.cover);
+      at(6,-4,2,1,spell.color);
+    } else if (spellId === 'frost-lance') {
+      at(8,-6,1,1,spell.cover);
+      at(7,-5,2,1,spell.color);
+      at(6,-4,1,1,spell.cover);
+    } else {
+      at(8,-6,1,1,spell.cover);
+      at(7,-5,2,1,spell.cover);
+      at(7,-4,1,1,spell.color);
+    }
+    at(4,-2,2,1,'#9c8062');
+    // Gilt corner and a small bookmark hanging from the fore-edge.
+    at(10,-7,1,1,'#d8b578');
+    at(5,0,1,2,spell.cover);
+    at(5,1,1,1,spell.color);
+    at(0,1,1,1,'#d8b578');
   }
 
   function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false, venom) {
