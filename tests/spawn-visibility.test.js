@@ -27,7 +27,7 @@ test('natural fish do not pop out on screen, and debug fish bypass spawn visibil
   updateEnemySpawns({ spawnIn: 100 }, mobs, player, false, 1, () => true, camera);
   assert.deepEqual(mobs, [visible, manual]);
   const game = createGame();
-  const result = spawnEnemyNear(game.world, game.player, 'fish');
+  const result = spawnEnemyNear(game.world, game.player, 'reef-snapper');
   assert.ok(result.mob, result.error);
   assert.ok(result.mob.testSpawn);
   assert.ok(game.world.mobs.includes(result.mob));
