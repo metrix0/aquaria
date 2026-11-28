@@ -20,8 +20,8 @@ export const CORAL_RUINS = Object.freeze([
 ]);
 export const CORAL_MARK_COUNT = 4;
 export const CORAL_SOLUTION = Object.freeze(CORAL_RUINS.filter(ruin => ruin.mark).map(ruin => ruin.mark));
-export const CORAL_DIALS = Object.freeze([-337, -335, -333, -331].map((column, slot) => ({
-  id: 'coral-dial-' + slot, column, row: 94, slot, name: 'Mark ' + (slot + 1),
+export const CORAL_DIALS = Object.freeze([-350, -348, -346, -344].map((column, slot) => ({
+  id: 'coral-dial-' + slot, column, row: 73, slot, name: 'Mark ' + (slot + 1),
 })));
 
 export function normalizeCoralMarks(marks) {

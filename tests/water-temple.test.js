@@ -5,7 +5,7 @@ import { createGame } from '../src/gameplay/simulation.js';
 import { createRenderer } from '../src/render.js';
 import { createWorld, tileAt, waterTileAt } from '../src/world.js';
 import { TILE, WATER_ROW, WEST_EXTENSION, groundAt } from '../src/world/generation.js';
-import { CORAL_COLUMN, CORAL_OPEN_ID, CORAL_SOLUTION, cycleCoralMark } from '../src/world/ocean-layout.js';
+import { CORAL_COLUMN, CORAL_OPEN_ID, CORAL_SOLUTION, CORAL_DIALS, cycleCoralMark } from '../src/world/ocean-layout.js';
 import { WATER_TEMPLE_LIGHT, createUndergroundLight, waterTempleLightSources } from '../src/world/lighting.js';
 import {
   WATER_TEMPLE,
@@ -15,6 +15,7 @@ import {
   waterTempleDoorBounds,
   waterTemplePuzzleDoorBounds,
   waterTempleStoneAt,
+  waterTempleFoundationTop,
 } from '../src/world/water-temple.js';
 
 test('water temple spans across the coral wall, stays below surface, and hosts big west door and smaller east puzzle door', () => {
@@ -46,7 +47,9 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   for (let col = WATER_TEMPLE.left; col <= WATER_TEMPLE.right; col++) {
     const tx = col + WEST_EXTENSION;
     assert.equal(tileAt(world, tx, WATER_TEMPLE.seabedRow), MATERIAL.stone);
-    assert.equal(waterTileAt(world, tx, WATER_TEMPLE.deckRow - 1), true, `portico above column ${col} must stay open water`);
+    const top = waterTempleFoundationTop(col);
+    assert.equal(tileAt(world, tx, top), MATERIAL.stone);
+    assert.equal(waterTileAt(world, tx, top - 1), true, `stairs above column ${col} must stay open water`);
   }
   for (let col = WATER_TEMPLE.center - 3; col <= WATER_TEMPLE.center + 3; col++) {
     const tx = col + WEST_EXTENSION;
@@ -59,7 +62,17 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   assert.equal(tileAt(world, WATER_TEMPLE_PUZZLE_DOOR.column + WEST_EXTENSION, WATER_TEMPLE_PUZZLE_DOOR.floor), MATERIAL.stone);
   assert.equal(protectsWaterTemple(WATER_TEMPLE.center, WATER_TEMPLE.seabedRow), true);
 
-  // Neighboring breathing vents stay unobstructed outside temple flanks.
+  // The four existing dials sit on the elevated landing, above solid stairs.
+  for (const dial of CORAL_DIALS) {
+    assert.equal(waterTempleFoundationTop(dial.column), WATER_TEMPLE.approachRow);
+    assert.equal(waterTileAt(world, dial.column + WEST_EXTENSION, dial.row), true);
+  }
+  for (let col = WATER_TEMPLE.approachEast + 1; col <= WATER_TEMPLE.right; col++) {
+    const rise = waterTempleFoundationTop(col) - waterTempleFoundationTop(col - 1);
+    assert.ok(rise >= 0 && rise <= 2, 'eastern stairs descend toward the ocean floor');
+  }
+
+  // Neighboring breathing vents stay unobstructed.
   for (const ventCol of [-330, -452]) {
     const vent = world.vents.find((v) => Math.floor(v.x / TILE) === ventCol + WEST_EXTENSION);
     assert.ok(vent, `west vent at ${ventCol} remains available`);

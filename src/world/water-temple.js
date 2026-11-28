@@ -7,11 +7,14 @@ const TILE_SIZE = 16;
 // with an eastern causeway crossing the coral wall to a smaller puzzle sanctuary on the right side.
 export const WATER_TEMPLE = Object.freeze({
   center: -412,
-  left: -444,
-  right: -338,
+  left: -449,
+  right: -318,
   seabedRow: 113,
   deckRow: 109,
-  topRow: 36,
+  topRow: 27,
+  approachRow: 76,
+  approachWest: -359,
+  approachEast: -339,
   blendMargin: 8,
 });
 
@@ -25,7 +28,7 @@ export const WATER_TEMPLE_DOOR = Object.freeze({
 
 export const WATER_TEMPLE_PUZZLE_DOOR = Object.freeze({
   column: -346,
-  floor: WATER_TEMPLE.deckRow + 1,
+  floor: WATER_TEMPLE.approachRow,
   widthTiles: 3,
   heightTiles: 4,
   prompt: 'Sealed Coral Sanctum door',
@@ -68,7 +71,7 @@ export function waterTemplePuzzleDoorBounds(westExtension) {
 /** Flatten the western abyss seabed smoothly to support the Water Temple base without altering the east approach vent. */
 export function waterTempleFloor(column, naturalFloor) {
   if (column >= WATER_TEMPLE.left && column <= WATER_TEMPLE.right) {
-    return WATER_TEMPLE.seabedRow;
+    return column >= -381 ? waterTempleFoundationTop(column) : WATER_TEMPLE.seabedRow;
   }
   const distance = column < WATER_TEMPLE.left
     ? WATER_TEMPLE.left - column
@@ -76,19 +79,22 @@ export function waterTempleFloor(column, naturalFloor) {
   if (distance >= WATER_TEMPLE.blendMargin) return naturalFloor;
   const t = distance / WATER_TEMPLE.blendMargin;
   const smooth = t * t * (3 - 2 * t);
-  return Math.round(WATER_TEMPLE.seabedRow * (1 - smooth) + naturalFloor * smooth);
+  const edge = column < WATER_TEMPLE.left ? WATER_TEMPLE.seabedRow : waterTempleFoundationTop(WATER_TEMPLE.right);
+  return Math.round(edge * (1 - smooth) + naturalFloor * smooth);
 }
 
 /** Top solid row of the stepped temple stone foundation at a world-relative column, or null outside the plinth. */
 export function waterTempleFoundationTop(column) {
   if (column < WATER_TEMPLE.left || column > WATER_TEMPLE.right) return null;
-  const distance = Math.abs(column - WATER_TEMPLE.center);
-  if (distance <= 20) return WATER_TEMPLE.deckRow;
-  if (distance <= 27) return WATER_TEMPLE.deckRow + 1;
-  if (column <= WATER_TEMPLE.center - 28) return WATER_TEMPLE.deckRow + 2;
-  // Causeway across the coral wall (-384 .. -338) and east puzzle sanctuary terrace.
-  if (column <= -340) return WATER_TEMPLE.deckRow + 1;
-  return WATER_TEMPLE.deckRow + 2;
+  const { center, deckRow, approachRow, approachWest, approachEast } = WATER_TEMPLE;
+  // The elevated coral-gate terrace is continuous on both sides of the barrier.
+  if (column >= approachWest && column <= approachEast) return approachRow;
+  // Broad, paired stone treads climb from the eastern seabed toward the puzzle.
+  if (column > approachEast) return approachRow + 2 * Math.ceil((column - approachEast) / 2);
+  // The western processional steps lead down from the gate to the main portico.
+  if (column >= -381) return Math.min(deckRow, approachRow + 3 * Math.ceil((approachWest - column) / 2));
+  const distance = Math.abs(column - center);
+  return deckRow + (distance <= 30 ? 0 : distance <= 34 ? 1 : 2);
 }
 
 /** True when (column, row) is part of the carved solid stone Water Temple plinth and foundation anchor. */
@@ -109,7 +115,7 @@ export function protectsWaterTemple(column, row) {
 export function placeWaterTemple(set, bounds, westExtension) {
   const minTx = Math.max(bounds.left, WATER_TEMPLE.left + westExtension);
   const maxTx = Math.min(bounds.right, WATER_TEMPLE.right + westExtension);
-  const minTy = Math.max(bounds.top, WATER_TEMPLE.deckRow);
+  const minTy = Math.max(bounds.top, WATER_TEMPLE.approachRow);
   const maxTy = Math.min(bounds.bottom, WATER_TEMPLE.seabedRow + 4);
   if (minTx > maxTx || minTy > maxTy) return;
   for (let ty = minTy; ty <= maxTy; ty++) {
