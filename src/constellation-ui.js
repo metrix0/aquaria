@@ -72,7 +72,7 @@ export function renderConstellation(tree, actions, previous) {
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <g fill="#d6eaff">${starfield}</g>
             <g class="celestial-orbits">
-              <ellipse cx="50" cy="50" rx="46" ry="46"/>
+              <ellipse cx="50" cy="50" rx="46" ry="46" stroke-dasharray="18 2 1 2"/>
               <ellipse cx="50" cy="50" rx="41" ry="41" stroke-dasharray=".3 2"/>
               <path d="M50 2v6M50 92v6M2 50h6M92 50h6 M16 16l3 3M81 81l3 3M16 84l3 -3M81 19l3 -3"/>
             </g>

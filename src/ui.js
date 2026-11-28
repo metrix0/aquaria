@@ -220,13 +220,46 @@ export function createUI(actions, version) {
     toastTimer = setTimeout(() => { fields.feedback.hidden = true; }, 2700);
   }
 
-  function open(id, source) {
-    const panel = byId(id);
-    if (panel.open) {
+  const skyPanels = new Set([byId('classes-panel'), byId('skilltree-panel')]);
+  const skyAnimations = new WeakMap();
+  const skyMotion = () => !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function stopSky(panel) {
+    for (const animation of skyAnimations.get(panel) ?? []) animation.cancel();
+    skyAnimations.delete(panel);
+    panel.classList.remove('sky-leaving');
+  }
+  function closePanel(panel, immediate = false) {
+    if (!panel.open) return;
+    if (!skyPanels.has(panel) || immediate || !skyMotion()) {
+      stopSky(panel);
       panel.close();
       return;
     }
-    for (const other of panels) if (other.open) other.close();
+    if (panel.classList.contains('sky-leaving')) return;
+    stopSky(panel);
+    panel.classList.add('sky-leaving');
+    const animation = panel.animate(
+      [{clipPath:'inset(0 0 0 0)'}, {clipPath:'inset(0 0 100% 0)'}],
+      {duration:460,easing:'cubic-bezier(.55,.03,.3,1)',fill:'both'});
+    skyAnimations.set(panel,[animation]);
+    animation.finished.then(() => {
+      if (skyAnimations.get(panel)?.[0] !== animation) return;
+      panel.close();
+      stopSky(panel);
+    }).catch(() => {});
+  }
+  for (const panel of skyPanels) {
+    panel.addEventListener('cancel', event => { event.preventDefault(); closePanel(panel); });
+    panel.addEventListener('close', () => { if (!panel.open) stopSky(panel); });
+  }
+  function open(id, source) {
+    const panel = byId(id);
+    if (panel.open) {
+      closePanel(panel);
+      return;
+    }
+    const fromSky = [...skyPanels].some(other => other.open);
+    for (const other of panels) if (other.open) closePanel(other, true);
     inventoryUI.clearTooltip();
     if (id === 'backpack-panel') inventoryUI.showChest(source);
     if (id === 'items-panel') itemsMenu.selectTab('all');
@@ -234,6 +267,16 @@ export function createUI(actions, version) {
     if (id === 'classes-panel') classesUI.renderClasses();
     if (id === 'skilltree-panel') classesUI.renderTree();
     panel.showModal();
+    if (skyPanels.has(panel) && skyMotion() && !fromSky) {
+      const reveal = panel.animate(
+        [{clipPath:'inset(0 0 100% 0)'},{clipPath:'inset(0 0 0 0)'}],
+        {duration:620,easing:'cubic-bezier(.3,.05,.22,1)'});
+      const contents = [...panel.children].filter(el => !el.classList.contains('celestial-sky'));
+      const fades = contents.map(el => el.animate(
+        [{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],
+        {duration:380,delay:230,easing:'ease-out',fill:'backwards'}));
+      skyAnimations.set(panel,[reveal,...fades]);
+    }
   }
 
   byId('version').textContent = 'v' + version;
@@ -297,7 +340,7 @@ export function createUI(actions, version) {
   });
   byId('room-copy').addEventListener('click', actions.copyRoom);
   byId('room-leave').addEventListener('click', actions.leaveRoom);
-  for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
+  for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => closePanel(button.closest('dialog')));
   return {
     open,
     setZoom(percent, atMinimum, atMaximum) {
@@ -321,7 +364,7 @@ export function createUI(actions, version) {
     setWeather(label) {
       weatherValue.value = label;
     },
-    close: (id) => byId(id).close(),
+    close: (id) => closePanel(byId(id)),
     activePanel: () => panels.find((panel) => panel.open)?.id,
     updateCraft: craftingUI.render,
     openChestId: inventoryUI.openChestId,

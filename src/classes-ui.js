@@ -11,7 +11,7 @@ function createCelestialSky(panel) {
   let seed = 27183;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const stars = [[], [], []];
-  for (let i = 0; i < 360; i++) {
+  for (let i = 0; i < 480; i++) {
     const x = random() * 1600, y = random() * 1000;
     const bright = i % 21 === 0;
     const radius = bright ? 1.15 + random() * .75 : .35 + random() * .7;

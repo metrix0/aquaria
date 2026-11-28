@@ -148,110 +148,121 @@
 .celestial-name small{display:block;margin-top:6px;font:11px/1.4 sans-serif;letter-spacing:0;color:#a7bbd0}
 
 
-/* Astral ascent: the native dialogs stay modal, but the world gives way to a sky. */
+
+/* The night sky is a dedicated scene. Only its reveal animates; controls never slide. */
 #game { background: #050813; }
-#game > #scene { transition: transform 780ms cubic-bezier(.22,.75,.18,1); }
-#game > .bottom { transition: opacity 240ms ease; }
-#game:has(:is(#classes-panel,#skilltree-panel)[open]) > #scene { transform: translateY(100%); }
-#game:has(:is(#classes-panel,#skilltree-panel)[open]) > .bottom { opacity: 0; }
-:is(#classes-panel,#skilltree-panel) {
-  position: fixed; inset: 0; margin: 0;
-  width: 100%; height: 100dvh; max-width: none; max-height: none;
-  padding: clamp(16px,3vw,44px) clamp(18px,5vw,76px);
-  border: 0; border-radius: 0; box-shadow: none; isolation: isolate;
-  overflow: auto; overflow-x: hidden; overscroll-behavior: contain;
-  background: #050813; color: #dbe6f5;
-  transform: translateY(-100%); opacity: .8;
-  transition: transform 780ms cubic-bezier(.22,.75,.18,1), opacity 560ms ease,
-    display 780ms allow-discrete, overlay 780ms allow-discrete;
-}
-:is(#classes-panel,#skilltree-panel)[open] { transform: none; opacity: 1; }
-@starting-style {
-  :is(#classes-panel,#skilltree-panel)[open] { transform: translateY(-100%); opacity: .8; }
-}
+#game > #scene { transition: transform 620ms cubic-bezier(.3,.05,.22,1), filter 440ms ease; transform-origin: center 35%; }
+#game > .bottom { transition: opacity 180ms ease; }
+#game:has(:is(#classes-panel,#skilltree-panel)[open]:not(.sky-leaving)) > #scene { transform: translateY(31%) scale(1.08); filter: brightness(.55); }
+#game:has(:is(#classes-panel,#skilltree-panel)[open]:not(.sky-leaving)) > .bottom { opacity: 0; }
+:is(#classes-panel,#skilltree-panel) { position: fixed; inset: 0; margin: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; isolation: isolate; background: #050813; color: #dbe6f5; overflow: hidden; }
+:is(#classes-panel,#skilltree-panel)[open] { display: grid; grid-template-rows: auto minmax(0,1fr); }
 :is(#classes-panel,#skilltree-panel)::backdrop { background: transparent; backdrop-filter: none; }
-:is(#classes-panel,#skilltree-panel) > :not(.celestial-sky) {
-  position: relative; z-index: 1; max-width: 1180px; margin-inline: auto;
-}
-:is(#classes-panel,#skilltree-panel) > .dialog-head {
-  margin-bottom: 12px; padding-bottom: 10px;
-  border-bottom: 1px solid #9fb5dd26;
-}
-:is(#classes-panel,#skilltree-panel) .dialog-head h2 {
-  font: 400 11px/1.4 var(--mono,monospace); text-transform: uppercase; letter-spacing: .24em; color: #a5b7cf;
-}
-:is(#classes-panel,#skilltree-panel) .dialog-head button {
-  width: 38px; height: 38px; border: 1px solid #9bb6d653; background: #0a1426a8;
-  color: #d5e4f5; transition: background .2s,border-color .2s;
-}
+:is(#classes-panel,#skilltree-panel) > :not(.celestial-sky) { position: relative; z-index: 1; min-width: 0; }
+:is(#classes-panel,#skilltree-panel) > .dialog-head { margin: 0; padding: 10px clamp(18px,4vw,64px); border-bottom: 1px solid #a1b8d521; }
+:is(#classes-panel,#skilltree-panel) .dialog-head h2 { font: 400 10px/1.4 var(--mono,monospace); text-transform: uppercase; letter-spacing: .22em; color: #9cacbf; }
+:is(#classes-panel,#skilltree-panel) .dialog-head button { width: 34px; height: 34px; border: 1px solid #9bb6d653; background: #0a1426a8; color: #d5e4f5; }
 :is(#classes-panel,#skilltree-panel) .dialog-head button:hover { background: #26334e; border-color: #e1d0a8; }
-.celestial-sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 40%,#111c38 0%,#080f24 46%,#040711 100%); }
+.celestial-sky { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 35% 44%,#14223e 0%,#080e21 49%,#040610 100%); }
 .celestial-sky svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.sky-nebula { position: absolute; inset: -15%; opacity: .77;
-  background:
-    radial-gradient(ellipse at 32% 28%,#3c478949,transparent 34%),
-    radial-gradient(ellipse at 76% 57%,#4c316655,transparent 35%),
-    radial-gradient(ellipse at 43% 66%,#256a7b3b,transparent 38%),
-    linear-gradient(153deg,transparent 22%,#596b9820 39%,#738bb52a 49%,#454f8620 58%,transparent 74%);
-  animation: sky-drift 28s ease-in-out infinite alternate;
-}
-.sky-horizon { position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 110%,#25496263,transparent 47%),
-    linear-gradient(to bottom,transparent 60%,#02050d99 100%); }
+.sky-nebula { position: absolute; inset: -12%; opacity: .95; background:
+  radial-gradient(ellipse at 25% 36%,#376a893b,transparent 37%),
+  radial-gradient(ellipse at 65% 24%,#57457850,transparent 38%),
+  radial-gradient(ellipse at 52% 60%,#1f657752,transparent 37%),
+  linear-gradient(152deg,transparent 17%,#50658e18 32%,#96a7bc23 43%,#5c6a9a24 49%,#393c7620 59%,transparent 72%);
+  animation: sky-drift 32s ease-in-out infinite alternate; }
+.sky-horizon { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 115%,#1f426b58,transparent 53%),linear-gradient(to bottom,#02050d40,transparent 24%,transparent 64%,#02050dbb); }
 .sky-stars-0 { animation: sky-twinkle 8s ease-in-out infinite alternate; }
 .sky-stars-1 { animation: sky-twinkle 13s -4s ease-in-out infinite alternate; }
 .sky-stars-2 { animation: sky-twinkle 10s -7s ease-in-out infinite alternate; }
 @keyframes sky-twinkle { from { opacity: .55; } to { opacity: 1; } }
-@keyframes sky-drift { from { transform: translate3d(-1%,1%,0) rotate(-3deg); } to { transform: translate3d(2%,-1%,0) rotate(3deg); } }
-.celestial-header { border-bottom: 0; padding: 8px 0 14px; }
-.celestial-header small { font-size: 11px; letter-spacing: .23em; }
-.celestial-header h3 { font-size: clamp(30px,4vw,56px); text-shadow: 0 0 32px color-mix(in srgb,var(--soul-accent) 23%,transparent); }
-.celestial-layout { grid-template-columns: minmax(0,1fr) minmax(250px,30%); gap: clamp(28px,5vw,76px); }
-.celestial-map { width: min(100%,680px,max(330px,calc((100dvh - 300px) * 1.45))); aspect-ratio: 1.45; margin: 26px auto 14px;
-  background: radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--soul-accent) 13%,transparent),transparent 69%); }
-.celestial-orbits { fill: none; stroke: #a7c1e0; stroke-width: .16; opacity: .19; vector-effect: non-scaling-stroke; }
-.celestial-outline { stroke-width: .28; opacity: .38; }
-.celestial-link { stroke: #7086a9; stroke-width: .34; opacity: .5; transition: stroke .3s,opacity .3s; }
-.celestial-link.path-focused { stroke: #c1d7f5; opacity: .92; stroke-width: .43; }
-.celestial-link.lit { stroke: var(--soul-accent); opacity: 1; stroke-width: .5; filter: drop-shadow(0 0 2px var(--soul-accent)); }
-.celestial-star { width: clamp(32px,3.8vw,46px); height: clamp(32px,3.8vw,46px); }
-.celestial-star span { text-shadow: 0 0 7px currentColor,0 0 18px currentColor; }
-.celestial-star.path-focused:not(.major) { color: #bdd8f7; }
-.celestial-star.available:not(.major),.celestial-star.unlocked:not(.major) { color: #effaff; }
-.celestial-star.unlocked:not(.major) { color: var(--soul-accent); }
-.celestial-star[aria-pressed=true] { color: #fff; box-shadow: 0 0 24px color-mix(in srgb,var(--soul-accent) 48%,transparent); }
-.celestial-star[aria-pressed=true] span { animation: star-breathe 3.2s ease-in-out infinite alternate; }
-@keyframes star-breathe { from { opacity: .8; } to { opacity: 1; } }
-.celestial-star.major { box-shadow: 0 0 23px #e3b87b35,inset 0 0 12px #ae815b18; }
-.celestial-star.major.available,.celestial-star.major.unlocked { box-shadow: 0 0 24px #f3ba6870; }
-.celestial-star .entry-label { font: 600 clamp(9px,1vw,11px)/1.2 var(--mono,monospace); letter-spacing: .06em; color: #d5e2f3; }
-.celestial-name { font-size: clamp(19px,2vw,27px); color: #e7e2d7; margin-bottom: 20px; }
-.celestial-name small { color: #a5b5cd; font-size: 11px; }
-.celestial-inspector { margin-top: 44px; padding: 24px 0 24px 28px; border-left: 1px solid #93aed53d; }
-.celestial-inspector-glyph { font-size: 68px; margin: 18px 0 12px; }
-.celestial-inspector h4 { font-size: clamp(25px,3vw,36px); }
-.celestial-inspector p { color: #c1cce0; }
-.celestial-inspector #awaken-skill { background: linear-gradient(110deg,#15263d,#101625); }
-.celestial-inspector #awaken-skill:not(:disabled) { box-shadow: 0 0 20px color-mix(in srgb,var(--soul-accent) 18%,transparent); }
-.celestial-souls { border-color: #a5bddc32; }
-.celestial-slot { border-color: #9bb3d65c; background: #080e1b8c; }
-.celestial-pool:empty { display: none; }
-.celestial-slots { margin-top: 8px; }
+@keyframes sky-drift { from { transform: translate3d(-1%,1%,0) rotate(-2deg); } to { transform: translate3d(2%,-1%,0) rotate(2deg); } }
+#classes-panel[open] { display: flex; flex-direction: column; overflow-y: auto; }
+#classes-panel > :not(.celestial-sky):not(.dialog-head) { width: min(1120px,calc(100% - 36px)); margin-inline: auto; }
 #classes-panel .calling-card { background: radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--soul-accent) 13%,transparent),transparent 60%),#0a1326b5; }
+#classes-panel .celestial-sky { position: fixed; }
+#skilltree-content { min-height: 0; height: 100%; width: 100%; max-width: 1500px; margin: 0 auto; padding: clamp(10px,2vh,24px) clamp(18px,4vw,64px) clamp(12px,2.4vh,30px); }
+.celestial-tree { display: grid; grid-template-rows: auto minmax(0,1fr); gap: 6px; height: 100%; min-height: 0; }
+.celestial-header { border: 0; padding: 0; }
+.celestial-header small { font-size: 10px; letter-spacing: .2em; }
+.celestial-header h3 { font-size: clamp(28px,4.8vh,48px); margin-top: 3px; text-shadow: 0 0 32px color-mix(in srgb,var(--soul-accent) 23%,transparent); }
+.celestial-layout { min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) minmax(230px,30%); grid-template-rows: minmax(0,1fr) auto auto; column-gap: clamp(22px,4vw,60px); row-gap: 8px; }
+.celestial-main { display: contents; }
+.celestial-map { grid-area: 1/1; width: calc(100% - 84px); height: calc(100% - 44px); max-width: 760px; min-width: 0; min-height: 0; aspect-ratio: auto; align-self: center; justify-self: center; margin: 0; background: radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--soul-accent) 11%,transparent),transparent 72%); }
+.celestial-orbits { fill: none; stroke: #a7c1e0; stroke-width: .12; opacity: .13; }
+.celestial-outline { stroke-width: .23; opacity: .52; }
+.celestial-link { stroke: #7794bb; stroke-width: .34; opacity: .55; transition: stroke .25s,opacity .25s; }
+.celestial-link.path-focused { stroke: #d8e9ff; opacity: .95; stroke-width: .44; }
+.celestial-link.lit { stroke: var(--soul-accent); opacity: 1; stroke-width: .53; filter: drop-shadow(0 0 2px var(--soul-accent)); }
+.celestial-star { width: clamp(28px,4.5vh,44px); height: clamp(28px,4.5vh,44px); }
+.celestial-star span { font-size: clamp(20px,3.6vh,29px); text-shadow: 0 0 6px currentColor,0 0 16px currentColor; }
+.celestial-star.path-focused:not(.major) { color: #c5dcff; }
+.celestial-star.available:not(.major) { color: #effaff; }
+.celestial-star.unlocked:not(.major) { color: var(--soul-accent); }
+.celestial-star[aria-pressed=true] { color: #fff; box-shadow: 0 0 22px color-mix(in srgb,var(--soul-accent) 48%,transparent); }
+.celestial-star.major { width: clamp(32px,5vh,50px); height: clamp(32px,5vh,50px); box-shadow: 0 0 20px #e3b87b35,inset 0 0 12px #ae815b18; }
+.celestial-star.major span { font-size: clamp(24px,4vh,36px); }
+.celestial-star.major.available,.celestial-star.major.unlocked { box-shadow: 0 0 24px #f3ba6870; }
+.celestial-star .entry-label { font: 600 clamp(9px,1.1vw,11px)/1.2 var(--mono,monospace); letter-spacing: .04em; color: #d5e2f3; }
+.celestial-name { grid-area: 2/1; font-size: clamp(17px,2.8vh,25px); color: #e7e2d7; margin: 0; }
+.celestial-name small { margin-top: 3px; font-size: 10px; color: #91a4bd; }
+.celestial-souls { grid-area: 3/1; padding: 8px 0; border-color: #a5bddc32; }
+.celestial-souls strong { font-size: clamp(19px,3vh,25px); }
+.celestial-inspector { grid-area: 1/2/3/3; align-self: center; min-height: 0; max-height: 100%; overflow: auto; margin: 0; padding: 12px 0 12px clamp(14px,2.8vw,32px); border-left: 1px solid #93aed53d; scrollbar-width: thin; }
+.celestial-inspector-glyph { font-size: clamp(32px,7vh,64px); margin: 6px 0 8px; }
+.celestial-inspector h4 { font-size: clamp(22px,3.5vh,34px); margin: 0 0 10px; }
+.celestial-inspector p { font-size: clamp(12px,1.9vh,15px); line-height: 1.5; color: #c1cce0; margin-bottom: 14px; }
+.celestial-inspector #awaken-skill { margin-top: 8px; padding: 9px; background: linear-gradient(110deg,#15263d,#101625); }
+.celestial-inspector #awaken-skill:not(:disabled) { box-shadow: 0 0 20px color-mix(in srgb,var(--soul-accent) 18%,transparent); }
+.celestial-cost { padding-top: 8px; }
+.celestial-loadout { grid-area: 3/2; padding: 0; align-self: end; min-width: 0; }
+.celestial-loadout-head strong { font-size: 13px; }
+.celestial-pool { margin: 4px 0; gap: 4px; max-height: 70px; overflow: auto; }
+.celestial-pool:empty { display: none; }
+.celestial-tree .celestial-pool button { padding: 4px 7px; }
+.celestial-slot { border-color: #9bb3d65c; background: #080e1b8c; }
+.celestial-slots { margin-top: 5px; }
+.celestial-slot button[data-equip-slot] { padding: 5px; }
+.skill-empty { height: 100%; min-height: 0; }
 @media(max-width:720px) {
-  :is(#classes-panel,#skilltree-panel) { padding: 14px 18px 24px; }
-  .celestial-layout { grid-template-columns: 1fr; gap: 10px; }
-  .celestial-map { width: min(100%,450px); aspect-ratio: 1.16; margin-top: 20px; margin-bottom: 12px; }
-  .celestial-star { width: 32px; height: 32px; }
+  :is(#classes-panel,#skilltree-panel) > .dialog-head { padding: 6px 14px; }
+  #skilltree-content { padding: 8px 14px 12px; }
+  .celestial-tree { gap: 2px; }
+  .celestial-header h3 { font-size: 27px; }
+  .celestial-layout { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0,1fr) auto auto auto; gap: 5px 10px; }
+  .celestial-map { grid-area: 1/1/2/3; width: calc(100% - 58px); height: calc(100% - 28px); max-width: 440px; }
+  .celestial-name { grid-area: 2/1/3/3; font-size: 17px; }
+  .celestial-name small { display: none; }
+  .celestial-inspector { grid-area: 3/1/4/3; align-self: start; padding: 6px 0; border-left: 0; border-block: 1px solid #d2e6ff25; max-height: 27vh; }
+  .celestial-inspector-glyph { display: none; }
+  .celestial-inspector h4 { font-size: 20px; margin: 3px 0; }
+  .celestial-inspector p { font-size: 12px; margin-bottom: 5px; }
+  .celestial-cost { padding-top: 4px; font-size: 12px; }
+  .celestial-inspector #awaken-skill { margin-top: 5px; padding: 5px; }
+  .celestial-souls { grid-area: 4/1; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 4px 0; border: 0; }
+  .celestial-souls > div { justify-content: flex-start; gap: 4px; }
+  .celestial-souls strong { font-size: 17px; }
+  .celestial-souls strong small { font-size: 10px; }
+  .soul-dot { font-size: 17px; }
+  .celestial-loadout { grid-area: 4/2; }
+  .celestial-slots { gap: 4px; }
+  .celestial-slot button[data-equip-slot] { gap: 4px; padding: 3px; font-size: 10px; }
+  .celestial-slot kbd { font-size: 10px; }
   .celestial-star .entry-label { font-size: 9px; letter-spacing: 0; }
-  .celestial-inspector { margin: 0; padding: 12px 0; border-left: 0; }
-  .celestial-inspector h4 { font-size: 24px; }
-  .celestial-name { margin-bottom: 8px; }
+}
+@media(max-height:540px) and (min-width:721px) {
+  #skilltree-content { padding-block: 6px; }
+  .celestial-header h3 { font-size: 25px; }
+  .celestial-inspector-glyph { display: none; }
+  .celestial-map { height: calc(100% - 26px); }
+  .celestial-name small { display: none; }
+}
+@media(max-width:720px) and (max-height:560px) {
+  #skilltree-content { overflow: auto; }
+  .celestial-tree { min-height: 500px; }
 }
 @media(prefers-reduced-motion:reduce) {
-  #game > #scene,#game > .bottom,:is(#classes-panel,#skilltree-panel) { transition: none; }
+  #game > #scene,#game > .bottom { transition: none; }
   :is(#classes-panel,#skilltree-panel) .sky-nebula,
-  :is(#classes-panel,#skilltree-panel) .sky-stars,
-  .celestial-star[aria-pressed=true] span { animation: none; }
+  :is(#classes-panel,#skilltree-panel) .sky-stars { animation: none; }
 }

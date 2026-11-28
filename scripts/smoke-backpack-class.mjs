@@ -35,9 +35,13 @@ try {
   assert.equal(await tree.locator('.celestial-sky').count(),1);
   assert.equal(await tree.locator('.celestial-link.path-focused').count(),2);
   await tree.locator('.celestial-star').first().waitFor();
+  await tree.evaluate(async el => { await Promise.allSettled(el.getAnimations().map(a=>a.finished)); });
   const bounds=await tree.boundingBox();
   assert.ok(Math.abs(bounds.width-viewport.width)<=1);
   assert.ok(Math.abs(bounds.height-viewport.height)<=1);
+  assert.equal(await tree.evaluate(el => el.scrollHeight<=el.clientHeight+1),true);
+  const fit=await tree.locator('.celestial-star,.entry-label,.celestial-slots,.celestial-souls').evaluateAll(els=>els.every(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1;}));
+  assert.ok(fit,'stars, labels and loadout remain in viewport');
   assert.equal(await shortcut.evaluate(e=>e.style.getPropertyValue('--class-accent')),'');
   assert.equal(await tree.locator('.celestial-star.major.locked').count(),3);
   assert.equal(await tree.locator('.celestial-souls button').count(),0);
