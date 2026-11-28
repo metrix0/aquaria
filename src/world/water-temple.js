@@ -8,10 +8,10 @@ const TILE_SIZE = 16;
 export const WATER_TEMPLE = Object.freeze({
   center: -412 - WEST_EXTRA,
   left: -449 - WEST_EXTRA,
-  right: -318 - WEST_EXTRA,
+  right: -292 - WEST_EXTRA,
   seabedRow: 113,
   deckRow: 109,
-  topRow: 27,
+  topRow: 24,
   approachRow: 76,
   approachWest: -359 - WEST_EXTRA,
   approachEast: -339 - WEST_EXTRA,
@@ -89,8 +89,8 @@ export function waterTempleFoundationTop(column) {
   const { center, deckRow, approachRow, approachWest, approachEast } = WATER_TEMPLE;
   // The elevated coral-gate terrace is continuous on both sides of the barrier.
   if (column >= approachWest && column <= approachEast) return approachRow;
-  // Broad, paired stone treads climb from the eastern seabed toward the puzzle.
-  if (column > approachEast) return approachRow + 2 * Math.ceil((column - approachEast) / 2);
+  // Long processional steps climb from the eastern seabed into the temple's gatehouse.
+  if (column > approachEast) return approachRow + 2 * Math.ceil((column - approachEast) / 3);
   // The western processional steps lead down from the gate to the main portico.
   if (column >= -381 - WEST_EXTRA) return Math.min(deckRow, approachRow + 3 * Math.ceil((approachWest - column) / 2));
   const distance = Math.abs(column - center);

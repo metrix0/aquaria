@@ -77,6 +77,9 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
     assert.ok(rise >= 0 && rise <= 2, 'eastern stairs descend toward the ocean floor');
   }
 
+  assert.ok(WATER_TEMPLE.right - WATER_TEMPLE.approachEast >= 40, 'long processional staircase');
+  assert.ok(waterTempleFoundationTop(WATER_TEMPLE.right) >= WATER_TEMPLE.approachRow + 25, 'stair foot reaches the ocean floor');
+
   // Neighboring breathing vents stay unobstructed.
   for (const ventCol of [CORAL_COLUMN + 27, CORAL_COLUMN - 95]) {
     const vent = world.vents.find((v) => Math.floor(v.x / TILE) === ventCol + WEST_EXTENSION);
@@ -163,7 +166,9 @@ test('water temple braziers emit aqua sanctuary glow and renderer draws the temp
     assert.ok(fills.some((f) => f.fillStyle === '#244656'), 'renders carved temple stone masonry');
     assert.ok(gradStops.some((c) => c.startsWith('rgba(167, 241, 234,')), 'renders aqua brazier light');
 
+    fills.length = 0;
     renderer.draw({ ...frame, overview: true });
+    assert.ok(fills.some(f => f.fillStyle === '#dfc59a'), 'overview retains the temple gold ornament and exposed stone rims');
 
     // Also render east puzzle wing & smaller puzzle door on the right side of the coral wall.
     const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);

@@ -57,6 +57,7 @@ import {
 } from "./world/generation.js";
 import { createShipwreckArt } from "./shipwreck-art.js";
 import { createWaterTempleArt } from "./water-temple-art.js";
+import { waterTempleStoneAt, waterTempleFoundationTop } from "./world/water-temple.js";
 import { birdFlightAt } from "./world/birds.js";
 import { HELMET_WRECK_COLUMN } from "./world/shipwreck.js";
 import { createSurfaceLight } from "./world/lighting.js";
@@ -1679,6 +1680,11 @@ export function createRenderer(canvas) {
               ? 0
               : 0.34
             : undergroundAmbientAt(world, player, x, y);
+        // Exposed temple foundations are carved underwater architecture, not unlit cave rock.
+        if (world?.zone !== WATER_TEMPLE_ZONE && waterTempleStoneAt(x - WEST_EXTENSION, y)) {
+          const depth = y - waterTempleFoundationTop(x - WEST_EXTENSION);
+          if (depth < 12) ambient = Math.max(ambient, .63 - depth * .025);
+        }
         const color = caveLight.colorAt(x, y);
         lightPixels.data[pixel + 3] = (1 - light) * (1 - ambient) * 218;
         // Pale overlay colors brighten every channel without painting over texture.
@@ -2110,7 +2116,7 @@ export function createRenderer(canvas) {
     const { left, right, top, bottom } = bounds;
     const inTemple = world?.zone === WATER_TEMPLE_ZONE;
     if (!inTemple) shipwreckArt.backdrop(world, bounds);
-    waterTempleArt.backdrop(world, bounds, time, overview);
+    if (!inTemple) waterTempleArt.backdrop(world, bounds, time, overview);
     if (!inTemple) helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
       for (let y = top; y < bottom; y++) {
@@ -2121,6 +2127,7 @@ export function createRenderer(canvas) {
           drawLivingReefTile(x, y, overview);
           continue;
         }
+        if (!inTemple && material === MATERIAL.stone && waterTempleArt.masonry(world, x, y, material, overview)) continue;
         if (overview && material && !ore && material !== MATERIAL.workbench && material !== MATERIAL.fireplace && material !== MATERIAL.cauldron) {
           // At this scale each tile is only a few pixels wide. Paint continuous rock in one pass.
           const start = y;
@@ -2138,7 +2145,7 @@ export function createRenderer(canvas) {
         }
         const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
-          if (overview || (!shipwreckArt.timber(world, x, y, material) && !waterTempleArt.masonry(world, x, y, material, overview)))
+          if (overview || (!shipwreckArt.timber(world, x, y, material)))
             drawTile(world, x, y, material, oreOpacity, overview, time);
           if (ore && !overview && (player.addons?.chest === 'prospectors-brooch' || (player.skillBonuses?.ore ?? 0) > 0) &&
               Math.hypot(x + .5 - player.x / TILE,
