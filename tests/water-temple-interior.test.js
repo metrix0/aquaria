@@ -159,6 +159,9 @@ test('each nearby starter statue awakens its class only after the animation; dis
   transitionZone(game, WATER_TEMPLE_ZONE);
   const statues = game.world.items.filter(i => i.kind === 'class-statue');
   assert.equal(beginClassStatueAwakening(game, statues[2]), false);
+  assert.equal(statues[1].x - statues[0].x, 7 * TILE);
+  assert.equal(statues[2].x - statues[1].x, 7 * TILE);
+  assert.ok(game.world.cols <= 50, 'compact class chamber');
   for (const statue of statues) {
     assert.ok(CLASS_STATUE_HEIGHT >= 2 * PLAYER_SIZE.height && CLASS_STATUE_HEIGHT <= 3 * PLAYER_SIZE.height);
     assert.equal(statue.bounds.height, CLASS_STATUE_HEIGHT);

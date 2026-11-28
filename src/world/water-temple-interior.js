@@ -8,11 +8,11 @@ export const OVERWORLD_ZONE = 'overworld';
 export const WATER_TEMPLE_ZONE = 'water-temple';
 
 export const WATER_TEMPLE_INTERIOR = Object.freeze({
-  cols: 84,
-  rows: 38,
-  waterRow: 38,
-  lowerFloorRow: 32,
-  exitColumn: 10,
+  cols: 46,
+  rows: 26,
+  waterRow: 26,
+  lowerFloorRow: 20,
+  exitColumn: 7,
   exitDoorWidthTiles: 4,
   exitDoorHeightTiles: 6,
 });
@@ -49,7 +49,7 @@ export const STATUE_AWAKEN_SECONDS = 1.65;
 export const CLASS_STATUE_HEIGHT = 68;
 export const CLASS_STATUE_HALF_WIDTH = 26;
 export const CLASS_STATUES = Object.freeze(STARTER_CLASS_IDS.map((classId, index) => {
-  const column = [24, 43, 62][index];
+  const column = [17, 24, 31][index];
   const floor = WATER_TEMPLE_INTERIOR.lowerFloorRow;
   const def = STARTER_CLASSES[classId];
   return Object.freeze({
@@ -82,14 +82,14 @@ export function createWaterTempleWorld() {
     x: exitX - width / 2, y: lowerFloorRow * TILE - height, width, height };
   // Preserve the existing sanctum reward and chest ID so saved loot is not reset.
   const chest = { id: 'water-temple-sanctum-chest', name: 'Sanctum Chest', kind: 'chest',
-    loot: { ...TEMPLE_SANCTUM_LOOT }, x: 76 * TILE, y: lowerFloorRow * TILE - 8 };
+    loot: { ...TEMPLE_SANCTUM_LOOT }, x: 40 * TILE, y: lowerFloorRow * TILE - 8 };
   return {
     zone: WATER_TEMPLE_ZONE, cols, rows, waterRow, immutableTerrain: true, grid, flooded,
     items: [...CLASS_STATUES, chest],
     templeDoors: [{ id: 'water-temple-exit-door', kind: 'temple-door', targetZone: OVERWORLD_ZONE,
       name: 'Water Temple Exit', prompt: 'Exit Water Temple', tx: exitColumn, floor: lowerFloorRow,
       x: exitX, y: lowerFloorRow * TILE - 16, bounds: exitBounds }],
-    braziers: [7, 15, 33, 52, 71, 77].map(tx => ({ tx, floor: lowerFloorRow, main: true })),
+    braziers: [5, 11, 13, 21, 28, 35, 38].map(tx => ({ tx, floor: lowerFloorRow, main: true })),
     statueAwakening: null,
     trees: [], caveMushrooms: [], doors: new Map(), tent: null, mobs: [],
     caveTraps: [], caveClimbs: [], caveStructures: [], mineDecks: [], projectiles: [], vents: [],
