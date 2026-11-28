@@ -83,14 +83,15 @@ export function drawElementalImpact(ctx,rect,polygon,fx) {
     return;
   }
   if(fx.spellFx==='storm-arc'){
-    // Local rolling thundercloud, rain, forked downstrike, electrical afterglow.
-    const top=-Math.max(30,r*1.3),fade=Math.min(1,(1-t)*3);
-    ctx.save();ctx.globalAlpha*=fade;
-    for(let i=0;i<7;i++){const x=(i-3)*8,y=top+Math.sin(i*2+t*5)*3;
-      cluster(rect,x,y,9+(i%3),'#293748');cluster(rect,x-1,y-3,7,'#46566b');}
-    for(let i=0;i<19;i++){const px=(noise(i+12)-.5)*58,py=top+7+((noise(i+3)+t*2.7)%1)*45;rect(px,py,1,5,'#799bc1');}
-    if(t<.68){const seed=Math.floor(t*19);lightning(ctx,-6,top+5,0,0,seed,t<.15?1:.85);if(t<.24)lightning(ctx,16,top+6,12,6,seed+3,.65);}
-    for(let i=0;i<8;i++){const a=noise(i+11)*Math.PI*2,d=t*23;rect(Math.cos(a)*d,Math.sin(a)*d,2,2,'#dceaff');}
+    // Brief contact flash and tiny, jagged electrical sparks at the struck
+    // point. No cloud or downward strike; the beam provides the direction.
+    ctx.save();ctx.globalAlpha*=1-t;
+    if(t<.3){cluster(rect,0,0,4*(1-t),'#a9bfff');cluster(rect,0,0,2,'#ffffff');}
+    for(let i=0;i<7;i++){
+      const a=noise(i+11)*Math.PI*2,d=r*(.3+t*.9),px=Math.cos(a)*d,py=Math.sin(a)*d;
+      const dx=Math.cos(a)*4,dy=Math.sin(a)*4;
+      bolt(ctx,[[px-dx,py-dy],[px-dy*.7,py+dx*.7],[px+dx,py+dy]],i%2?'#b4cbff':'#f9fbff',1);
+    }
     ctx.restore();return;
   }
   if(fx.spellFx==='frost-lance'){

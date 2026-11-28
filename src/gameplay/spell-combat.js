@@ -1,5 +1,5 @@
 import { TILE } from '../world/generation.js';
-import { solidAt } from '../world.js';
+import { solidAt, worldCols, worldRows } from '../world.js';
 import { damageMob, mobSpec } from './mobs.js';
 import { MAX_HEALTH } from './player.js';
 import { beneficial } from './effect-potency.js';
@@ -23,7 +23,7 @@ function candidates(game,x,y,radius,excluded=new Set()) {
   return result.sort((a,b)=>a.d-b.d);
 }
 export function spellVisual(game,kind,x,y,radius,color,endX,endY) {
-  const duration={beam:.55, 'healing-stream':.8, mend:1.15, firebolt:.95, 'frost-lance':.72, 'storm-arc':.85, 'tidal-pulse':.7}[kind]??.52;
+  const duration={beam:.32, 'healing-stream':.8, mend:1.15, firebolt:.95, 'frost-lance':.72, 'storm-arc':.32, 'tidal-pulse':.7}[kind]??.52;
   game.projectiles.push({spellFx:kind,x,y,radius,color,endX,endY,life:duration,duration});
 }
 function hit(game,mob,amount,x,y,force) {
@@ -39,6 +39,35 @@ export function burstSpell(game,kind,x,y,damage,radius,direct=null,splash=damage
   spellVisual(game,kind,x,y,radius,spell.color);
   game.effects.push({x,y,color:spell.color,count:kind==='firebolt'?30:24,spread:135});
 }
+// Trace the aimed discharge to the first solid tile or enemy. All visible
+// branches correspond to actual hits, never an unrelated weather effect.
+export function castStormArc(game,wx,wy,damage) {
+  const spell=SPELLS['storm-arc'], p=game.player, x=p.x, y=p.y+p.height/2;
+  const angle=Math.atan2(wy-y,wx-x), dx=Math.cos(angle),dy=Math.sin(angle);
+  p.facing=Math.sign(dx)||p.facing;
+  const ox=x+dx*5, oy=y+dy*5;
+  let ex=x,ey=y,target=null;
+  const points=[];
+  for(const mob of game.world.mobs){
+    if(mob.health<=0||mob.respawn>0)continue;
+    const spec=mobSpec(mob);if(!spec)continue;
+    const parts=mob.segments?.length?mob.segments:[{x:mob.x,y:mob.y+spec.centerY,radius:spec.radius*(mob.inflateScale??1)}];
+    for(const part of parts){
+      const vx=part.x-x,vy=part.y-y,along=vx*dx+vy*dy,r=(part.radius??0)+4;
+      if(along+r>=0&&along-r<=spell.range&&Math.abs(vx*dy-vy*dx)<=r)points.push({mob,part,r});
+    }
+  }
+  for(let d=4;d<=spell.range;d+=4){
+    const px=x+dx*d,py=y+dy*d,tx=Math.floor(px/TILE),ty=Math.floor(py/TILE);
+    if(tx<0||ty<0||tx>=worldCols(game.world)||ty>=worldRows(game.world)||solidAt(game.world,tx,ty))break;
+    ex=px;ey=py;
+    const contact=points.find(({part,r})=>Math.hypot(px-part.x,py-part.y)<=r);
+    if(contact){target=contact.mob;break;}
+  }
+  if(Math.hypot(ex-x,ey-y)>5)spellVisual(game,'beam',ox,oy,0,spell.color,ex,ey);
+  spellImpact(game,{x:ex,y:ey,spell:'storm-arc',damage,dx,dy,knockback:110},target);
+}
+
 export function spellImpact(game,projectile,mob=null) {
   const {x,y,spell:kind}=projectile,spell=SPELLS[kind];
   if(mob) {
@@ -54,14 +83,14 @@ export function spellImpact(game,projectile,mob=null) {
       const next=candidates(game,ox,oy,spell.radius,hitMobs)[0];if(!next) break;
       hitMobs.add(next.mob);
       spellVisual(game,'beam',ox,oy,0,spell.color,next.x,next.y);
-      spellVisual(game,'storm-arc',next.x,next.y,26,spell.color);
+      spellVisual(game,'storm-arc',next.x,next.y,10,spell.color);
       hit(game,next.mob,Math.max(1,Math.round(projectile.damage*.72**jump)),ox,oy,90);
       game.effects.push({x:next.x,y:next.y,color:spell.color,count:9,spread:75});
       ox=next.x;oy=next.y;
     }
-    spellVisual(game,'storm-arc',x,y,38,spell.color);
+    spellVisual(game,'storm-arc',x,y,12,spell.color);
   } else {
-    spellVisual(game,kind,x,y,kind==='frost-lance'?18:12,spell.color);
+    spellVisual(game,kind,x,y,kind==='frost-lance'?18:8,spell.color);
     game.effects.push({x,y,color:spell.color,count:12,spread:75});
   }
 }

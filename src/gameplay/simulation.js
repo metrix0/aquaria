@@ -2,7 +2,7 @@ import { wreckChestRareLoot } from '../world/shipwreck.js';
 import { KRAKEN_CHEST_LOOT } from '../loot.js';
 import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
-import { burstSpell, castMend, mendTarget, spellImpact, stepMendPulses } from './spell-combat.js';
+import { burstSpell, castMend, castStormArc, mendTarget, spellImpact, stepMendPulses } from './spell-combat.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
 import { activateClass, absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
@@ -363,6 +363,8 @@ export function useSpell(game, slot, wx, wy) {
   const power = amount => tome ? tomeEffect(player, amount) : amount;
   if (spell.heal) {
     castMend(game,healing.target,healing.local,power(spell.heal));
+  } else if (item.spell === 'storm-arc') {
+    castStormArc(game,wx,wy,skillAttackDamage(player,power(spell.damage),false,false));
   } else if (item.spell === 'tidal-pulse') {
     burstSpell(game,item.spell,player.x,player.y+player.height/2,skillAttackDamage(player,power(spell.damage),false,false),spell.radius);
   } else {

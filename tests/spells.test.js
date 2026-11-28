@@ -85,3 +85,23 @@ test('Tidal Pulse has an expanding shockwave and consumes its scroll', () => {
   assert.equal(g.inventory.hotbar[0],null);
   assert.ok(g.projectiles.some(p=>p.spellFx==='tidal-pulse'&&p.radius===56));
 });
+
+
+test('elemental damage remains differentiated and supports weapon combat', () => {
+  assert.equal(SPELLS.firebolt.damage,8);
+  assert.equal(SPELLS.firebolt.splash,4);
+  assert.equal(SPELLS['frost-lance'].damage,4);
+  assert.equal(SPELLS['storm-arc'].damage,7);
+  assert.deepEqual([1,2].map(j=>Math.round(SPELLS['storm-arc'].damage*.72**j)),[5,4]);
+  assert.equal(SPELLS['tidal-pulse'].damage,5);
+  assert.equal(SPELLS.mend.heal,20);
+});
+test('Storm Arc traces a real bolt from the player and does not launch a projectile', () => {
+  const g=createGame(),p=g.player;
+  g.world.mobs=[];
+  g.inventory.hotbar[0]={id:'storm-arc-tome',count:1};
+  useWeapon(g,0,p.x+100,p.y+p.height/2);
+  assert.ok(g.projectiles.every(e=>e.spellFx));
+  assert.ok(g.projectiles.some(e=>e.spellFx==='storm-arc'));
+  assert.equal(spellCooldown(g,SPELL_ITEMS['firebolt-tome']),12);
+});
