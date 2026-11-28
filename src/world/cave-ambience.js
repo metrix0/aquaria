@@ -97,7 +97,7 @@ export function caveFaunaInView(world, camera) {
 
 // Lazy, one-time cell seeding prevents massive offscreen mob arrays and makes
 // visited areas stable even when the player leaves and returns.
-export function spawnCaveFaunaNear(world, player) {
+export function spawnCaveFaunaNear(world, player, canSpawn = () => true) {
   const column = Math.floor(player.x / TILE) - WEST_EXTENSION;
   const row = Math.floor(player.y / TILE);
   if (!isDryIslandCave(column, row) && !isDryJungleCave(column, row)) return;
@@ -108,8 +108,11 @@ export function spawnCaveFaunaNear(world, player) {
     for (let x = Math.max(0, cx - 2); x <= Math.min(Math.floor((COLS - 1) / AMBIENT_CELL_WIDTH), cx + 2); x++) {
       const key = x + ':' + y;
       if (world.ambientCells.has(key)) continue;
+      const creatures = seedCreature(world, x, y);
+      // Leave the cell unseeded until its wildlife can appear out of sight.
+      if (creatures.some(creature => !canSpawn(creature.x, creature.y))) continue;
       world.ambientCells.add(key);
-      for (const creature of seedCreature(world, x, y)) {
+      for (const creature of creatures) {
         world.mobs.push({
           ...creature,
           homeX: creature.x, homeY: creature.y,

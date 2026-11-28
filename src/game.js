@@ -770,6 +770,7 @@ function frame(now) {
         mining: input.holdingMine(),
         night: conditions.night,
         flightSpeedMultiplier: flightSpeedLevels[flightSpeedIndex],
+        camera,
       }, timestep);
       for (const effect of game.effects) {
         emitEffect(effect);

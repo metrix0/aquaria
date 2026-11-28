@@ -612,7 +612,7 @@ export function stepGame(game, input, dt) {
   }
   stepAttack(game, dt);
   game.elapsed += dt;
-  const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects, input.camera);
   if (game.zone !== OVERWORLD_ZONE && game.worlds?.[OVERWORLD_ZONE]) {
     // Keep the overworld simulation advancing while the local player explores an interior zone.
     const overworldAnchor = {

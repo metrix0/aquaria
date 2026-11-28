@@ -18,13 +18,31 @@ export function pickEnemyType(night, roll) {
   return species.find((type) => (remaining -= type.spawnWeight[phase]) < 0);
 }
 
-export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) {
+// Natural arrivals must be outside both the player's local area and the visible camera.
+// The extra margin keeps pop-ins out of view while the camera follows the player.
+const SPAWN_MARGIN = 96;
+const SPAWN_DISTANCE = 320;
+export function naturalSpawnHidden(player, x, y, camera) {
+  if (Math.hypot(x - player.x, y - player.y - 11) < SPAWN_DISTANCE) return false;
+  if (!camera) return true;
+  return x < camera.x - SPAWN_MARGIN || x > camera.x + camera.width + SPAWN_MARGIN
+    || y < camera.y - SPAWN_MARGIN || y > camera.y + camera.height + SPAWN_MARGIN;
+}
+
+export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides, camera) {
   let count = 0;
   for (let i = mobs.length - 1; i >= 0; i--) {
     const mob = mobs[i];
     if (!mob.enemyType) continue;
     mob.remainingLife -= dt;
-    if (mob.remainingLife <= 0 || Math.hypot(mob.x - player.x, mob.y - player.y - 11) > 375 || fishCollides(mob.x, mob.y)) {
+    // Debug spawns are deliberately allowed on screen, including out of water.
+    if (mob.testSpawn) {
+      if (mob.remainingLife <= 0 && naturalSpawnHidden(player, mob.x, mob.y, camera)) mobs.splice(i, 1);
+      continue;
+    }
+    const hidden = naturalSpawnHidden(player, mob.x, mob.y, camera);
+    const far = Math.hypot(mob.x - player.x, mob.y - player.y - 11) > Math.max(600, (camera?.width ?? 0) + 320);
+    if (hidden && (mob.remainingLife <= 0 || far || fishCollides(mob.x, mob.y))) {
       mobs.splice(i, 1);
     } else {
       count++;
@@ -37,9 +55,11 @@ export function updateEnemySpawns(state, mobs, player, night, dt, fishCollides) 
 
   for (let attempt = 0; attempt < 12; attempt++) {
     const facing = Math.random() < 0.5 ? -1 : 1;
-    const x = player.x - facing * (92 + Math.random() * 125);
+    const edgeDistance = camera ? (facing > 0 ? player.x - camera.x : camera.x + camera.width - player.x) : 0;
+    const distance = Math.max(SPAWN_DISTANCE, edgeDistance + SPAWN_MARGIN + 24);
+    const x = player.x - facing * (distance + Math.random() * 125);
     const y = Math.max(WATER + 15, player.y + 12 - 60) + Math.random() * 85;
-    if (fishCollides(x, y) || mobs.some((mob) => Math.hypot(mob.x - x, mob.y - y) < 56)) continue;
+    if (!naturalSpawnHidden(player, x, y, camera) || fishCollides(x, y) || mobs.some((mob) => Math.hypot(mob.x - x, mob.y - y) < 56)) continue;
     const inLionfishBand = x >= (JUNGLE_FADE_START_COLUMN + WEST_EXTENSION) * TILE && y >= WATER + 20 * TILE && y <= WATER + 80 * TILE;
     if (inLionfishBand && Math.random() < 0.45) {
       mobs.push({

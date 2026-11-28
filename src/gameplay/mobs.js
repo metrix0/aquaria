@@ -9,7 +9,7 @@ import { playerWaterborne, takeDamage } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish, snapshotFishSchools, stepSchoolFish } from './friends/fish.js';
 import { mermaidCollides, mermaidSpec, stepMermaid } from './friends/mermaid.js';
-import { updateEnemySpawns } from './enemies/enemy-fish.js';
+import { naturalSpawnHidden, updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
 import { KRAKEN_DEATH_DURATION, krakenSpec, stepKraken, stepKrakenDeath } from './enemies/kraken.js';
 import { sharkSpec, stepShark } from './enemies/shark.js';
@@ -220,11 +220,12 @@ function syncCannibalForms(world, night, effects) {
   }
 }
 
-export function stepMobs(world, player, dt, time, mining, night, enemies, effects) {
-  spawnCaveFaunaNear(world, player);
+export function stepMobs(world, player, dt, time, mining, night, enemies, effects, camera) {
+  spawnCaveFaunaNear(world, player, (x, y) => naturalSpawnHidden(player, x, y, camera));
   syncCannibalForms(world, night, effects);
   updateEnemySpawns(enemies, world.mobs, player, night, dt, (x, y) =>
     atPeace(x, y) || fishCollides(world, player, x, y),
+    camera,
   );
   for (let i = world.mobs.length - 1; i >= 0; i--) {
     const mob = world.mobs[i];
@@ -253,6 +254,10 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       }
     }
     if (mob.respawn > 0) {
+      if (mob.respawn <= dt && !naturalSpawnHidden(player, mob.homeX, mob.homeY, camera)) {
+        mob.respawn = .1;
+        continue;
+      }
       mob.respawn = Math.max(0, mob.respawn - dt);
       if (mob.respawn === 0) {
         Object.assign(mob, {
