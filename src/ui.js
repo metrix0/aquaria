@@ -23,6 +23,8 @@ import { hudVisibility } from './hud-state.js';
 import { nearestDowned, REVIVE_SECONDS } from './gameplay/revival.js';
 import { areaDepth, nearestItem, oxygenCapacity } from './gameplay/simulation.js';
 
+import { TELEPORT_DESTINATIONS } from './gameplay/teleport.js';
+
 export function createUI(actions, version) {
   const byId = (id) => document.getElementById(id);
   const fields = Object.fromEntries([
@@ -284,6 +286,19 @@ export function createUI(actions, version) {
   byId('customize').addEventListener('click', () => open('customize-panel'));
   byId('craft').addEventListener('click', () => open('craft-panel'));
   byId('items').addEventListener('click', () => open('items-panel'));
+  byId('teleport').addEventListener('click', actions.teleportMenu);
+  for (const [index, destination] of TELEPORT_DESTINATIONS.entries()) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-keyshortcuts', String(index + 1));
+    const key = document.createElement('kbd');
+    key.textContent = index + 1;
+    const name = document.createElement('span');
+    name.textContent = destination.name;
+    button.append(key, name);
+    button.addEventListener('click', () => actions.teleportTo(index));
+    byId('teleport-destinations').append(button);
+  }
   byId('spawn').addEventListener('click', () => open('spawn-panel'));
   byId('drops').addEventListener('click', () => open('drops-panel'));
   byId('classes').addEventListener('click', () => open('classes-panel'));

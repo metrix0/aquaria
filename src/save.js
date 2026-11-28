@@ -97,13 +97,18 @@ export function decodeSave(data) {
 }
 
 export function encodeSave(game, saveTerrain = true) {
-  const { player, inventory, progress, world } = game;
+  const { player, inventory, progress } = game;
+  // The temple is a separate map: never overwrite the overworld save with its empty terrain.
+  const world = game.worlds?.overworld ?? game.world;
   const ringCooldown = Math.max(0, game.rootReadyAt - game.elapsed);
   const spellCooldowns = restoreSpellCooldowns(Object.fromEntries(Object.entries(game.spellReadyAt ?? {}).map(([id, ready]) => [id, ready - game.elapsed])));
   const edits = saveTerrain ? Array.from(editedTiles(world), ([x, y, material]) => [x - WEST_EXTENSION, y, MATERIAL_IDS[material]]) : [];
   const doors = saveTerrain ? Array.from(world.doors.values(), ({ tx, ty }) => [tx - WEST_EXTENSION, ty]) : [];
   const tent = saveTerrain && world.tent ? [world.tent.tx - WEST_EXTENSION, world.tent.ty] : null;
-  const { x, y, height } = player.downed ? { ...respawnPoint(world), height: PLAYER_SIZE.height } : (player.flightOrigin ?? player);
+  const returnPoint = game.world !== world ? game.overworldReturn : null;
+  const { x, y, height } = player.downed ? { ...respawnPoint(world), height: PLAYER_SIZE.height }
+    : game.world !== world ? { ...(returnPoint ?? respawnPoint(world)), height: PLAYER_SIZE.height }
+    : (player.flightOrigin ?? player);
   const position = { x: x - WEST_EXTENSION * TILE, y, health: player.downed ? 100 : player.health, oxygen: player.downed ? undefined : player.oxygen };
   if (player.armor) { position.armor = player.armor; if (player.perfectArmor) position.perfectArmor = true; }
   if (player.feet) position.feet = player.feet;

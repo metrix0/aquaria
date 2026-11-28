@@ -38,6 +38,16 @@ export function bindInput(canvas, camera, actions) {
     const code = event.code;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const panel = actions.blocked();
+    if (panel === 'teleport-panel') {
+      if (code === 'KeyT' || code === 'Escape') {
+        event.preventDefault();
+        if (!event.repeat) actions.teleportMenu?.();
+      } else if (/^(Digit|Numpad)[1-9]$/.test(code)) {
+        event.preventDefault();
+        if (!event.repeat) actions.teleportTo?.(Number(code.slice(-1)) - 1);
+      }
+      return;
+    }
     if (panel === 'items-panel') return;
     if (code === 'Tab' && !event.shiftKey && (!panel || (panel === 'backpack-panel' && !actions.chestOpen()))) {
       event.preventDefault();
@@ -77,7 +87,11 @@ export function bindInput(canvas, camera, actions) {
       event.preventDefault();
       actions.zoomBy?.(event.shiftKey ? 1 : -1);
     }
-    if (code === 'KeyT') actions.emotes?.();
+    if (code === 'KeyT') {
+      event.preventDefault();
+      if (event.shiftKey) actions.emotes?.();
+      else actions.teleportMenu?.();
+    }
     if (code === 'KeyB') actions.dance?.();
     if (code === 'KeyQ') actions.castSkill?.(0);
     if (code === 'KeyR') actions.castSkill?.(1);

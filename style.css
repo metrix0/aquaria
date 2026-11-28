@@ -422,6 +422,11 @@ dialog p { font-size: 13px; color: var(--muted); }
 
 #items-panel { width: min(504px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: clamp(12px, 4vw, 20px); }
 #drops-panel { width: min(480px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+#teleport-panel { width: min(360px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+#teleport-destinations { display: grid; gap: 8px; }
+#teleport-destinations button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid #42606b; border-radius: 4px; background: #132934; color: inherit; font: inherit; text-align: left; }
+#teleport-destinations button:hover, #teleport-destinations button:focus-visible { background: #203843; border-color: #749d9d; }
+#teleport-destinations kbd { min-width: 24px; text-align: center; }
 #spawn-panel { width: min(500px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
 .spawn-search-label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
 #spawn-search { width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid #42606b; border-radius: 4px; background: #08171f; color: #eef3e7; font: inherit; }

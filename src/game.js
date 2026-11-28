@@ -14,6 +14,7 @@ import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
 import { beginBowDraw, aimBow, releaseBowDraw, beginMorningstarSwing, aimMorningstar, releaseMorningstar, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, beginClassStatueAwakening, advanceClassStatueAwakening, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, templeDoorAt, transitionZone, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
+import { TELEPORT_DESTINATIONS, teleportPlayer } from './gameplay/teleport.js';
 import { useScholarSkill, receiveFeasts } from './gameplay/scholar.js';
 import { receiveMends } from './gameplay/spell-combat.js';
 import { useWayfarerSkill } from './gameplay/wayfarer.js';
@@ -264,6 +265,7 @@ function switchView() {
   ui.close('craft-panel');
   ui.close('items-panel');
   ui.close('spawn-panel');
+  ui.close('teleport-panel');
   ui.close('drops-panel');
   craftingBench = undefined;
   input.clear();
@@ -353,6 +355,8 @@ const ui = createUI({
   emitEmoji,
   dance: toggleDance,
   adjustFlightSpeed,
+  teleportMenu,
+  teleportTo,
   adjustWeather(step) {
     weatherModeIndex = (weatherModeIndex + step + WEATHER_MODES.length) % WEATHER_MODES.length;
     const mode = WEATHER_MODES[weatherModeIndex];
@@ -584,9 +588,38 @@ const input = bindInput(canvas, camera, {
   toggleGodMode: toggleGodModeState,
   cycleFlightSpeed,
   zoomBy,
+  teleportMenu,
+  teleportTo,
   emotes: () => { if (!game.player.downed) ui.toggleEmotes(); },
   dance: toggleDance,
 });
+
+function teleportMenu() {
+  if (game.player.downed || game.world.statueAwakening || editPending) return;
+  ui.toggleEmotes(false);
+  ui.open('teleport-panel');
+}
+
+function teleportTo(index) {
+  if (editPending || ui.activePanel() !== 'teleport-panel') return;
+  const destination = TELEPORT_DESTINATIONS[index];
+  if (!destination) return;
+  if (!teleportPlayer(game, destination.id)) {
+    ui.notify('Teleport destination unavailable.');
+    return;
+  }
+  ui.close('teleport-panel');
+  input.clear();
+  input.pointer.active = false;
+  mining = null;
+  miningSwing = null;
+  particles.length = 0;
+  screenShake.clear();
+  ui.godMode(Boolean(game.player.flightOrigin));
+  resetCameraFraming();
+  updateCamera(0, true);
+  storeProgress();
+}
 
 function zoomBy(delta) {
   zoomIndex = clamp(zoomIndex + delta, 0, zoomLevels.length - 1);
