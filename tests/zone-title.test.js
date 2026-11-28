@@ -7,7 +7,7 @@ import { coralWallBounds } from '../src/world/ocean-layout.js';
 
 const at = (column, row) => zoneAt({ x: (column + WEST_EXTENSION) * TILE + 8, y: row * TILE - 11, height: 23 });
 test('only major regions have titles', () => {
-  assert.deepEqual(Object.values(ZONES).map(z => z.name), ['The Undergrounds', 'The Jungle', "Mermaid's Lair"]);
+  assert.deepEqual(Object.values(ZONES).map(z => z.name), ['The Undergrounds', 'The Jungle', "Mermaids' Lair"]);
   assert.equal(zoneAt({ ...SPAWN, height: 23 }), null);
   assert.equal(at(100, 20), null);
   assert.equal(at(55, 29), null);
@@ -51,7 +51,7 @@ test('global cooldown waits only for a still-current region and initial load is 
   assert.equal(tracker.update('jungle', 14000), null);
 });
 
-test("Mermaid's Lair announces after clearing the western coral wall, not on approach", () => {
+test("Mermaids' Lair announces after clearing the western coral wall, not on approach", () => {
   for (const row of [16, 40, 73, 90, 110]) {
     const [west, east] = coralWallBounds(row);
     assert.equal(at(east + 1, row), null);

@@ -6,7 +6,7 @@ import { coralWallBounds } from './ocean-layout.js';
 export const ZONES = Object.freeze({
   underground: { name: 'The Undergrounds', color: '#c6bce8' },
   jungle: { name: 'The Jungle', color: '#b2df91' },
-  mermaid: { name: "Mermaid's Lair", color: '#83e5d8' },
+  mermaid: { name: "Mermaids' Lair", color: '#83e5d8' },
 });
 
 // Only major regions get announcements. The entire jungle cave system belongs
