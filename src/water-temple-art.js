@@ -165,7 +165,7 @@ export function createWaterTempleArt(ctx) {
     const colX = column => (column + WEST_EXTENSION) * TILE;
     const landingY = WATER_TEMPLE.approachRow * TILE;
     // Monumental terraced processional arcade descending west to the main entrance.
-    for (let column = -381; column < WATER_TEMPLE.approachWest; column += 4) {
+    for (let column = WATER_TEMPLE.approachWest - 22; column < WATER_TEMPLE.approachWest; column += 4) {
       const x = colX(column);
       const floor = waterTempleFoundationTop(column) * TILE;
       const nextFloor = waterTempleFoundationTop(Math.min(column + 3, WATER_TEMPLE.approachWest)) * TILE;

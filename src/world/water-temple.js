@@ -1,20 +1,20 @@
 import { MATERIAL } from '../content.js';
-import { CORAL_COLUMN } from './ocean-layout.js';
+import { CORAL_COLUMN, WEST_EXTRA } from './ocean-layout.js';
 
 const TILE_SIZE = 16;
 
-// Located on the deep ocean seabed west of the coral wall (CORAL_COLUMN = -357),
+// Located on the deep ocean seabed west of the coral wall (CORAL_COLUMN),
 // with an eastern causeway crossing the coral wall to a smaller puzzle sanctuary on the right side.
 export const WATER_TEMPLE = Object.freeze({
-  center: -412,
-  left: -449,
-  right: -318,
+  center: -412 - WEST_EXTRA,
+  left: -449 - WEST_EXTRA,
+  right: -318 - WEST_EXTRA,
   seabedRow: 113,
   deckRow: 109,
   topRow: 27,
   approachRow: 76,
-  approachWest: -359,
-  approachEast: -339,
+  approachWest: -359 - WEST_EXTRA,
+  approachEast: -339 - WEST_EXTRA,
   blendMargin: 8,
 });
 
@@ -27,7 +27,7 @@ export const WATER_TEMPLE_DOOR = Object.freeze({
 });
 
 export const WATER_TEMPLE_PUZZLE_DOOR = Object.freeze({
-  column: -346,
+  column: -346 - WEST_EXTRA,
   floor: WATER_TEMPLE.approachRow,
   widthTiles: 3,
   heightTiles: 4,
@@ -71,7 +71,7 @@ export function waterTemplePuzzleDoorBounds(westExtension) {
 /** Flatten the western abyss seabed smoothly to support the Water Temple base without altering the east approach vent. */
 export function waterTempleFloor(column, naturalFloor) {
   if (column >= WATER_TEMPLE.left && column <= WATER_TEMPLE.right) {
-    return column >= -381 ? waterTempleFoundationTop(column) : WATER_TEMPLE.seabedRow;
+    return column >= -381 - WEST_EXTRA ? waterTempleFoundationTop(column) : WATER_TEMPLE.seabedRow;
   }
   const distance = column < WATER_TEMPLE.left
     ? WATER_TEMPLE.left - column
@@ -92,7 +92,7 @@ export function waterTempleFoundationTop(column) {
   // Broad, paired stone treads climb from the eastern seabed toward the puzzle.
   if (column > approachEast) return approachRow + 2 * Math.ceil((column - approachEast) / 2);
   // The western processional steps lead down from the gate to the main portico.
-  if (column >= -381) return Math.min(deckRow, approachRow + 3 * Math.ceil((approachWest - column) / 2));
+  if (column >= -381 - WEST_EXTRA) return Math.min(deckRow, approachRow + 3 * Math.ceil((approachWest - column) / 2));
   const distance = Math.abs(column - center);
   return deckRow + (distance <= 30 ? 0 : distance <= 34 ? 1 : 2);
 }

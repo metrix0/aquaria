@@ -9,6 +9,21 @@ export const WILD_CHEST_CATEGORIES = Object.freeze([
 ]);
 
 export const WILD_CHEST_LOOT_TABLES = Object.freeze({
+  'sunken-ruins': Object.freeze({
+    name: 'Sunken ruins', minDrops: 2, maxDrops: 4,
+    guaranteedPerChest: ['resources', 'utilities'],
+    entries: Object.freeze([
+      { id: 'ancient-coins', category: 'scrap', weight: 18, min: 2, max: 6 },
+      { id: 'rusty-metal-scraps', category: 'scrap', weight: 12, min: 2, max: 5 },
+      { id: 'iron', category: 'resources', weight: 16, min: 2, max: 5 },
+      { id: 'copper', category: 'resources', weight: 12, min: 3, max: 6 },
+      { id: 'kelp-dressing', category: 'utilities', weight: 16, min: 1, max: 2 },
+      { id: 'glowshroom-torch', category: 'utilities', weight: 9, min: 1, max: 3 },
+      { id: 'explorers-anklet', category: 'addons', weight: 3, min: 1, max: 1 },
+      { id: 'frost-lance-scroll', category: 'spells', weight: 5, min: 1, max: 1 },
+      { id: 'mend-scroll', category: 'spells', weight: 5, min: 1, max: 1 },
+    ]),
+  }),
   'first-cave': Object.freeze({
     name: 'First cave',
     minDrops: 2,

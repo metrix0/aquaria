@@ -78,7 +78,7 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   }
 
   // Neighboring breathing vents stay unobstructed.
-  for (const ventCol of [-330, -452]) {
+  for (const ventCol of [CORAL_COLUMN + 27, CORAL_COLUMN - 95]) {
     const vent = world.vents.find((v) => Math.floor(v.x / TILE) === ventCol + WEST_EXTENSION);
     assert.ok(vent, `west vent at ${ventCol} remains available`);
     assert.equal(tileAt(world, ventCol + WEST_EXTENSION, groundAt(ventCol + WEST_EXTENSION) - 1), MATERIAL.air);

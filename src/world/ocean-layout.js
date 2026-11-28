@@ -1,6 +1,10 @@
-export const EAST_SHIFT = 532;
-export const WEST_GROWTH = 384;
-export const CORAL_COLUMN = -357;
+// Expand the open ocean approaches without stretching the original island or temple.
+export const EAST_EXTRA = 800;
+export const WEST_EXTRA = 480;
+export const EAST_SHIFT = 532 + EAST_EXTRA;
+export const WEST_GROWTH = 384 + WEST_EXTRA;
+export const CORAL_COLUMN = -357 - WEST_EXTRA;
+export const westApproachColumn = column => Math.round(-108 + (column + 108) * (1 + WEST_EXTRA / 249));
 export const CORAL_OPEN_ID = 'coral-song-open';
 // Broad, asymmetric living reef; the east edge leaves the puzzle terrace clear.
 // Continuous core from sky to bedrock prevents swimming or digging around it.
@@ -18,24 +22,24 @@ export function coralWallColumn(column, row = 40) {
   return column >= west && column <= east;
 }
 export const MERMAIDS = [
-  { id: 'mermaid-reef', name: 'Reef mermaid', column: -180, row: 46 },
-  { id: 'mermaid-surface', name: 'Surface mermaid', column: -276, row: 23 },
-  { id: 'mermaid-abyss', name: 'Abyss mermaid', column: -315, row: 78 },
+  { id: 'mermaid-reef', name: 'Reef mermaid', column: westApproachColumn(-180), row: 46 },
+  { id: 'mermaid-surface', name: 'Surface mermaid', column: westApproachColumn(-276), row: 23 },
+  { id: 'mermaid-abyss', name: 'Abyss mermaid', column: westApproachColumn(-315), row: 78 },
 ];
 
 // Read the marked ruins in the order encountered swimming west from the island.
 export const CORAL_RUINS = Object.freeze([
-  { column: -132, mark: 3 },
-  { column: -164 },
-  { column: -202, mark: 1 },
-  { column: -238 },
-  { column: -276, mark: 4 },
-  { column: -311, mark: 2 },
+  { column: westApproachColumn(-132), mark: 3 },
+  { column: westApproachColumn(-164) },
+  { column: westApproachColumn(-202), mark: 1 },
+  { column: westApproachColumn(-238) },
+  { column: westApproachColumn(-276), mark: 4 },
+  { column: westApproachColumn(-311), mark: 2 },
 ]);
 export const CORAL_MARK_COUNT = 4;
 export const CORAL_SOLUTION = Object.freeze(CORAL_RUINS.filter(ruin => ruin.mark).map(ruin => ruin.mark));
 export const CORAL_DIALS = Object.freeze([-350, -348, -346, -344].map((column, slot) => ({
-  id: 'coral-dial-' + slot, column, row: 73, slot, name: 'Mark ' + (slot + 1),
+  id: 'coral-dial-' + slot, column: column - WEST_EXTRA, row: 73, slot, name: 'Mark ' + (slot + 1),
 })));
 
 export function normalizeCoralMarks(marks) {

@@ -1,4 +1,5 @@
 import { drawCoralRuin, drawCoralDial } from "./coral-puzzle-art.js";
+import { drawOceanLandmark } from "./ocean-landmark-art.js";
 import { CORAL_OPEN_ID, coralWallColumn, coralWallBounds, coralMarksFor } from "./world/ocean-layout.js";
 import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
@@ -2444,7 +2445,7 @@ export function createRenderer(canvas) {
 
     for (const item of world.items) {
       if (item.kind !== "chest" && world.harvested.has(item.id)) continue;
-      const margin = item.kind === 'coral-ruin' ? 48 : 24;
+      const margin = item.kind === 'ocean-landmark' ? item.radius : item.kind === 'coral-ruin' ? 48 : 24;
       if (item.x < camera.x - margin || item.x > camera.x + camera.width + margin)
         continue;
       const { x, y } = item;
@@ -2460,6 +2461,8 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, "#8fb39a");
           }
         }
+      } else if (item.kind === "ocean-landmark") {
+        if (y >= camera.y - 20 && y - item.height <= camera.y + camera.height + 20) drawOceanLandmark(rect, item, time);
       } else if (item.kind === "coral-ruin") {
         drawCoralRuin(rect, item);
       } else if (item.kind === "coral-dial") {

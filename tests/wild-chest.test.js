@@ -11,7 +11,7 @@ import { createWildChest, rollWildChestLoot, WILD_CHEST_LOOT_TABLES } from '../s
 
 test('replaced and new wild chests occupy exposed ground in the first cave biome', () => {
   const world = createWorld();
-  const wild = world.items.filter((item) => item.chestType === 'wild');
+  const wild = world.items.filter((item) => item.chestType === 'wild' && item.lootTable === 'first-cave');
   assert.equal(wild.length, firstCaveWildChestSpots.length);
   assert.equal(wild.length, 12);
   assert.ok(world.items.some((item) => item.id === 'island-cave-cache'));

@@ -1,4 +1,4 @@
-import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS } from "./ocean-layout.js";
+import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS, WEST_EXTRA } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
@@ -6,6 +6,7 @@ import { placeWaterTemple, protectsWaterTemple, waterTempleFloor } from './water
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
 import { createWildChest } from './wild-chest.js';
+import { oceanLandmarks, oceanVentColumns } from './ocean-landmarks.js';
 
 export { ISLAND_CAVE, JUNGLE_CAVE, JUNGLE_ISLAND };
 
@@ -513,7 +514,7 @@ export function generateVents(get) {
       vents.push({ x: column * TILE + TILE / 2, y: floor * TILE });
     }
   }
-  for (const x of [-151, 229, -210, -275, -315, -330, -452, -468, 300, 365, 420, 490, 560, 625, 690]) {
+  for (const x of [...new Set([-151, 229, -210, -275, -315, -330 - WEST_EXTRA, -452 - WEST_EXTRA, -468 - WEST_EXTRA, 300, 365, 420, 490, 560, 625, 690, ...oceanVentColumns])]) {
     const tx = x + WEST_EXTENSION;
     vents.push({ x: (tx + .5) * TILE, y: groundAt(tx) * TILE });
   }
@@ -762,6 +763,7 @@ export function generateFixtures() {
     items.push({ ...ruin, id: 'coral-ruin-' + index, kind: 'coral-ruin', variant: index % 3,
       x: (tx + .5) * TILE, y: floorY - 32, floorY });
   }
+  items.push(...oceanLandmarks({ groundAt, westExtension: WEST_EXTENSION, tile: TILE }));
   for (const dial of CORAL_DIALS) {
     const tx = dial.column + WEST_EXTENSION;
     items.push({ ...dial, kind: 'coral-dial', x: (tx + .5) * TILE,
