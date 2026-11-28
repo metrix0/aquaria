@@ -1,3 +1,4 @@
+import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
@@ -82,6 +83,7 @@ export function createGame(snapshot) {
     effects: [],
   };
   const { world } = game;
+  world.coralMarks = normalizeCoralMarks(snapshot?.world?.coralMarks);
   for (const [x, y, material] of snapshot?.world.edits ?? []) editTile(world, x, y, material);
   if (Array.isArray(snapshot?.world.saplings)) world.saplings = snapshot.world.saplings.map((s) => ({ ...s }));
   for (const tree of snapshot?.world.plantedTrees ?? []) {
@@ -153,7 +155,7 @@ export function createGame(snapshot) {
 export function resetRoomProgress(previous) {
   const world = previous.world;
   world.harvested.clear();
-  world.coralSongProgress = 0;
+  world.coralMarks = normalizeCoralMarks();
   world.soulRewards = [];
   for (const [tx, ty, material] of editedTiles(world)) {
     const uprooted = material === MATERIAL.air && rootedKelpAt(world, tx, ty);
@@ -934,7 +936,8 @@ export function nearestItem(game) {
     }
   }
   for (const item of world.items) {
-    if (item.kind !== 'chest' && item.kind !== 'mermaid') continue;
+    if (item.kind !== 'chest' && item.kind !== 'coral-dial') continue;
+    if (item.kind === 'coral-dial' && world.harvested.has(CORAL_OPEN_ID)) continue;
     const difference = itemDistance(player, item);
     if (difference < distance) {
       distance = difference;

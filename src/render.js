@@ -1,4 +1,5 @@
-import { CORAL_OPEN_ID, coralWallColumn } from "./world/ocean-layout.js";
+import { drawCoralRuin, drawCoralDial } from "./coral-puzzle-art.js";
+import { CORAL_OPEN_ID, coralWallColumn, coralMarksFor } from "./world/ocean-layout.js";
 import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
@@ -2383,7 +2384,8 @@ export function createRenderer(canvas) {
 
     for (const item of world.items) {
       if (item.kind !== "chest" && world.harvested.has(item.id)) continue;
-      if (item.x < camera.x - 24 || item.x > camera.x + camera.width + 24)
+      const margin = item.kind === 'coral-ruin' ? 48 : 24;
+      if (item.x < camera.x - margin || item.x > camera.x + camera.width + margin)
         continue;
       const { x, y } = item;
       if (item.kind === "kelp") {
@@ -2398,6 +2400,10 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, "#8fb39a");
           }
         }
+      } else if (item.kind === "coral-ruin") {
+        drawCoralRuin(rect, item);
+      } else if (item.kind === "coral-dial") {
+        drawCoralDial(rect, item, coralMarksFor(world)[item.slot], world.harvested.has(CORAL_OPEN_ID));
       } else if (item.kind === "mermaid") {
         const bob = Math.round(Math.sin(time * 2 + x) * 2);
         const sy = y + bob;

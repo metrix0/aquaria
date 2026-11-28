@@ -478,7 +478,7 @@ export function createUI(actions, version) {
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;
         const label = prompt.querySelector('span');
-        const action = (focusedItem.kind === 'mermaid' ? 'Sing with ' : 'Open ') + focusedItem.name.toLowerCase();
+        const action = (focusedItem.kind === 'coral-dial' ? 'Change ' : 'Open ') + focusedItem.name.toLowerCase();
         if (label.textContent !== action) label.textContent = action;
       }
     },

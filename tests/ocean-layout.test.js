@@ -2,24 +2,44 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MATERIAL } from '../src/content.js';
 import { createWorld, tileAt, waterTileAt } from '../src/world.js';
-import { createGame } from '../src/gameplay/simulation.js';
+import { createGame, nearestItem } from '../src/gameplay/simulation.js';
 import { encodeSave, decodeSave } from '../src/save.js';
 import { WEST_EXTENSION, groundAt, KRAKEN_COLUMN, JUNGLE_FADE_START_COLUMN, TILE } from '../src/world/generation.js';
-import { MERMAIDS, MERMAID_SONG, CORAL_COLUMN, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, singWithMermaid } from '../src/world/ocean-layout.js';
+import { MERMAIDS, CORAL_RUINS, CORAL_DIALS, CORAL_SOLUTION, CORAL_COLUMN, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, cycleCoralMark, coralMarksFor } from '../src/world/ocean-layout.js';
 
-test('western expansion has three reachable mermaids and an impassable coral wall that opens permanently', () => {
+test('western ruins and reachable dials replace the mermaid puzzle and unlock the coral permanently', () => {
   const game = createGame();
   const { world } = game;
   const wall = CORAL_COLUMN + WEST_EXTENSION;
   for (const m of MERMAIDS) assert.equal(waterTileAt(world, m.column + WEST_EXTENSION, m.row), true);
   for (const y of [0, 16, 40, 80, 200, 500]) assert.equal(tileAt(world, wall, y), MATERIAL.bedrock);
-  singWithMermaid(world, MERMAID_SONG[1]);
-  assert.equal(world.coralSongProgress, 0);
-  for (const id of MERMAID_SONG) singWithMermaid(world, id);
+  const ruins = world.items.filter(item => item.kind === 'coral-ruin');
+  const dials = world.items.filter(item => item.kind === 'coral-dial');
+  assert.equal(ruins.length, CORAL_RUINS.length);
+  assert.equal(dials.length, CORAL_DIALS.length);
+  assert.deepEqual(ruins.filter(item => item.mark).map(item => item.mark), CORAL_SOLUTION);
+  assert.equal(CORAL_SOLUTION.length, 4);
+  for (const item of [...ruins, ...dials]) {
+    assert.equal(waterTileAt(world, Math.floor(item.x / TILE), Math.floor(item.y / TILE)), true, item.id);
+    if (item.kind === 'coral-dial') {
+      game.player.x = item.x;
+      game.player.y = item.y - Math.ceil(game.player.height / 2);
+      assert.equal(nearestItem(game)?.id, item.id);
+    }
+  }
+  cycleCoralMark(world, 0);
+  assert.equal(world.harvested.has(CORAL_OPEN_ID), false);
+  const partial = createGame(decodeSave(encodeSave(game)));
+  assert.deepEqual(coralMarksFor(partial.world), [1, 0, 0, 0]);
+  for (let slot = 0; slot < CORAL_SOLUTION.length; slot++) {
+    while (coralMarksFor(world)[slot] !== CORAL_SOLUTION[slot]) cycleCoralMark(world, slot);
+  }
   assert.ok(world.harvested.has(CORAL_OPEN_ID));
   assert.equal(waterTileAt(world, wall, 40), true);
   const loaded = createGame(decodeSave(encodeSave(game)));
   assert.equal(waterTileAt(loaded.world, wall, 40), true);
+  assert.deepEqual(coralMarksFor(loaded.world), CORAL_SOLUTION);
+  assert.equal(cycleCoralMark(loaded.world, 0), false);
 });
 
 test('seabed is solid in the removed cave belts and the Kraken occupies deep water before the jungle', () => {
