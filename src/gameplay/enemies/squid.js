@@ -3,6 +3,7 @@ import { MATERIAL } from '../../content.js';
 import { playerWaterborne, takeDamage } from '../player.js';
 import { solidAt, waterTileAt } from '../../world.js';
 import { MOB_HEALTH, TILE, WATER, clamp, waterwayAt } from '../../world/generation.js';
+import { KRAKEN_ENGAGE_RANGE } from './kraken.js';
 import { stepSeaEnemy } from './sea-shared.js';
 
 const paintColors = ['#07080d', '#0d1017', '#141821'];
@@ -22,6 +23,16 @@ export const squidSpec = {
 };
 
 export function stepSquid(world, player, mob, dt, time, effects, ctx) {
+  const attackRate = mob.krakenMinion ? 1.5 : 1;
+  const boss = mob.krakenMinion
+    ? world.mobs.find((m) => m.kind === 'kraken' && m.health > 0 && (!mob.bossId || m.id === mob.bossId))
+    : null;
+  const bossEngaged = Boolean(
+    boss &&
+      !player.flightOrigin &&
+      (boss.engaged ?? (player.x < boss.x && Math.abs(boss.x - player.x) <= KRAKEN_ENGAGE_RANGE)),
+  );
+
   stepSeaEnemy(world, player, mob, squidSpec, dt, effects, ctx, ({ dist, playerInWater, toPlayerX, toPlayerY }) => {
     const pulse = 0.3 + 0.95 * Math.pow(Math.max(0, Math.sin(time * 2.7 + mob.phase)), 2);
     let targetDx = 0;
@@ -50,7 +61,7 @@ export function stepSquid(world, player, mob, dt, time, effects, ctx) {
             color: paintColors[idx],
           });
         }
-        mob.attackTimer = 2.8 + (mob.phase % 1.1);
+        mob.attackTimer = (2.8 + (mob.phase % 1.1)) / attackRate;
         effects.push({
           x: mob.x + mob.facing * 9,
           y: mob.y,
@@ -59,19 +70,21 @@ export function stepSquid(world, player, mob, dt, time, effects, ctx) {
           spread: 40,
         });
       }
-    } else if (playerInWater && dist < 175 && mob.cooldown === 0) {
+    } else if (bossEngaged || (playerInWater && dist < 175 && mob.cooldown === 0)) {
       if (Math.abs(toPlayerX) > 2) mob.facing = toPlayerX < 0 ? -1 : 1;
-      if (dist < 56) {
+      if (dist < 56 && !bossEngaged) {
         targetDx = -(toPlayerX / dist) * mob.speed * 0.75 * pulse;
         targetDy = -(toPlayerY / dist) * mob.speed * 0.55 * pulse;
-      } else if (dist > 95) {
+      } else if (dist > (bossEngaged ? 72 : 95)) {
         targetDx = (toPlayerX / dist) * mob.speed * 1.15 * pulse;
         targetDy = (toPlayerY / dist) * mob.speed * pulse;
       } else {
         targetDy = Math.sin(time * 2.1 + mob.phase) * 16;
       }
-      mob.attackTimer -= dt;
-      if (mob.attackTimer <= 0 && dist > 26) mob.windup = 0.42;
+      if (playerInWater && mob.cooldown === 0 && (bossEngaged || dist < 175)) {
+        mob.attackTimer -= dt;
+        if (mob.attackTimer <= 0 && dist > 26) mob.windup = 0.42 / attackRate;
+      }
     } else {
       const targetX = mob.homeX + Math.sin(time * 0.75 + mob.phase) * mob.span;
       const targetY = mob.homeY + Math.cos(time * 1.35 + mob.phase) * 15;

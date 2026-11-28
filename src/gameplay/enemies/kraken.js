@@ -8,7 +8,7 @@ export const KRAKEN_BARRIER_EAST_OFFSET = 46;
 export const KRAKEN_DEATH_DURATION = 1.9;
 const KRAKEN_TACKLE_RANGE = 190;
 const KRAKEN_GRAB_RANGE = 410;
-const KRAKEN_ENGAGE_RANGE = 420;
+export const KRAKEN_ENGAGE_RANGE = 420;
 
 export const krakenSpec = {
   name: 'kraken',
@@ -41,6 +41,7 @@ function chestRestY(world, x, startY) {
 }
 
 export function stepKrakenDeath(world, mob, dt, effects) {
+  mob.engaged = false;
   if (!((mob.deathTime ?? 0) > 0)) return;
   mob.deathTime = Math.max(0, mob.deathTime - dt);
   const progress = 1 - mob.deathTime / KRAKEN_DEATH_DURATION;
@@ -91,6 +92,7 @@ function spawnKrakenSquids(world, mob, py, effects) {
       id: `kraken-squid-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
       kind: 'squid',
       krakenMinion: true,
+      bossId: mob.id,
       x: sx,
       y: sy,
       homeX: sx - 45,
@@ -108,7 +110,7 @@ function spawnKrakenSquids(world, mob, py, effects) {
       hurt: 0,
       respawn: 0,
       remainingLife: 28,
-      attackTimer: 0.7 + i * 0.35,
+      attackTimer: (0.7 + i * 0.35) / 1.5,
       windup: 0,
       phase: i * 1.9,
     });
@@ -189,6 +191,7 @@ export function stepKraken(world, player, mob, dt, time, effects) {
   }
 
   const inRange = !player.flightOrigin && px < mob.x && Math.abs(mob.x - px) <= KRAKEN_ENGAGE_RANGE;
+  mob.engaged = inRange;
   const headOrigin = py <= mob.y + 180;
   const originX = headOrigin ? mob.x - 4 : mob.x - 24;
   const originY = headOrigin ? mob.y + 4 : py;

@@ -3023,6 +3023,11 @@ export function createRenderer(canvas) {
         ctx.rotate(clamp(mob.dy * 0.0035, -0.25, 0.25) * mob.facing);
         const pulse = Math.sin(time * 5.4 + mob.phase);
         const charging = (mob.windup ?? 0) > 0;
+        const red = Boolean(mob.krakenMinion);
+        const dark = red ? "#87232c" : "#7e4268";
+        const mid = red ? "#c4343c" : "#b0667d";
+        const light = red ? "#ea6863" : "#da9292";
+        const stripe = red ? "#ffd18a" : "#f0c88b";
         for (let i = 0; i < 4; i++) {
           const ty = -4 + i * 2;
           const len = i === 1 || i === 2 ? 9 : 7;
@@ -3031,7 +3036,7 @@ export function createRenderer(canvas) {
               Math.sin(time * 6.2 + mob.phase + j * 0.5 + i) *
                 (1 - pulse * 0.35),
             );
-            rect(-4 - j, ty + wave, 2, 1, i % 2 ? "#b0667d" : "#da9292");
+            rect(-4 - j, ty + wave, 2, 1, i % 2 ? mid : light);
           }
         }
         polygon(
@@ -3040,7 +3045,7 @@ export function createRenderer(canvas) {
             [8, -7],
             [10, -2],
           ],
-          "#7e4268",
+          dark,
         );
         polygon(
           [
@@ -3048,18 +3053,18 @@ export function createRenderer(canvas) {
             [8, 7],
             [10, 2],
           ],
-          "#7e4268",
+          dark,
         );
-        rect(-3, -4, 11, 8, "#7e4268");
-        rect(-2, -3, 10, 5, "#b0667d");
-        rect(7, -2, 4, 4, "#b0667d");
-        rect(10, -1, 2, 2, "#da9292");
-        rect(0, -3, 6, 1, "#da9292");
-        rect(3, -1, 2, 1, "#f0c88b");
+        rect(-3, -4, 11, 8, dark);
+        rect(-2, -3, 10, 5, mid);
+        rect(7, -2, 4, 4, mid);
+        rect(10, -1, 2, 2, light);
+        rect(0, -3, 6, 1, light);
+        rect(3, -1, 2, 1, stripe);
         rect(-2, -2, 2, 2, "#f1f3e5");
         rect(-2, -1, 1, 1, "#192b3e");
         if (charging) {
-          rect(11, -2, 4, 4, "#b0667d");
+          rect(11, -2, 4, 4, mid);
           rect(12, -1, 2, 2, "#f8dca5");
         }
       } else if (mob.kind === "shark") {
