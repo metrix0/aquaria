@@ -118,19 +118,48 @@ for (const [id, item] of Object.entries(ITEMS)) {
 }
 export const EQUIPMENT_ITEMS = ARMOR;
 
-export function restoreSlots(slots, size) {
-  return Array.from({ length: size }, (_, index) => {
+// Every reusable handheld weapon, tool, and wearable occupies its own slot.
+export function isStackable(id) {
+  const item = ITEMS[id];
+  return !(item?.weapon || item?.pickaxe || item?.form === 'tome' ||
+    Object.hasOwn(HOOKS,id) || Object.hasOwn(SNORKELS,id) ||
+    Object.hasOwn(FEET_GEAR,id) || Object.hasOwn(ADDONS,id) ||
+    Object.hasOwn(ARMOR,id) || id === ROOT_RING.id || id === WOODEN_SHIELD.id ||
+    id === 'explorers-map');
+}
+
+// Split old saves without discarding items. If every slot is occupied, the
+// remaining legacy stack can only be withdrawn one at a time into free slots.
+function splitLegacyStacks(source, targets, hotbar = null) {
+  for (const stack of source) {
+    if (!stack || isStackable(stack.id)) continue;
+    while (stack.count > 1) {
+      const destination = targets.find(slots => slots.some((slot,index) => slot === null && (slots !== hotbar || index < HOTBAR_SIZE-1)));
+      if (!destination) break;
+      const index = destination.findIndex((slot,index) => slot === null && (destination !== hotbar || index < HOTBAR_SIZE-1));
+      destination[index] = {id:stack.id,count:1};
+      stack.count--;
+    }
+  }
+}
+
+export function restoreSlots(slots, size, hotbar = false) {
+  const restored = Array.from({ length: size }, (_, index) => {
     const stack = slots?.[index];
     const id = stack?.id === 'tool' ? BROKEN_PICKAXE.id : normalizeSnorkel(stack?.id) ?? stack?.id;
     if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(stack.count) || stack.count < 1) return null;
     return { id, count: stack.count };
   });
+  splitLegacyStacks(restored,[restored],hotbar ? restored : null);
+  return restored;
 }
 
 export class Inventory {
   constructor(saved) {
-    this.hotbar = restoreSlots(saved?.hotbar, HOTBAR_SIZE);
+    this.hotbar = restoreSlots(saved?.hotbar, HOTBAR_SIZE, true);
     this.backpack = restoreSlots(saved?.backpack, BACKPACK_SIZE);
+    splitLegacyStacks(this.hotbar,[this.backpack,this.hotbar],this.hotbar);
+    splitLegacyStacks(this.backpack,[this.backpack,this.hotbar],this.hotbar);
     if (Array.isArray(saved?.hotbar) && Array.isArray(saved?.backpack)) return;
 
     this.add(BROKEN_PICKAXE.id, 1);
@@ -145,6 +174,23 @@ export class Inventory {
   add(id, count, { preferHotbar = false } = {}) {
     if (!Object.hasOwn(ITEMS, id) || !Number.isSafeInteger(count) || count < 1) return false;
     const preferred = ITEMS[id].hotbar;
+    if (!isStackable(id)) {
+      const hotbarSlots = this.hotbar.map((slot,index) => slot === null && index < HOTBAR_SIZE-1 ? index : -1).filter(index => index !== -1);
+      const backpackSlots = this.backpack.map((slot,index) => slot === null ? index : -1).filter(index => index !== -1);
+      // Match normal placement preferences, but reserve every required slot
+      // before writing any copies so a failed pickup/craft is atomic.
+      const choices = [];
+      if (hotbarSlots.includes(preferred)) {
+        choices.push([this.hotbar,preferred]);
+        hotbarSlots.splice(hotbarSlots.indexOf(preferred),1);
+      }
+      const hot = hotbarSlots.map(index=>[this.hotbar,index]);
+      const bag = backpackSlots.map(index=>[this.backpack,index]);
+      choices.push(...(preferHotbar ? [...hot,...bag] : [...bag,...hot]));
+      if (choices.length < count) return false;
+      for (const [slots,index] of choices.slice(0,count)) slots[index]={id,count:1};
+      return true;
+    }
     const preferredFree = preferred !== undefined && preferred < HOTBAR_SIZE - 1 && this.hotbar[preferred] === null;
     const hotbarSlot = preferredFree ? preferred : this.hotbar.findIndex((stack, index) => index < HOTBAR_SIZE - 1 && stack === null);
     const existing = this.hotbar.find((stack) => stack?.id === id) ??
@@ -217,6 +263,16 @@ export function moveStack(source, sourceIndex, target, targetIndex) {
   const stack = source[sourceIndex];
   const replacement = target[targetIndex];
   if (!stack || stack === replacement) return false;
+  if (!isStackable(stack.id)) {
+    if (stack.id === replacement?.id) return false;
+    if (stack.count > 1) {
+      if (replacement) return false;
+      target[targetIndex] = { id:stack.id,count:1 };
+      stack.count--;
+      return true;
+    }
+  }
+  if (replacement && !isStackable(replacement.id) && replacement.count > 1) return false;
   if (stack.id === replacement?.id) {
     if (!Number.isSafeInteger(stack.count + replacement.count)) return false;
     replacement.count += stack.count;

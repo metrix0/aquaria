@@ -953,7 +953,8 @@ test('old salvage tools migrate in place in the hotbar, backpack and chests', ()
   saved.world.chests['wreck-cache'][3] = { id: 'tool', count: 1 };
   const game = createGame(decodeSave(saved));
   assert.deepEqual(game.inventory.hotbar[2], { id: BROKEN_PICKAXE.id, count: 1 });
-  assert.deepEqual(game.inventory.backpack[4], { id: BROKEN_PICKAXE.id, count: 2 });
+  assert.deepEqual(game.inventory.backpack[4], { id: BROKEN_PICKAXE.id, count: 1 });
+  assert.equal(game.inventory.count(BROKEN_PICKAXE.id), 3);
   assert.deepEqual(game.chests.get('wreck-cache')[3], { id: BROKEN_PICKAXE.id, count: 1 });
   assert.equal(game.inventory.hotbar[0], null);
 });

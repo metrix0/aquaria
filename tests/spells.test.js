@@ -18,14 +18,14 @@ test('all spell items are chest drops with scrolls more common', () => {
   }
 });
 
-test('tomes retain their stack and share a cooldown across copies and saves', () => {
+test('individual tomes are reusable and share a cooldown across copies and saves', () => {
   const game = createGame();
-  game.inventory.hotbar[0] = { id: 'firebolt-tome', count: 2 };
+  game.inventory.hotbar[0] = { id: 'firebolt-tome', count: 1 };
   game.inventory.hotbar[1] = { id: 'firebolt-tome', count: 1 };
   const cast = slot => useWeapon(game, slot, game.player.x + 100, game.player.y + 8);
   assert.equal(cast(0).handled, true);
   assert.equal(game.projectiles.length, 1);
-  assert.equal(game.inventory.hotbar[0].count, 2);
+  assert.equal(game.inventory.hotbar[0].count, 1);
   assert.equal(spellCooldown(game, SPELL_ITEMS['firebolt-tome']), 8);
   assert.match(cast(1).message, /recharging/);
   assert.equal(game.projectiles.length, 1);
