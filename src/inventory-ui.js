@@ -123,7 +123,10 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
       fallback: type.charAt(0).toUpperCase() + type.slice(1), get: () => getAddon(type),
     }])),
   };
-  const groups = { hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots, head: [headSlot], feet: [feetSlot], ring: [ringSlot], offhand: [offhandSlot] };
+  const groups = {
+    hotbar: panelHotbar, backpack: backpackSlots, chest: chestSlots,
+    ...Object.fromEntries(Object.entries(equipSlots).map(([group, { slot }]) => [group, [slot]])),
+  };
   const chestStorage = panel.querySelector('#chest-storage');
   const chestCount = panel.querySelector('#chest-count');
   const collectAll = panel.querySelector('#chest-collect-all');
@@ -203,17 +206,19 @@ export function createInventoryUi(panel, { getInventory, getChest, getSnorkel, g
   }
 
   for (const slot of [...hudSlots, ...Object.values(groups).flat(), armorSlot]) {
-    slot.addEventListener('pointerenter', ({ pointerType }) => {
+    // Equipment rows include the item name; either the icon or label can reveal its tooltip.
+    const hoverTarget = slot.closest('.gear-slots li') ?? slot;
+    hoverTarget.addEventListener('pointerenter', ({ pointerType }) => {
       if (pointerType !== 'touch' && !gesture) showTooltip(slot);
     });
-    slot.addEventListener('pointerleave', ({ pointerType }) => {
+    hoverTarget.addEventListener('pointerleave', ({ pointerType }) => {
       if (pointerType !== 'touch' && tooltipSlot === slot && !slot.matches(':focus-visible')) showTooltip(null);
     });
     slot.addEventListener('focus', () => {
       if (slot.matches(':focus-visible')) showTooltip(slot);
     });
     slot.addEventListener('blur', () => {
-      if (tooltipSlot === slot && !slot.matches(':hover')) showTooltip(null);
+      if (tooltipSlot === slot && !hoverTarget.matches(':hover')) showTooltip(null);
     });
   }
   game.addEventListener('pointerdown', () => showTooltip(null), { capture: true });
