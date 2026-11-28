@@ -1,5 +1,5 @@
 import { TILE } from './world/generation.js';
-import { STATUE_AWAKEN_SECONDS } from './world/water-temple-interior.js';
+import { STATUE_AWAKEN_SECONDS, sanctuaryLightLevel, sanctuaryBrazierLevel } from './world/water-temple-interior.js';
 
 // Player-scale sculptures with directional stone facets and recessed architectural depth.
 const C = { black:'#101922', dark:'#243543', stone:'#435962', mid:'#637d82', light:'#91a3a0',
@@ -9,6 +9,7 @@ const clamp = x => Math.max(0,Math.min(1,x));
 export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedMotion) {
   const statues = world.items.filter(item => item.kind === 'class-statue');
   const floor = statues[0].floor * TILE;
+  const illumination = sanctuaryLightLevel(world);
   const left = bounds.left*TILE, right = (bounds.right+1)*TILE;
   const visible = (x,w) => x+w>=left && x<=right;
   const rect = (x,y,w,h,color) => {
@@ -96,7 +97,7 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
     const awakening=world.statueAwakening?.id===item.id?world.statueAwakening:null;
     const progress=awakening?clamp(awakening.elapsed/STATUE_AWAKEN_SECONDS):0;
     const flash=awakening?Math.sin(Math.PI*progress):0;
-    const attuned=activeClass===item.classId;
+    const attuned=illumination>0 && activeClass===item.classId;
     // Three narrow apses carved into the same ancient sanctuary wall.
     const shadow='#17282e', dark='#334b50', mid='#54716f', lit='#819c90', edge='#a8b8a6';
     const bronze='#6a837a', gold='#a2b1a0', glow=attuned||awakening?accent:dark;
@@ -120,8 +121,9 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
     const b=base-11;
     const R=(dx,dy,w,h,c)=>rect(x+dx,b+dy,w,h,c);
     const P=(pts,c)=>poly(pts.map(([dx,dy])=>[x+dx,b+dy]),c);
-    // Elongated, human-proportioned funerary sculptures: narrow faces,
-    // measured poses and long carved folds instead of oversized character heads.
+    // Chiseled sacred effigies, with ritual weapons and finely carved stone.
+    const rune = attuned || awakening ? accent : '#8a9e91';
+    const notch = (dx,dy) => {R(dx,dy,1,3,shadow);R(dx+1,dy+2,2,1,dark);};
     function head(hood=false) {
       if(hood){
         P([[-7,-45],[-6,-51],[-3,-56],[2,-56],[6,-52],[8,-45],[5,-42],[-5,-42]],shadow);
@@ -147,7 +149,7 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
       R(-5,-23,10,2,bronze);R(-1,-23,2,2,edge);
     }
     if(item.classId==='warden'){
-      // Solemn sentinel resting both gauntlets over the pommel of a grounded sword.
+      // Armored sentinel with a heavy crescent-bladed ceremonial axe.
       P([[-9,-41],[-5,-43],[5,-43],[10,-39],[13,-34],[10,-24],[7,-17],[8,0],[-8,0],[-7,-17],[-12,-33]],shadow);
       P([[-8,-40],[-4,-42],[3,-41],[6,-35],[4,-23],[-6,-23],[-9,-34]],mid);
       P([[3,-41],[9,-38],[11,-33],[8,-25],[4,-23],[6,-35]],dark);
@@ -162,29 +164,49 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
       // Ancient helmet ridge and cheek guards, no cartoon visor.
       P([[-5,-52],[-4,-56],[0,-57],[3,-56],[4,-53],[0,-54]],lit);
       R(-5,-50,1,5,dark);R(4,-50,1,5,dark);
-      P([[-11,-32],[-9,-27],[-3,-23],[-1,-25],[-7,-30]],mid);
-      P([[11,-32],[9,-27],[3,-23],[1,-25],[7,-30]],dark);
-      R(-4,-26,8,3,lit);R(-6,-23,12,2,bronze);
-      P([[-2,-21],[2,-21],[2,-3],[0,0],[-2,-3]],dark);
-      R(-1,-20,1,17,edge);
+      P([[-14,-36],[-10,-41],[-6,-40],[-8,-35],[-13,-32]],dark);
+      P([[-14,-36],[-10,-40],[-7,-39],[-9,-36]],edge);
+      P([[7,-41],[13,-39],[15,-34],[10,-32],[7,-36]],dark);
+      R(9,-39,4,1,lit);
+      P([[-6,-37],[0,-39],[5,-36],[0,-32],[-6,-34]],dark);
+      P([[-3,-36],[0,-38],[3,-36],[0,-34]],rune);
+      R(-6,-29,12,1,lit);R(-5,-22,10,1,edge);
+      R(-7,-19,4,1,lit);R(3,-19,4,1,mid);
+      // Planted haft, pronounced blade bevel, and gripping gauntlet.
+      R(13,-51,3,51,shadow);R(13,-50,1,49,lit);
+      P([[13,-52],[23,-56],[25,-55],[23,-48],[25,-40],[22,-38],[13,-43]],shadow);
+      P([[14,-51],[23,-55],[23,-50],[21,-48],[23,-41],[22,-40],[14,-44]],mid);
+      P([[23,-55],[22,-49],[21,-48],[23,-41],[22,-40],[24,-40],[24,-47]],edge);
+      P([[10,-51],[5,-54],[3,-51],[5,-45],[10,-45],[13,-48]],dark);
+      R(8,-51,5,1,lit);R(14,-48,4,1,rune);
+      P([[8,-34],[12,-28],[15,-27],[16,-30],[12,-31]],mid);
+      R(13,-29,4,3,lit);R(13,-28,3,1,edge);
+      notch(19,-50);notch(-7,-34);
       // Narrow shield leaning against the plinth.
       P([[-20,-30],[-13,-33],[-8,-30],[-9,-15],[-14,-8],[-20,-15]],shadow);
       P([[-19,-29],[-13,-31],[-10,-28],[-11,-16],[-14,-11],[-18,-16]],mid);
       P([[-19,-29],[-13,-31],[-14,-14],[-18,-16]],lit);
       R(-14,-28,1,13,edge);
     }else if(item.classId==='wayfarer'){
-      // Standing pilgrim, travel cloak and an unstrung-looking tall recurve.
+      // Blade pilgrim with a wind-worn mantle and long sword.
       robes(13,-1);head(true);
       P([[-7,-41],[-12,-37],[-15,-25],[-18,-6],[-15,-3],[-10,-18],[-8,-31]],dark);
       P([[-10,-37],[-13,-28],[-15,-13],[-15,-8],[-12,-18],[-9,-32]],lit);
       P([[-7,-37],[-4,-39],[7,-26],[5,-24]],bronze);
-      P([[8,-37],[12,-32],[16,-27],[14,-24],[7,-29]],mid);
-      R(13,-28,4,3,lit);
-      P([[18,-51],[22,-44],[23,-33],[23,-19],[21,-10],[17,-3],[19,-13],[20,-23],[20,-37],[19,-45]],dark);
-      P([[18,-51],[21,-44],[22,-33],[22,-19],[20,-10],[17,-3],[19,-12],[21,-23],[21,-37]],lit);
-      R(17,-49,1,45,bronze);
-      P([[-11,-39],[-14,-47],[-10,-48],[-6,-40]],dark);
-      R(-13,-47,1,8,edge);
+      P([[-9,-41],[-14,-39],[-20,-29],[-23,-9],[-19,-2],[-14,-11],[-12,-27]],shadow);
+      P([[-12,-38],[-16,-29],[-20,-11],[-19,-6],[-16,-15],[-14,-27]],mid);
+      P([[-15,-31],[-17,-19],[-20,-9],[-19,-16]],lit);
+      P([[-5,-40],[-2,-39],[-4,-36],[-7,-37]],rune);
+      P([[8,-37],[12,-32],[16,-30],[16,-27],[7,-29]],mid);
+      // Long stone sword pointing down, with a fuller, quillons and pommel.
+      P([[13,-25],[19,-25],[19,-4],[16,0],[13,-4]],shadow);
+      P([[14,-24],[18,-24],[18,-5],[16,-2],[14,-5]],mid);
+      R(14,-24,1,19,edge);R(16,-23,1,19,dark);
+      P([[9,-27],[23,-27],[22,-24],[17,-25],[15,-25],[10,-24]],lit);
+      R(15,-35,3,8,dark);R(15,-34,1,6,bronze);
+      P([[14,-36],[16,-39],[19,-36],[18,-34],[15,-34]],mid);
+      R(13,-32,5,3,lit);R(14,-32,3,1,edge);
+      notch(-16,-16);notch(16,-14);
     }else{
       // Scholar in long temple vestments, bowed head, staff and an open stone codex.
       robes(16,1);head(true);
@@ -192,9 +214,16 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
       P([[-9,-36],[-15,-29],[-14,-23],[-7,-30]],lit);
       P([[8,-37],[13,-32],[15,-26],[12,-24],[7,-30]],dark);
       R(13,-28,4,3,mid);
-      R(17,-51,3,51,dark);R(17,-50,1,48,lit);
-      P([[18,-57],[23,-52],[18,-47],[13,-52]],dark);
-      P([[18,-55],[21,-52],[18,-49],[15,-52]],attuned||awakening?accent:mid);
+      // Engraved ritual vestments and a crescent scepter enclosing a crystal.
+      P([[-7,-40],[-4,-38],[-6,-26],[-10,-13],[-12,-12],[-8,-26]],lit);
+      P([[5,-40],[8,-38],[7,-25],[12,-13],[9,-12],[4,-25]],dark);
+      for(let j=0;j<3;j++){R(-8+j,-31+j*5,2,1,bronze);R(5+j,-31+j*5,2,1,bronze);}
+      R(-13,-3,25,1,lit);
+      R(17,-49,3,49,shadow);R(17,-48,1,47,lit);
+      P([[17,-49],[12,-53],[11,-57],[14,-57],[14,-54],[18,-51],[22,-54],[22,-57],[25,-57],[24,-52],[20,-49]],mid);
+      P([[12,-57],[14,-57],[14,-54],[18,-51],[17,-50],[13,-53]],edge);
+      P([[18,-57],[21,-54],[18,-51],[15,-54]],rune);
+      R(16,-45,5,2,bronze);R(16,-9,5,2,bronze);notch(17,-19);
       const by=-29-(awakening&&!reducedMotion?Math.round(Math.sin(progress*Math.PI)*4):0);
       P([[-22,by],[-15,by-3],[-8,by],[-8,by+8],[-15,by+6],[-22,by+8]],shadow);
       P([[-21,by],[-15,by-2],[-9,by],[-9,by+6],[-15,by+4],[-21,by+6]],lit);
@@ -202,6 +231,8 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
     }
     // Sparse weathered stone chips.
     R(-7,-17,2,1,'#52685e');R(4,-10,1,2,'#3d514c');R(-6,-5,2,1,'#84958a');
+    notch(-5,-12);
+    P0([[-4,-6],[0,-8],[4,-6],[0,-3]],rune);
     if(awakening){
       ctx.save();ctx.globalAlpha=.12+flash*.22;disc(x,base-37,22+flash*13,accent);ctx.restore();
       ring(x,base-36,16+progress*31,accent,1.5);
@@ -230,8 +261,12 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
   for(const {tx,floor:row} of world.braziers??[]){
     const x=(tx+.5)*TILE,y=row*TILE;
     rect(x-9,y-4,18,4,C.mid);rect(x-5,y-25,10,21,C.stone);rect(x-10,y-28,20,5,C.gold);
-    const h=15+(reducedMotion?0:Math.sin(time*4+x)*3);
+    const strength = sanctuaryBrazierLevel(world, tx);
+    if (strength <= 0) continue;
+    const h=(15+(reducedMotion?0:Math.sin(time*4+x)*3))*strength;
+    ctx.save();ctx.globalAlpha=strength;
     poly([[x-7,y-28],[x,y-28-h],[x+7,y-28]],'#79b9cf');
-    poly([[x-3,y-28],[x,y-24-h],[x+3,y-28]],'#d3f9ff');
+    poly([[x-3,y-28],[x,y-28-h*.8],[x+3,y-28]],'#d3f9ff');
+    ctx.restore();
   }
 }

@@ -4,6 +4,7 @@ import { JUNGLE_CAVE } from "./jungle-cave.js";
 import { hasBackgroundWall } from "./atmosphere.js";
 import { jungleVillageStructures } from "./jungle-village.js";
 import { waterTempleBraziers } from "./water-temple.js";
+import { sanctuaryBrazierLevel } from "./water-temple-interior.js";
 import {
   editedTiles,
   hasOpenFace,
@@ -139,7 +140,10 @@ export function waterTempleLightSources(world, time = 0) {
   for (const { tx, floor, main } of braziers) {
     const ty = floor - 1;
     if (!tileAt(world, tx, floor) || tileAt(world, tx, ty)) continue;
-    const base = main ? WATER_TEMPLE_LIGHT : { ...WATER_TEMPLE_LIGHT, level: 34, radius: TILE * 3.5, alpha: 0.22 };
+    const intensity = world.zone === 'water-temple' ? sanctuaryBrazierLevel(world, tx) : 1;
+    if (intensity <= 0) continue;
+    const raw = main ? WATER_TEMPLE_LIGHT : { ...WATER_TEMPLE_LIGHT, level: 34, radius: TILE * 3.5, alpha: 0.22 };
+    const base = { ...raw, level: Math.max(1, Math.round(raw.level * intensity)), radius: raw.radius * intensity, alpha: raw.alpha * intensity };
     sources.push({
       tx,
       ty,

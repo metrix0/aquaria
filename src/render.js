@@ -39,7 +39,7 @@ import {
   worldRows,
   worldWaterRow,
 } from "./world.js";
-import { WATER_TEMPLE_ZONE } from "./world/water-temple-interior.js";
+import { WATER_TEMPLE_ZONE, sanctuaryLightLevel } from "./world/water-temple-interior.js";
 import { drawClassChamber } from "./class-chamber-art.js";
 import {
   COLS,
@@ -1674,7 +1674,7 @@ export function createRenderer(canvas) {
     for (let x = left; x < right; x++) {
       let pixel = (x - left) * 4;
       for (let y = top; y < bottom; y++, pixel += width * 4) {
-        const naturalLight = surfaceLight.at(x, y) * (hasBackgroundWall(x, y) ? .22 : 1) * (tileAt(world, x, y) ? 1 - clamp(darkness, 0, 1) * .68 : 1);
+        const naturalLight = (world?.zone === WATER_TEMPLE_ZONE ? 0 : surfaceLight.at(x, y)) * (hasBackgroundWall(x, y) ? .22 : 1) * (tileAt(world, x, y) ? 1 - clamp(darkness, 0, 1) * .68 : 1);
         const light = Math.max(naturalLight, caveLight.at(x, y));
         let ambient = 0;
         if (light < 1)
@@ -1688,7 +1688,7 @@ export function createRenderer(canvas) {
           const depth = y - waterTempleFoundationTop(x - WEST_EXTENSION);
           if (depth < 12) ambient = Math.max(ambient, .63 - depth * .025);
         }
-        if (world?.zone === WATER_TEMPLE_ZONE && !tileAt(world, x, y)) ambient = Math.max(ambient, .72);
+        if (world?.zone === WATER_TEMPLE_ZONE && !tileAt(world, x, y)) ambient = .08 + .82 * sanctuaryLightLevel(world);
         const color = caveLight.colorAt(x, y);
         lightPixels.data[pixel + 3] = (1 - light) * (1 - ambient) * 218;
         // Pale overlay colors brighten every channel without painting over texture.
@@ -4174,7 +4174,7 @@ export function createRenderer(canvas) {
     for (const bit of particles) {
       if (bit.bubbleRadius) breathBubble(bit);
     }
-    if (!caveShadowsHidden) shadeUnderground(world, player, bounds, overview, conditions.darkness);
+    if (!caveShadowsHidden || inTemple) shadeUnderground(world, player, bounds, overview, conditions.darkness);
     ctx.restore();
 
     if (!inTemple) {

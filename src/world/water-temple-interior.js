@@ -45,6 +45,20 @@ export function createOverworldTempleDoors(westExtension = WEST_EXTENSION) {
 }
 
 export const STATUE_AWAKEN_SECONDS = 1.65;
+const unit = value => Math.max(0, Math.min(1, value));
+// All fixtures ignite outward from the chosen statue during its awakening.
+export function sanctuaryLightLevel(world) {
+  if (world.sanctuaryLit) return 1;
+  return unit(((world.statueAwakening?.elapsed ?? 0) / STATUE_AWAKEN_SECONDS - .18) / .72);
+}
+export function sanctuaryBrazierLevel(world, tx) {
+  if (world.sanctuaryLit) return 1;
+  const state = world.statueAwakening;
+  if (!state) return 0;
+  const statue = world.items.find(item => item.id === state.id);
+  const delay = Math.abs(tx - (statue?.column ?? tx)) / world.cols * .65;
+  return unit((state.elapsed / STATUE_AWAKEN_SECONDS - .12 - delay) / .32);
+}
 // Statue including pedestal: 68 px, versus 23 px for a standing player.
 export const CLASS_STATUE_HEIGHT = 68;
 export const CLASS_STATUE_HALF_WIDTH = 26;
@@ -90,7 +104,7 @@ export function createWaterTempleWorld() {
       name: 'Water Temple Exit', prompt: 'Exit Water Temple', tx: exitColumn, floor: lowerFloorRow,
       x: exitX, y: lowerFloorRow * TILE - 16, bounds: exitBounds }],
     braziers: [5, 11, 13, 21, 28, 35, 38].map(tx => ({ tx, floor: lowerFloorRow, main: true })),
-    statueAwakening: null,
+    statueAwakening: null, sanctuaryLit: false,
     trees: [], caveMushrooms: [], doors: new Map(), tent: null, mobs: [],
     caveTraps: [], caveClimbs: [], caveStructures: [], mineDecks: [], projectiles: [], vents: [],
     fixtureIds: new Set([chest.id, ...CLASS_STATUES.map(s => s.id)]),

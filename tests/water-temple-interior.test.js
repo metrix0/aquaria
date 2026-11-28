@@ -8,7 +8,7 @@ import { connectRoom } from '../src/multiplayer/client.js';
 import { editTile, tileAt, waterTileAt } from '../src/world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from '../src/world/generation.js';
 import { waterTempleDoorBounds } from '../src/world/water-temple.js';
-import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE, STATUE_AWAKEN_SECONDS, CLASS_STATUE_HEIGHT } from '../src/world/water-temple-interior.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE, STATUE_AWAKEN_SECONDS, CLASS_STATUE_HEIGHT, sanctuaryLightLevel, sanctuaryBrazierLevel } from '../src/world/water-temple-interior.js';
 
 const NO_INPUT = {
   left: false,
@@ -158,6 +158,8 @@ test('each nearby starter statue awakens its class only after the animation; dis
   const game = createGame();
   transitionZone(game, WATER_TEMPLE_ZONE);
   const statues = game.world.items.filter(i => i.kind === 'class-statue');
+  assert.equal(sanctuaryLightLevel(game.world), 0);
+  assert.ok(game.world.braziers.every(b => sanctuaryBrazierLevel(game.world, b.tx) === 0));
   assert.equal(beginClassStatueAwakening(game, statues[2]), false);
   assert.equal(statues[1].x - statues[0].x, 7 * TILE);
   assert.equal(statues[2].x - statues[1].x, 7 * TILE);
@@ -177,5 +179,16 @@ test('each nearby starter statue awakens its class only after the animation; dis
     assert.equal(advanceClassStatueAwakening(game, STATUE_AWAKEN_SECONDS), statue.classId);
     assert.equal(game.classes.active, statue.classId);
     assert.equal(game.world.statueAwakening, null);
+    assert.equal(sanctuaryLightLevel(game.world), 1);
+    assert.ok(game.world.braziers.every(b => sanctuaryBrazierLevel(game.world, b.tx) === 1));
   }
+});
+
+test('sanctuary is dark again on entering a new visit', () => {
+  const game = createGame();
+  transitionZone(game, WATER_TEMPLE_ZONE);
+  game.world.sanctuaryLit = true;
+  transitionZone(game, OVERWORLD_ZONE);
+  transitionZone(game, WATER_TEMPLE_ZONE);
+  assert.equal(sanctuaryLightLevel(game.world), 0);
 });

@@ -924,6 +924,7 @@ export function advanceClassStatueAwakening(game, dt, reducedMotion = false) {
   game.world.statueAwakening = null;
   if (game.player.downed) return null;
   if (game.classes.active !== state.classId && activateClass(game, state.classId)) return null;
+  game.world.sanctuaryLit = true;
   return state.classId;
 }
 
@@ -937,6 +938,7 @@ export function transitionZone(game, targetZone) {
   if (game.world.statueAwakening) game.world.statueAwakening = null;
   game.zone = targetZone;
   game.world = nextWorld;
+  if (targetZone === WATER_TEMPLE_ZONE) nextWorld.sanctuaryLit = false;
   player.hook = null;
   player.dx = 0;
   player.dy = 0;
