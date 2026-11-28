@@ -74,15 +74,15 @@ export function renderConstellation(tree, actions, previous) {
             <path class="celestial-outline" d="${figure.outline}"/>
             ${entries.map((e,i) => e.index ? `<line class="celestial-link ${active.has(e.skill.id) ? 'lit' : ''}" x1="${figure.points[i-1][0]}" y1="${figure.points[i-1][1]}" x2="${figure.points[i][0]}" y2="${figure.points[i][1]}"/>` : '').join('')}
           </svg>
-          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''} ${e.index === 0 ? 'entry-star' : ''} ${figure.points[i][1] >= 75 ? 'label-above' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.skill.major ? 'Greater star' : e.index === 0 ? 'Starting star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span>${e.index === 0 ? '<small class="entry-label" aria-hidden="true">Start</small>' : ''}</button>`).join('')}
+          ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''} ${e.index === 0 ? 'entry-star' : ''} ${figure.points[i][1] >= 75 ? 'label-above' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.index === 0 ? esc(e.branch.name) + ', ' : ''}${e.skill.major ? 'Greater star' : e.index === 0 ? 'Starting star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span>${e.index === 0 ? `<small class="entry-label" aria-hidden="true">${esc(e.branch.name)}</small>` : ''}</button>`).join('')}
         </div>
         <div class="celestial-name"><span>${figure.name}</span><small>Begin at any of the three marked stars.</small></div>
         <section class="celestial-souls" aria-label="Soul balances">
           ${['lesser','greater'].map(type => `<div><span class="soul-dot ${type}">&#10022;</span><div><strong>${balance[type]} <small>${type} souls</small></strong></div></div>`).join('')}
         </section>
         <section class="celestial-loadout" aria-label="Equipped active skills">
-          <div class="celestial-loadout-head"><strong>Active skills</strong><small>Drag an unlocked skill to Q or R, or select it then tap a slot.</small></div>
-          <div class="celestial-pool">${castable.map(s => `<button type="button" draggable="true" data-pick-skill="${s.id}" aria-pressed="false">${esc(s.name)}</button>`).join('') || '<small>No active skills awakened yet.</small>'}</div>
+          <div class="celestial-loadout-head"><strong>Active skills</strong></div>
+          <div class="celestial-pool">${castable.map(s => `<button type="button" draggable="true" data-pick-skill="${s.id}" aria-pressed="false">${esc(s.name)}</button>`).join('')}</div>
           <div class="celestial-slots">${SKILL_KEYS.map((key, slot) => {
             const current = equippedSkill(progress, slot);
             return `<div class="celestial-slot" data-drop-slot="${slot}"><button type="button" data-equip-slot="${slot}" aria-label="Assign skill to ${key}"><kbd>${key}</kbd><span>${esc(current?.name ?? 'Empty')}</span></button>${current ? `<button type="button" data-clear-slot="${slot}" aria-label="Clear ${key}">&times;</button>` : ''}</div>`;
