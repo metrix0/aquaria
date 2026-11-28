@@ -39,7 +39,13 @@ export function createWaterTempleArt(ctx) {
   const door = waterTempleDoorBounds(WEST_EXTENSION);
   const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);
 
+  let view = null;
+  function visible(x, y, width, height) {
+    return !view || (x + width >= view.left && x <= view.right && y + height >= view.top && y <= view.bottom);
+  }
+
   function rect(x, y, width, height, color) {
+    if (!visible(x, y, width, height)) return;
     ctx.fillStyle = color;
     ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
   }
@@ -57,16 +63,21 @@ export function createWaterTempleArt(ctx) {
   }
 
   function drawAshlarWall(x, y, width, height) {
+    if (!visible(x, y, width, height)) return;
     rect(x, y, width, height, PALETTE.wallDark);
     const courseHeight = 12;
     const rows = Math.ceil(height / courseHeight);
-    for (let r = 0; r < rows; r++) {
+    const firstRow = view ? Math.max(0, Math.floor((view.top - y) / courseHeight)) : 0;
+    const lastRow = view ? Math.min(rows, Math.ceil((view.bottom - y) / courseHeight) + 1) : rows;
+    for (let r = firstRow; r < lastRow; r++) {
       const cy = y + r * courseHeight;
       const ch = Math.min(courseHeight, y + height - cy);
       rect(x, cy + ch - 1, width, 1, PALETTE.deepSlate);
       const offset = r % 2 ? 14 : 0;
       const blockW = 28;
-      for (let bx = x - offset; bx < x + width; bx += blockW) {
+      const origin = x - offset;
+      const firstBlock = view ? Math.max(0, Math.floor((view.left - origin) / blockW)) : 0;
+      for (let bx = origin + firstBlock * blockW; bx < x + width && (!view || bx <= view.right); bx += blockW) {
         const left = Math.max(x, bx);
         const right = Math.min(x + width, bx + blockW - 1);
         const bw = right - left;
@@ -150,7 +161,7 @@ export function createWaterTempleArt(ctx) {
     }
   }
 
-  function drawCrossingAndPuzzleWing(bodyRight, time, overview) {
+  function drawCrossingAndPuzzleWing(time, overview) {
     const colX = column => (column + WEST_EXTENSION) * TILE;
     const landingY = WATER_TEMPLE.approachRow * TILE;
     // Monumental terraced processional arcade descending west to the main entrance.
@@ -313,6 +324,8 @@ export function createWaterTempleArt(ctx) {
       return;
     }
 
+    view = { left: left * TILE - TILE, right: (right + 1) * TILE + TILE, top: top * TILE - TILE, bottom: (bottom + 1) * TILE + TILE };
+
     // Main sanctuary body spanning 60 tiles wide and rising high below the ocean surface
     const bodyHalfW = 30 * TILE;
     const bodyH = 37 * TILE;
@@ -321,7 +334,7 @@ export function createWaterTempleArt(ctx) {
 
     // Outer left colonnade wing + eastern crossing causeway & puzzle wing across the coral wall
     drawWing(bodyLeft + 72, -1, overview);
-    drawCrossingAndPuzzleWing(bodyLeft + bodyHalfW * 2 - 8, time, overview);
+    drawCrossingAndPuzzleWing(time, overview);
 
     // Main central temple facade wall
     drawAshlarWall(bodyLeft, bodyTop, bodyHalfW * 2, bodyH);
@@ -400,6 +413,7 @@ export function createWaterTempleArt(ctx) {
       const by = brazier.floor * TILE;
       drawBrazier(bx, by, brazier.main, time, overview);
     }
+    view = null;
   }
 
   function masonry(world, tx, ty, material, overview) {

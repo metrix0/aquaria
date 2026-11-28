@@ -16,6 +16,7 @@ import {
   waterTemplePuzzleDoorBounds,
   waterTempleStoneAt,
   waterTempleFoundationTop,
+  waterTempleBraziers,
 } from '../src/world/water-temple.js';
 
 test('water temple spans across the coral wall, stays below surface, and hosts big west door and smaller east puzzle door', () => {
@@ -61,6 +62,10 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   }
   assert.equal(tileAt(world, WATER_TEMPLE_PUZZLE_DOOR.column + WEST_EXTENSION, WATER_TEMPLE_PUZZLE_DOOR.floor), MATERIAL.stone);
   assert.equal(protectsWaterTemple(WATER_TEMPLE.center, WATER_TEMPLE.seabedRow), true);
+
+  for (const brazier of waterTempleBraziers) {
+    assert.equal(brazier.floor, waterTempleFoundationTop(brazier.column), 'brazier rests on the masonry');
+  }
 
   // The four existing dials sit on the elevated landing, above solid stairs.
   for (const dial of CORAL_DIALS) {

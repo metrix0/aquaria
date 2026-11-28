@@ -38,8 +38,8 @@ export const WATER_TEMPLE_PUZZLE_DOOR = Object.freeze({
 export const waterTempleBraziers = Object.freeze([
   Object.freeze({ column: WATER_TEMPLE.center - 8, floor: WATER_TEMPLE.deckRow, main: true }),
   Object.freeze({ column: WATER_TEMPLE.center + 8, floor: WATER_TEMPLE.deckRow, main: true }),
-  Object.freeze({ column: WATER_TEMPLE.center - 23, floor: WATER_TEMPLE.deckRow + 1, main: false }),
-  Object.freeze({ column: WATER_TEMPLE.center + 23, floor: WATER_TEMPLE.deckRow + 1, main: false }),
+  Object.freeze({ column: WATER_TEMPLE.center - 23, floor: waterTempleFoundationTop(WATER_TEMPLE.center - 23), main: false }),
+  Object.freeze({ column: WATER_TEMPLE.center + 23, floor: waterTempleFoundationTop(WATER_TEMPLE.center + 23), main: false }),
   Object.freeze({ column: WATER_TEMPLE_PUZZLE_DOOR.column - 4, floor: WATER_TEMPLE_PUZZLE_DOOR.floor, main: false }),
   Object.freeze({ column: WATER_TEMPLE_PUZZLE_DOOR.column + 4, floor: WATER_TEMPLE_PUZZLE_DOOR.floor, main: false }),
 ]);
