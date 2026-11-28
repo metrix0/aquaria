@@ -827,6 +827,34 @@ export function generateMobs() {
   const lionGreenGrottoEast = lionfishChamberSpot(CAVE_SYSTEM.chambers[1]);
   const lionGreenEast = { x: greenEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenEastX + WEST_EXTENSION) - 6) * TILE) };
   const lionGreenFarEast = { x: greenFarEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenFarEastX + WEST_EXTENSION) - 6) * TILE) };
+  // Schools occupy open water on both sides of the island.
+  const schoolSites = [-310, -266, -223, -179, -134, -91, -46, 25, 87, 150,
+    ...[.20, .43, .66, .87].map(f => Math.round(150 + (KRAKEN_COLUMN - 150) * f)),
+    JUNGLE_FADE_START_COLUMN + 32, JUNGLE_FADE_START_COLUMN + 66];
+  const schools = schoolSites.flatMap((column, school) => {
+    const floor = Math.min(...[-5, -3, 0, 3, 5].map(dx => groundAt(column + dx + WEST_EXTENSION)));
+    const row = Math.min(floor - 4, WATER_ROW + 5 + Math.floor(noise(school, 0, 711) * 17));
+    if (row < WATER_ROW + 4) return [];
+    const count = 5 + Math.floor(noise(school, 0, 712) * 4);
+    const phase = noise(school, 0, 713) * Math.PI * 2;
+    const speed = 27 + noise(school, 0, 714) * 12;
+    return Array.from({ length: count }, (_, member) => {
+      const offsetX = (member % 4 - 1.5) * 16 + (member >= 4 ? 7 : 0);
+      const offsetY = (member >= 4 ? 10 : -8) + (noise(school, member, 715) - .5) * 8;
+      return {
+        id: 'fish-school-' + school + '-' + member, kind: 'fish',
+        schoolId: 'school-' + school, schoolPhase: phase,
+        schoolX: (column + WEST_EXTENSION) * TILE, schoolY: row * TILE,
+        schoolOffsetX: offsetX, schoolOffsetY: offsetY,
+        x: column * TILE + offsetX, y: row * TILE + offsetY,
+        span: 85 + noise(school, 0, 716) * 40, speed,
+        variant: (school + (member % 4 === 3 ? 1 : 0)) % 8,
+        fishPattern: (school + member % 3) % 4,
+        fishScale: .75 + noise(school, member, 717) * .55,
+        phase: phase + member * .71,
+      };
+    });
+  });
   return [
     ...MERMAIDS.map(({ id, column, row }, index) => ({
       id, kind: 'mermaid', x: (column + .5) * TILE, y: row * TILE,
@@ -875,6 +903,7 @@ export function generateMobs() {
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
     { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
+    ...schools,
     { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 40 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
@@ -888,7 +917,7 @@ export function generateMobs() {
       homeY: y,
       dx: 0,
       dy: 0,
-      facing: mob.kind === 'kraken' ? -1 : mob.kind === 'mimic' ? 1 : mob.kind === 'frog' ? (x <= (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE ? 1 : -1) : index % 2 ? -1 : 1,
+      facing: mob.schoolId ? (Math.cos(mob.schoolPhase) >= 0 ? 1 : -1) : mob.kind === 'kraken' ? -1 : mob.kind === 'mimic' ? 1 : mob.kind === 'frog' ? (x <= (JUNGLE_CAVE.idolColumn + WEST_EXTENSION + 0.5) * TILE ? 1 : -1) : index % 2 ? -1 : 1,
       grounded: mob.kind === 'crab' || mob.kind === 'mimic',
       awakened: false,
       flee: 0,

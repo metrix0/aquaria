@@ -4,9 +4,9 @@ import { stepSeaEnemy } from './sea-shared.js';
 
 export const sharkSpec = {
   name: 'shark',
-  width: 30,
-  height: 14,
-  radius: 15,
+  width: 39,
+  height: 18,
+  radius: 19.5,
   centerY: 0,
   damage: 5,
   healthDamage: 34,
@@ -28,7 +28,7 @@ export function stepShark(world, player, mob, dt, time, effects, ctx) {
       accel = 15;
       if (Math.random() < 0.4) {
         effects.push({
-          x: mob.x - mob.facing * 14,
+          x: mob.x - mob.facing * 18,
           y: mob.y,
           color: '#a1d9cb',
           count: 1,
@@ -47,7 +47,7 @@ export function stepShark(world, player, mob, dt, time, effects, ctx) {
         mob.dash = 0.6;
         mob.attackTimer = 3.2 + (mob.phase % 1.2);
         effects.push({
-          x: mob.x - mob.facing * 12,
+          x: mob.x - mob.facing * 16,
           y: mob.y,
           color: '#a1d9cb',
           count: 6,

@@ -1140,7 +1140,7 @@ test('down still dives in water and exits the crawl posture when there is room',
 
 test('mob generation and dynamic enemy spawns stay sparse across friendly and hostile types', () => {
   const game = createGame();
-  const friendly = game.world.mobs.filter((mob) => mob.kind === 'crab' || (mob.kind === 'fish' && !mob.enemyType));
+  const friendly = game.world.mobs.filter((mob) => mob.kind === 'crab' || (mob.kind === 'fish' && !mob.enemyType && !mob.schoolId));
   const hostile = game.world.mobs.filter((mob) => mob.kind === 'jellyfish' || mob.kind === 'squid' || mob.kind === 'shark');
   assert.equal(friendly.length, 13);
   assert.equal(hostile.length, 7);

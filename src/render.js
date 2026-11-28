@@ -170,6 +170,10 @@ const fishColors = [
   ["#315563", "#64a394", "#97c7ab", "#efc27e"],
   ["#7e4268", "#b0667d", "#da9292", "#f0c88b"],
   ["#263b51", "#436b6e", "#8bdfd0", "#f8dca5"],
+  ["#6b3c38", "#db7754", "#f6bd81", "#f8e6b2"],
+  ["#444974", "#7c8dd4", "#bcc9f4", "#e8d5ff"],
+  ["#336354", "#78b87c", "#c6dba0", "#32635d"],
+  ["#344e6b", "#8cb8c7", "#e1e9df", "#416d92"],
 ];
 
 const crabColors = [
@@ -2942,7 +2946,8 @@ export function createRenderer(canvas) {
         const swish = Math.round(
           Math.sin(time * (mob.flee > 0 ? 14 : 7.5) + mob.phase) * 1.4,
         );
-        ctx.scale(mob.facing, 1);
+        const fishScale = mob.schoolId && !mob.enemyType ? (mob.fishScale ?? 1) : 1;
+        ctx.scale(mob.facing * fishScale, fishScale);
         ctx.rotate(clamp(mob.dy * 0.003, -0.22, 0.22) * mob.facing);
         rect(-7, -3 + swish, 2, 2, dark);
         rect(-7, 1 + swish, 2, 2, dark);
@@ -2953,7 +2958,17 @@ export function createRenderer(canvas) {
         rect(-3, -2, 8, 5, mid);
         rect(4, -1, 2, 3, mid);
         rect(-2, -2, 6, 1, light);
-        rect(-2, 0, 5, 1, stripe);
+        if (mob.fishPattern === 1) {
+          rect(-2, -2, 1, 5, stripe);
+          rect(1, -2, 1, 5, dark);
+        } else if (mob.fishPattern === 2) {
+          rect(-2, 0, 1, 1, stripe);
+          rect(0, 1, 1, 1, stripe);
+          rect(2, 0, 1, 1, stripe);
+        } else if (mob.fishPattern === 3) {
+          rect(-3, -1, 2, 2, stripe);
+          rect(-6, -1 + Math.trunc(swish * .5), 2, 2, light);
+        } else rect(-2, 0, 5, 1, stripe);
         rect(-1, 1, 5, 1, light);
         rect(3, -1, 2, 2, "#f1f3e5");
         rect(4, -1, 1, 1, "#192b3e");
@@ -3153,7 +3168,7 @@ export function createRenderer(canvas) {
           rect(12, -1, 2, 2, "#f8dca5");
         }
       } else if (mob.kind === "shark") {
-        ctx.scale(mob.facing, 1);
+        ctx.scale(mob.facing * 1.3, 1.3);
         ctx.rotate(clamp(mob.dy * 0.0022, -0.18, 0.18) * mob.facing);
         const dashing = (mob.dash ?? 0) > 0;
         const lunging = dashing || (mob.windup ?? 0) > 0;
@@ -3534,8 +3549,8 @@ export function createRenderer(canvas) {
                 : mob.kind === "crab" || mob.kind === "jellyfish"
                   ? -13
                   : mob.kind === "shark"
-                    ? -14
-                    : -10;
+                    ? -18
+                    : mob.schoolId ? Math.round(-10 * (mob.fishScale ?? 1)) : -10;
       const showHealthBar = Boolean(
         !dyingKraken &&
         !(mob.kind === "mimic" && !mob.awakened) &&

@@ -8,7 +8,7 @@ import { isCaveRefuge } from '../world/island-cave.js';
 
 import { playerWaterborne, takeDamage } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
-import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
+import { fishCollides, fishSpec, stepFish, snapshotFishSchools, stepSchoolFish } from './friends/fish.js';
 import { mermaidCollides, mermaidSpec, stepMermaid } from './friends/mermaid.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
@@ -168,7 +168,9 @@ export function syncMobs(world, player) {
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
     } else {
-      const collides = mob.kind === 'mermaid' ? mermaidCollides : fishCollides;
+      const spec = mobSpec(mob);
+      const collides = mob.kind === 'mermaid' ? mermaidCollides
+        : (world, player, x, y) => fishCollides(world, player, x, y, spec?.width ?? 12, spec?.height ?? 8);
       if (!collides(world, player, mob.x, mob.y)) continue;
       for (let offset = 1; offset <= 4; offset++) {
         if (!collides(world, player, mob.x, mob.y - offset * TILE)) {
@@ -237,6 +239,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   const py = player.y + 11;
   const playerInWater = playerWaterborne(world, player);
   const playerMoving = Math.hypot(player.dx, player.dy) > 14 || mining;
+  const fishSchools = snapshotFishSchools(world.mobs, px, py, playerInWater, playerMoving);
   let hit;
 
   for (const mob of [...world.mobs]) {
@@ -374,6 +377,11 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       jungleEnemyModules[mob.kind].step(world, player, mob, dt, effects);
     } else if (mob.kind === 'mermaid') {
       stepMermaid(world, player, mob, dt);
+    } else if (mob.kind === 'fish' && mob.schoolId && !mob.enemyType) {
+      const school = fishSchools.get(mob.schoolId);
+      if (school && Math.abs(mob.x - px) < 1000 && Math.abs(mob.y - py) < 800) {
+        stepSchoolFish(world, player, mob, dt, time, school);
+      }
     } else if (mob.kind === 'fish') {
       const fishHit = stepFish(world, player, mob, dt, time, enemies, {
         dist,
@@ -401,7 +409,12 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 }
 
 export function mobSpec(mob) {
-  return mobSpecs[mob.kind];
+  const spec = mobSpecs[mob.kind];
+  if (mob.kind === 'fish' && mob.schoolId && !mob.enemyType) {
+    const scale = mob.fishScale ?? 1;
+    return { ...spec, width: spec.width * scale, height: spec.height * scale, radius: spec.radius * scale };
+  }
+  return spec;
 }
 
 export function damageMob(world, mob, damage, angle, knockback, effects, options = {}) {
