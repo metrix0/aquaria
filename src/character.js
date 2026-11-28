@@ -1,5 +1,4 @@
 import { drawPickaxe } from './pickaxe-art.js';
-import { drawSpawnHead } from './spawn-icon-art.js';
 import { APPEARANCE, ARMOR, CAPTAINS_CUTLASS, CHARACTER_BODIES, COBALT_SPEAR, COPPER_SPEAR, FEET_GEAR, SNORKELS, SPEAR } from './content.js';
 import { PLAYER_SWING_ARC_SCALE, characterTilt, frontShoulder, meleePose, pickaxePose } from './gameplay/melee.js';
 import { CRAWL_HEIGHT } from './gameplay/player.js';
@@ -266,24 +265,6 @@ export function createCharacterRenderer(ctx) {
     ctx.restore();
   }
 
-  function carrySpawnItem(x, y, sway, tilt, skin, shirt, kind, swimming, crawling, ring) {
-    const shoulder = [x, y];
-    const elbow = [x + Math.round(sway * .2), y + 4];
-    const hand = [x + 4 + Math.round(sway * .4), y + (crawling ? 3 : 5)];
-    pixelLine(shoulder, elbow, 3, shirt.wet);
-    pixelLine(shoulder, elbow, 2, shirt.base);
-    pixelLine(elbow, hand, 3, skin.shade);
-    pixelLine(elbow, hand, 2, skin.face);
-
-    ctx.save();
-    ctx.translate(hand[0] + 1, hand[1] - 1);
-    ctx.rotate((swimming || crawling ? -.15 : -.25) + sway * .03 - tilt);
-    ctx.scale(0.45, 0.45);
-    drawSpawnHead((hx, hy, hw, hh, color) => rect(hx - 8, hy - 8, hw, hh, color), kind);
-    ctx.restore();
-    if (ring) rect(hand[0], hand[1], 1, 1, '#a8f184');
-  }
-
   function miningArm(x, y, targetX, targetY, tilt, phase, skin, shirt, tier, ring, venom) {
     const angle = clamp(Math.atan2(targetY - y, targetX - x), -1.05, 1.15);
     ctx.save();
@@ -515,8 +496,6 @@ export function createCharacterRenderer(ctx) {
         bentArm([shoulderX, restY], [shoulderX + 2, restY + 4], hand, skin, shirt, false, ring, tomeHand);
       } else if (heldItem?.pickaxe) {
         carryPickaxe(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.pickaxe, swimming, crawling, ring, venom);
-      } else if (heldItem?.spawnKind) {
-        carrySpawnItem(shoulderX, shoulderY, -armSwing, tilt, skin, shirt, heldItem.spawnKind, swimming, crawling, ring);
       } else if (dancing) {
         const lift = Math.round(danceBeat * 3);
         bentArm([shoulderX, restY], [shoulderX + 3, restY - 1 + Math.round(danceBeat * 2)], [shoulderX + 5, restY - 5 + lift], skin, shirt, false, ring, venom);
