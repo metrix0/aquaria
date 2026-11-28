@@ -18,23 +18,28 @@ test('all spell items are chest drops with scrolls more common', () => {
   }
 });
 
-test('individual tomes are reusable and share a cooldown across copies and saves', () => {
+test('all tomes share the cooldown of the spell used, including across saves', () => {
   const game = createGame();
   game.inventory.hotbar[0] = { id: 'firebolt-tome', count: 1 };
-  game.inventory.hotbar[1] = { id: 'firebolt-tome', count: 1 };
+  game.inventory.hotbar[1] = { id: 'frost-lance-tome', count: 1 };
   const cast = slot => useWeapon(game, slot, game.player.x + 100, game.player.y + 8);
   assert.equal(cast(0).handled, true);
   assert.equal(game.projectiles.length, 1);
   assert.equal(game.inventory.hotbar[0].count, 1);
   assert.equal(spellCooldown(game, SPELL_ITEMS['firebolt-tome']), 8);
+  assert.equal(spellCooldown(game, SPELL_ITEMS['frost-lance-tome']), 8);
+  assert.equal(spellCooldown(game, SPELL_ITEMS['mend-tome']), 8);
   assert.match(cast(1).message, /recharging/);
   assert.equal(game.projectiles.length, 1);
   game.elapsed += 3;
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(spellCooldown(restored, SPELL_ITEMS['firebolt-tome']), 5);
+  assert.equal(spellCooldown(restored, SPELL_ITEMS['mend-tome']), 5);
   game.elapsed += 5;
   cast(1);
   assert.equal(game.projectiles.length, 2);
+  assert.equal(spellCooldown(game, SPELL_ITEMS['firebolt-tome']), 10);
+  assert.equal(spellCooldown(game, SPELL_ITEMS['mend-scroll']), 0);
 });
 
 test('scrolls consume one per cast and bypass tome cooldown; Mend does not waste at full health', () => {

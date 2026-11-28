@@ -9,10 +9,14 @@ export const SPELLS = {
 export const SPELL_ITEMS = Object.fromEntries(Object.entries(SPELLS).flatMap(([id, spell]) =>
   ['tome', 'scroll'].map(form => [id + '-' + form, {
     name: spell.name + ' ' + form, spell: id, form,
-    description: spell.detail + (form === 'tome' ? ' Reusable; ' + spell.cooldown + 's cooldown.' : ' Consumed on use.'),
+    description: spell.detail + (form === 'tome' ? ' Reusable; triggers a ' + spell.cooldown + 's shared tome cooldown.' : ' Consumed on use.'),
   }])));
 export function spellCooldown(game, item) {
-  return item?.form === 'tome' ? Math.max(0, (game.spellReadyAt?.[item.spell] ?? 0) - game.elapsed) : 0;
+  if (item?.form !== 'tome') return 0;
+  // Keep the original per-spell save fields; every tome reads the latest deadline.
+  // This also migrates earlier saves without shortening an active cooldown.
+  const ready = Math.max(0, ...Object.keys(SPELLS).map(id=>Number.isFinite(game.spellReadyAt?.[id]) ? game.spellReadyAt[id] : 0));
+  return Math.max(0, ready - game.elapsed);
 }
 export function restoreSpellCooldowns(saved) {
   return Object.fromEntries(Object.entries(SPELLS).map(([id, spell]) => [

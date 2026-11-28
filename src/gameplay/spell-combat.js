@@ -23,7 +23,7 @@ function candidates(game,x,y,radius,excluded=new Set()) {
   return result.sort((a,b)=>a.d-b.d);
 }
 export function spellVisual(game,kind,x,y,radius,color,endX,endY) {
-  const duration=kind==='beam'?.42:kind==='mend'?.85:.52;
+  const duration={beam:.55, 'healing-stream':.8, mend:1.15, firebolt:.95, 'frost-lance':.72, 'storm-arc':.85, 'tidal-pulse':.7}[kind]??.52;
   game.projectiles.push({spellFx:kind,x,y,radius,color,endX,endY,life:duration,duration});
 }
 function hit(game,mob,amount,x,y,force) {
@@ -44,7 +44,7 @@ export function spellImpact(game,projectile,mob=null) {
   if(mob) {
     hit(game,mob,projectile.damage,x-projectile.dx*.02,y-projectile.dy*.02,projectile.knockback);
     if(projectile.root&&mob.health>0&&mob.kind!=='kraken') {
-      mob.rooted=Math.max(mob.rooted||0,projectile.root);mob.rootLift=0;
+      mob.rooted=Math.max(mob.rooted||0,projectile.root);mob.rootLift=0;mob.frostRoot=true;
     }
   }
   if(kind==='firebolt') burstSpell(game,kind,x,y,projectile.damage,spell.radius,mob,projectile.splash);
@@ -54,11 +54,12 @@ export function spellImpact(game,projectile,mob=null) {
       const next=candidates(game,ox,oy,spell.radius,hitMobs)[0];if(!next) break;
       hitMobs.add(next.mob);
       spellVisual(game,'beam',ox,oy,0,spell.color,next.x,next.y);
+      spellVisual(game,'storm-arc',next.x,next.y,26,spell.color);
       hit(game,next.mob,Math.max(1,Math.round(projectile.damage*.72**jump)),ox,oy,90);
       game.effects.push({x:next.x,y:next.y,color:spell.color,count:9,spread:75});
       ox=next.x;oy=next.y;
     }
-    spellVisual(game,'storm-arc',x,y,14,spell.color);
+    spellVisual(game,'storm-arc',x,y,38,spell.color);
   } else {
     spellVisual(game,kind,x,y,kind==='frost-lance'?18:12,spell.color);
     game.effects.push({x,y,color:spell.color,count:12,spread:75});
@@ -82,7 +83,7 @@ export function castMend(game,target,local,amount) {
     p.mendPulses??=[];
     p.mendPulses.push({id:globalThis.crypto.randomUUID(),target:target.id,amount,x:p.x,y,remaining:1.5});
     if(p.mendPulses.length>8) p.mendPulses.shift();
-    spellVisual(game,'beam',p.x,y,0,SPELLS.mend.color,target.x,ty);
+    spellVisual(game,'healing-stream',p.x,y,0,SPELLS.mend.color,target.x,ty);
     spellVisual(game,'mend',target.x,ty,19,SPELLS.mend.color);
   }
   game.effects.push({x:target.x,y:ty,color:SPELLS.mend.color,count:18,spread:55});
@@ -100,7 +101,7 @@ export function receiveMends(game) {
     const y=p.y+p.height/2;
     if(Math.hypot(p.x-pulse.x,y-pulse.y)>SPELLS.mend.range+16||!spellLineClear(game.world,pulse.x,pulse.y,p.x,y)||!Number.isFinite(pulse.amount)||pulse.amount<=0) continue;
     p.health=Math.min(MAX_HEALTH,p.health+beneficial(p,Math.min(SPELLS.mend.heal*1.2,pulse.amount)));
-    spellVisual(game,'beam',pulse.x,pulse.y,0,SPELLS.mend.color,p.x,y);
+    spellVisual(game,'healing-stream',pulse.x,pulse.y,0,SPELLS.mend.color,p.x,y);
     spellVisual(game,'mend',p.x,y,19,SPELLS.mend.color);
     game.effects.push({x:p.x,y,color:SPELLS.mend.color,count:18,spread:55});game.dirty=true;
   }

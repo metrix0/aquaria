@@ -97,6 +97,7 @@ export function stepRootWave(game, dt) {
     const mob = reachedEnemy(game.world, wave, x, y);
     if (!mob) continue;
     mob.rooted = ROOT_BIND_DURATION;
+    mob.frostRoot = false;
     mob.rootLift = ROOT_LIFT;
     mob.rootBaseY = mob.y;
     mob.grounded = false;

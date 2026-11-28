@@ -319,6 +319,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
     if (mob.rooted > 0 && mob.health > 0) {
       if(mob.scholarConfused>0) mob.scholarConfused=Math.max(0,mob.scholarConfused-dt);
       mob.rooted = Math.max(0, mob.rooted - dt);
+      if (!mob.rooted) mob.frostRoot = false;
       if (mob.rootLift > 0) {
         const spec = mobSpec(mob);
         const lift = Math.min(mob.rootLift, dt * 56);
