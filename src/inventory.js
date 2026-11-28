@@ -174,7 +174,9 @@ export class Inventory {
 
   bestPickaxe(slot) {
     const held = this.hotbar[slot]?.id;
-    let tool = ITEMS[held]?.pickaxe ? held : undefined;
+    const item = ITEMS[held];
+    if (!held || item?.weapon || item?.form === 'tome' || item?.form === 'scroll' || held === ROOT_RING.id) return undefined;
+    let tool = item?.pickaxe ? held : undefined;
     for (const slots of [this.hotbar, this.backpack]) {
       for (const stack of slots) {
         const id = stack?.id;

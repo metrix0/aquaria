@@ -868,23 +868,46 @@ test('underwater caches are above a flooded floor with an air vent nearby', () =
   }
 });
 
+test('mining never auto-equips a pickaxe with empty hands or combat items', () => {
+  const game = createGame();
+  const target = targetTile(game, SPAWN.x, SPAWN.y + TILE * 2);
+  const { tx, ty } = target;
+  const slot = 5;
+  game.inventory.backpack[0] = { id: IRON_PICKAXE.id, count: 1 };
+  const heldItems = [null, ...Object.keys(ITEMS).filter(id =>
+    ITEMS[id].weapon || ITEMS[id].form === 'tome' || ITEMS[id].form === 'scroll' || id === 'root-ring')];
+  for (const id of heldItems) {
+    game.inventory.hotbar[slot] = id ? { id, count: 1 } : null;
+    editTile(game.world, tx, ty, MATERIAL.stone);
+    const mining = advanceMining(game, target, null, 1.8, slot);
+    assert.equal(mining.tool, undefined, String(id));
+    assert.equal(mining.tier, 0);
+    assert.equal(mining.progress, 0.5);
+    editTile(game.world, tx, ty, MATERIAL.copper);
+    assert.match(advanceMining(game, target, null, 10, slot).blocked, /requires a pickaxe/);
+    assert.equal(game.inventory.hotbar[slot]?.id ?? null, id);
+  }
+  assert.equal(game.inventory.bestPickaxe(0), IRON_PICKAXE.id);
+  assert.equal(game.inventory.bestPickaxe(3), IRON_PICKAXE.id);
+});
+
 test('mining uses the strongest carried pickaxe without changing the selected slot', () => {
   const game = createGame();
   const target = targetTile(game, SPAWN.x, SPAWN.y + TILE * 2);
   const { tx, ty } = target;
   assert.equal(game.inventory.hotbar[0].id, BROKEN_PICKAXE.id);
-  game.inventory.hotbar[2] = { id: SPEAR.id, count: 1 };
+  assert.equal(game.inventory.hotbar[3].id, 'wood');
   editTile(game.world, tx, ty, MATERIAL.stone);
-  const withSpear = advanceMining(game, target, null, 0.35, 2);
-  assert.equal(withSpear.tool, BROKEN_PICKAXE.id);
-  assert.equal(withSpear.progress, 0.5);
-  assert.equal(advanceMining(game, target, withSpear, 0.35, 0).progress, 1);
+  const withWood = advanceMining(game, target, null, 0.35, 3);
+  assert.equal(withWood.tool, BROKEN_PICKAXE.id);
+  assert.equal(withWood.progress, 0.5);
+  assert.equal(advanceMining(game, target, withWood, 0.35, 0).progress, 1);
 
   editTile(game.world, tx, ty, MATERIAL.copper);
-  assert.ok(advanceMining(game, target, null, 0.85, 2).progress >= 1);
+  assert.ok(advanceMining(game, target, null, 0.85, 3).progress >= 1);
   const starter = game.inventory.hotbar[0];
   game.inventory.hotbar[0] = null;
-  assert.match(advanceMining(game, target, null, 10, 2).blocked, /requires a pickaxe/);
+  assert.match(advanceMining(game, target, null, 10, 3).blocked, /requires a pickaxe/);
   editTile(game.world, tx, ty, MATERIAL.stone);
   assert.equal(advanceMining(game, target, null, 3.6).progress, 1);
   assert.equal(advanceMining(game, target, null, 1).tool, undefined);
@@ -904,11 +927,11 @@ test('mining uses the strongest carried pickaxe without changing the selected sl
   assert.equal(game.inventory.backpack[0].id, COPPER_PICKAXE.id);
 
   editTile(game.world, tx, ty, MATERIAL.deepstone);
-  const mining = advanceMining(game, target, null, 1.7, 2);
+  const mining = advanceMining(game, target, null, 1.7, 3);
   assert.equal(mining.tool, COPPER_PICKAXE.id);
   assert.ok(mining.progress >= 1);
   commitTileAction(game, mining.action);
-  assert.equal(game.inventory.hotbar[2].id, SPEAR.id);
+  assert.equal(game.inventory.hotbar[3].id, 'wood');
   assert.equal(game.inventory.count('stone'), 1);
   const restored = createGame(decodeSave(encodeSave(game)));
   assert.equal(tileAt(restored.world, tx, ty), MATERIAL.air);
@@ -917,7 +940,7 @@ test('mining uses the strongest carried pickaxe without changing the selected sl
   for (const [id, count] of Object.entries(IRON_PICKAXE.cost)) restored.inventory.add(id, count);
   assert.ok(craftItem(restored, IRON_PICKAXE, WORKBENCH.id));
   editTile(restored.world, tx, ty, MATERIAL.deepstone);
-  const ironMining = advanceMining(restored, target, null, 0, 2);
+  const ironMining = advanceMining(restored, target, null, 0, 3);
   assert.equal(ironMining.tool, IRON_PICKAXE.id);
   assert.equal(ironMining.duration, mining.duration * 0.7);
 });
