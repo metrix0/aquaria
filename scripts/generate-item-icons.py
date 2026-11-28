@@ -143,7 +143,7 @@ ITEMS = {
     'cobalt-breastplate': armor(COBALT),
 }
 
-for spell, palette in [('firebolt', ('#b64e43', '#f8aa64', '#71383c')), ('frost-lance', ('#4a83ab', '#a6e5eb', '#355879')), ('mend', ('#538c63', '#a6db9b', '#355d4e'))]:
+for spell, palette in [('firebolt', ('#b64e43', '#f8aa64', '#71383c')), ('frost-lance', ('#4a83ab', '#a6e5eb', '#355879')), ('mend', ('#538c63', '#a6db9b', '#355d4e')), ('storm-arc', ('#9270b6', '#e9d38a', '#563c79')), ('tidal-pulse', ('#347e8c', '#76e2dc', '#255662'))]:
     ITEMS[spell + '-tome'] = art('hhhhhhh/hbbbbbs/hbbabbs/hbaaabs/hbbabbs/hbbbbbs/aaaaaas/sssssss', palette, extra='#e6cfa0')
     ITEMS[spell + '-scroll'] = art('hhhhhhs/habbbas/.aaaaa./.aabaa./.abbba./.aabaa./habbbas/sssssss', CLOTH, extra=palette[0], outline=WARM)
 

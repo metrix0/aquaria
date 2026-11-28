@@ -94,6 +94,10 @@ export const WILD_CHEST_LOOT_TABLES = Object.freeze({
       weightedDrop('explorers-anklet', 'addons', 3, 1, 1),
       weightedDrop('frost-lance-scroll', 'spells', 5, 1, 1),
       weightedDrop('mend-scroll', 'spells', 5, 1, 1),
+      weightedDrop('storm-arc-tome', 'spells', 1, 1, 1),
+      weightedDrop('storm-arc-scroll', 'spells', 4, 1, 1),
+      weightedDrop('tidal-pulse-tome', 'spells', 2, 1, 1),
+      weightedDrop('tidal-pulse-scroll', 'spells', 5, 1, 1),
     ]),
   }),
   'first-cave': Object.freeze({

@@ -1,5 +1,5 @@
 import { ARMOR, FEET_GEAR, MATERIAL, MATERIAL_IDS, normalizeAppearance, normalizeSnorkel, WALK_CYCLE_DISTANCE } from '../content.js';
-import { SPELL_ITEMS } from '../spells.js';
+import { SPELL_ITEMS, SPELLS } from '../spells.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE } from '../gameplay/player.js';
 import { isEditableTile } from '../world.js';
 import { COLS, ORIGINAL_WEST_EXTENSION, ROWS, TILE, WEST_EXTENSION, WORLD_VERSION, clamp } from '../world/generation.js';
@@ -145,6 +145,9 @@ export async function connectRoom(config, invite, handlers) {
       feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
       heldTome: SPELL_ITEMS[payload.heldTome]?.form === 'tome' ? payload.heldTome : null,
+      health: Number.isFinite(payload.health) ? clamp(payload.health,0,100) : undefined,
+      zone: payload.zone === 'water-temple' ? 'water-temple' : 'overworld',
+      mendPulses: Array.isArray(payload.mendPulses) ? payload.mendPulses.slice(0,8).filter(p=>p && roomCodePattern.test(p.id??'') && roomCodePattern.test(p.target??'') && Number.isFinite(p.amount) && p.amount>0 && Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.remaining) && Math.hypot(p.x+poseOffset-x,p.y-(payload.y+height/2))<=160).map(p=>({id:p.id,target:p.target,amount:clamp(p.amount,0,SPELLS.mend.heal*1.2),x:p.x+poseOffset,y:p.y,remaining:clamp(p.remaining,0,1.5)})) : [],
       damageSequence: Number.isSafeInteger(payload.damageSequence) && payload.damageSequence >= 0 ? payload.damageSequence : 0,
       aegisTime: Number.isFinite(payload.aegisTime) ? clamp(payload.aegisTime, 0, 8) : 0,
       aegisFacing: payload.aegisFacing === -1 ? -1 : 1,
@@ -181,7 +184,7 @@ export async function connectRoom(config, invite, handlers) {
   const interval = setInterval(sync, 3000);
 
   return {
-    id,
+    id, peerId,
     worldAge: (now) => roomAge + Math.max(0, now - joinedAt) / 1000,
     async edit(action) {
       const key = tileKey(action.tx, action.ty);
@@ -204,7 +207,7 @@ export async function connectRoom(config, invite, handlers) {
       if (response.accepted) broadcast('terrain', {});
       return response;
     },
-    tick(now, dt, player, snorkel, reviveTarget = null, held = null) {
+    tick(now, dt, player, snorkel, reviveTarget = null, held = null, zone = 'overworld') {
       const pose = {
         id: peerId,
         x: Math.round(player.x - poseOffset), y: Math.round(player.y),
@@ -215,6 +218,8 @@ export async function connectRoom(config, invite, handlers) {
         armor: player.armor,
         parrotPet: player.addons?.head === 'parrot-pet',
         heldTome: SPELL_ITEMS[held]?.form === 'tome' ? held : null,
+        health: Math.round(player.health), zone,
+        mendPulses: (player.mendPulses??[]).map(p=>({...p,x:p.x-poseOffset})),
         damageSequence: player.damageSequence ?? 0,
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
         aegisFacing: player.aegisFacing ?? 1,
@@ -242,6 +247,7 @@ export async function connectRoom(config, invite, handlers) {
           forgetPeer(remoteId);
           continue;
         }
+        if(peer.mendPulses) peer.mendPulses=peer.mendPulses.filter(p=>(p.remaining-=dt)>0);
         if(peer.feastPulse) { peer.feastPulse.remaining -= dt; if(peer.feastPulse.remaining <= 0) peer.feastPulse = null; }
         peer.spinachTime = Math.max(0,(peer.spinachTime||0)-dt);
         peer.beastDrinkTime = Math.max(0,(peer.beastDrinkTime||0)-dt);

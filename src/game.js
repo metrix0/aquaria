@@ -15,6 +15,7 @@ import { WEATHER_MODES, worldConditions } from './environment.js';
 import { beginBowDraw, aimBow, releaseBowDraw, beginMorningstarSwing, aimMorningstar, releaseMorningstar, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, beginClassStatueAwakening, advanceClassStatueAwakening, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, templeDoorAt, transitionZone, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { useScholarSkill, receiveFeasts } from './gameplay/scholar.js';
+import { receiveMends } from './gameplay/spell-combat.js';
 import { useWayfarerSkill } from './gameplay/wayfarer.js';
 import { useWardenSkill, updateWardenAllies, wardenAttackBlocked } from './gameplay/warden.js';
 import { connectRoom, roomCode } from './multiplayer/client.js';
@@ -824,7 +825,9 @@ function frame(now) {
     } else if (game.attack) {
       mining = null;
     } else if (input.holdingMine() && !editPending && heldItem !== 'explorers-map') {
-      if (aimedMob()) {
+      if (ITEMS[heldItem]?.spell) {
+        mining = null;
+      } else if (aimedMob()) {
         mining = null;
         if (!miningSwing && !ITEMS[heldItem]?.weapon) useWeapon(game, selected, input.pointer.x + camera.x, input.pointer.y + camera.y);
       } else if (mining || !miningSwing) {
@@ -863,7 +866,8 @@ function frame(now) {
   }
   ui.update(game, conditions);
   game.wayfarerPeers = peers;
-  if (room) receiveFeasts(game);
+  game.localPeerId = room?.peerId ?? null;
+  if (room) { receiveFeasts(game); receiveMends(game); }
   if (room && !game.player.downed) updateWardenAllies(game, peers.filter(peer => !peer.downed));
   else game.player.allyAegis = false;
   const targetMob = aimedMob();

@@ -2,6 +2,7 @@ import { wreckChestRareLoot } from '../world/shipwreck.js';
 import { KRAKEN_CHEST_LOOT } from '../loot.js';
 import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
+import { burstSpell, castMend, mendTarget, spellImpact, stepMendPulses } from './spell-combat.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
 import { activateClass, absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
@@ -197,7 +198,12 @@ function stepProjectiles(game, dt) {
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const arrow = projectiles[i];
     arrow.life -= dt;
+    if (arrow.spellFx) {
+      if (arrow.life <= 0) projectiles.splice(i, 1);
+      continue;
+    }
     if (arrow.life <= 0) {
+      if (arrow.spell === 'firebolt') spellImpact(game, arrow);
       projectiles.splice(i, 1);
       continue;
     }
@@ -213,12 +219,14 @@ function stepProjectiles(game, dt) {
     const steps = Math.max(1, Math.ceil(travel / 6));
     let removed = false;
     for (let step = 0; step < steps; step++) {
+      const prevX=arrow.x, prevY=arrow.y;
       arrow.x += (arrow.dx * dt) / steps;
       arrow.y += (arrow.dy * dt) / steps;
       const tx = Math.floor(arrow.x / TILE);
       const ty = Math.floor(arrow.y / TILE);
       if (tx < 0 || tx >= worldCols(world) || ty < 0 || ty >= worldRows(world) || solidAt(world, tx, ty)) {
-        effects.push({ x: arrow.x, y: arrow.y, material: tileAt(world, tx, ty) || MATERIAL.wood, count: 4, spread: 42 });
+        if (arrow.spell) { arrow.x=prevX; arrow.y=prevY; spellImpact(game,arrow); }
+        else effects.push({ x: arrow.x, y: arrow.y, material: tileAt(world, tx, ty) || MATERIAL.wood, count: 4, spread: 42 });
         removed = true;
         break;
       }
@@ -232,10 +240,7 @@ function stepProjectiles(game, dt) {
         if (hit) {
           const damage = arrow.damage + ((mob.rooted || 0) > 0 ? arrow.rootedDamage || 0 : 0);
           if (arrow.spell) {
-            damageMob(world, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, effects, { melee: false, attacker: game.player });
-            if (arrow.root && mob.health > 0 && mob.kind !== "kraken") { mob.rooted = Math.max(mob.rooted || 0, arrow.root); mob.rootLift = 0; }
-            effects.push({ x: arrow.x, y: arrow.y, color: arrow.color, count: 8, spread: 42 });
-            game.dirty = true;
+            spellImpact(game,arrow,mob);
           } else strikeMob(game, mob, damage, Math.atan2(arrow.dy, arrow.dx), arrow.knockback, true);
           arrow.hitMobs?.add(mob);
           if (arrow.poisonDuration > 0 && mob.health > 0) {
@@ -348,14 +353,18 @@ export function useSpell(game, slot, wx, wy) {
   const player = game.player;
   if (player.downed || player.flightOrigin || player.stun > 0 || player.beastDrinkTime > 0 || game.attack || wardenAttackBlocked(player)) return { handled: true };
   const remaining = spellCooldown(game, item);
-  if (spell.heal && player.health >= MAX_HEALTH) return { handled: true, message: 'Health is already full.' };
+  if (!Number.isFinite(wx) || !Number.isFinite(wy)) return { handled:true };
+  const healing = spell.heal ? mendTarget(game,wx,wy) : null;
+  if (healing?.message) return {handled:true,message:healing.message};
+  if (healing && healing.target.health >= MAX_HEALTH) return { handled: true, message: 'Health is already full.' };
   const tome = item.form === 'tome';
   const payment = tome ? spendTomeCooldown(player, spell.cooldown, remaining) : { allowed: true };
   if (!payment.allowed) return { handled: true, message: spell.name + ' recharging (' + Math.ceil(remaining) + 's).' };
   const power = amount => tome ? tomeEffect(player, amount) : amount;
   if (spell.heal) {
-    player.health = Math.min(MAX_HEALTH, player.health + beneficial(player, power(spell.heal)));
-    game.effects.push({ x: player.x, y: player.y + player.height / 2, color: spell.color, count: 18, spread: 65 });
+    castMend(game,healing.target,healing.local,power(spell.heal));
+  } else if (item.spell === 'tidal-pulse') {
+    burstSpell(game,item.spell,player.x,player.y+player.height/2,skillAttackDamage(player,power(spell.damage),false,false),spell.radius);
   } else {
     const x = player.x, y = player.y + player.height / 2;
     const angle = Math.atan2(wy - y, wx - x);
@@ -363,7 +372,9 @@ export function useSpell(game, slot, wx, wy) {
     player.facing = Math.sign(dx) || player.facing;
     game.projectiles.push({ spell: item.spell, color: spell.color, x: x + dx * 8, y: y + dy * 8,
       dx: dx * spell.speed, dy: dy * spell.speed, damage: skillAttackDamage(player, power(spell.damage), false, false), root: spell.root ? power(spell.root) : undefined,
-      knockback: 110, life: 1.2 });
+      splash: spell.splash ? skillAttackDamage(player,power(spell.splash),false,false) : undefined,
+      pierce: spell.pierce ?? 0, hitMobs: new Set(), knockback: 110, life: 1.2 });
+    game.effects.push({x:x+dx*8,y:y+dy*8,color:spell.color,count:8,spread:48});
   }
   if (item.form === 'scroll') game.inventory.consume(game.inventory.hotbar, slot, 1);
   else if (!payment.manaSpent) (game.spellReadyAt ??= {})[item.spell] = game.elapsed + payment.cooldown;
@@ -569,7 +580,9 @@ function stepDroppedChests(game, dt) {
 
 export function stepGame(game, input, dt) {
   const { player, world } = game;
+  stepMendPulses(player,dt);
   if (player.downed) {
+    player.mendPulses = [];
     player.beastDrinkTime = player.beastTime = player.feastSelecting = player.spinachTime = player.carrotTime = player.hyperBeamTime = 0;
     player.feastPulse = null;
     game.elapsed += dt;

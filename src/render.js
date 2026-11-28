@@ -2523,20 +2523,66 @@ export function createRenderer(canvas) {
 
   function arrows(projectiles, camera) {
     for (const arrow of projectiles ?? []) {
-      if (arrow.x < camera.x - 16 || arrow.x > camera.x + camera.width + 16)
+      const margin=arrow.spellFx ? Math.max(arrow.radius+16,Math.abs((arrow.endX??arrow.x)-arrow.x),Math.abs((arrow.endY??arrow.y)-arrow.y),24) : 24;
+      if (arrow.x < camera.x - margin || arrow.x > camera.x + camera.width + margin)
         continue;
-      if (arrow.y < camera.y - 16 || arrow.y > camera.y + camera.height + 16)
+      if (arrow.y < camera.y - margin || arrow.y > camera.y + camera.height + margin)
         continue;
       ctx.save();
       ctx.translate(Math.round(arrow.x), Math.round(arrow.y));
+      if (arrow.spellFx) {
+        const t=1-arrow.life/arrow.duration, radius=arrow.radius*(.22+.78*Math.min(1,t*2.5));
+        ctx.globalAlpha*=Math.max(0,1-t);
+        if (arrow.spellFx === 'beam') {
+          const dx=arrow.endX-arrow.x,dy=arrow.endY-arrow.y;
+          ctx.rotate(Math.atan2(dy,dx));
+          const length=Math.hypot(dx,dy);
+          for(let j=0;j<length;j+=4) {
+            const yy=arrow.color==='#9ce6a3'?Math.sin(j*.22-t*8)*3:Math.sin(j*.7)*4;
+            rect(j,yy-1,5,3,arrow.color); rect(j,yy,4,1,'#fff3d5');
+          }
+        } else {
+          const fire=arrow.spellFx==='firebolt', heal=arrow.spellFx==='mend', frost=arrow.spellFx==='frost-lance';
+          if(fire) {
+            ctx.fillStyle='#ec683940';ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();
+          }
+          ctx.strokeStyle=arrow.color;ctx.lineWidth=2;
+          ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
+          if(fire || arrow.spellFx==='tidal-pulse') {
+            ctx.strokeStyle=fire?'#ffde8c':'#c5fff0';ctx.lineWidth=1;
+            ctx.beginPath();ctx.arc(0,0,Math.max(1,radius-6),0,Math.PI*2);ctx.stroke();
+          }
+          for(let k=0;k<12;k++) {
+            const a=k*Math.PI/6+t*.65, px=Math.cos(a)*radius,py=Math.sin(a)*radius;
+            if(heal) {
+              rect(px-1,py-4,2,6,'#d7ffca');rect(px-3,py-2,6,2,arrow.color);
+            } else if(frost) {
+              polygon([[px,py-5],[px+3,py],[px,py+4],[px-2,py]],k%2?'#d5f7ff':arrow.color);
+            } else {
+              rect(px-2,py-2,4,4,arrow.color);rect(px-1,py-1,2,2,fire?'#ffe3a0':'#efffe7');
+            }
+          }
+        }
+        ctx.restore();continue;
+      }
       ctx.rotate(Math.atan2(arrow.dy, arrow.dx));
       if (arrow.spell) {
-        const frost = arrow.spell === "frost-lance";
-        polygon([[-10, 0], [-3, -3], [4, -4], [8, 0], [4, 4], [-3, 3]], frost ? "#396a94" : "#9a493b");
-        polygon([[-7, 0], [1, -3], [7, 0], [1, 3]], arrow.color);
-        rect(1, -1, 4, 2, "#fff1ca");
-        ctx.restore();
-        continue;
+        const t=arrow.life;
+        if(arrow.spell==='firebolt') {
+          for(let k=0;k<6;k++) rect(-8-k*3,Math.sin(t*24+k*2)*3,4,3,k%2?'#b64e43':'#f69b50');
+          polygon([[-9,0],[-4,-6],[4,-6],[8,-2],[8,3],[3,6],[-5,5]],'#963b3b');
+          polygon([[-7,0],[-2,-4],[5,-4],[7,1],[3,4],[-3,3]],arrow.color);
+          rect(0,-2,5,4,'#ffe39b');rect(2,-1,3,2,'#fff6d7');
+        } else if(arrow.spell==='frost-lance') {
+          polygon([[-17,0],[-8,-2],[-2,-5],[12,0],[-2,5],[-8,2]],'#396a94');
+          polygon([[-14,0],[-2,-3],[12,0],[-2,3]],arrow.color);
+          polygon([[-3,-2],[10,0],[-3,1]],'#ecfbff');
+          rect(-13,-4,3,2,'#8dddf5');rect(-18,2,2,2,'#8dddf5');
+        } else {
+          polygon([[-19,0],[-10,-4],[-7,2],[-1,-3],[3,1],[8,0],[2,4],[-2,0],[-7,5],[-11,0]],'#9f82d1');
+          rect(-5,-1,12,2,arrow.color);rect(2,-2,5,4,'#fff4bb');
+        }
+        ctx.restore();continue;
       }
       rect(-6, -1, 10, 2, "#85604c");
       rect(-5, -1, 8, 1, "#d29c65");

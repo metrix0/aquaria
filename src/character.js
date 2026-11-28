@@ -145,6 +145,10 @@ export function createCharacterRenderer(ctx) {
       at(8,-6,1,1,spell.cover);
       at(7,-5,2,1,spell.color);
       at(6,-4,1,1,spell.cover);
+    } else if (spellId === 'storm-arc') {
+      at(8,-6,1,1,spell.color); at(7,-5,2,1,spell.color); at(6,-4,1,1,spell.cover);
+    } else if (spellId === 'tidal-pulse') {
+      at(7,-6,2,1,spell.color); at(6,-5,3,1,spell.cover); at(7,-4,2,1,spell.color);
     } else {
       at(8,-6,1,1,spell.cover);
       at(7,-5,2,1,spell.cover);
