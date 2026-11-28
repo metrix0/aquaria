@@ -1,7 +1,7 @@
 import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS, WEST_EXTRA } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
-import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckDebris, shipwreckGhosts, shipwreckOrigin, shipwreckVentColumn } from './shipwreck.js';
+import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckDebris, shipwreckGhosts, shipwreckOrigin, shipwreckVentColumn, wreckColumn, wreckRow } from './shipwreck.js';
 import { placeWaterTemple, protectsWaterTemple, waterTempleFloor } from './water-temple.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
@@ -702,7 +702,7 @@ export function generateChunk(left, top, size) {
     set(x, y, MATERIAL.air);
     flooded[index(x, y)] = Number(wet);
   }, geology, WEST_EXTENSION);
-  placeShipwreck(set, geology, WEST_EXTENSION);
+  placeShipwreck(set, geology, WEST_EXTENSION, groundAt);
   applyOres(get, set, bounds);
   for (let x = bounds.left; x <= bounds.right; x++) {
     for (let y = Math.max(bounds.top, 80); y <= bounds.bottom; y++) {
@@ -731,7 +731,7 @@ export function generateFixtures() {
     ...shipwreckCaches.map(cache => ({ ...cache, lootArea: 'Western shipwreck' })),
     { id: 'wreck-cache', name: 'Reef cache', lootArea: 'Reef', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
     ...islandCaches.map(([id, name, column, floor, resource, amount, bonusLoot]) => ({ id, name, column, floor, resource, amount, bonusLoot, lootArea: 'Island cave' })),
-    { id: 'western-grotto-cache', name: 'Grotto cache', lootArea: 'Western grotto', column: -151, floor: groundAt(-151 + WEST_EXTENSION), resource: 'kelp', amount: 2 },
+    { id: 'western-grotto-cache', name: 'Grotto cache', lootArea: 'Western grotto', column: -117, floor: groundAt(-117 + WEST_EXTENSION), resource: 'kelp', amount: 2 },
     { id: 'deep-cave-cache', name: 'Deep cave cache', lootArea: 'Deep cave', column: 229, floor: groundAt(229 + WEST_EXTENSION), resource: 'iron', amount: 3 },
     { id: 'jungle-trench-cache', name: 'Jungle trench cache', lootArea: 'Jungle trench', column: 288 + EAST_SHIFT, floor: groundAt(288 + EAST_SHIFT + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
     { ...jungleVillageCache, lootArea: 'Jungle village' },
@@ -904,7 +904,7 @@ export function generateMobs() {
     ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
-    { id: 'fish-western-wreck', kind: 'fish', x: (shipwreckOrigin.column + 23) * TILE, y: (shipwreckOrigin.row + 12) * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
+    { id: 'fish-western-wreck', kind: 'fish', x: wreckColumn(23) * TILE, y: wreckRow(12) * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
     ...schools,
     { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 40 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {

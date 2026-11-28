@@ -49,7 +49,7 @@ test('fossils and ruins use varied silhouettes, scales and the actual seabed pro
   }
 });
 
-import { shipwreckOrigin, WRECK_DEBRIS_SITES } from '../src/world/shipwreck.js';
+import { shipwreckOrigin, WRECK_DEBRIS_SITES, WRECK_WIDTH } from '../src/world/shipwreck.js';
 
 test('western wreck moves east and its debris follows the submerged seabed nearly to the beach', () => {
   const {world}=createGame();
@@ -58,7 +58,7 @@ test('western wreck moves east and its debris follows the submerged seabed nearl
   assert.equal(debris.length,WRECK_DEBRIS_SITES.length);
   assert.ok(new Set(debris.map(item=>item.variant)).size>=4);
   const columns=debris.map(item=>Math.floor(item.x/TILE)-WEST_EXTENSION);
-  assert.ok(columns[0]>shipwreckOrigin.column+45);
+  assert.ok(columns[0]>shipwreckOrigin.column+WRECK_WIDTH);
   assert.ok(columns.every((col,i)=>i===0||col-columns[i-1]<=15));
   let beach=56;
   while(groundAt(beach-1+WEST_EXTENSION)<=WATER_ROW) beach--;

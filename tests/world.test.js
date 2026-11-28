@@ -12,7 +12,7 @@ import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCav
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { GHOST_SUMMON_COOLDOWN, stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
-import { isInsideShipwreck, shipwreckOrigin, wreckChestRareLoot } from '../src/world/shipwreck.js';
+import { isInsideShipwreck, shipwreckOrigin, wreckChestRareLoot, wreckColumn, wreckRow, WRECK_WIDTH, WRECK_HEIGHT, shipwreckTimberAt } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
 import { COBALT_GRAPPLING_HOOK, EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, IRON_GRAPPLING_HOOK, ITEMS } from '../src/inventory.js';
 import { createItemsMenu, itemCategory } from '../src/items-menu.js';
@@ -1400,8 +1400,8 @@ test('the western wreck has flooded holds, mineable timber, skeletons and persis
   }
   assert.equal(game.inventory.count('wood'), startingWood + 76);
 
-  const tx = WEST_EXTENSION + shipwreckOrigin.column + 14;
-  const ty = shipwreckOrigin.row + 3;
+  const tx = WEST_EXTENSION + wreckColumn(14);
+  const ty = wreckRow(3);
   player.x = (tx + .5) * TILE;
   player.y = ty * TILE - player.height;
   const target = targetTile(game, player.x, (ty + .5) * TILE);
@@ -5066,4 +5066,15 @@ test('player can dance, emit floating emojis, and render both cleanly', () => {
   } finally {
     globalThis.Path2D = prevPath2D;
   }
+});
+
+ test('enlarged western shipwreck keel meets the natural seabed', () => {
+  const {world}=createGame();
+  assert.ok(WRECK_WIDTH >= 59 && WRECK_HEIGHT >= 45);
+  let grounded = 0;
+  for (let col = shipwreckOrigin.column; col < shipwreckOrigin.column + WRECK_WIDTH; col++) {
+    const tx=WEST_EXTENSION+col, floor=groundAt(tx);
+    if (shipwreckTimberAt(col,floor-1) && tileAt(world,tx,floor-1) === MATERIAL.wood) grounded++;
+  }
+  assert.ok(grounded >= 4,'the keel must contact the seabed across several tiles');
 });
