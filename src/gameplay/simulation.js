@@ -1,4 +1,5 @@
 import { wreckChestRareLoot } from '../world/shipwreck.js';
+import { KRAKEN_CHEST_LOOT } from '../loot.js';
 import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
@@ -100,7 +101,7 @@ export function createGame(snapshot) {
       id: KRAKEN_CHEST_ID,
       name: 'Kraken chest',
       kind: 'chest',
-      loot: { id: DIVING_FIN.id, count: 1 },
+      loot: { ...KRAKEN_CHEST_LOOT },
       x: snapshot.world.krakenChest.x,
       y: snapshot.world.krakenChest.y,
     });

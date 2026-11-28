@@ -14,6 +14,10 @@ for (const file of await readdir(new URL('src/', root), { recursive: true })) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+// Reject invalid loot metadata before publishing a build.
+const { createLootCatalog } = await import('../src/loot-catalog.js');
+createLootCatalog();
+
 await rm(dist, { recursive: true, force: true });
 await mkdir(new URL('vendor/', dist), { recursive: true });
 for (const file of ['index.html', 'style.css', 'src', 'assets', 'manifest.webmanifest', 'start', 'todo']) {

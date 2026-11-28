@@ -1,4 +1,5 @@
-import { DIVING_FIN, KRAKEN_CHEST_ID, MATERIAL } from '../../content.js';
+import { KRAKEN_CHEST_ID, MATERIAL } from '../../content.js';
+import { KRAKEN_CHEST_LOOT } from '../../loot.js';
 import { solidAt } from '../../world.js';
 import { COLS, MOB_HEALTH, ROWS, TILE, WATER, clamp, groundAt } from '../../world/generation.js';
 import { playerWaterborne, takeDamage } from '../player.js';
@@ -63,7 +64,7 @@ export function stepKrakenDeath(world, mob, dt, effects) {
         id: KRAKEN_CHEST_ID,
         name: 'Kraken chest',
         kind: 'chest',
-        loot: { id: DIVING_FIN.id, count: 1 },
+        loot: { ...KRAKEN_CHEST_LOOT },
         x: dropX,
         y: startY,
         dy: 0,

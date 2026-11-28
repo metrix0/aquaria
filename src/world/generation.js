@@ -728,16 +728,16 @@ export function generateCaveMushrooms() {
 export function generateFixtures() {
   const wreckChestColumn = HELMET_WRECK_COLUMN + WEST_EXTENSION;
   const items = [
-    ...shipwreckCaches,
-    { id: 'wreck-cache', name: 'Reef cache', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
-    ...islandCaches.map(([id, name, column, floor, resource, amount, bonusLoot]) => ({ id, name, column, floor, resource, amount, bonusLoot })),
-    { id: 'western-grotto-cache', name: 'Grotto cache', column: -151, floor: groundAt(-151 + WEST_EXTENSION), resource: 'kelp', amount: 2 },
-    { id: 'deep-cave-cache', name: 'Deep cave cache', column: 229, floor: groundAt(229 + WEST_EXTENSION), resource: 'iron', amount: 3 },
-    { id: 'jungle-trench-cache', name: 'Jungle trench cache', column: 288 + EAST_SHIFT, floor: groundAt(288 + EAST_SHIFT + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
-    jungleVillageCache,
-    ...jungleCaveCaches,
-  ].map(({ id, name, column, floor, resource, amount, bonusLoot }) => ({
-    id, name, kind: 'chest', loot: { id: resource, count: amount }, bonusLoot,
+    ...shipwreckCaches.map(cache => ({ ...cache, lootArea: 'Western shipwreck' })),
+    { id: 'wreck-cache', name: 'Reef cache', lootArea: 'Reef', column: 154, floor: groundAt(154 + WEST_EXTENSION), resource: 'wood', amount: 8 },
+    ...islandCaches.map(([id, name, column, floor, resource, amount, bonusLoot]) => ({ id, name, column, floor, resource, amount, bonusLoot, lootArea: 'Island cave' })),
+    { id: 'western-grotto-cache', name: 'Grotto cache', lootArea: 'Western grotto', column: -151, floor: groundAt(-151 + WEST_EXTENSION), resource: 'kelp', amount: 2 },
+    { id: 'deep-cave-cache', name: 'Deep cave cache', lootArea: 'Deep cave', column: 229, floor: groundAt(229 + WEST_EXTENSION), resource: 'iron', amount: 3 },
+    { id: 'jungle-trench-cache', name: 'Jungle trench cache', lootArea: 'Jungle trench', column: 288 + EAST_SHIFT, floor: groundAt(288 + EAST_SHIFT + WEST_EXTENSION), resource: 'cobalt', amount: 3 },
+    { ...jungleVillageCache, lootArea: 'Jungle village' },
+    ...jungleCaveCaches.map(cache => ({ ...cache, lootArea: 'Jungle cave' })),
+  ].map(({ id, name, column, floor, resource, amount, bonusLoot, lootArea }) => ({
+    id, name, kind: 'chest', lootArea, loot: { id: resource, count: amount }, bonusLoot,
     x: (column + WEST_EXTENSION + .5) * TILE, y: floor * TILE - 8,
   }));
   items.push(...firstCaveWildChestSpots.map(([id, column, floor]) => createWildChest({
@@ -745,7 +745,7 @@ export function generateFixtures() {
     lootTable: 'first-cave',
   })));
   items.push({
-    id: SNORKEL_CHEST_ID, name: 'Wreck chest', kind: 'chest',
+    id: SNORKEL_CHEST_ID, name: 'Wreck chest', kind: 'chest', lootArea: 'Reef wreck',
     loot: { id: COPPER_SNORKEL.id, count: 1 },
     x: wreckChestColumn * TILE + 8, y: groundAt(wreckChestColumn) * TILE - 8,
   });

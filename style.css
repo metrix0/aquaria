@@ -699,3 +699,21 @@ button.primary:disabled { background: #283c44; color: #abbdb9; border-color: #53
 @media (prefers-reduced-motion: reduce) {
   .zone-title, .zone-title-name, .zone-title-rule { animation: none; }
 }
+
+/* Shared loot reference and item provenance */
+#drops-panel { width: min(660px, calc(100% - 24px)); }
+.drop-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 16px; }
+.drop-filters input, .drop-filters select { width: 100%; min-width: 0; padding: 7px; border: 1px solid #42606b; border-radius: 4px; background: #08171f; color: inherit; font: inherit; font-size: 12px; }
+.drop-filters input { grid-column: 1 / -1; }
+.drops-biome { margin-bottom: 20px; }
+.drops-biome[hidden], .drops-table tr[hidden] { display: none; }
+.drop-item { display: flex; align-items: center; gap: 6px; }
+.drop-item .item { flex: 0 0 auto; }
+.drop-item small, .item-source { display: block; color: var(--muted); font-size: 10px; line-height: 1.35; margin-top: 3px; white-space: normal; }
+.drops-table [data-rarity="uncommon"] { color: var(--mint); }
+.drops-table [data-rarity="rare"] { color: #90bdff; }
+.drops-table [data-rarity="epic"] { color: #d3a1ff; }
+@media (max-width: 480px) {
+  .drops-table td, .drops-table th { padding: 6px 3px; font-size: 11px; }
+  .drop-item { gap: 3px; }
+}

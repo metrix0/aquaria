@@ -1,6 +1,7 @@
 import { ARROW, KELP_DRESSING, POISON_ARROW, SNORKELS, FEET_GEAR } from './content.js';
 import { EQUIPMENT_ITEMS, GRAPPLING_HOOK, ITEMS, ROOT_RING } from './inventory.js';
 import { setItemIcon } from './inventory-ui.js';
+import { itemSources } from './loot-catalog.js';
 
 const GEAR_IDS = new Set([GRAPPLING_HOOK.id, 'explorers-map', 'glowshroom-torch', 'rope-bundle']);
 const CONSUMABLE_IDS = new Set([KELP_DRESSING.id, 'raw-fish', 'cooked-fish', 'raw-crab', 'cooked-crab']);
@@ -33,6 +34,7 @@ export function createItemsMenu(panel, giveItem) {
   const status = panel.querySelector('#items-status');
   let activeTab = 'all';
 
+  const sources = itemSources();
   const catalog = Object.entries({ ...ITEMS, ...EQUIPMENT_ITEMS })
     .sort(([, left], [, right]) => left.name.localeCompare(right.name));
   const buttons = catalog.map(([id, item]) => {
@@ -45,6 +47,10 @@ export function createItemsMenu(panel, giveItem) {
     icon.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
     label.textContent = item.name;
+    const origin = document.createElement('small');
+    origin.className = 'item-source';
+    origin.textContent = sources[id]?.join(' / ') ?? (item.spawnKind ? 'Debug spawn tool' : 'No registered gameplay source');
+    label.append(origin);
     button.append(icon, label);
     button.addEventListener('click', () => {
       if (!equipment && !quantity.reportValidity()) return;
@@ -57,7 +63,7 @@ export function createItemsMenu(panel, giveItem) {
       status.textContent = error ?? (equipment ? item.name + ' equipped.' : 'Added ' + amount + ' × ' + item.name + '.');
     });
     grid.append(button);
-    return { button, category, name: item.name.toLowerCase() };
+    return { button, category, name: (item.name + ' ' + origin.textContent).toLowerCase() };
   });
 
   function applyFilter() {

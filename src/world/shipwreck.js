@@ -1,4 +1,5 @@
-import { ARROW, BOW, CAPTAINS_CUTLASS, KELP_DRESSING, MATERIAL } from '../content.js';
+import { ARROW, BOW, KELP_DRESSING, MATERIAL } from '../content.js';
+import { WRECK_RARE_DROP } from '../loot.js';
 
 const left = -210;
 const top = 32;
@@ -64,7 +65,7 @@ export const shipwreckGhosts = [
 ];
 
 export const shipwreckVentColumn = left + 49;
-export const WRECK_CUTLASS_CHANCE = 0.05;
+export { WRECK_CUTLASS_CHANCE } from '../loot.js';
 // Stable independent roll for each chest; reopening or reloading cannot reroll it.
 export function wreckChestRareLoot(id, seed = 0) {
   if (!shipwreckCaches.some(cache => cache.id === id)) return [];
@@ -72,8 +73,8 @@ export function wreckChestRareLoot(id, seed = 0) {
   for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0;
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b) >>> 0;
-  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296 < WRECK_CUTLASS_CHANCE
-    ? [{ id: CAPTAINS_CUTLASS.id, count: 1 }] : [];
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296 < WRECK_RARE_DROP.chance
+    ? [{ id: WRECK_RARE_DROP.id, count: WRECK_RARE_DROP.min }] : [];
 }
 // The back wall and trim share the same outer edges as the mineable hull.
 export const shipwreckHullRows = timber.slice(16).map((row, index) => ({

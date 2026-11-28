@@ -1,5 +1,4 @@
-import { CAPTAINS_CUTLASS, MORNINGSTAR, RAW_CRAB, RAW_FISH } from '../content.js';
-import { POISON_NEEDLE, STRING } from '../content.js';
+import { mobSoulReward, rollMobLoot } from '../loot.js';
 import { inWater, solidAt } from '../world.js';
 import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
 import { ambientMobSpecs, stepAmbientMob } from './ambient-fauna.js';
@@ -17,7 +16,7 @@ import { sharkSpec, stepShark } from './enemies/shark.js';
 import { lionfishSpec, stepLionfish, stepLionfishSpine, stepNeurotoxinCloud } from './enemies/lionfish.js';
 import { pufferfishSpec, stepPufferfish, triggerPufferfishWindup } from './enemies/pufferfish.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
-import { captainGhostSpec, CREW_CUTLASS_CHANCE, stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
+import { captainGhostSpec, stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
 import { caveSpiderSpec, stepCaveSpider } from './enemies/cave-spider.js';
 import { skeletonArcherSpec, stepCaveArrow, stepSkeletonArcher } from './enemies/skeleton-archer.js';
 import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.js';
@@ -511,9 +510,8 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
     } else if (mob.kind !== 'kraken') {
       mob.respawn = mob.respawnDelay ?? 45;
     }
-    const rewardType = mob.kind === 'kraken' ? 'greater'
-      : ['mimic', 'hammer', 'greatsword', 'armored-skeleton', 'shaman', 'worm'].includes(mob.kind) ? 'lesser' : null;
-    if (rewardType && !mob.krakenMinion) {
+    const rewardType = mobSoulReward(mob);
+    if (rewardType) {
       world.soulRewards ??= [];
       world.soulRewards.push({ id: mob.id ?? mob.kind + ':' + Math.floor(mob.homeX || mob.x), type: rewardType });
     }
@@ -525,21 +523,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
-    const dropRng = mob.kind === 'armored-skeleton' || (mob.kind === 'ghost' && !mob.resident) ? (options.random ?? Math.random)() : 0;
-    const dropId = mob.kind === 'ghost'
-      ? mob.resident ? 'parrot-pet' : dropRng < CREW_CUTLASS_CHANCE ? CAPTAINS_CUTLASS.id : null
-      : mob.kind === 'fish'
-      ? RAW_FISH.id
-      : mob.kind === 'crab'
-        ? RAW_CRAB.id
-        : mob.kind === 'lionfish'
-          ? POISON_NEEDLE.id
-          : mob.kind === 'spider'
-            ? STRING.id
-            : mob.kind === 'armored-skeleton' && dropRng < 0.10
-              ? MORNINGSTAR.id
-              : null;
-    const dropCount = mob.kind === 'lionfish' ? 2 : 1;
+    const drop = rollMobLoot(mob, options.random ?? Math.random);
     effect = {
       x: mob.x,
       y: cy,
@@ -548,7 +532,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       count: ambientMobSpecs[mob.kind] ? 4 : 14,
       spread: ambientMobSpecs[mob.kind] ? 22 : 72,
       message: 'Defeated ' + label + '!',
-      ...(dropId ? { drop: { id: dropId, count: dropCount } } : {}),
+      ...(drop ? { drop } : {}),
     };
   } else if (options.poisonTick) {
     effect = {

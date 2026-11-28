@@ -12,7 +12,7 @@ export const captainGhostSpec = {
   ...wreckGhostSpec, name: 'captain’s spirit', width: 21, height: 33, radius: 15,
   maxHealth: 12, color: '#ffb2b3',
 };
-export const CREW_CUTLASS_CHANCE = .05;
+export { CREW_CUTLASS_CHANCE } from '../../loot.js';
 
 function inHull(x, y) {
   return isInsideShipwreck(Math.floor(x / TILE) - WEST_EXTENSION, Math.floor(y / TILE));

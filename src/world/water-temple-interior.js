@@ -1,4 +1,5 @@
 import { MATERIAL } from '../content.js';
+import { TEMPLE_SANCTUM_LOOT } from '../loot.js';
 import { TILE, WEST_EXTENSION } from './generation.js';
 import { waterTempleDoorBounds } from './water-temple.js';
 
@@ -122,7 +123,7 @@ export function createWaterTempleWorld() {
     id: 'water-temple-sanctum-chest',
     name: 'Sanctum Chest',
     kind: 'chest',
-    loot: { id: 'pearl', count: 5 },
+    loot: { ...TEMPLE_SANCTUM_LOOT },
     x: 31 * TILE,
     y: (sanctumFloorRow - 1) * TILE,
   };
