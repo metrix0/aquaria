@@ -439,7 +439,11 @@ const input = bindInput(canvas, camera, {
     const { pointer } = input;
     const worldX = pointer.x + camera.x;
     const worldY = pointer.y + camera.y;
-    const statue = game.world.items.find(item => item.kind === 'class-statue' && Math.abs(worldX - item.x) <= 78 && worldY <= item.floor * TILE && worldY >= item.floor * TILE - 320);
+    const statue = game.world.items.find(item => {
+      if (item.kind !== 'class-statue' || !item.bounds) return false;
+      const b = item.bounds;
+      return worldX >= b.x && worldX <= b.x + b.width && worldY >= b.y && worldY <= b.y + b.height;
+    });
     if (statue && !editPending && beginClassStatueAwakening(game, statue)) {
       input.clear(); input.stopMining(); return true;
     }

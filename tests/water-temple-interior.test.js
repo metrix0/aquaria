@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MATERIAL } from '../src/content.js';
+import { PLAYER_SIZE } from '../src/gameplay/player.js';
 import { createGame, nearestItem, stepGame, templeDoorAt, transitionZone, beginClassStatueAwakening, advanceClassStatueAwakening } from '../src/gameplay/simulation.js';
 import { connectRoom } from '../src/multiplayer/client.js';
 import { editTile, tileAt, waterTileAt } from '../src/world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from '../src/world/generation.js';
 import { waterTempleDoorBounds } from '../src/world/water-temple.js';
-import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE, STATUE_AWAKEN_SECONDS } from '../src/world/water-temple-interior.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE, STATUE_AWAKEN_SECONDS, CLASS_STATUE_HEIGHT } from '../src/world/water-temple-interior.js';
 
 const NO_INPUT = {
   left: false,
@@ -159,6 +160,9 @@ test('each nearby starter statue awakens its class only after the animation; dis
   const statues = game.world.items.filter(i => i.kind === 'class-statue');
   assert.equal(beginClassStatueAwakening(game, statues[2]), false);
   for (const statue of statues) {
+    assert.ok(CLASS_STATUE_HEIGHT >= 2 * PLAYER_SIZE.height && CLASS_STATUE_HEIGHT <= 3 * PLAYER_SIZE.height);
+    assert.equal(statue.bounds.height, CLASS_STATUE_HEIGHT);
+    assert.equal(statue.bounds.y + statue.bounds.height, statue.floor * TILE);
     game.player.x = statue.x;
     game.player.y = statue.floor * TILE - game.player.height;
     assert.equal(nearestItem(game)?.id, statue.id);

@@ -1,7 +1,7 @@
 import { TILE } from './world/generation.js';
 import { STATUE_AWAKEN_SECONDS } from './world/water-temple-interior.js';
 
-// Procedural pixel-art reliefs, deliberately much larger than the player.
+// Player-scale sculptures with directional stone facets and recessed architectural depth.
 const C = { black:'#101922', dark:'#243543', stone:'#435962', mid:'#637d82', light:'#91a3a0',
   pale:'#b4c4bc', gold:'#a88b60', gilt:'#dbc498', recess:'#182731', floor:'#30454b' };
 const clamp = x => Math.max(0,Math.min(1,x));
@@ -66,6 +66,9 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
       if(shade===4)rect(x+3,y+2,40,1,'#485b62');
     }
   }
+  rect(0,floor-48,world.cols*TILE,48,'#26363e');
+  rect(0,floor-48,world.cols*TILE,3,'#576562');
+  rect(0,floor-45,world.cols*TILE,2,'#17252c');
   rect(0,floor-14,world.cols*TILE,14,C.stone);
   rect(0,floor-15,world.cols*TILE,3,C.gold);
   rect(0,50,world.cols*TILE,5,C.gold);
@@ -77,96 +80,107 @@ export function drawClassChamber(ctx, world, bounds, time, activeClass, reducedM
     const progress=awakening?clamp(awakening.elapsed/STATUE_AWAKEN_SECONDS):0;
     const flash=awakening?Math.sin(Math.PI*progress):0;
     const attuned=activeClass===item.classId;
+    ctx.save();ctx.globalAlpha=.48;
     arch(x,base-9,240,385);
     column(x-128,base,412);column(x+128,base,412);
-    // Monumental carved halo and inlaid constellation panel.
-    disc(x,base-257,96,C.dark);disc(x,base-257,90,C.gold);disc(x,base-257,85,C.recess);
-    ring(x,base-257,72,attuned||awakening?accent:C.stone,3);
-    for(let i=0;i<12;i++){const a=i*Math.PI/6;gem(x+Math.cos(a)*79,base-257+Math.sin(a)*79,4,C.gold);}
-    beam(x,base-22,96,354,accent);
-    if(awakening){
-      ctx.save();ctx.globalAlpha=.18+flash*.32;disc(x,base-176,55+flash*62,accent);ctx.restore();
-      ring(x,base-170,38+progress*116,accent,3);
-      for(let i=0;i<26;i++){
-        const a=i*2.39996+progress*5;
-        const radius=25+((i*29)%67)+progress*18;
-        const px=x+Math.cos(a)*radius, py=base-22-progress*310+(i*19)%105;
-        const q=i%4===0?4:2;rect(px,py,q,q,accent);
-      }
-    }
-    const b=base-35, scale=3;
-    const X=n=>x+n*scale,Y=n=>b+n*scale;
-    const R=(dx,dy,w,h,color)=>rect(X(dx),Y(dy),w*scale,h*scale,color);
-    const P=(p,color)=>poly(p.map(([dx,dy])=>[X(dx),Y(dy)]),color);
-    // Heavy plinth, ornate stepped pedestal and class sigil.
-    rect(x-70,base-8,140,8,C.dark);rect(x-65,base-14,130,6,C.light);
-    rect(x-57,base-33,114,19,C.stone);rect(x-52,base-30,104,2,C.gold);
-    rect(x-63,base-36,126,4,C.pale);gem(x,base-22,8,attuned||awakening?accent:C.gold);
+    ctx.restore();
+    // A carved, deep niche in front of the distant vaulted hall.
+    const shadow='#18242b', dark='#384c51', mid='#718782', lit='#a1b2a6', edge='#c9cdb2';
+    const bronze='#ab9067', gold='#dfc69a', glow=attuned||awakening?accent:'#8fa49d';
+    const P0=(pts,c)=>poly(pts.map(([dx,dy])=>[x+dx,base+dy]),c);
+    const R0=(dx,dy,w,h,c)=>rect(x+dx,base+dy,w,h,c);
+    P0([[-55,-4],[-55,-91],[-34,-115],[0,-136],[34,-115],[55,-91],[55,-4]],'#50636a');
+    P0([[-48,-4],[-48,-89],[-29,-111],[0,-128],[29,-111],[48,-89],[48,-4]],shadow);
+    P0([[-48,-89],[-40,-85],[-40,-5],[-48,-4]],lit);
+    P0([[48,-89],[40,-85],[40,-5],[48,-4]],dark);
+    for(let j=-80;j<-8;j+=14){R0(-40,j,80,1,'#293941');R0(-40,j+1,80,1,'#35484a');}
+    disc(x,base-84,24,'#293b43');ring(x,base-84,22,'#66776e',2);
+    ring(x,base-84,17,'#405553',1);
+    for(let i=0;i<8;i++){const q=i*Math.PI/4;R0(Math.cos(q)*20-1,-84+Math.sin(q)*20-1,2,2,bronze);}
+    // Three-dimensional plinth: top, front, side and contact shadow.
+    P0([[-25,-3],[18,-3],[27,0],[-17,0]],'#111b20');
+    P0([[-24,-11],[18,-11],[25,-8],[-18,-8]],lit);
+    R0(-18,-8,43,8,dark);R0(-18,-8,43,1,edge);
+    P0([[18,-11],[25,-8],[25,0],[18,-3]],shadow);
+    R0(-15,-5,32,3,mid);R0(-13,-4,28,1,bronze);
+
+    const b=base-11;
+    const R=(dx,dy,w,h,c)=>rect(x+dx,b+dy,w,h,c);
+    const P=(pts,c)=>poly(pts.map(([dx,dy])=>[x+dx,b+dy]),c);
+    // Shared stone palette, different asymmetrical silhouettes and equipment.
     if(item.classId==='warden'){
-      // Armored sentinel: enormous shield, greatsword, crested helmet.
-      P([[-13,0],[-14,-24],[-20,-47],[-17,-63],[-8,-70],[8,-70],[18,-63],[20,-45],[13,-24],[14,0]],C.dark);
-      P([[-9,-2],[-10,-27],[-14,-44],[-11,-61],[11,-61],[14,-44],[9,-27],[10,-2]],C.mid);
-      P([[-17,-64],[-7,-70],[0,-61],[-8,-50],[-22,-53]],C.light);
-      P([[17,-64],[7,-70],[0,-61],[8,-50],[22,-53]],C.light);
-      R(-10,-44,20,4,C.gold);R(-8,-39,16,3,C.dark);
-      R(-9,-85,18,16,C.stone);R(-7,-84,14,5,C.light);R(-8,-78,16,3,C.dark);
-      R(-2,-79,4,1,awakening||attuned?accent:C.gold);R(-2,-91,4,7,C.gold);
-      P([[-27,-55],[-11,-55],[-8,-45],[-9,-26],[-19,-16],[-28,-26]],C.dark);
-      P([[-25,-53],[-13,-53],[-11,-44],[-12,-28],[-19,-20],[-25,-28]],C.gold);
-      P([[-23,-50],[-15,-50],[-13,-42],[-14,-30],[-19,-24],[-23,-30]],C.stone);
-      gem(X(-19),Y(-40),12,accent);
-      R(23,-72,4,68,C.light);R(24,-70,1,64,C.pale);R(19,-25,12,3,C.gold);R(24,-23,2,12,C.dark);
-      R(-9,-13,7,12,C.dark);R(2,-13,7,12,C.dark);
-    } else if(item.classId==='wayfarer'){
-      // Hooded ranger with sweeping cloak, longbow and arrow.
-      P([[-5,-85],[-14,-77],[-19,-57],[-27,-20],[-31,0],[18,0],[14,-23],[19,-55],[10,-77],[5,-85]],C.dark);
-      P([[-5,-81],[-12,-70],[-14,-52],[-23,-4],[-6,-10],[-1,-33],[10,-5],[15,-5],[11,-46],[15,-61],[8,-75]],C.mid);
-      P([[-11,-75],[0,-88],[11,-75],[8,-65],[-8,-65]],C.light);
-      P([[-7,-74],[0,-80],[7,-74],[5,-66],[-5,-66]],C.recess);
-      R(-5,-72,3,1,accent);R(2,-72,3,1,accent);
-      P([[-12,-59],[-26,-42],[-23,-36],[-5,-52]],C.light);
-      P([[10,-60],[22,-48],[18,-43],[5,-51]],C.stone);
-      P([[-18,-58],[-13,-61],[12,-29],[8,-25]],C.gold);
-      R(-10,-41,20,3,C.gold);
-      P([[23,-81],[30,-74],[34,-62],[34,-42],[30,-29],[23,-21],[26,-34],[29,-45],[29,-60],[26,-72]],C.gold);
-      P([[23,-81],[24,-81],[24,-21],[23,-21]],C.pale);
-      R(1,-49,32,1,C.light);P([[33,-51],[39,-49],[33,-47]],C.pale);
-      R(-8,-8,5,8,C.dark);R(5,-8,5,8,C.dark);
-    } else {
-      // Archmage with floating grimoire, star-tipped staff and layered robes.
-      P([[-9,-80],[-17,-64],[-18,-47],[-25,-5],[-27,0],[25,0],[20,-9],[17,-45],[15,-64],[8,-80]],C.dark);
-      P([[-9,-77],[-12,-63],[-9,-44],[-19,-4],[-5,-5],[0,-32],[6,-5],[19,-4],[10,-43],[11,-63],[7,-77]],C.mid);
-      P([[-12,-72],[0,-91],[12,-72],[7,-64],[-7,-64]],C.light);
-      P([[-7,-73],[0,-80],[7,-73],[5,-65],[-5,-65]],C.recess);
-      R(-5,-71,3,1,accent);R(2,-71,3,1,accent);
-      P([[-12,-60],[-24,-48],[-20,-39],[-5,-52]],C.light);
-      P([[11,-60],[22,-48],[20,-42],[5,-52]],C.light);
-      P([[-7,-58],[0,-52],[7,-58],[4,-45],[0,-41],[-4,-45]],C.gold);
-      R(-10,-35,20,3,C.gold);R(25,-75,3,75,C.gold);R(26,-72,1,70,C.gilt);
-      gem(X(26.5),Y(-83),18,accent);
-      const bob=awakening&&!reducedMotion?Math.round(Math.sin(progress*Math.PI)*13):0;
-      P([[-33,-51],[-22,-55],[-11,-50],[-11,-38],[-22,-43],[-33,-40]],C.dark);
-      const bookY=Y(-52)-bob;
-      poly([[X(-32),bookY],[X(-22),bookY-8],[X(-12),bookY],[X(-12),bookY+20],[X(-22),bookY+13],[X(-32),bookY+20]],C.gold);
-      poly([[X(-30),bookY+2],[X(-22),bookY-5],[X(-14),bookY+2],[X(-14),bookY+16],[X(-22),bookY+10],[X(-30),bookY+16]],C.pale);
-      rect(X(-22)-1,bookY-5,2,16,C.dark);
+      P([[-8,0],[-10,-16],[-13,-29],[-10,-38],[-5,-41],[6,-41],[12,-35],[13,-25],[8,-14],[9,0]],shadow);
+      P([[-6,-2],[-7,-15],[-8,-27],[-5,-36],[3,-36],[7,-29],[5,-16],[6,-2]],mid);
+      P([[3,-36],[10,-32],[10,-25],[5,-15],[6,-2],[2,-2],[1,-16]],dark);
+      P([[-14,-33],[-8,-39],[-2,-35],[-4,-28],[-13,-27],[-16,-30]],lit);
+      P([[7,-38],[12,-34],[15,-30],[10,-26],[5,-30]],dark);
+      R(-12,-34,6,1,edge);R(-6,-27,11,2,bronze);R(-5,-25,9,1,shadow);
+      P([[-6,-24],[3,-24],[5,-20],[-5,-20]],lit);
+      R(-6,-19,10,2,dark);R(-6,-14,4,11,dark);R(2,-14,4,11,shadow);
+      R(-8,-3,7,3,lit);R(1,-3,8,3,mid);
+      P([[-6,-41],[-7,-48],[-3,-53],[3,-53],[7,-49],[7,-42],[3,-39],[-3,-39]],shadow);
+      P([[-6,-48],[-3,-52],[2,-52],[4,-49],[2,-42],[-5,-42]],mid);
+      P([[-5,-48],[-3,-51],[1,-51],[1,-48]],lit);
+      R(-5,-46,9,2,shadow);R(-4,-46,3,1,glow);R(-3,-55,3,3,bronze);R(-2,-56,1,3,gold);
+      P([[-18,-29],[-9,-32],[-3,-28],[-5,-17],[-12,-9],[-18,-15]],shadow);
+      P([[-17,-28],[-9,-30],[-5,-27],[-7,-18],[-12,-12],[-16,-17]],bronze);
+      P([[-15,-26],[-9,-28],[-7,-26],[-9,-19],[-12,-15],[-14,-18]],mid);
+      P([[-15,-26],[-9,-28],[-10,-22],[-14,-19]],lit);
+      R(-12,-24,2,6,gold);R(-14,-22,6,2,gold);
+      P([[15,-47],[18,-43],[17,-9],[14,-9],[14,-43]],shadow);
+      R(14,-42,2,33,lit);R(14,-42,1,31,edge);R(11,-12,10,2,bronze);R(15,-10,2,7,dark);R(15,-3,3,2,gold);
+    }else if(item.classId==='wayfarer'){
+      P([[-6,-43],[-12,-32],[-10,-23],[-18,-2],[-5,0],[3,-5],[10,0],[9,-17],[12,-32],[6,-43]],shadow);
+      P([[-9,-32],[-5,-40],[4,-39],[5,-28],[0,-15],[-12,-3],[-16,-3]],mid);
+      P([[-8,-27],[-4,-30],[-5,-17],[-13,-5],[-9,-17]],lit);
+      P([[4,-35],[10,-31],[7,-22],[8,-4],[3,-7],[1,-20]],dark);
+      P([[-7,-42],[-5,-50],[0,-54],[5,-51],[8,-46],[5,-40],[-4,-40]],dark);
+      P([[-6,-44],[-4,-50],[0,-53],[3,-50],[1,-45],[-3,-43]],lit);
+      P([[-2,-49],[4,-48],[5,-43],[1,-41],[-2,-43]],shadow);R(1,-47,3,1,glow);
+      P([[-8,-35],[-4,-37],[6,-25],[3,-23]],bronze);R(-4,-23,12,2,gold);
+      P([[-5,-35],[-12,-26],[-10,-23],[1,-32]],lit);P([[5,-34],[14,-29],[14,-26],[7,-27]],mid);
+      R(12,-29,3,2,edge);R(-3,-9,4,7,dark);R(4,-10,4,8,shadow);R(-4,-3,6,3,mid);R(4,-3,7,3,mid);
+      P([[15,-49],[20,-43],[23,-36],[23,-23],[20,-16],[15,-11],[18,-19],[20,-25],[20,-35],[18,-42]],shadow);
+      P([[15,-49],[19,-43],[21,-36],[21,-23],[19,-17],[15,-11],[17,-19],[19,-25],[19,-35],[17,-42]],bronze);
+      R(15,-48,1,37,edge);R(2,-29,18,1,lit);P([[20,-31],[24,-29],[20,-27]],edge);
+    }else{
+      P([[-6,-44],[-12,-34],[-9,-23],[-16,-2],[-9,0],[12,0],[15,-3],[8,-23],[10,-35],[5,-44]],shadow);
+      P([[-8,-34],[-5,-41],[4,-41],[6,-32],[2,-19],[-6,-2],[-13,-3]],mid);
+      P([[-5,-29],[-2,-32],[-2,-20],[-9,-4],[-6,-17]],lit);
+      P([[4,-34],[9,-31],[6,-22],[11,-4],[5,-3],[2,-19]],dark);
+      P([[-7,-42],[-5,-51],[0,-56],[5,-50],[8,-43],[4,-40],[-4,-40]],dark);
+      P([[-6,-44],[-4,-50],[0,-55],[2,-49],[0,-45],[-4,-43]],lit);
+      P([[-2,-49],[4,-47],[5,-43],[1,-41],[-2,-43]],shadow);R(1,-47,3,1,glow);
+      P([[-7,-35],[-15,-28],[-13,-24],[-3,-31]],lit);P([[6,-34],[13,-29],[12,-25],[5,-29]],mid);
+      R(-4,-22,9,2,bronze);R(-1,-22,2,2,gold);
+      R(16,-49,3,49,shadow);R(16,-48,1,47,bronze);R(17,-46,1,44,gold);
+      P([[17,-57],[22,-52],[17,-47],[12,-52]],bronze);P([[17,-55],[20,-52],[17,-49],[14,-52]],glow);
+      const by=-32-(awakening&&!reducedMotion?Math.round(Math.sin(progress*Math.PI)*4):0);
+      P([[-23,by],[-16,by-3],[-8,by],[-8,by+9],[-16,by+7],[-23,by+9]],shadow);
+      P([[-22,by],[-16,by-2],[-9,by],[-9,by+7],[-16,by+5],[-22,by+7]],bronze);
+      P([[-21,by+1],[-16,by-1],[-16,by+5],[-21,by+6]],edge);
+      P([[-15,by-1],[-10,by+1],[-10,by+6],[-15,by+4]],lit);
+      R(-16,by,1,5,shadow);R(-20,by+2,3,1,dark);R(-14,by+2,3,1,dark);
     }
-    // Class-specific sigil floats above the statue only on activation / attunement.
-    const sy=base-335;
+    // Sparse weathered stone chips.
+    R(-7,-17,2,1,'#52685e');R(4,-10,1,2,'#3d514c');R(-6,-5,2,1,'#84958a');
+    if(awakening){
+      ctx.save();ctx.globalAlpha=.12+flash*.22;disc(x,base-37,22+flash*13,accent);ctx.restore();
+      ring(x,base-36,16+progress*31,accent,1.5);
+      for(let i=0;i<18;i++){const q=i*2.39996+progress*5,r=12+(i*17)%25+progress*7;
+        R0(Math.cos(q)*r,-12-progress*74+(i*13)%25,i%4===0?2:1,i%4===0?2:1,accent);}
+    }
+    const sy=base-84;
     if(attuned||awakening){
-      const p=awakening?progress:1;
-      ctx.save();ctx.globalAlpha=awakening?Math.max(.15,p):.85;
-      ring(x,sy,23+flash*10,accent,2);
-      if(item.classId==='warden')poly([[x,sy-15],[x+12,sy-8],[x+10,sy+8],[x,sy+15],[x-10,sy+8],[x-12,sy-8]],accent);
-      else if(item.classId==='wayfarer')poly([[x-13,sy+11],[x+10,sy-12],[x+13,sy-3],[x+10,sy-9],[x+4,sy-12],[x+10,sy-12],[x-10,sy+14]],accent);
-      else gem(x,sy,16,accent);
+      ctx.save();ctx.globalAlpha=awakening?Math.max(.15,progress):.85;
+      ring(x,sy,13+flash*4,accent,1);
+      if(item.classId==='warden')poly([[x,sy-7],[x+6,sy-4],[x+5,sy+4],[x,sy+7],[x-5,sy+4],[x-6,sy-4]],accent);
+      else if(item.classId==='wayfarer')poly([[x-7,sy+6],[x+6,sy-6],[x+7,sy-1],[x+4,sy-3],[x-5,sy+7]],accent);
+      else gem(x,sy,7,accent);
       ctx.restore();
     }
-    // Permanent carved name, readable at normal zoom, not a floating UI monitor.
-    if(typeof ctx.fillText==='function'){
-      ctx.save();ctx.font='bold 11px serif';ctx.textAlign='center';ctx.fillStyle=C.gilt;
-      ctx.fillText(item.name.toUpperCase(),x,base-18);ctx.restore();
-    }
+    R0(-36,-116,72,11,shadow);R0(-36,-116,72,1,bronze);
+    if(typeof ctx.fillText==='function'){ctx.save();ctx.font='bold 7px serif';ctx.textAlign='center';ctx.fillStyle=C.gilt;ctx.fillText(item.name.toUpperCase(),x,base-108);ctx.restore();}
   }
   for(const door of world.templeDoors){
     const {x,y,width,height}=door.bounds;

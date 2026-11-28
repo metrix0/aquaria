@@ -45,6 +45,9 @@ export function createOverworldTempleDoors(westExtension = WEST_EXTENSION) {
 }
 
 export const STATUE_AWAKEN_SECONDS = 1.65;
+// Statue including pedestal: 68 px, versus 23 px for a standing player.
+export const CLASS_STATUE_HEIGHT = 68;
+export const CLASS_STATUE_HALF_WIDTH = 26;
 export const CLASS_STATUES = Object.freeze(STARTER_CLASS_IDS.map((classId, index) => {
   const column = [24, 43, 62][index];
   const floor = WATER_TEMPLE_INTERIOR.lowerFloorRow;
@@ -52,7 +55,8 @@ export const CLASS_STATUES = Object.freeze(STARTER_CLASS_IDS.map((classId, index
   return Object.freeze({
     id: 'class-statue-' + classId, kind: 'class-statue', classId,
     name: def.name, accent: def.accent, column, floor,
-    x: (column + .5) * TILE, y: floor * TILE - 22,
+    x: (column + .5) * TILE, y: floor * TILE - 16,
+    bounds: Object.freeze({ x: (column + .5) * TILE - CLASS_STATUE_HALF_WIDTH, y: floor * TILE - CLASS_STATUE_HEIGHT, width: CLASS_STATUE_HALF_WIDTH * 2, height: CLASS_STATUE_HEIGHT }),
   });
 }));
 
