@@ -69,7 +69,14 @@ export function bindInput(canvas, camera, actions) {
     if (event.repeat) return;
     if (code === 'KeyE') actions.interact();
     if (code === 'KeyF') actions.castRing();
-    if (code === 'KeyG') actions.toggleGodMode?.();
+    if (code === 'KeyG') {
+      if (event.shiftKey) actions.cycleFlightSpeed?.();
+      else actions.toggleGodMode?.();
+    }
+    if (code === 'KeyZ') {
+      event.preventDefault();
+      actions.zoomBy?.(event.shiftKey ? -1 : 1);
+    }
     if (code === 'KeyT') actions.emotes?.();
     if (code === 'KeyB') actions.dance?.();
     if (code === 'KeyQ') actions.castSkill?.(0);

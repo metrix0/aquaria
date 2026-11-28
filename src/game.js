@@ -346,21 +346,12 @@ const ui = createUI({
     if (!error) inventoryChanged();
     return error;
   },
-  zoomBy(delta) {
-    zoomIndex = clamp(zoomIndex + delta, 0, zoomLevels.length - 1);
-    updateViewport();
-    ui.setZoom(zoomLevels[zoomIndex], zoomIndex === 0, zoomIndex === zoomLevels.length - 1);
-  },
+  zoomBy,
   hideCaveShadows: (hidden) => { caveShadowsHidden = hidden; },
   toggleGodMode: toggleGodModeState,
   emitEmoji,
   dance: toggleDance,
-  adjustFlightSpeed(step) {
-    if (!game.player.flightOrigin) return;
-    const last = flightSpeedLevels.length - 1;
-    flightSpeedIndex = clamp(flightSpeedIndex + step, 0, last);
-    ui.setFlightSpeed(flightSpeedLevels[flightSpeedIndex], flightSpeedIndex === 0, flightSpeedIndex === last);
-  },
+  adjustFlightSpeed,
   adjustWeather(step) {
     weatherModeIndex = (weatherModeIndex + step + WEATHER_MODES.length) % WEATHER_MODES.length;
     const mode = WEATHER_MODES[weatherModeIndex];
@@ -591,9 +582,31 @@ const input = bindInput(canvas, camera, {
   character: () => { if (!game.player.downed) ui.open('customize-panel'); },
   pause: () => { if (!game.player.downed) ui.open('pause-panel'); },
   toggleGodMode: toggleGodModeState,
+  cycleFlightSpeed,
+  zoomBy,
   emotes: () => { if (!game.player.downed) ui.toggleEmotes(); },
   dance: toggleDance,
 });
+
+function zoomBy(delta) {
+  zoomIndex = clamp(zoomIndex + delta, 0, zoomLevels.length - 1);
+  updateViewport();
+  ui.setZoom(zoomLevels[zoomIndex], zoomIndex === 0, zoomIndex === zoomLevels.length - 1);
+}
+
+function adjustFlightSpeed(step) {
+  if (!game.player.flightOrigin) return;
+  const last = flightSpeedLevels.length - 1;
+  flightSpeedIndex = clamp(flightSpeedIndex + step, 0, last);
+  ui.setFlightSpeed(flightSpeedLevels[flightSpeedIndex], flightSpeedIndex === 0, flightSpeedIndex === last);
+}
+
+function cycleFlightSpeed() {
+  if (!game.player.flightOrigin) return;
+  const last = flightSpeedLevels.length - 1;
+  const next = flightSpeedIndex === last ? flightSpeedLevels.indexOf(1) : flightSpeedIndex + 1;
+  adjustFlightSpeed(next - flightSpeedIndex);
+}
 
 function toggleGodModeState() {
   if (game.player.downed) return;
