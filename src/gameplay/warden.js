@@ -57,7 +57,7 @@ export function updateWardenAllies(game, peers) {
     p.cryTime = .8;
     for (const mob of game.world.mobs) {
       if (mob.health <= 0 || mob.respawn > 0 || Math.hypot(mob.x - p.x, mob.y - p.y) > 12 * TILE ||
-          mob.kind.startsWith('ambient-') || ['crab','kraken'].includes(mob.kind) || (mob.kind === 'fish' && !mob.enemyType)) continue;
+          mob.kind.startsWith('ambient-') || ['crab','kraken','mermaid'].includes(mob.kind) || (mob.kind === 'fish' && !mob.enemyType)) continue;
       mob.wardenTaunt = 6;
       if (mob.kind === 'mimic') wakeMimic(game.world, mob, p, game.effects);
       mob.flee = 0;

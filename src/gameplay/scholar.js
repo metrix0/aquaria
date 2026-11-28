@@ -89,7 +89,7 @@ export function useScholarSkill(game, id, wx, wy, camera) {
 }
 export function confuseOnHit(game,mob) {
   const p=game.player;
-  if (!p.skillBonuses?.confusingTouch || (p.wardenCooldowns?.confusingTouch || 0)>0 || mob.health<=0 || ['kraken','crab','fish'].includes(mob.kind) || mob.kind.startsWith('ambient-')) return false;
+  if (!p.skillBonuses?.confusingTouch || (p.wardenCooldowns?.confusingTouch || 0)>0 || mob.health<=0 || ['kraken','crab','fish','mermaid'].includes(mob.kind) || mob.kind.startsWith('ambient-')) return false;
   p.wardenCooldowns ??= {}; p.wardenCooldowns.confusingTouch=12;
   mob.scholarConfused=5; mob.scholarAttack=0;
   game.effects.push({x:mob.x,y:mob.y,color:'#9ae17d',count:8,spread:30});

@@ -9,6 +9,7 @@ import { isCaveRefuge } from '../world/island-cave.js';
 import { playerWaterborne, takeDamage } from './player.js';
 import { crabCollides, crabSpec, stepCrab } from './friends/crab.js';
 import { fishCollides, fishSpec, stepFish } from './friends/fish.js';
+import { mermaidCollides, mermaidSpec, stepMermaid } from './friends/mermaid.js';
 import { updateEnemySpawns } from './enemies/enemy-fish.js';
 import { jellyfishShockRadius, jellyfishSpec, stepJellyfish } from './enemies/jellyfish.js';
 import { KRAKEN_DEATH_DURATION, krakenSpec, stepKraken, stepKrakenDeath } from './enemies/kraken.js';
@@ -86,6 +87,7 @@ const mobSpecs = {
   ...ambientMobSpecs,
   crab: crabSpec,
   fish: fishSpec,
+  mermaid: mermaidSpec,
   ...seaEnemySpecs,
   ...caveEnemySpecs,
   ...jungleEnemySpecs,
@@ -165,13 +167,15 @@ export function syncMobs(world, player) {
     if (ambientMobSpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost' || mob.kind === 'kraken') continue;
     if (mob.kind === 'crab') {
       while (mob.y > TILE && crabCollides(world, player, mob.x, mob.y)) mob.y -= TILE;
-    } else if (fishCollides(world, player, mob.x, mob.y)) {
+    } else {
+      const collides = mob.kind === 'mermaid' ? mermaidCollides : fishCollides;
+      if (!collides(world, player, mob.x, mob.y)) continue;
       for (let offset = 1; offset <= 4; offset++) {
-        if (!fishCollides(world, player, mob.x, mob.y - offset * TILE)) {
+        if (!collides(world, player, mob.x, mob.y - offset * TILE)) {
           mob.y -= offset * TILE;
           break;
         }
-        if (!fishCollides(world, player, mob.x, mob.y + offset * TILE)) {
+        if (!collides(world, player, mob.x, mob.y + offset * TILE)) {
           mob.y += offset * TILE;
           break;
         }
@@ -368,6 +372,8 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
       stepCaveEnemy(world, player, mob, dt, effects);
     } else if (jungleEnemyModules[mob.kind]) {
       jungleEnemyModules[mob.kind].step(world, player, mob, dt, effects);
+    } else if (mob.kind === 'mermaid') {
+      stepMermaid(world, player, mob, dt);
     } else if (mob.kind === 'fish') {
       const fishHit = stepFish(world, player, mob, dt, time, enemies, {
         dist,

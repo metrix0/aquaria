@@ -2398,19 +2398,6 @@ export function createRenderer(canvas) {
             if (j % 6 === 0 && j > 3) rect(sx - 2, y + 11 - j, 5, 2, "#8fb39a");
           }
         }
-      } else if (item.kind === "mermaid") {
-        const bob = Math.round(Math.sin(time * 2 + x) * 2);
-        const sy = y + bob;
-        const hair = item.id === "mermaid-abyss" ? "#513d82" : item.id === "mermaid-surface" ? "#dba365" : "#b55377";
-        rect(x-6, sy-13, 12, 13, "#29283e");
-        rect(x-5, sy-12, 10, 11, hair);
-        rect(x-3, sy-10, 6, 7, "#e4b4a0");
-        rect(x-2, sy-7, 1, 1, "#332d49"); rect(x+2, sy-7, 1, 1, "#332d49");
-        rect(x-4, sy-3, 8, 6, "#8c65a0");
-        rect(x-6, sy-1, 2, 5, "#e4b4a0"); rect(x+4, sy-1, 2, 5, "#e4b4a0");
-        rect(x-4, sy+3, 9, 7, "#286d75"); rect(x-3, sy+4, 7, 5, "#61c5b0");
-        rect(x-1, sy+10, 7, 4, "#4b9c9d"); rect(x+4, sy+13, 7, 2, "#80d7c0");
-        rect(x+8, sy+10, 3, 6, "#80d7c0");
       } else if (item.kind === "chest") {
         const empty = Boolean(chests?.get(item.id)?.every((slot) => !slot));
         drawChest(x, y, item.id === openChestId || empty);
@@ -2865,6 +2852,20 @@ export function createRenderer(canvas) {
         ctx.restore();
       } else if (caveEnemy) {
         drawCaveEnemy(ctx, rect, polygon, mob, time);
+      } else if (mob.kind === "mermaid") {
+        ctx.scale(-mob.facing, 1);
+        const bob = reducedMotion ? 0 : Math.round(Math.sin(time * (mob.flee > 0 ? 5 : 2) + mob.phase) * 2);
+        const sy = bob;
+        const hair = mob.id === "mermaid-abyss" ? "#513d82" : mob.id === "mermaid-surface" ? "#dba365" : "#b55377";
+        rect(-6, sy-13, 12, 13, "#29283e");
+        rect(-5, sy-12, 10, 11, hair);
+        rect(-3, sy-10, 6, 7, "#e4b4a0");
+        rect(-2, sy-7, 1, 1, "#332d49"); rect(+2, sy-7, 1, 1, "#332d49");
+        rect(-4, sy-3, 8, 6, "#8c65a0");
+        rect(-6, sy-1, 2, 5, "#e4b4a0"); rect(+4, sy-1, 2, 5, "#e4b4a0");
+        rect(-4, sy+3, 9, 7, "#286d75"); rect(-3, sy+4, 7, 5, "#61c5b0");
+        rect(-1, sy+10, 7, 4, "#4b9c9d"); rect(+4, sy+13, 7, 2, "#80d7c0");
+        rect(+8, sy+10, 3, 6, "#80d7c0");
       } else if (mob.kind === "fish") {
         const [dark, mid, light, stripe] =
           mob.enemyType?.colors ?? fishColors[mob.variant % fishColors.length];
@@ -3453,7 +3454,7 @@ export function createRenderer(canvas) {
           ? -16
           : mob.kind === "pufferfish"
             ? Math.round(-12 * (mob.inflateScale ?? 1)) - 4
-            : mob.kind === "ghost"
+            : mob.kind === "ghost" || mob.kind === "mermaid"
               ? -21
               : caveEnemy
                 ? mob.kind === "spider"

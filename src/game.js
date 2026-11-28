@@ -1,5 +1,4 @@
 import { nearestDowned } from './gameplay/revival.js';
-import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls, equipSkill, equippedSkill } from './classes.js';
 import { ARROW, BOW, FIREPLACE, CAULDRON, MORNINGSTAR, POISON_ARROW, WORKBENCH } from './content.js';
@@ -414,8 +413,7 @@ const input = bindInput(canvas, camera, {
       }
       return;
     }
-    if (item?.kind === 'mermaid') { ui.notify(singWithMermaid(game.world, item.id)); game.dirty = true; }
-    else if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id || item?.kind === CAULDRON.id) ui.open('craft-panel', item);
+    if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id || item?.kind === CAULDRON.id) ui.open('craft-panel', item);
     else if (item?.kind === 'mimic') {
       if (wakeMimic(game.world, item.mob, game.player, game.effects)) {
         for (const effect of game.effects) {

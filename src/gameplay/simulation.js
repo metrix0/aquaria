@@ -934,7 +934,7 @@ export function nearestItem(game) {
     }
   }
   for (const item of world.items) {
-    if (item.kind !== 'chest' && item.kind !== 'mermaid') continue;
+    if (item.kind !== 'chest') continue;
     const difference = itemDistance(player, item);
     if (difference < distance) {
       distance = difference;

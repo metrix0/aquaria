@@ -31,6 +31,7 @@ export const SPAWN = { x: (63 + WEST_EXTENSION) * TILE + 8, y: 12 * TILE - 23 };
 export const MOB_HEALTH = Object.freeze({
   crab: 2,
   fish: 2,
+  mermaid: 5,
   jellyfish: 2,
   squid: 4,
   shark: 7,
@@ -755,7 +756,6 @@ export function generateFixtures() {
     items.push({ id: 'kelp-' + id, kind: 'kelp', amount: 1, tx, ty, x: (tx + .5) * TILE, y: ty * TILE - 12 });
   }
 
-  for (const mermaid of MERMAIDS) items.push({ ...mermaid, kind: "mermaid", x: (mermaid.column + WEST_EXTENSION + .5) * TILE, y: mermaid.row * TILE });
   return items;
 }
 
@@ -815,6 +815,10 @@ export function generateMobs() {
   const lionGreenEast = { x: greenEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenEastX + WEST_EXTENSION) - 6) * TILE) };
   const lionGreenFarEast = { x: greenFarEastX * TILE, y: Math.max((WATER_ROW + 22) * TILE, (groundAt(greenFarEastX + WEST_EXTENSION) - 6) * TILE) };
   return [
+    ...MERMAIDS.map(({ id, column, row }, index) => ({
+      id, kind: 'mermaid', x: (column + .5) * TILE, y: row * TILE,
+      phase: index * 1.8, respawnDelay: 45,
+    })),
     { id: 'crab-island-west', kind: 'crab', x: 50 * TILE + 8, span: 48, speed: 22, variant: 0, phase: 0.4 },
     { id: 'crab-west-floor', kind: 'crab', x: 34 * TILE + 8, span: 52, speed: 21, variant: 1, phase: 0.9 },
     { id: 'crab-reef-east', kind: 'crab', x: 84 * TILE + 8, span: 60, speed: 24, variant: 2, phase: 2.1 },
