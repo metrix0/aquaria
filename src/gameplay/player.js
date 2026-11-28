@@ -8,6 +8,8 @@ import { KRAKEN_BARRIER_EAST_OFFSET, KRAKEN_BARRIER_OFFSET } from './enemies/kra
 
 const jumpSpeed = 217;
 const shortHopSpeed = 115;
+export const PARROT_FLUTTER_DURATION = .34;
+const parrotFlutterSpeed = 52;
 const ledgeJumpGrace = 0.1;
 const maxFallSpeed = 480;
 const maxWaterEntrySpeed = 245;
@@ -141,7 +143,7 @@ export function spawn(world, oxygen, appearance, armor = null, feet = null) {
   const point = respawnPoint(world);
   let y = point.y;
   while (y > 0 && collides(world, point.x, y)) y = Math.max(0, y - TILE);
-  return { x: point.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, dancing: 0, emoji: null, appearance: normalizeAppearance(appearance) };
+  return { x: point.x, y, ...PLAYER_SIZE, dx: 0, dy: 0, fallDistance: 0, grounded: false, jumpGrace: 0, canShortenJump: false, parrotFlutterReady: false, parrotFlutterTime: 0, parrotFlutterUsed: false, facing: 1, walkPhase: 0, health: MAX_HEALTH, oxygen, armor, feet, hurt: 0, stun: 0, confused: 0, confusedStyle: null, confusedGrace: 0, bleed: 0, bleedTick: 0, blindness: 0, poison: 0, poisonTick: 0, neurotoxin: 0, hook: null, dancing: 0, emoji: null, appearance: normalizeAppearance(appearance) };
 }
 
 export function takeDamage(player, damage, fractional = false) {
@@ -246,6 +248,9 @@ export function toggleGodMode(world, player) {
   player.jumpGrace = 0;
   player.canShortenJump = false;
   player.waterJump = false;
+  player.parrotFlutterReady = false;
+  player.parrotFlutterTime = 0;
+  player.parrotFlutterUsed = false;
   player.climb = null;
   player.climbJump = false;
   player.hook = null;
@@ -324,6 +329,9 @@ export function movePlayer(world, player, input, dt) {
     return;
   }
   let { left, right, up, down, jump } = input;
+  const hasParrot = player.addons?.head === 'parrot-pet';
+  player.parrotFlutterTime = Math.max(0, (player.parrotFlutterTime || 0) - dt);
+  if (!hasParrot) { player.parrotFlutterReady = false; player.parrotFlutterTime = 0; }
   player.hurt = Math.max(0, (player.hurt ?? 0) - dt);
   player.stun = Math.max(0, (player.stun ?? 0) - dt);
   const wasConfused = (player.confused ?? 0) > 0;
@@ -364,6 +372,11 @@ export function movePlayer(world, player, input, dt) {
   }
   if (player.bracing || player.rushTime > 0) { up = false; down = false; jump = false; }
   const hookState = stepGrapplingHook(world, player, { left, right, up, down, jump }, dt, { moveAxis, jumpSpeed });
+  if (hookState === 'latched' || hookState === 'jumped') {
+    player.parrotFlutterReady = false;
+    player.parrotFlutterTime = 0;
+    player.parrotFlutterUsed = false;
+  }
   if (hookState === 'latched') return;
   if (hookState === 'jumped') player.waterJump = playerInWater(world, player);
   const climbJump = hookState !== 'jumped' && jump && Boolean(player.climb);
@@ -393,6 +406,9 @@ export function movePlayer(world, player, input, dt) {
   });
   player.climb = caveRoute || shaft || null;
   if (player.climb) {
+    player.parrotFlutterReady = false;
+    player.parrotFlutterTime = 0;
+    player.parrotFlutterUsed = false;
     player.fallDistance = 0;
     player.jumpGrace = 0;
     const standingY = player.y + player.height - PLAYER_SIZE.height;
@@ -419,7 +435,12 @@ export function movePlayer(world, player, input, dt) {
     return;
   }
   const bodyInWater = playerInWater(world, player);
-  if (bodyInWater) player.jumpGrace = 0;
+  if (bodyInWater) {
+    player.jumpGrace = 0;
+    player.parrotFlutterReady = false;
+    player.parrotFlutterTime = 0;
+    player.parrotFlutterUsed = false;
+  }
   else if (player.grounded) player.jumpGrace = ledgeJumpGrace;
   else player.jumpGrace = Math.max(0, player.jumpGrace - dt);
   const wantsCrawl = down && !player.skillBonuses?.brace && !bodyInWater && (player.grounded || player.height === CRAWL_HEIGHT);
@@ -473,12 +494,25 @@ export function movePlayer(world, player, input, dt) {
       player.dy = -jumpSpeed * (player.carrotTime > 0 ? Math.sqrt(1+beneficial(player,2)) : 1);
       player.canShortenJump = !shoreJump;
       player.waterJump = bodyInWater;
+      player.parrotFlutterReady = hasParrot && !bodyInWater && !climbJump;
+      player.parrotFlutterUsed = false;
+      player.parrotFlutterTime = 0;
+    } else if (jump && !down && !crawling && !bodyInWater && !player.waterJump &&
+               !player.grounded && hookState !== 'jumped' && hasParrot && player.parrotFlutterReady &&
+               !(player.confused > 0)) {
+      // One tiny aerial lift per normal jump. Holding the key cannot retrigger it.
+      player.parrotFlutterReady = false;
+      player.parrotFlutterUsed = true;
+      player.parrotFlutterTime = PARROT_FLUTTER_DURATION;
+      player.dy = -parrotFlutterSpeed;
+      player.canShortenJump = false;
     }
     if (player.canShortenJump && !up) {
       player.dy = Math.max(player.dy, -shortHopSpeed * (player.carrotTime > 0 ? Math.sqrt(1+beneficial(player,2)) : 1));
       player.canShortenJump = false;
     }
-    player.dy = Math.min(player.dy + 510 * dt, maxFallSpeed);
+    const flutterGravity = player.parrotFlutterTime > .12 ? .45 : 1;
+    player.dy = Math.min(player.dy + 510 * flutterGravity * dt, maxFallSpeed);
   }
 
   const previousX = player.x;
@@ -497,8 +531,13 @@ export function movePlayer(world, player, input, dt) {
     player.walkPhase = (player.walkPhase + Math.abs(player.x - previousX) / WALK_CYCLE_DISTANCE) % 1;
   }
 
-  player.fallDistance = falling && !bodyInWater ? player.fallDistance + (player.y - previousY) : 0;
+  // A small flutter is not a full fall-damage reset.
+  if (falling && !bodyInWater) player.fallDistance += player.y - previousY;
+  else if (bodyInWater || !player.parrotFlutterUsed) player.fallDistance = 0;
   if (player.grounded) {
+    player.parrotFlutterReady = false;
+    player.parrotFlutterTime = 0;
+    player.parrotFlutterUsed = false;
     const damage = Math.round((player.fallDistance / TILE - safeFallTiles) * fallDamagePerTile);
     player.fallDistance = 0;
     if (damage > 0 && !playerInWater(world, player)) return damage;

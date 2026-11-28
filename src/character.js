@@ -446,18 +446,38 @@ export function createCharacterRenderer(ctx) {
     } : venom;
     function drawParrot(x, y) {
       if (player.addons?.head !== 'parrot-pet') return;
-      const bob = reducedMotion ? 0 : Math.round(Math.sin(time * 3) * .45);
+      const flutter = !reducedMotion && player.parrotFlutterTime > 0;
+      const flap = flutter ? Math.sin(time * 55) : 0;
+      const idle = !reducedMotion && !flutter;
+      const bob = flutter ? -1 - Math.round(Math.abs(flap)) : idle ? Math.round(Math.sin(time * 3.5) * .65) : 0;
+      const headBob = idle && Math.sin(time * 1.8) > .85 ? -1 : 0;
+      const blink = idle && time % 4.7 > 4.54;
+      const ruffle = idle && time % 5.8 > 5.42;
       y += bob;
+      // Tail and far wing, drawn behind the body.
       rect(x - 2, y + 3, 1, 4, '#304768');
       rect(x - 1, y + 2, 2, 5, '#4285a2');
+      if (flutter) {
+        const wingY = flap > 0 ? y - 5 : y + 1;
+        rect(x+1, wingY, 5, 2, '#993b39');
+        rect(x+4, wingY + (flap > 0 ? -1 : 1), 3, 2, '#e3af4d');
+        rect(x+6, wingY + (flap > 0 ? -2 : 2), 2, 2, '#4386a5');
+      }
       rect(x - 2, y - 2, 4, 5, '#b83d39');
-      rect(x - 1, y - 3, 4, 4, '#ee6545');
-      rect(x, y - 4, 3, 2, '#f39952');
-      rect(x - 2, y, 3, 2, '#e6b74a');
-      rect(x - 1, y + 2, 2, 2, '#398e9a');
-      rect(x + 2, y - 3, 1, 2, '#ffe2b0');
-      rect(x + 2, y - 3, 1, 1, '#24303a');
-      rect(x + 3, y - 2, 2, 1, '#e6b34e');
+      rect(x - 1, y - 3 + headBob, 4, 4, '#ee6545');
+      rect(x, y - 4 + headBob, 3, 2, '#f39952');
+      if (flutter || ruffle) {
+        const lift = flutter ? (flap > 0 ? -3 : 3) : -1;
+        rect(x - 4, y + lift, 4, 3, '#cc453c');
+        rect(x - 6, y + lift - (lift < 0 ? 1 : 0), 4, 2, '#f2b54c');
+        rect(x - 7, y + lift + (lift < 0 ? -2 : 2), 3, 2, '#448da9');
+      } else {
+        rect(x - 2, y, 3, 2, '#e6b74a');
+        rect(x - 1, y + 2, 2, 2, '#398e9a');
+      }
+      rect(x + 2, y - 3 + headBob, 1, 2, '#ffe2b0');
+      if (!blink) rect(x + 2, y - 3 + headBob, 1, 1, '#24303a');
+      rect(x + 3, y - 2 + headBob, 2, 1, '#e6b34e');
       rect(x, y + 3, 2, 1, '#dbb480');
     }
     function drawClimbArm(side, rung) {

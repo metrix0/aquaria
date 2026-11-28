@@ -939,6 +939,9 @@ export function transitionZone(game, targetZone) {
   player.dx = 0;
   player.dy = 0;
   player.climb = null;
+  player.parrotFlutterReady = false;
+  player.parrotFlutterTime = 0;
+  player.parrotFlutterUsed = false;
   player.flightOrigin = null;
   game.attack = null;
   game.bowDraw = null;

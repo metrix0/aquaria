@@ -142,6 +142,7 @@ export async function connectRoom(config, invite, handlers) {
         (payload.helmet === true ? (payload.reinforcedHelmet === true ? 'reinforced-helmet' : 'swimming-helmet') : null)),
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
       addons: { head: payload.parrotPet === true ? 'parrot-pet' : null },
+      parrotFlutterTime: payload.parrotPet === true && Number.isFinite(payload.parrotFlutterTime) ? clamp(payload.parrotFlutterTime,0,.34) : 0,
       feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
       heldTome: SPELL_ITEMS[payload.heldTome]?.form === 'tome' ? payload.heldTome : null,
@@ -217,6 +218,7 @@ export async function connectRoom(config, invite, handlers) {
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
         parrotPet: player.addons?.head === 'parrot-pet',
+        parrotFlutterTime: player.parrotFlutterTime || 0,
         heldTome: SPELL_ITEMS[held]?.form === 'tome' ? held : null,
         health: Math.round(player.health), zone,
         mendPulses: (player.mendPulses??[]).map(p=>({...p,x:p.x-poseOffset})),
@@ -249,6 +251,7 @@ export async function connectRoom(config, invite, handlers) {
         }
         if(peer.mendPulses) peer.mendPulses=peer.mendPulses.filter(p=>(p.remaining-=dt)>0);
         if(peer.feastPulse) { peer.feastPulse.remaining -= dt; if(peer.feastPulse.remaining <= 0) peer.feastPulse = null; }
+        peer.parrotFlutterTime = Math.max(0,(peer.parrotFlutterTime||0)-dt);
         peer.spinachTime = Math.max(0,(peer.spinachTime||0)-dt);
         peer.beastDrinkTime = Math.max(0,(peer.beastDrinkTime||0)-dt);
         peer.beastTime = Math.max(0,(peer.beastTime||0)-dt);

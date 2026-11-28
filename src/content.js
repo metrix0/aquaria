@@ -177,7 +177,7 @@ export const POISON_ARROW = { id: 'poison-arrow', cost: { [ARROW.id]: 4, [POISON
 export const ADDONS = Object.freeze({
   'parrot-pet': {
     id: 'parrot-pet', name: 'Parrot Pet', addonSlot: 'head',
-    description: 'The captain’s colorful companion. Perches on your shoulder; cosmetic only.',
+    description: 'The captain’s colorful companion. Press jump again in midair for a tiny wing-assisted flutter. Recharges on landing.',
   },
   'scrappers-gloves': {
     id: 'scrappers-gloves', name: "Scrapper's Gloves", addonSlot: 'hands', miningSpeed: 0.08,

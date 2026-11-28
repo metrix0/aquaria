@@ -5079,3 +5079,32 @@ test('player can dance, emit floating emojis, and render both cleanly', () => {
   }
   assert.ok(grounded >= 4,'the keel must contact the seabed across several tiles');
 });
+
+ test('parrot pet grants only one small flutter per dry jump and resets on landing', () => {
+  const {world,player}=createGame();
+  const dt=1/60;
+  player.addons={head:'parrot-pet'};
+  movePlayer(world,player,{},dt);
+  assert.ok(player.grounded);
+  movePlayer(world,player,{up:true,jump:true},dt);
+  assert.ok(player.parrotFlutterReady);
+  for(let i=0;i<12;i++) movePlayer(world,player,{up:true},dt);
+  const before=player.y;
+  movePlayer(world,player,{up:true,jump:true},dt);
+  assert.ok(player.parrotFlutterTime>0 && !player.parrotFlutterReady);
+  assert.ok(player.dy<0 && player.dy>-60);
+  for(let i=0;i<8;i++) movePlayer(world,player,{up:true},dt);
+  assert.ok(before-player.y<TILE,'flutter is deliberately less than a tile');
+  const dy=player.dy;
+  movePlayer(world,player,{up:true,jump:true},dt);
+  assert.ok(player.dy>dy,'no third jump');
+  for(let i=0;i<120&&!player.grounded;i++) movePlayer(world,player,{},dt);
+  assert.ok(player.grounded);
+  assert.equal(player.parrotFlutterTime,0);
+  movePlayer(world,player,{up:true,jump:true},dt);
+  assert.ok(player.parrotFlutterReady);
+  player.addons={};
+  movePlayer(world,player,{up:true,jump:true},dt);
+  assert.equal(player.parrotFlutterReady,false);
+  assert.equal(player.parrotFlutterTime,0);
+});
