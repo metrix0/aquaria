@@ -1,7 +1,7 @@
 import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS, WEST_EXTRA } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
-import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
+import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckOrigin, shipwreckVentColumn } from './shipwreck.js';
 import { placeWaterTemple, protectsWaterTemple, waterTempleFloor } from './water-temple.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
@@ -902,13 +902,13 @@ export function generateMobs() {
     ...shipwreckGhosts.map(({ id, column, row, phase, resident = false }) => ({
       id, kind: 'ghost', x: (column + .5) * TILE, y: (row + .5) * TILE, phase, resident, spawnCheckIn: 0,
     })),
-    { id: 'fish-western-wreck', kind: 'fish', x: -75 * TILE, y: 39 * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
+    { id: 'fish-western-wreck', kind: 'fish', x: (shipwreckOrigin.column + 23) * TILE, y: (shipwreckOrigin.row + 12) * TILE, span: 72, speed: 28, variant: 1, phase: 3.5 },
     ...schools,
     { id: 'kraken-east', kind: 'kraken', x: KRAKEN_COLUMN * TILE, y: 40 * TILE, span: 0, speed: 0, phase: 0, respawnDelay: 120 },
   ].map((mob, index) => {
     const x = mob.x + WEST_EXTENSION * TILE;
     const y = mob.kind === 'crab' ? groundAt(Math.floor(x / TILE)) * TILE : mob.y;
-    const maxHealth = MOB_HEALTH[mob.kind] ?? 2;
+    const maxHealth = mob.kind === 'ghost' && mob.resident ? 12 : MOB_HEALTH[mob.kind] ?? 2;
     return {
       ...mob,
       x,
@@ -923,7 +923,7 @@ export function generateMobs() {
       flee: 0,
       cooldown: 0,
       maxHealth,
-      health: mob.kind === 'ghost' && !mob.resident ? 0 : maxHealth,
+      health: maxHealth,
       hurt: 0,
       respawn: 0,
       attackTimer: 1.4 + (mob.phase % 1.5),

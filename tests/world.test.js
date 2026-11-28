@@ -12,7 +12,7 @@ import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCav
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
 import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
-import { isInsideShipwreck } from '../src/world/shipwreck.js';
+import { isInsideShipwreck, shipwreckOrigin, wreckChestRareLoot } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
 import { COBALT_GRAPPLING_HOOK, EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, IRON_GRAPPLING_HOOK, ITEMS } from '../src/inventory.js';
 import { createItemsMenu, itemCategory } from '../src/items-menu.js';
@@ -1377,8 +1377,8 @@ test('the western wreck has flooded holds, mineable timber, skeletons and persis
   }
   assert.equal(game.inventory.count('wood'), startingWood + 76);
 
-  const tx = WEST_EXTENSION - 84;
-  const ty = 30;
+  const tx = WEST_EXTENSION + shipwreckOrigin.column + 14;
+  const ty = shipwreckOrigin.row + 3;
   player.x = (tx + .5) * TILE;
   player.y = ty * TILE - player.height;
   const target = targetTile(game, player.x, (ty + .5) * TILE);
@@ -1391,8 +1391,8 @@ test('the western wreck has flooded holds, mineable timber, skeletons and persis
   const reloaded = createGame(decodeSave(encodeSave(game)));
   assert.ok(waterTileAt(reloaded.world, tx, ty));
   assert.equal(reloaded.inventory.count('wood'), startingWood + 77);
-  assert.deepEqual(caches.map(({ id }) => reloaded.chests.get(id).filter(Boolean)), [
-    [{ id: CAPTAINS_CUTLASS.id, count: 1 }],
+  assert.deepEqual(caches.map(({ id }) => reloaded.chests.get(id).filter(stack => stack && stack.id !== CAPTAINS_CUTLASS.id)), [
+    [],
     [{ id: BOW.id, count: 1 }, { id: ARROW.id, count: 8 }],
     [{ id: 'copper', count: 4 }, { id: KELP_DRESSING.id, count: 2 }],
   ]);
@@ -1422,48 +1422,35 @@ test('western wreck bonus loot arrives once and preserves a full chest from an o
   assert.equal(restored.inventory.count(BOW.id), 1);
 });
 
-test('the captain haunts the wreck by default while the sailor still spawns rarely', (t) => {
+test('the western wreck has hostile spirits, telegraphed attacks and distinct drops', () => {
   const game = createGame();
   const { world, player, effects } = game;
-  const ghosts = world.mobs.filter((mob) => mob.kind === 'ghost');
-  assert.equal(ghosts.length, 2);
+  const ghosts = world.mobs.filter(mob => mob.kind === 'ghost');
+  assert.equal(ghosts.length, 4);
   const [captain, sailor] = ghosts;
-  assert.equal(captain.health, captain.maxHealth);
-  assert.ok(inWater(world, captain.x, captain.y));
-  assert.equal(sailor.health, 0);
-
-  const random = t.mock.method(Math, 'random', () => 0);
-  stepWreckGhost(world, player, captain, 43, 43, effects);
-  stepWreckGhost(world, player, sailor, 43, 43, effects);
-  assert.equal(captain.health, captain.maxHealth);
-  assert.equal(random.mock.callCount(), 0);
-
-  Object.assign(player, { x: captain.homeX, y: captain.homeY - player.height / 2 });
-  random.mock.mockImplementationOnce(() => .9);
-  stepWreckGhost(world, player, sailor, 1 / 60, 43, effects);
-  assert.equal(sailor.health, 0);
-  stepWreckGhost(world, player, sailor, 150, 193, effects);
-  assert.equal(sailor.health, sailor.maxHealth);
-  assert.ok(inWater(world, sailor.x, sailor.y));
-
-  Object.assign(player, { x: sailor.x - 9, y: sailor.y - player.height / 2 });
-  const oxygen = player.oxygen;
+  assert.ok(captain.maxHealth > sailor.maxHealth);
+  for (const ghost of ghosts) {
+    assert.equal(ghost.health, ghost.maxHealth);
+    assert.ok(inWater(world, ghost.x, ghost.y));
+  }
+  Object.assign(player, { x: captain.x - 8, y: captain.y - player.height / 2 });
   const health = player.health;
-  for (let frame = 1; frame <= 80; frame++) stepWreckGhost(world, player, sailor, 1 / 60, 193 + frame / 60, effects);
-  assert.equal(player.oxygen, oxygen - 3);
-  assert.equal(player.health, health - 18);
-  stepWreckGhost(world, player, sailor, 43, 238, effects);
-  assert.equal(sailor.health, 0);
-
+  stepWreckGhost(world, player, captain, 1 / 60, 0, effects);
+  assert.equal(captain.ghostAttack, 'windup');
+  assert.equal(captain.ghostPattern, 'pulse');
+  assert.equal(player.health, health);
+  stepWreckGhost(world, player, captain, .9, 1, effects);
+  assert.equal(player.health, health - 26);
   damageMob(world, captain, captain.maxHealth, 0, 0, effects);
-  assert.equal(captain.health, 0);
-  world.mobs = ghosts;
-  game.enemies.spawnIn = 120;
-  stepMobs(world, player, 44, 282, false, false, game.enemies, effects);
-  assert.equal(captain.health, 0);
-  stepMobs(world, player, 1, 283, false, false, game.enemies, effects);
-  assert.equal(captain.health, captain.maxHealth);
-  assert.equal(random.mock.callCount(), 2);
+  assert.equal(effects.at(-1).drop.id, 'parrot-pet');
+  damageMob(world, sailor, sailor.maxHealth, 0, 0, effects, { random: () => .01 });
+  assert.equal(effects.at(-1).drop.id, CAPTAINS_CUTLASS.id);
+  damageMob(world, ghosts[2], ghosts[2].maxHealth, 0, 0, effects, { random: () => .5 });
+  assert.equal(effects.at(-1).drop, undefined);
+  let count = 0;
+  for (let seed = 0; seed < 1000; seed++) count += wreckChestRareLoot('western-wreck-captain', seed).length;
+  assert.ok(count > 20 && count < 90, 'chest sword is rare');
+  assert.deepEqual(wreckChestRareLoot('unrelated-chest', 0), []);
 });
 
 test('a crafted workbench can be placed, used, saved, and mined back into inventory', () => {

@@ -454,6 +454,22 @@ export function createCharacterRenderer(ctx) {
       rect(x, y, 1, 1, ring ? '#a8f184' : skin.hand);
       venom?.(x, y);
     } : venom;
+    function drawParrot(x, y) {
+      if (player.addons?.head !== 'parrot-pet') return;
+      const bob = reducedMotion ? 0 : Math.round(Math.sin(time * 3) * .45);
+      y += bob;
+      rect(x - 2, y + 3, 1, 4, '#304768');
+      rect(x - 1, y + 2, 2, 5, '#4285a2');
+      rect(x - 2, y - 2, 4, 5, '#b83d39');
+      rect(x - 1, y - 3, 4, 4, '#ee6545');
+      rect(x, y - 4, 3, 2, '#f39952');
+      rect(x - 2, y, 3, 2, '#e6b74a');
+      rect(x - 1, y + 2, 2, 2, '#398e9a');
+      rect(x + 2, y - 3, 1, 2, '#ffe2b0');
+      rect(x + 2, y - 3, 1, 1, '#24303a');
+      rect(x + 3, y - 2, 2, 1, '#e6b34e');
+      rect(x, y + 3, 2, 1, '#dbb480');
+    }
     function drawClimbArm(side, rung) {
       const far = side < 0;
       const [y, lift] = reducedMotion ? [far ? 6 : 10, 0] : climbStep(pixelY, 12, rung, rungGap * 2);
@@ -579,6 +595,7 @@ export function createCharacterRenderer(ctx) {
       if (gear) divingSnorkel(3, 2, gear);
       drawFrontArm(2 - shuffle, 9);
       drawMuscles(9);
+      drawParrot(-5, 4);
       drawElectricStun(12);
       ctx.restore();
       return;
@@ -609,6 +626,7 @@ export function createCharacterRenderer(ctx) {
     if (climb && !attack && !miningSwing && !(player.beastDrinkTime > 0)) drawClimbArm(1, firstRung);
     else drawFrontArm(swimming ? 4 + Math.sign(kick) : -armSwing, 11);
     drawMuscles(11);
+    drawParrot(-shoulderX - 1, 5);
 
     if (swimming) {
       for (let i = 0; i < 3; i++) {

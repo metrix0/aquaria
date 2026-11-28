@@ -175,6 +175,10 @@ export const POISON_NEEDLE = { id: 'poison-needle' };
 export const POISON_ARROW = { id: 'poison-arrow', cost: { [ARROW.id]: 4, [POISON_NEEDLE.id]: 1 }, amount: 4, damage: 2, speed: 240, knockback: 115, poisonDuration: 5 };
 
 export const ADDONS = Object.freeze({
+  'parrot-pet': {
+    id: 'parrot-pet', name: 'Parrot Pet', addonSlot: 'head',
+    description: 'The captain’s colorful companion. Perches on your shoulder; cosmetic only.',
+  },
   'scrappers-gloves': {
     id: 'scrappers-gloves', name: "Scrapper's Gloves", addonSlot: 'hands', miningSpeed: 0.08,
     description: 'Worn mining gloves. Mining is 8% faster.',

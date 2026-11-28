@@ -2707,10 +2707,20 @@ export function createRenderer(canvas) {
       if (mob.kind === 'ambient-ant' || mob.kind === 'ambient-spider' || mob.kind === 'ambient-bat' || mob.kind === 'blood-bat') {
         drawCaveAmbienceMob(ctx, mob, time, reducedMotion);
       } else if (mob.kind === "ghost") {
-        ctx.scale(mob.facing, 1);
-        ctx.globalAlpha *= mob.resident
-          ? 0.82
-          : Math.min(0.82, mob.remainingLife * 0.45);
+        const ghostScale = mob.resident ? 1.45 : 1;
+        if (mob.ghostAttack === "windup") {
+          const pulse = mob.ghostPattern === "pulse";
+          const radius = pulse ? 48 : 12 + (1 - Math.max(0, mob.ghostTimer) / (mob.resident ? .85 : .5)) * 10;
+          for (let i = 0; i < 24; i++) {
+            const a = i / 24 * Math.PI * 2;
+            rect(Math.round(Math.cos(a) * radius), Math.round(Math.sin(a) * radius), 2, 2, "#f78a9f");
+          }
+          if (!pulse) for (let i = 1; i <= 6; i++) {
+            rect(Math.round(mob.ghostAimX * i * 9), Math.round(mob.ghostAimY * i * 9), 2, 2, "#fbc6b0");
+          }
+        }
+        ctx.scale(mob.facing * ghostScale, ghostScale);
+        ctx.globalAlpha *= mob.ghostAttack === "windup" ? 1 : .86;
         const drift = Math.round(Math.sin(time * 4 + mob.phase) * 3);
         const tail = [
           [-7, -3],
@@ -2748,9 +2758,11 @@ export function createRenderer(canvas) {
         rect(-5, -10, 9, 13, "#9ce0d5");
         rect(-3, -12, 7, 3, "#ccf2df");
         rect(4, -8, 3, 6, "#d5f9e7");
-        rect(0, -7, 2, 3, "#26485c");
-        rect(4, -7, 2, 3, "#26485c");
-        rect(2, -2, 3, 1, "#477f8d");
+        rect(0, -7, 2, 3, "#96334e");
+        rect(4, -7, 2, 3, "#96334e");
+        rect(0, -8, 2, 1, "#f37a88");
+        rect(4, -8, 2, 1, "#f37a88");
+        rect(2, -2, 3, 1, "#6b3d5c");
         rect(-10, 1, 2, 1, "#afeee1");
         rect(-12, 6 + drift, 1, 1, "#a6e9df");
         if (mob.id === "captains-ghost") {
@@ -3539,7 +3551,7 @@ export function createRenderer(canvas) {
           : mob.kind === "pufferfish"
             ? Math.round(-12 * (mob.inflateScale ?? 1)) - 4
             : mob.kind === "ghost" || mob.kind === "mermaid"
-              ? -21
+              ? (mob.kind === "ghost" && mob.resident ? -30 : -21)
               : caveEnemy
                 ? mob.kind === "spider"
                   ? -15

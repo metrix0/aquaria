@@ -1,3 +1,4 @@
+import { wreckChestRareLoot } from '../world/shipwreck.js';
 import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
@@ -735,7 +736,7 @@ function restoreChests(world, saved, pendingWreckLoot, worldSeed) {
     const hasSavedSlots = Array.isArray(savedSlots);
     const initialLoot = item.chestType === 'wild'
       ? wildContents.get(item.id)
-      : world.harvested.has(item.id) ? [] : [item.loot];
+      : world.harvested.has(item.id) ? [] : [item.loot, ...wreckChestRareLoot(item.id, worldSeed)];
     const slots = restoreSlots(hasSavedSlots ? savedSlots : initialLoot, CHEST_SIZE);
     if (item.bonusLoot) {
       const savedCount = pendingWreckLoot?.[item.id];

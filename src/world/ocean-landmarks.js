@@ -3,7 +3,7 @@ import { createWildChest } from './wild-chest.js';
 // Hand-placed silhouettes with swimmable gaps. Coordinates are anchored to the
 // original island, not screen pixels, so chunk boundaries and saves are stable.
 const WEST = [
-  [-145,'reef'],[-195,'ruin'],[-241,'bones'],[-284,'kelp'],[-332,'ruin'],
+  [-145,'reef'],[-260,'ruin'],[-241,'bones'],[-284,'kelp'],[-332,'ruin'],
   [-390,'reef'],[-443,'bones'],[-492,'ruin'],[-550,'kelp'],[-602,'ruin'],
   [-655,'bones'],[-677,'reef'],[-750,'ruin'],
 ];

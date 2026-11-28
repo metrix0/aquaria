@@ -1,4 +1,4 @@
-import { MORNINGSTAR, RAW_CRAB, RAW_FISH } from '../content.js';
+import { CAPTAINS_CUTLASS, MORNINGSTAR, RAW_CRAB, RAW_FISH } from '../content.js';
 import { POISON_NEEDLE, STRING } from '../content.js';
 import { inWater, solidAt } from '../world.js';
 import { spawnCaveFaunaNear } from '../world/cave-ambience.js';
@@ -17,7 +17,7 @@ import { sharkSpec, stepShark } from './enemies/shark.js';
 import { lionfishSpec, stepLionfish, stepLionfishSpine, stepNeurotoxinCloud } from './enemies/lionfish.js';
 import { pufferfishSpec, stepPufferfish, triggerPufferfishWindup } from './enemies/pufferfish.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
-import { stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
+import { captainGhostSpec, CREW_CUTLASS_CHANCE, stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
 import { caveSpiderSpec, stepCaveSpider } from './enemies/cave-spider.js';
 import { skeletonArcherSpec, stepCaveArrow, stepSkeletonArcher } from './enemies/skeleton-archer.js';
 import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.js';
@@ -273,6 +273,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           health: mob.maxHealth,
           grounded: mob.kind === 'crab' || mob.kind === 'mimic',
           awakened: false,
+          ghostAttack: null, ghostTimer: 0, ghostSequence: 0, ghostHit: false,
           biteHit: false,
           attackTimer: 1.4 + (mob.phase % 1.5),
           windup: 0,
@@ -410,6 +411,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
 
 export function mobSpec(mob) {
   const spec = mobSpecs[mob.kind];
+  if (mob.kind === 'ghost' && mob.resident) return captainGhostSpec;
   if (mob.kind === 'fish' && mob.schoolId && !mob.enemyType) {
     const scale = mob.fishScale ?? 1;
     return { ...spec, width: spec.width * scale, height: spec.height * scale, radius: spec.radius * scale };
@@ -418,7 +420,7 @@ export function mobSpec(mob) {
 }
 
 export function damageMob(world, mob, damage, angle, knockback, effects, options = {}) {
-  const spec = mobSpecs[mob.kind];
+  const spec = mobSpec(mob);
   if (!spec || mob.health <= 0 || mob.respawn > 0) return null;
   const cy = mob.y + spec.centerY;
   if (mob.kind === 'pufferfish' && mob.pufferState === 'inflated' && options.melee) {
@@ -506,7 +508,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
     if (mob.enemyType || mob.krakenMinion || (mob.testSpawn && mob.kind !== 'kraken')) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
-    } else if (mob.kind !== 'kraken' && (mob.kind !== 'ghost' || mob.resident)) {
+    } else if (mob.kind !== 'kraken') {
       mob.respawn = mob.respawnDelay ?? 45;
     }
     const rewardType = mob.kind === 'kraken' ? 'greater'
@@ -523,8 +525,10 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
-    const dropRng = mob.kind === 'armored-skeleton' ? (options.random ?? Math.random)() : 0;
-    const dropId = mob.kind === 'fish'
+    const dropRng = mob.kind === 'armored-skeleton' || (mob.kind === 'ghost' && !mob.resident) ? (options.random ?? Math.random)() : 0;
+    const dropId = mob.kind === 'ghost'
+      ? mob.resident ? 'parrot-pet' : dropRng < CREW_CUTLASS_CHANCE ? CAPTAINS_CUTLASS.id : null
+      : mob.kind === 'fish'
       ? RAW_FISH.id
       : mob.kind === 'crab'
         ? RAW_CRAB.id
@@ -574,7 +578,7 @@ export function targetMobAt({ world, player }, wx, wy) {
   let bestDist = Infinity;
   for (const mob of world.mobs) {
     if (mob.health <= 0 || mob.respawn > 0) continue;
-    const spec = mobSpecs[mob.kind];
+    const spec = mobSpec(mob);
     if (!spec) continue;
     const maxRange = mob.kind === 'kraken' ? 8 * TILE : 5 * TILE;
     const points = mob.segments?.length

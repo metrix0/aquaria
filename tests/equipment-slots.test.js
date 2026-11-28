@@ -23,6 +23,7 @@ test('each item illuminates its compatible equipment slot', () => {
   assert.equal(equipmentSlotForItem(ROOT_RING.id), 'ring');
   assert.equal(equipmentSlotForItem(GRAPPLING_HOOK.id), 'offhand');
   assert.equal(equipmentSlotForItem('scrappers-gloves'), 'addon-hands');
+  assert.equal(equipmentSlotForItem('parrot-pet'), 'addon-head');
   assert.equal(equipmentSlotForItem('padded-leg-wraps'), 'addon-legs');
   assert.equal(equipmentSlotForItem('stone'), null);
   assert.match(css, /#backpack-panel button\.slot\[data-compatible\]/);

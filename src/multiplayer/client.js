@@ -141,6 +141,7 @@ export async function connectRoom(config, invite, handlers) {
       snorkel: normalizeSnorkel(payload.snorkel ??
         (payload.helmet === true ? (payload.reinforcedHelmet === true ? 'reinforced-helmet' : 'swimming-helmet') : null)),
       armor: Object.hasOwn(ARMOR, payload.armor) ? payload.armor : null,
+      addons: { head: payload.parrotPet === true ? 'parrot-pet' : null },
       feet: Object.hasOwn(FEET_GEAR, payload.feet) ? payload.feet : null,
       appearance: normalizeAppearance(payload.appearance),
       heldTome: SPELL_ITEMS[payload.heldTome]?.form === 'tome' ? payload.heldTome : null,
@@ -212,6 +213,7 @@ export async function connectRoom(config, invite, handlers) {
         dy: clamp(Math.round(player.dy), -maxPeerVelocity, maxPeerVelocity),
         facing: player.facing, grounded: player.grounded, snorkel, appearance: player.appearance,
         armor: player.armor,
+        parrotPet: player.addons?.head === 'parrot-pet',
         heldTome: SPELL_ITEMS[held]?.form === 'tome' ? held : null,
         damageSequence: player.damageSequence ?? 0,
         aegisTime: Math.ceil((player.aegisTime || 0) * 4) / 4,
