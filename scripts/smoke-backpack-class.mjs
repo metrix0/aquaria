@@ -42,6 +42,12 @@ try {
   assert.equal(await tree.evaluate(el => el.scrollHeight<=el.clientHeight+1),true);
   const fit=await tree.locator('.celestial-star,.entry-label,.celestial-slots,.celestial-souls').evaluateAll(els=>els.every(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1;}));
   assert.ok(fit,'stars, labels and loadout remain in viewport');
+  const chart=await tree.locator('.celestial-map').boundingBox();
+  assert.ok(chart.width>80 && chart.height>80,'constellation must not collapse');
+  const positions=await tree.locator('.celestial-star').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2];}));
+  for(let i=0;i<positions.length;i++) for(let j=i+1;j<positions.length;j++){
+    assert.ok(Math.hypot(positions[i][0]-positions[j][0],positions[i][1]-positions[j][1])>15,'stars must have distinct positions');
+  }
   assert.equal(await shortcut.evaluate(e=>e.style.getPropertyValue('--class-accent')),'');
   assert.equal(await tree.locator('.celestial-star.major.locked').count(),3);
   assert.equal(await tree.locator('.celestial-souls button').count(),0);
