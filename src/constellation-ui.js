@@ -83,7 +83,6 @@ export function renderConstellation(tree, actions, previous) {
           ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''} ${e.index === 0 ? 'entry-star' : ''} ${figure.points[i][1] >= 75 ? 'label-above' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.index === 0 ? esc(e.branch.name) + ', ' : ''}${e.skill.major ? 'Greater star' : e.index === 0 ? 'Starting star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span>${e.index === 0 ? `<small class="entry-label" aria-hidden="true">${esc(e.branch.name)}</small>` : ''}</button>`).join('')}
         </div>
         </div>
-        <div class="celestial-name"><span>${figure.name}</span><small>Begin at any of the three marked stars.</small></div>
         <section class="celestial-souls" aria-label="Soul balances">
           ${['lesser','greater'].map(type => `<div><span class="soul-dot ${type}">&#10022;</span><div><strong>${balance[type]} <small>${type} souls</small></strong></div></div>`).join('')}
         </section>
