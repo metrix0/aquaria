@@ -363,6 +363,20 @@ dialog p { font-size: 13px; color: var(--muted); }
 #customize-panel .primary { width: 100%; }
 #backpack-panel { width: min(580px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: clamp(12px, 4vw, 20px); }
 #backpack-class { margin-inline: auto 8px; color: inherit; border-color: var(--line); font: 700 13px var(--mono); min-height: 34px; cursor: pointer; }
+@media (min-width: 740px) and (min-height: 400px) {
+  #backpack-panel:has(#backpack-class:not([hidden])):not(:has(.chest-storage:not([hidden]))) {
+    overflow: visible;
+    margin-left: max(130px, calc((100% - 580px) / 2));
+    margin-right: auto;
+  }
+  #backpack-panel:not(:has(.chest-storage:not([hidden]))) #backpack-class {
+    position: absolute;
+    top: clamp(12px, 4vw, 20px);
+    right: calc(100% + 12px);
+    width: 112px;
+    margin: 0;
+  }
+}
 #backpack-class:hover, #backpack-class:focus-visible { background: #304b56; }
 .backpack-layout { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 18px; }
 .backpack-layout h3 { margin: 0 0 7px; color: var(--muted); font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
