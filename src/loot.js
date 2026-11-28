@@ -44,6 +44,7 @@ export function mobSoulReward(mob) {
   return mob.krakenMinion ? null : SOUL_LOOT[mob.kind]?.type ?? null;
 }
 export function rollMobLoot(mob, random = Math.random) {
+  if (mob.ghostMinion) return null;
   const rule = MOB_LOOT[mob.kind === 'ghost' && mob.resident ? 'captain' : mob.kind]?.entry;
   if (!rule || (rule.chance < 1 && random() >= rule.chance)) return null;
   return { id: rule.id, count: rule.min };

@@ -1,3 +1,4 @@
+import { ghostHandReach } from './gameplay/enemies/wreck-ghost.js';
 import { drawCoralRuin, drawCoralDial } from "./coral-puzzle-art.js";
 import { drawOceanLandmark } from "./ocean-landmark-art.js";
 import { CORAL_OPEN_ID, coralWallColumn, coralWallBounds, coralMarksFor } from "./world/ocean-layout.js";
@@ -2694,8 +2695,8 @@ export function createRenderer(canvas) {
       const caveEnemy = Boolean(caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]);
       const dyingKraken = mob.kind === "kraken" && (mob.deathTime ?? 0) > 0;
       if (!dyingKraken && (mob.health <= 0 || mob.respawn > 0)) continue;
-      const marginX = mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : mob.kind === "greatsword" ? 64 : 32;
-      const marginY = mob.kind === "kraken" ? 2000 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
+      const marginX = mob.kind === "ghost" && mob.resident ? 100 : mob.kind === "kraken" ? 480 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : mob.kind === "greatsword" ? 64 : 32;
+      const marginY = mob.kind === "ghost" && mob.resident ? 100 : mob.kind === "kraken" ? 2000 : mob.kind === "worm" || mob.kind === "cave-frog" ? 150 : 32;
       if (mob.x < camera.x - marginX || mob.x > camera.x + camera.width + marginX) continue;
       if (mob.y < camera.y - marginY || mob.y > camera.y + camera.height + marginY)
         continue;
@@ -2715,19 +2716,27 @@ export function createRenderer(canvas) {
         drawCaveAmbienceMob(ctx, mob, time, reducedMotion);
       } else if (mob.kind === "ghost") {
         const ghostScale = mob.resident ? 1.45 : 1;
-        if (mob.ghostAttack === "windup") {
-          const pulse = mob.ghostPattern === "pulse";
-          const radius = pulse ? 48 : 12 + (1 - Math.max(0, mob.ghostTimer) / (mob.resident ? .85 : .5)) * 10;
-          for (let i = 0; i < 24; i++) {
-            const a = i / 24 * Math.PI * 2;
-            rect(Math.round(Math.cos(a) * radius), Math.round(Math.sin(a) * radius), 2, 2, "#f78a9f");
-          }
-          if (!pulse) for (let i = 1; i <= 6; i++) {
-            rect(Math.round(mob.ghostAimX * i * 9), Math.round(mob.ghostAimY * i * 9), 2, 2, "#fbc6b0");
-          }
+        if (mob.resident && mob.ghostAttack === "hand") {
+          const reach = ghostHandReach(mob.ghostTimer);
+          ctx.save();
+          ctx.rotate(Math.atan2(mob.ghostAimY, mob.ghostAimX));
+          // A stretched spectral wrist and oversized claw, not a targeting marker.
+          polygon([[7,-5],[reach-7,-7],[reach-2,0],[reach-7,7],[7,4]], "#82d8d66a");
+          polygon([[reach-12,-7],[reach-5,-10],[reach+4,-9],[reach+9,-5],[reach+8,5],[reach+2,10],[reach-7,7]], "#65b5be");
+          rect(reach-6,-6,12,12,"#a5e6df");
+          rect(reach-4,-5,9,8,"#d1f7e7");
+          rect(reach+3,-11,9,3,"#b8efe3");
+          rect(reach+5,-6,12,3,"#b8efe3");
+          rect(reach+6,-1,13,3,"#b8efe3");
+          rect(reach+4,4,10,3,"#a5e6df");
+          rect(reach+12,-9,2,3,"#e8fff2");
+          rect(reach+15,-4,2,3,"#e8fff2");
+          rect(reach+17,1,2,3,"#e8fff2");
+          rect(reach-3,6,4,5,"#a5e6df");
+          ctx.restore();
         }
         ctx.scale(mob.facing * ghostScale, ghostScale);
-        ctx.globalAlpha *= mob.ghostAttack === "windup" ? 1 : .86;
+        ctx.globalAlpha *= .86;
         const drift = Math.round(Math.sin(time * 4 + mob.phase) * 3);
         const tail = [
           [-7, -3],
@@ -2772,7 +2781,7 @@ export function createRenderer(canvas) {
         rect(2, -2, 3, 1, "#6b3d5c");
         rect(-10, 1, 2, 1, "#afeee1");
         rect(-12, 6 + drift, 1, 1, "#a6e9df");
-        if (mob.id === "captains-ghost") {
+        if (mob.resident) {
           polygon(
             [
               [-9, -9],

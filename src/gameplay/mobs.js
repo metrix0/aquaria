@@ -16,7 +16,7 @@ import { sharkSpec, stepShark } from './enemies/shark.js';
 import { lionfishSpec, stepLionfish, stepLionfishSpine, stepNeurotoxinCloud } from './enemies/lionfish.js';
 import { pufferfishSpec, stepPufferfish, triggerPufferfishWindup } from './enemies/pufferfish.js';
 import { squidSpec, stepInkBubble, stepSquid } from './enemies/squid.js';
-import { captainGhostSpec, stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
+import { captainGhostSpec, removeGhostMinions, stepWreckGhost, wreckGhostSpec } from './enemies/wreck-ghost.js';
 import { caveSpiderSpec, stepCaveSpider } from './enemies/cave-spider.js';
 import { skeletonArcherSpec, stepCaveArrow, stepSkeletonArcher } from './enemies/skeleton-archer.js';
 import { skeletalMinerSpec, stepSkeletalMiner } from './enemies/skeletal-miner.js';
@@ -228,9 +228,9 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
   );
   for (let i = world.mobs.length - 1; i >= 0; i--) {
     const mob = world.mobs[i];
-    if (mob.krakenMinion) {
+    if (mob.krakenMinion || mob.ghostMinion) {
       mob.remainingLife -= dt;
-      if (mob.remainingLife <= 0 || mob.health <= 0) world.mobs.splice(i, 1);
+      if (mob.remainingLife <= 0 || mob.health <= 0 || (mob.ghostMinion && !world.mobs.some(parent => parent.id === mob.ghostParent && parent.health > 0))) world.mobs.splice(i, 1);
     }
   }
   enemies.hitCooldown = Math.max(0, enemies.hitCooldown - dt);
@@ -272,7 +272,7 @@ export function stepMobs(world, player, dt, time, mining, night, enemies, effect
           health: mob.maxHealth,
           grounded: mob.kind === 'crab' || mob.kind === 'mimic',
           awakened: false,
-          ghostAttack: null, ghostTimer: 0, ghostSequence: 0, ghostHit: false,
+          ghostAttack: null, ghostTimer: 0, ghostHit: false, ghostSummonCooldown: 0, ghostSummonSerial: 0,
           biteHit: false,
           attackTimer: 1.4 + (mob.phase % 1.5),
           windup: 0,
@@ -504,7 +504,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
   const label = mob.enemyType ? mob.enemyType.name.toLowerCase() : spec.name;
   let effect;
   if (mob.health <= 0) {
-    if (mob.enemyType || mob.krakenMinion || (mob.testSpawn && mob.kind !== 'kraken')) {
+    if (mob.enemyType || mob.krakenMinion || mob.ghostMinion || (mob.testSpawn && mob.kind !== 'kraken')) {
       const index = world.mobs.indexOf(mob);
       if (index !== -1) world.mobs.splice(index, 1);
     } else if (mob.kind !== 'kraken') {
@@ -523,6 +523,7 @@ export function damageMob(world, mob, damage, angle, knockback, effects, options
       if (!mob.testSpawn) world.krakenDefeated = true;
       removeKrakenMinions(world);
     }
+    if (mob.kind === 'ghost' && mob.resident) removeGhostMinions(world, mob.id);
     const drop = rollMobLoot(mob, options.random ?? Math.random);
     effect = {
       x: mob.x,
@@ -584,9 +585,10 @@ export function resetHostiles(world) {
   if (world.projectiles) world.projectiles.length = 0;
   world.jungleCultAggro = false;
   removeKrakenMinions(world);
+  removeGhostMinions(world);
   for (const mob of world.mobs) {
     if (mob.kind === 'kraken' && (mob.health <= 0 || world.krakenDefeated)) continue;
-    if ((seaEnemySpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind]) && !(mob.respawn > 0)) {
+    if ((seaEnemySpecs[mob.kind] || caveEnemySpecs[mob.kind] || jungleEnemySpecs[mob.kind] || mob.kind === 'ghost') && !(mob.respawn > 0)) {
       if (mob.dayKind && mob.kind !== mob.dayKind) {
         mob.kind = mob.dayKind;
         mob.maxHealth = mobSpecs[mob.dayKind].maxHealth;
@@ -600,6 +602,7 @@ export function resetHostiles(world) {
         cooldown: 0,
         rooted: 0,
         rootLift: 0,
+        ghostAttack: null, ghostTimer: 0, ghostHit: false, ghostSummonCooldown: 0, ghostSummonSerial: 0,
         health: mob.maxHealth,
         attackTimer: 1.4 + (mob.phase % 1.5),
         windup: 0,

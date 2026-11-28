@@ -11,7 +11,7 @@ import { updateEnemySpawns } from '../src/gameplay/enemies/enemy-fish.js';
 import { caveEnemySpecs, damageMob, jellyfishShockRadius, resetHostiles, stepCaveEnemy, stepCaveHazard, stepMobs, targetMobAt } from '../src/gameplay/mobs.js';
 import { KRAKEN_DEATH_DURATION, krakenBarrierX } from '../src/gameplay/enemies/kraken.js';
 import { createScreenShake } from '../src/gameplay/screen-shake.js';
-import { stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
+import { GHOST_SUMMON_COOLDOWN, stepWreckGhost } from '../src/gameplay/enemies/wreck-ghost.js';
 import { isInsideShipwreck, shipwreckOrigin, wreckChestRareLoot } from '../src/world/shipwreck.js';
 import { collides, movePlayer, playerHeadInWater, playerInWater, playerStatusEffects, PLAYER_SIZE, takeDamage, toggleGodMode, updateOxygen } from '../src/gameplay/player.js';
 import { COBALT_GRAPPLING_HOOK, EQUIPMENT_ITEMS, GRAPPLING_HOOK, Inventory, IRON_GRAPPLING_HOOK, ITEMS } from '../src/inventory.js';
@@ -1422,7 +1422,7 @@ test('western wreck bonus loot arrives once and preserves a full chest from an o
   assert.equal(restored.inventory.count(BOW.id), 1);
 });
 
-test('the western wreck has hostile spirits, telegraphed attacks and distinct drops', () => {
+test('the western wreck has hostile dashing spirits, spectral hands and distinct drops', () => {
   const game = createGame();
   const { world, player, effects } = game;
   const ghosts = world.mobs.filter(mob => mob.kind === 'ghost');
@@ -1436,12 +1436,27 @@ test('the western wreck has hostile spirits, telegraphed attacks and distinct dr
   Object.assign(player, { x: captain.x - 8, y: captain.y - player.height / 2 });
   const health = player.health;
   stepWreckGhost(world, player, captain, 1 / 60, 0, effects);
-  assert.equal(captain.ghostAttack, 'windup');
-  assert.equal(captain.ghostPattern, 'pulse');
+  assert.equal(captain.ghostAttack, 'hand');
   assert.equal(player.health, health);
-  stepWreckGhost(world, player, captain, .9, 1, effects);
-  assert.equal(player.health, health - 26);
+  stepWreckGhost(world, player, captain, .1, 1, effects);
+  assert.equal(player.health, health - 25);
+  Object.assign(player, { x: sailor.x - 32, y: sailor.y - player.height / 2, hurt: 0 });
+  stepWreckGhost(world, player, sailor, 1 / 60, 0, effects);
+  assert.equal(sailor.ghostAttack, 'dash');
+  assert.ok(sailor.ghostAimX < 0);
+  const oldX = sailor.x;
+  stepWreckGhost(world, player, sailor, .1, .1, effects);
+  assert.ok(sailor.x < oldX);
+  Object.assign(player, { x: captain.x - 8, y: captain.y - player.height / 2, hurt: 0 });
+  captain.health = captain.maxHealth / 2;
+  stepWreckGhost(world, player, captain, 1 / 60, 2, effects);
+  const minions = world.mobs.filter(mob => mob.ghostMinion);
+  assert.equal(minions.length, 2);
+  assert.equal(captain.ghostSummonCooldown, GHOST_SUMMON_COOLDOWN);
+  stepWreckGhost(world, player, captain, 1, 3, effects);
+  assert.equal(world.mobs.filter(mob => mob.ghostMinion).length, 2);
   damageMob(world, captain, captain.maxHealth, 0, 0, effects);
+  assert.equal(world.mobs.filter(mob => mob.ghostMinion).length, 0);
   assert.equal(effects.at(-1).drop.id, 'parrot-pet');
   damageMob(world, sailor, sailor.maxHealth, 0, 0, effects, { random: () => .01 });
   assert.equal(effects.at(-1).drop.id, CAPTAINS_CUTLASS.id);
