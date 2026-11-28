@@ -1,3 +1,4 @@
+import { advanceSkyView, skyInterfaceOpacity } from './sky-camera.js';
 import { ARMOR } from './content.js';
 import { ISLAND_DEEPSTONE_ROW, isDryIslandCave } from './world/island-cave.js';
 import { JUNGLE_CAVE, isDryJungleCave } from './world/jungle-cave.js';
@@ -223,36 +224,35 @@ export function createUI(actions, version) {
   }
 
   const skyPanels = new Set([byId('classes-panel'), byId('skilltree-panel')]);
-  const skyAnimations = new WeakMap();
-  const skyMotion = () => !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function stopSky(panel) {
-    for (const animation of skyAnimations.get(panel) ?? []) animation.cancel();
-    skyAnimations.delete(panel);
-    panel.classList.remove('sky-leaving');
-  }
+  let skyProgress = 0;
+  const skyReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function closePanel(panel, immediate = false) {
     if (!panel.open) return;
-    if (!skyPanels.has(panel) || immediate || !skyMotion()) {
-      stopSky(panel);
+    if (!skyPanels.has(panel) || immediate || skyReducedMotion()) {
+      panel.classList.remove('sky-leaving');
       panel.close();
+      if (skyPanels.has(panel) && !immediate) skyProgress = 0;
       return;
     }
-    if (panel.classList.contains('sky-leaving')) return;
-    stopSky(panel);
     panel.classList.add('sky-leaving');
-    const animation = panel.animate(
-      [{clipPath:'inset(0 0 0 0)'}, {clipPath:'inset(0 0 100% 0)'}],
-      {duration:460,easing:'cubic-bezier(.55,.03,.3,1)',fill:'both'});
-    skyAnimations.set(panel,[animation]);
-    animation.finished.then(() => {
-      if (skyAnimations.get(panel)?.[0] !== animation) return;
-      panel.close();
-      stopSky(panel);
-    }).catch(() => {});
   }
   for (const panel of skyPanels) {
     panel.addEventListener('cancel', event => { event.preventDefault(); closePanel(panel); });
-    panel.addEventListener('close', () => { if (!panel.open) stopSky(panel); });
+    panel.addEventListener('close', () => {
+      if (!panel.open) panel.classList.remove('sky-leaving');
+    });
+  }
+  function updateSky(dt) {
+    const panel = [...skyPanels].find(p => p.open);
+    if (!panel) { skyProgress = 0; return 0; }
+    const opening = !panel.classList.contains('sky-leaving');
+    skyProgress = advanceSkyView(skyProgress, opening, dt, skyReducedMotion());
+    panel.style.setProperty('--sky-opacity', String(skyInterfaceOpacity(skyProgress)));
+    if (!opening && skyProgress === 0) {
+      panel.close();
+      panel.classList.remove('sky-leaving');
+    }
+    return skyProgress;
   }
   function open(id, source) {
     const panel = byId(id);
@@ -268,17 +268,12 @@ export function createUI(actions, version) {
     actions.beforePanel(id, source);
     if (id === 'classes-panel') classesUI.renderClasses();
     if (id === 'skilltree-panel') classesUI.renderTree();
+    if (skyPanels.has(panel)) {
+      if (!fromSky) skyProgress = skyReducedMotion() ? 1 : 0;
+      panel.classList.remove('sky-leaving');
+      panel.style.setProperty('--sky-opacity', String(skyInterfaceOpacity(skyProgress)));
+    } else skyProgress = 0;
     panel.showModal();
-    if (skyPanels.has(panel) && skyMotion() && !fromSky) {
-      const reveal = panel.animate(
-        [{clipPath:'inset(0 0 100% 0)'},{clipPath:'inset(0 0 0 0)'}],
-        {duration:620,easing:'cubic-bezier(.3,.05,.22,1)'});
-      const contents = [...panel.children].filter(el => !el.classList.contains('celestial-sky'));
-      const fades = contents.map(el => el.animate(
-        [{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],
-        {duration:380,delay:230,easing:'ease-out',fill:'backwards'}));
-      skyAnimations.set(panel,[reveal,...fades]);
-    }
   }
 
   byId('version').textContent = 'v' + version;
@@ -381,6 +376,7 @@ export function createUI(actions, version) {
     },
     close: (id) => closePanel(byId(id)),
     activePanel: () => panels.find((panel) => panel.open)?.id,
+    updateSky,
     updateCraft: craftingUI.render,
     openChestId: inventoryUI.openChestId,
     updateCustomize: (game) => characterEditor.open(game.player.appearance),

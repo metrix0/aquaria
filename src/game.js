@@ -1,3 +1,4 @@
+import { skyCamera } from './sky-camera.js';
 import { nearestDowned } from './gameplay/revival.js';
 import { cycleCoralMark } from './world/ocean-layout.js';
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
@@ -795,6 +796,7 @@ function frame(now) {
       ui.open('skilltree-panel');
     }
   }
+  const skyProgress = ui.updateSky(dt);
   const playing = !document.hidden && !game.world.statueAwakening && (game.player.downed || !ui.activePanel()) && !arrival?.active;
   if (playing && !room) {
     game.worldTime += elapsed;
@@ -910,7 +912,7 @@ function frame(now) {
   const targetMob = aimedMob();
   const drawStart = performance.now();
   renderer.draw({
-    world: game.world, player: game.player, activeClass: game.classes.active, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
+    world: game.world, player: game.player, activeClass: game.classes.active, snorkel, ring: Boolean(equippedRing(game)), camera: skyCamera(camera, skyProgress), time: reducedMotion ? 0 : time, elapsed: game.elapsed,
     aim: targetMob ? null : aimedTile(), mining, miningSwing, held: ITEMS[held]?.weapon?.id ?? held, attack: game.bowDraw ? {kind:BOW.id,angle:game.bowDraw.angle,drawProgress:Math.min(1,game.bowDraw.elapsed/BOW.drawTime),extra:game.bowDraw.extra,charging:true} : game.morningstarDraw ? {kind:MORNINGSTAR.id,angle:game.morningstarDraw.angle,drawProgress:Math.min(1,game.morningstarDraw.elapsed/MORNINGSTAR.drawTime),elapsed:game.morningstarDraw.elapsed,charging:true} : game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0 || game.inventory.count(POISON_ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
