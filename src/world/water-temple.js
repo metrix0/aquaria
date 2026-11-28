@@ -2,17 +2,18 @@ import { MATERIAL } from '../content.js';
 import { CORAL_COLUMN, WEST_EXTRA } from './ocean-layout.js';
 
 const TILE_SIZE = 16;
+const TEMPLE_PLATEAU_ROW = 76;
 
-// Located on the deep ocean seabed west of the coral wall (CORAL_COLUMN),
-// with an eastern causeway crossing the coral wall to a smaller puzzle sanctuary on the right side.
+// One raised temple plateau spans the coral wall. The eastern staircase
+// climbs directly to this level, from the gatehouse to the main sanctuary.
 export const WATER_TEMPLE = Object.freeze({
   center: -412 - WEST_EXTRA,
   left: -449 - WEST_EXTRA,
   right: -292 - WEST_EXTRA,
   seabedRow: 113,
-  deckRow: 109,
-  topRow: 24,
-  approachRow: 76,
+  deckRow: TEMPLE_PLATEAU_ROW,
+  topRow: 0,
+  approachRow: TEMPLE_PLATEAU_ROW,
   approachWest: -359 - WEST_EXTRA,
   approachEast: -339 - WEST_EXTRA,
   blendMargin: 8,
@@ -68,10 +69,10 @@ export function waterTemplePuzzleDoorBounds(westExtension) {
   return doorBounds(WATER_TEMPLE_PUZZLE_DOOR, westExtension);
 }
 
-/** Flatten the western abyss seabed smoothly to support the Water Temple base without altering the east approach vent. */
+/** Match the terrain surface to the raised temple foundation and blend its edges into the seabed. */
 export function waterTempleFloor(column, naturalFloor) {
   if (column >= WATER_TEMPLE.left && column <= WATER_TEMPLE.right) {
-    return column >= -381 - WEST_EXTRA ? waterTempleFoundationTop(column) : WATER_TEMPLE.seabedRow;
+    return waterTempleFoundationTop(column);
   }
   const distance = column < WATER_TEMPLE.left
     ? WATER_TEMPLE.left - column
@@ -79,22 +80,18 @@ export function waterTempleFloor(column, naturalFloor) {
   if (distance >= WATER_TEMPLE.blendMargin) return naturalFloor;
   const t = distance / WATER_TEMPLE.blendMargin;
   const smooth = t * t * (3 - 2 * t);
-  const edge = column < WATER_TEMPLE.left ? WATER_TEMPLE.seabedRow : waterTempleFoundationTop(WATER_TEMPLE.right);
+  const edge = waterTempleFoundationTop(column < WATER_TEMPLE.left ? WATER_TEMPLE.left : WATER_TEMPLE.right);
   return Math.round(edge * (1 - smooth) + naturalFloor * smooth);
 }
 
 /** Top solid row of the stepped temple stone foundation at a world-relative column, or null outside the plinth. */
 export function waterTempleFoundationTop(column) {
   if (column < WATER_TEMPLE.left || column > WATER_TEMPLE.right) return null;
-  const { center, deckRow, approachRow, approachWest, approachEast } = WATER_TEMPLE;
-  // The elevated coral-gate terrace is continuous on both sides of the barrier.
-  if (column >= approachWest && column <= approachEast) return approachRow;
-  // Long processional steps climb from the eastern seabed into the temple's gatehouse.
-  if (column > approachEast) return approachRow + 2 * Math.ceil((column - approachEast) / 3);
-  // The western processional steps lead down from the gate to the main portico.
-  if (column >= -381 - WEST_EXTRA) return Math.min(deckRow, approachRow + 3 * Math.ceil((approachWest - column) / 2));
-  const distance = Math.abs(column - center);
-  return deckRow + (distance <= 30 ? 0 : distance <= 34 ? 1 : 2);
+  const { deckRow, approachRow, approachEast } = WATER_TEMPLE;
+  // After climbing the eastern staircase, the player never descends again:
+  // the gatehouse, coral crossing, grand hall and main door share one floor.
+  if (column <= approachEast) return deckRow;
+  return approachRow + 2 * Math.ceil((column - approachEast) / 3);
 }
 
 /** True when (column, row) is part of the carved solid stone Water Temple plinth and foundation anchor. */

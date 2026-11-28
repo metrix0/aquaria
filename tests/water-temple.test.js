@@ -19,10 +19,11 @@ import {
   waterTempleBraziers,
 } from '../src/world/water-temple.js';
 
-test('water temple spans across the coral wall, stays below surface, and hosts big west door and smaller east puzzle door', () => {
+test('water temple stands on the raised eastern stair landing and spans the coral wall', () => {
   const world = createWorld();
   assert.ok(WATER_TEMPLE.left < CORAL_COLUMN - 2 && WATER_TEMPLE.right > CORAL_COLUMN + 2, 'temple crosses the coral wall');
-  assert.ok(WATER_TEMPLE.topRow > WATER_ROW + 10, 'enlarged temple stays well below the ocean surface');
+  assert.ok(WATER_TEMPLE.deckRow > WATER_ROW, 'entrance remains submerged');
+  assert.equal(WATER_TEMPLE.deckRow, WATER_TEMPLE.approachRow, 'main entrance is exactly at the top of the stairs');
   assert.ok(WATER_TEMPLE_DOOR.column < CORAL_COLUMN - 2, 'main door stands on the left side of the coral wall');
   assert.ok(WATER_TEMPLE_PUZZLE_DOOR.column > CORAL_COLUMN + 2, 'smaller puzzle door stands on the right side of the coral wall');
 
@@ -35,8 +36,8 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   assert.ok(world.harvested.has(CORAL_OPEN_ID));
   assert.equal(waterTileAt(world, coralWallTx, 40), true);
 
-  // Level seabed foundation with clean stepped stone plinth up to deckRow.
-  assert.equal(groundAt(WATER_TEMPLE.center + WEST_EXTENSION), WATER_TEMPLE.seabedRow);
+  // Elevated plateau is the actual walkable terrain, not a visual-only shift.
+  assert.equal(groundAt(WATER_TEMPLE.center + WEST_EXTENSION), WATER_TEMPLE.deckRow);
   const door = waterTempleDoorBounds(WEST_EXTENSION);
   const puzzleDoor = waterTemplePuzzleDoorBounds(WEST_EXTENSION);
   assert.equal(WATER_TEMPLE_DOOR.widthTiles, 6);
@@ -71,6 +72,10 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   for (const dial of CORAL_DIALS) {
     assert.equal(waterTempleFoundationTop(dial.column), WATER_TEMPLE.approachRow);
     assert.equal(waterTileAt(world, dial.column + WEST_EXTENSION, dial.row), true);
+  }
+  for (let col = WATER_TEMPLE.left; col <= WATER_TEMPLE.approachEast; col++) {
+    assert.equal(waterTempleFoundationTop(col), WATER_TEMPLE.approachRow, 'no descent west of stair landing');
+    assert.equal(groundAt(col + WEST_EXTENSION), WATER_TEMPLE.approachRow);
   }
   for (let col = WATER_TEMPLE.approachEast + 1; col <= WATER_TEMPLE.right; col++) {
     const rise = waterTempleFoundationTop(col) - waterTempleFoundationTop(col - 1);

@@ -278,7 +278,7 @@ export function createWaterTempleArt(ctx) {
     // Giant freestanding guardians welcome the player at the stair foot.
     const foot=WATER_TEMPLE.right-3;
     guardian(colX(foot),waterTempleFoundationTop(foot)*TILE,2.2,-1);
-    // The gate's west arcade climbs onto the same platform; coral still blocks passage.
+    // The gate's west arcade is level with the great hall; coral still blocks passage.
     for (let column=WATER_TEMPLE.approachWest-22;column<WATER_TEMPLE.approachWest;column+=4) {
       const cx=colX(column+1.5), floor=waterTempleFoundationTop(column)*TILE;
       const roof=waterTempleFoundationTop(Math.min(column+3,WATER_TEMPLE.approachWest))*TILE-110;
@@ -401,7 +401,7 @@ export function createWaterTempleArt(ctx) {
     drawCrossingAndPuzzleWing(time,overview);
 
     // Distant buttressed side sanctuaries extend the silhouette on both flanks.
-    processionalHall(centerX-27*TILE,deckY+TILE,20*TILE,29*TILE);
+    processionalHall(centerX-27*TILE,deckY,20*TILE,29*TILE);
     processionalHall(centerX+26*TILE,deckY,15*TILE,34*TILE);
     tower(centerX-28*TILE,deckY,116,45*TILE,1);
     tower(centerX+28*TILE,deckY,128,49*TILE,1);
@@ -474,10 +474,11 @@ export function createWaterTempleArt(ctx) {
     const floor = waterTempleFoundationTop(column);
     const depth = ty - floor;
     const approach = column >= WATER_TEMPLE.approachWest - 22;
+    const podium = !approach && depth < 18;
     // Architectural cladding follows the real stairs all the way to their foot.
     rect(x,y,TILE,TILE,depth < 3 ? (tone>.65?'#547b83':'#385b69') : tone>.65?S.wallLight:S.wallMid);
-    if (approach && depth >= 3 && depth % 6 === 0) rect(x,y,TILE,3,S.gold);
-    if (approach && (column - WATER_TEMPLE.approachEast) % 6 === 0 && depth > 2) rect(x,y,3,TILE,S.carvedHi);
+    if ((approach || podium) && depth >= 3 && depth % 6 === 0) rect(x,y,TILE,3,S.gold);
+    if ((approach || podium) && (column - WATER_TEMPLE.approachEast) % 6 === 0 && depth > 2) rect(x,y,3,TILE,S.carvedHi);
     if (overview && depth > 2) return true;
     // Preserve visible masonry in overview, especially the actual stair treads.
     rect(x, y + TILE - 1, TILE, 1, PALETTE.deepSlate);
