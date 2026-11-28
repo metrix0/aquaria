@@ -51,7 +51,7 @@ test('global cooldown waits only for a still-current region and initial load is 
   assert.equal(tracker.update('jungle', 14000), null);
 });
 
-test('Mermaid\'s Lair announces after clearing the western coral wall, not on approach", () => {
+test("Mermaid's Lair announces after clearing the western coral wall, not on approach", () => {
   for (const row of [16, 40, 73, 90, 110]) {
     const [west, east] = coralWallBounds(row);
     assert.equal(at(east + 1, row), null);
