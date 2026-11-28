@@ -102,56 +102,48 @@ export function createCharacterRenderer(ctx) {
   function drawTome(x, y, spellId) {
     const spell = SPELLS[spellId];
     if (!spell) return;
-    // An open folio, with raised outer corners and a recessed center gutter.
-    // The near hand supports the lower left binding.
-    const left = x - 1;
-    const top = y - 7;
+    // Three-quarter reading view: the upper edge leans away from the reader,
+    // the diagonal gutter runs back down toward the supporting hand.
+    // All coordinates are in facing-right character space (mirrored with the body).
     const ink = '#302b32';
     const paper = '#f5e4bb';
     const shade = '#d3b78a';
-    const at = (dx, dy, w, h, color) => rect(left + dx, top + dy, w, h, color);
-    at(0, 1, 15, 7, ink);
-    at(0, 0, 6, 7, ink);
-    at(9, 0, 6, 7, ink);
-    at(1, 1, 5, 6, spell.cover);
-    at(9, 1, 5, 6, spell.cover);
-    at(1, 6, 13, 2, spell.cover);
-    at(6, 7, 3, 2, ink);
-    at(7, 7, 1, 1, spell.color);
-    // Stacked leaves and the two ivory page faces.
-    at(1, 1, 5, 5, shade);
-    at(2, 0, 4, 1, paper);
-    at(2, 1, 4, 4, paper);
-    at(6, 2, 1, 5, shade);
-    at(8, 2, 1, 5, shade);
-    at(9, 1, 5, 5, shade);
-    at(9, 0, 4, 1, paper);
-    at(9, 1, 4, 4, paper);
-    at(2, 6, 4, 1, '#e6cfa0');
-    at(9, 6, 4, 1, '#e6cfa0');
-    at(7, 2, 1, 5, '#80664f');
-    // Tiny handwritten lines on the left and a colored spell glyph on the right.
-    at(3, 1, 2, 1, '#9c8062');
-    at(2, 3, 3, 1, '#b79a76');
-    at(3, 5, 2, 1, '#9c8062');
+    const at = (dx, dy, w, h, color) => rect(x + dx, y + dy, w, h, color);
+    const rows = (top, spans, color) => spans.forEach(([left, right], i) =>
+      at(left, top + i, right - left + 1, 1, color));
+
+    // Stepped silhouette and the leather cover beneath the leaves.
+    rows(-9, [[5,7],[3,8],[1,9],[0,10],[-1,10],[-1,9],[-2,8],[-2,7],[-1,5],[0,4],[0,3]], ink);
+    rows(-8, [[4,6],[2,8],[1,9],[0,9],[0,8],[-1,7],[-1,6],[0,4],[1,3]], spell.cover);
+    at(1, 1, 3, 1, spell.cover);
+
+    // The far leaf is foreshortened; the near leaf opens toward the reader.
+    rows(-8, [[4,5],[2,5],[1,4],[0,3],[0,2],[-1,1],[-1,0]], shade);
+    rows(-7, [[3,5],[2,4],[1,3],[1,2],[0,1]], paper);
+    rows(-7, [[7,7],[6,8],[5,9],[4,8],[3,7],[2,6],[1,4],[1,2]], shade);
+    rows(-6, [[7,8],[6,8],[5,7],[4,6],[3,5],[2,3]], paper);
+
+    // An angled binding, ink strokes and a tiny spell-colored rune.
+    for (let i = 0; i < 8; i++) at(6 - i, -8 + i, 1, 1, '#80664f');
+    at(3, -7, 2, 1, '#9c8062');
+    at(2, -5, 2, 1, '#9c8062');
+    at(0, -3, 2, 1, '#9c8062');
     if (spellId === 'firebolt') {
-      at(10, 2, 1, 1, spell.cover);
-      at(11, 1, 1, 3, spell.color);
-      at(10, 3, 3, 2, spell.cover);
-      at(11, 3, 1, 1, '#ffe6a3');
+      at(7, -5, 1, 1, spell.color);
+      at(6, -4, 2, 1, spell.cover);
+      at(6, -3, 1, 1, spell.color);
     } else if (spellId === 'frost-lance') {
-      at(11, 1, 1, 4, spell.cover);
-      at(10, 2, 3, 1, spell.color);
-      at(10, 4, 3, 1, spell.cover);
-      at(11, 2, 1, 1, '#f0fbff');
+      at(7, -5, 1, 1, spell.color);
+      at(5, -4, 3, 1, spell.color);
+      at(6, -3, 1, 1, spell.cover);
     } else {
-      at(11, 1, 1, 4, spell.cover);
-      at(9, 2, 5, 1, spell.cover);
-      at(11, 2, 1, 1, spell.color);
-      at(11, 3, 1, 1, spell.color);
+      at(6, -5, 1, 3, spell.cover);
+      at(5, -4, 3, 1, spell.cover);
+      at(6, -4, 1, 1, spell.color);
     }
-    at(0, 5, 1, 1, '#d8b578');
-    at(14, 5, 1, 1, '#d8b578');
+    at(4, -2, 2, 1, '#9c8062');
+    at(9, -5, 1, 1, '#d8b578');
+    at(2, 0, 1, 1, spell.color);
   }
 
   function bentArm(shoulder, elbow, hand, skin, shirt, far, ring = false, venom) {
