@@ -11,6 +11,7 @@ Aquaria is a 2D browser game in `metrix0/aquaria` with Vercel as its deployment 
 ## Git and versioning
 
 - Work from the current `main` by default. Before editing and before committing, verify the remote branch head and reread affected files if it moved. Incorporate concurrent work, resolve conflicts, and rerun affected checks. Never force-push.
+- After committing, push changes to `main`.
 - Deliver one focused commit per task with a descriptive message. When the first playable release is ready, start at `0.1.0`. Use semantic versions and matching Git tags for releases. Keep the app version in one source of truth and keep documentation-only commits out of the release version.
 
 ## Production deployment
