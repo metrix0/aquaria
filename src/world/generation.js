@@ -1,7 +1,7 @@
 import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS, WEST_EXTRA } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
-import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckOrigin, shipwreckVentColumn } from './shipwreck.js';
+import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckDebris, shipwreckGhosts, shipwreckOrigin, shipwreckVentColumn } from './shipwreck.js';
 import { placeWaterTemple, protectsWaterTemple, waterTempleFloor } from './water-temple.js';
 import { JUNGLE_ISLAND, jungleIslandSurface, jungleMobs, jungleTreeSpecs, jungleVillageCache } from './jungle-village.js';
 import { JUNGLE_CAVE, JUNGLE_DEEPSTONE_ROW, carveJungleCave, jungleCaveCaches, jungleCaveMobs, protectsJungleCave } from './jungle-cave.js';
@@ -764,7 +764,8 @@ export function generateFixtures() {
       x: (tx + .5) * TILE, y: floorY - 32, floorY,
       leftFloorY: groundAt(tx - 2) * TILE, rightFloorY: groundAt(tx + 2) * TILE });
   }
-  items.push(...oceanLandmarks({ groundAt, westExtension: WEST_EXTENSION, tile: TILE }));
+  items.push(...oceanLandmarks({ groundAt, westExtension: WEST_EXTENSION, tile: TILE }),
+    ...shipwreckDebris({ groundAt, westExtension: WEST_EXTENSION, tile: TILE }));
   for (const dial of CORAL_DIALS) {
     const tx = dial.column + WEST_EXTENSION;
     items.push({ ...dial, kind: 'coral-dial', x: (tx + .5) * TILE,

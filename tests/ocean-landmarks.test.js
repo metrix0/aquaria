@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, nearestItem } from '../src/gameplay/simulation.js';
 import { waterTileAt } from '../src/world.js';
-import { TILE, WEST_EXTENSION, KRAKEN_COLUMN } from '../src/world/generation.js';
+import { TILE, WEST_EXTENSION, KRAKEN_COLUMN, groundAt, WATER_ROW } from '../src/world/generation.js';
 import { CORAL_COLUMN } from '../src/world/ocean-layout.js';
 import { drawOceanLandmark, landmarkFloorAt } from '../src/ocean-landmark-art.js';
 
@@ -46,5 +46,34 @@ test('fossils and ruins use varied silhouettes, scales and the actual seabed pro
     let grounded=false;
     drawOceanLandmark((x,y,w,h)=>{if(Math.abs(y+h-landmarkFloorAt(item,x))<2) grounded=true;},item,0);
     assert.ok(grounded,item.id+' should touch seabed');
+  }
+});
+
+import { shipwreckOrigin, WRECK_DEBRIS_SITES } from '../src/world/shipwreck.js';
+
+test('western wreck moves east and its debris follows the submerged seabed nearly to the beach', () => {
+  const {world}=createGame();
+  assert.equal(shipwreckOrigin.column,-190);
+  const debris=world.items.filter(item=>item.style==='wreck-debris');
+  assert.equal(debris.length,WRECK_DEBRIS_SITES.length);
+  assert.ok(new Set(debris.map(item=>item.variant)).size>=4);
+  const columns=debris.map(item=>Math.floor(item.x/TILE)-WEST_EXTENSION);
+  assert.ok(columns[0]>shipwreckOrigin.column+45);
+  assert.ok(columns.every((col,i)=>i===0||col-columns[i-1]<=15));
+  let beach=56;
+  while(groundAt(beach-1+WEST_EXTENSION)<=WATER_ROW) beach--;
+  assert.ok(beach-columns.at(-1)>=20 && beach-columns.at(-1)<=25);
+  for(const item of debris) {
+    const tx=Math.floor(item.x/TILE),ty=groundAt(tx);
+    assert.equal(item.y,ty*TILE);
+    assert.ok(waterTileAt(world,tx,ty-1),item.id);
+    let pixels=0,grounded=false;
+    drawOceanLandmark((x,y,w,h)=>{
+      assert.ok([x,y,w,h].every(Number.isFinite));
+      assert.ok(y+h<=landmarkFloorAt(item,x)+1e-6);
+      if(Math.abs(y+h-landmarkFloorAt(item,x))<2) grounded=true;
+      pixels++;
+    },item,0);
+    assert.ok(pixels>20 && grounded,item.id+' should have grounded wreck art');
   }
 });

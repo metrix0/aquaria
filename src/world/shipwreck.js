@@ -1,11 +1,35 @@
 import { ARROW, BOW, KELP_DRESSING, MATERIAL } from '../content.js';
 import { WRECK_RARE_DROP } from '../loot.js';
 
-const left = -210;
+const left = -190;
 const top = 32;
 const depthShift = top - 27;
 export const HELMET_WRECK_COLUMN = 107;
 export const shipwreckOrigin = { column: left, row: top };
+// A broken trail from the bow to just offshore of the island's western beach.
+// Sizes taper toward shore; forms alternate between hull, mast, planks and cargo.
+export const WRECK_DEBRIS_SITES = Object.freeze([
+  [-137, 'hull', 1.4], [-125, 'mast', .9], [-114, 'planks', 1.1],
+  [-102, 'hull', .95], [-89, 'cargo', .85], [-77, 'mast', .8],
+  [-66, 'planks', .8], [-54, 'hull', .72], [-42, 'cargo', .7],
+  [-31, 'mast', .6], [-20, 'planks', .65], [-8, 'hull', .5],
+  [4, 'cargo', .48], [13, 'planks', .45], [19, 'planks', .32],
+]);
+
+export function shipwreckDebris({ groundAt, westExtension, tile }) {
+  return WRECK_DEBRIS_SITES.map(([column, variant, scale], index) => {
+    const tx = column + westExtension;
+    const radius = Math.ceil(85 * scale);
+    const extent = Math.ceil(radius / tile) + 2;
+    const floorStart = tx - extent;
+    const floorProfile = Array.from({ length: extent * 2 + 1 }, (_, i) => groundAt(floorStart + i) * tile);
+    const y = groundAt(tx) * tile;
+    const topY = Math.min(...floorProfile) - 105 * scale;
+    return { id: 'wreck-debris-' + index, kind: 'ocean-landmark', style: 'wreck-debris',
+      variant, seed: index, scale, radius, x: (tx + .5) * tile, y,
+      height: y - topY, topY, bottomY: Math.max(...floorProfile), floorStart, floorProfile, tile };
+  });
+}
 
 // Side view of the wreck. Gaps in the decks and hull let swimmers enter the holds.
 const timber = [

@@ -273,6 +273,83 @@ function garden(rect,x,y,v,time,isKelp) {
   }
 }
 
+// Salt-blackened wreck timber, exposed end grain, rusty fittings and algae.
+const wreckWood = ['#283c3b','#473e37','#6a5241','#8e7252','#b49a71'];
+function wreckBeam(rect, x1, y1, x2, y2, width, seed) {
+  const dx=x2-x1,dy=y2-y1,length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length;
+  const shape=(w,offset=0)=>[
+    [x1+nx*(-w+offset),y1+ny*(-w+offset)],
+    [x2+nx*(-w+offset),y2+ny*(-w+offset)],
+    [x2+dx/length*4+nx*offset,y2+dy/length*4+ny*offset],
+    [x2+nx*(w+offset),y2+ny*(w+offset)],
+    [x1+nx*(w+offset),y1+ny*(w+offset)],
+    [x1-dx/length*3,y1-dy/length*3],
+  ];
+  poly(rect,shape(width/2),wreckWood[0],1);
+  poly(rect,shape(Math.max(1,width/2-1)),wreckWood[2],1);
+  poly(rect,shape(1,-width*.28),wreckWood[3],1);
+  for(let t=7;t<length-4;t+=9) {
+    const x=x1+dx*t/length,y=y1+dy*t/length;
+    rect(x-1,y-1,2,2,rand(seed,t)>.5?wreckWood[1]:'#89948a');
+  }
+}
+function debris(rect,floor,variant,seed,time) {
+  const f=x=>floor(x);
+  if(variant==='hull') {
+    // Broken, sloping hull with the lower frame buried on the local seabed.
+    const base=Math.min(...[-58,-35,-12,10,32,56].map(f))-4;
+    const top=base-39;
+    const silhouette=[[-66,top-12],[-49,top-4],[-39,top-11],[-26,top+7],[-8,top+3],[5,top+12],[22,top+6],[47,top+22],[64,base-6],[47,base+7],[16,base+14],[-19,base+10],[-48,base-3]];
+    poly(rect,silhouette,wreckWood[0]);
+    for(let i=0;i<5;i++) {
+      const y=top+i*9, start=-57+i*3, end=4+i*11;
+      wreckBeam(rect,start,y,end,y+10,7,seed+i);
+    }
+    for(const x of [-51,-26,0,25,47]) {
+      wreckBeam(rect,x,base-24+(x+50)*.16,x+6,f(x+6)+5,7,seed+x);
+    }
+    wreckBeam(rect,-67,top-9,-45,base-1,6,seed);
+    wreckBeam(rect,-45,base-1,5,base+10,7,seed+1);
+    wreckBeam(rect,5,base+10,57,base-2,7,seed+2);
+    vine(rect,-23,base-3,24,seed,time);
+  } else if(variant==='mast') {
+    const root=f(24);
+    wreckBeam(rect,24,root+3,-43,root-69,10,seed);
+    wreckBeam(rect,-51,root-46,-2,root-80,6,seed+1);
+    wreckBeam(rect,28,root+2,59,f(59)+2,7,seed+2);
+    // Ragged sail still tangled around the broken spar.
+    poly(rect,[[-44,root-62],[-6,root-78],[-12,root-50],[-20,root-54],[-24,root-40],[-31,root-46]],'#4b6560');
+    poly(rect,[[-38,root-61],[-12,root-73],[-19,root-58],[-24,root-62],[-29,root-49]],'#74857a');
+    for(let i=0;i<9;i++) rect(-30+i*3,root-58+i*3,2,2,'#a39170');
+  } else if(variant==='cargo') {
+    // Split barrel and a broken ship's wheel amongst the planks.
+    const bx=-28,by=f(bx)-3;
+    poly(rect,[[bx-15,by-27],[bx+12,by-27],[bx+17,by-14],[bx+11,by+4],[bx-13,by+4],[bx-18,by-13]],wreckWood[0]);
+    for(let i=0;i<5;i++) rect(bx-13+i*5,by-24,4,27,wreckWood[2+i%2]);
+    for(const y of [-21,-5]) {rect(bx-17,by+y,34,3,'#485653');rect(bx-16,by+y,32,1,'#88938a');}
+    const cx=27,cy=f(cx)-23;
+    for(let i=0;i<7;i++) {
+      const a=i*Math.PI*2/8,b=(i+1)*Math.PI*2/8;
+      wreckBeam(rect,cx+Math.cos(a)*20,cy+Math.sin(a)*20,cx+Math.cos(b)*20,cy+Math.sin(b)*20,4,seed+i);
+      if(i%2===0) wreckBeam(rect,cx,cy,cx+Math.cos(a)*25,cy+Math.sin(a)*25,3,seed+i);
+    }
+    rect(cx-3,cy-3,6,6,wreckWood[3]);
+    wreckBeam(rect,43,f(43)-9,63,f(63)+2,5,seed);
+  } else {
+    // A ragged cluster of loose planks, with each end resting on its own floor.
+    for(let i=0;i<5;i++) {
+      const x=-55+i*22+rand(i,seed)*9, end=x+18+rand(i,seed+2)*16;
+      wreckBeam(rect,x,f(x)-3-rand(i,seed+3)*14,end,f(end)+2,5+rand(i,seed+1)*4,seed+i);
+    }
+    wreckBeam(rect,-27,f(-27)-16,14,f(14)+2,5,seed+9);
+  }
+  // Tiny splinters and barnacles mark the trail without obstructing movement.
+  for(let i=0;i<6;i++) {
+    const px=-62+rand(i,seed+41)*124,py=f(px)-1;
+    rect(px,py-2,3+rand(i,seed+15)*5,3,i%2?wreckWood[3]:'#657b67');
+  }
+}
+
 export function drawOceanLandmark(rect,item,time) {
   const {x,y,style,variant,scale=1}=item;
   const clipped=terrainPainter(rect,item);
@@ -280,6 +357,7 @@ export function drawOceanLandmark(rect,item,time) {
   const floor=px=>(landmarkFloorAt(item,x+px*scale)-y)/scale;
   if(style==='ruin') ruin(local,floor,variant,time);
   else if(style==='bones') skeleton(local,floor,variant);
+  else if(style==='wreck-debris') debris(local,floor,variant,item.seed ?? 0,time);
   else {
     // Ground each individual plant; no shared floating baseline.
     for(let i=0;i<9;i++) {
