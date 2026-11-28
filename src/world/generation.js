@@ -1,4 +1,4 @@
-import { EAST_SHIFT, WEST_GROWTH, MERMAIDS } from "./ocean-layout.js";
+import { EAST_SHIFT, WEST_GROWTH, MERMAIDS, CORAL_RUINS, CORAL_DIALS } from "./ocean-layout.js";
 import { COPPER_SNORKEL, MATERIAL, SNORKEL_CHEST_ID } from '../content.js';
 import { ISLAND_BOTTOM, ISLAND_CAVE, ISLAND_DEEPSTONE_ROW, carveIslandCave, caveStructures, islandCaches, islandMobs, islandMushrooms, firstCaveWildChestSpots, inRootGrove, isDryIslandCave, isDungeonMasonry, isIslandWaterway, mineDecks, protectsIslandCave } from './island-cave.js';
 import { HELMET_WRECK_COLUMN, placeShipwreck, shipwreckCaches, shipwreckGhosts, shipwreckVentColumn } from './shipwreck.js';
@@ -756,6 +756,17 @@ export function generateFixtures() {
     items.push({ id: 'kelp-' + id, kind: 'kelp', amount: 1, tx, ty, x: (tx + .5) * TILE, y: ty * TILE - 12 });
   }
 
+  for (const [index, ruin] of CORAL_RUINS.entries()) {
+    const tx = ruin.column + WEST_EXTENSION;
+    const floorY = Math.min(groundAt(tx - 2), groundAt(tx), groundAt(tx + 2)) * TILE;
+    items.push({ ...ruin, id: 'coral-ruin-' + index, kind: 'coral-ruin', variant: index % 3,
+      x: (tx + .5) * TILE, y: floorY - 32, floorY });
+  }
+  for (const dial of CORAL_DIALS) {
+    const tx = dial.column + WEST_EXTENSION;
+    items.push({ ...dial, kind: 'coral-dial', x: (tx + .5) * TILE,
+      y: (dial.row + .5) * TILE, floorY: groundAt(tx) * TILE });
+  }
   return items;
 }
 

@@ -5,7 +5,7 @@ import { createGame } from '../src/gameplay/simulation.js';
 import { createRenderer } from '../src/render.js';
 import { createWorld, tileAt, waterTileAt } from '../src/world.js';
 import { TILE, WATER_ROW, WEST_EXTENSION, groundAt } from '../src/world/generation.js';
-import { CORAL_COLUMN, CORAL_OPEN_ID, MERMAID_SONG, singWithMermaid } from '../src/world/ocean-layout.js';
+import { CORAL_COLUMN, CORAL_OPEN_ID, CORAL_SOLUTION, cycleCoralMark } from '../src/world/ocean-layout.js';
 import { WATER_TEMPLE_LIGHT, createUndergroundLight, waterTempleLightSources } from '../src/world/lighting.js';
 import {
   WATER_TEMPLE,
@@ -24,10 +24,12 @@ test('water temple spans across the coral wall, stays below surface, and hosts b
   assert.ok(WATER_TEMPLE_DOOR.column < CORAL_COLUMN - 2, 'main door stands on the left side of the coral wall');
   assert.ok(WATER_TEMPLE_PUZZLE_DOOR.column > CORAL_COLUMN + 2, 'smaller puzzle door stands on the right side of the coral wall');
 
-  // Blocked by coral wall until mermaid song opens it.
+  // Blocked by coral wall until the four ancient marks align.
   const coralWallTx = CORAL_COLUMN + WEST_EXTENSION;
   assert.equal(waterTileAt(world, coralWallTx, 40), false);
-  for (const id of MERMAID_SONG) singWithMermaid(world, id);
+  for (const [slot, mark] of CORAL_SOLUTION.entries()) {
+    for (let i = 0; i < mark; i++) cycleCoralMark(world, slot);
+  }
   assert.ok(world.harvested.has(CORAL_OPEN_ID));
   assert.equal(waterTileAt(world, coralWallTx, 40), true);
 

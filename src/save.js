@@ -1,3 +1,4 @@
+import { normalizeCoralMarks } from './world/ocean-layout.js';
 import { restoreSpellCooldowns } from './spells.js';
 import { ADDONS, ARMOR, COPPER_SNORKEL, FEET_GEAR, KRAKEN_CHEST_ID, MATERIAL, MATERIAL_IDS, SNORKEL_CHEST_ID, normalizeSnorkel } from './content.js';
 import { HOOKS, WOODEN_SHIELD, ROOT_RING } from './inventory.js';
@@ -83,6 +84,7 @@ export function decodeSave(data) {
       ...(Number.isFinite(gear.mana) ? { mana: Math.max(0,Math.min(30,gear.mana)) } : {}),
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, tent, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
+      coralMarks: normalizeCoralMarks(world.coralMarks),
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
       saplings: Array.isArray(world.saplings) ? world.saplings : [],
       plantedTrees: Array.isArray(world.plantedTrees) ? world.plantedTrees : [],
@@ -125,6 +127,7 @@ export function encodeSave(game, saveTerrain = true) {
       ...(ringCooldown ? { ringCooldown } : {}) },
     world: {
       generator: WORLD_VERSION, edits, doors, ...(tent ? { tent } : {}), harvested: Array.from(world.harvested),
+      ...(world.coralMarks?.some(Boolean) ? { coralMarks: normalizeCoralMarks(world.coralMarks) } : {}),
       placedRopes: world.placedRopes ?? [],
       ...(world.saplings?.length ? { saplings: world.saplings } : {}),
       ...(world.plantedTrees?.length ? { plantedTrees: world.plantedTrees } : {}),
