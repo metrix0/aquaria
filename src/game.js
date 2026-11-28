@@ -43,7 +43,7 @@ const particles = [];
 const drowningWarningSeconds = 5;
 const screenShake = createScreenShake();
 const zoomLevels = [3, 6, 12.5, 25, 50, 75, 100, 125, 150, 200];
-const flightSpeedLevels = [0.5, 1, 2, 4, 8];
+const flightSpeedLevels = [0.5, 1, 2, 4, 8, 16];
 let zoomIndex = zoomLevels.indexOf(100);
 
 let save = soloSave;
