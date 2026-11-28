@@ -71,8 +71,13 @@ export function renderConstellation(tree, actions, previous) {
         <div class="celestial-map" aria-label="${figure.name} constellation">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <g fill="#d6eaff">${starfield}</g>
+            <g class="celestial-orbits">
+              <ellipse cx="50" cy="50" rx="46" ry="46"/>
+              <ellipse cx="50" cy="50" rx="41" ry="41" stroke-dasharray=".3 2"/>
+              <path d="M50 2v6M50 92v6M2 50h6M92 50h6 M16 16l3 3M81 81l3 3M16 84l3 -3M81 19l3 -3"/>
+            </g>
             <path class="celestial-outline" d="${figure.outline}"/>
-            ${entries.map((e,i) => e.index ? `<line class="celestial-link ${active.has(e.skill.id) ? 'lit' : ''}" x1="${figure.points[i-1][0]}" y1="${figure.points[i-1][1]}" x2="${figure.points[i][0]}" y2="${figure.points[i][1]}"/>` : '').join('')}
+            ${entries.map((e,i) => e.index ? `<line class="celestial-link ${active.has(e.skill.id) ? 'lit' : ''}" data-branch="${esc(e.branch.id)}" x1="${figure.points[i-1][0]}" y1="${figure.points[i-1][1]}" x2="${figure.points[i][0]}" y2="${figure.points[i][1]}"/>` : '').join('')}
           </svg>
           ${entries.map((e,i) => `<button type="button" class="celestial-star ${state(e).status} ${e.skill.major ? 'major' : ''} ${e.index === 0 ? 'entry-star' : ''} ${figure.points[i][1] >= 75 ? 'label-above' : ''}" style="--x:${figure.points[i][0]}%;--y:${figure.points[i][1]}%" data-skill="${e.skill.id}" aria-label="${esc(e.skill.name)}, ${e.index === 0 ? esc(e.branch.name) + ', ' : ''}${e.skill.major ? 'Greater star' : e.index === 0 ? 'Starting star' : 'Lesser star'}, ${state(e).status}" aria-pressed="false" draggable="${canEquip(e.skill.id)}"><span aria-hidden="true">${e.skill.major ? '&#10037;' : '&#10022;'}</span>${e.index === 0 ? `<small class="entry-label" aria-hidden="true">${esc(e.branch.name)}</small>` : ''}</button>`).join('')}
         </div>
@@ -111,7 +116,12 @@ export function renderConstellation(tree, actions, previous) {
   function select(id) {
     selected = id; tree.dataset.selectedSkill = id;
     pending = canEquip(id) ? id : null;
-    for (const b of tree.querySelectorAll('[data-skill]')) b.setAttribute('aria-pressed', String(b.dataset.skill === id));
+    const branch = byId(id).branch.id;
+    for (const b of tree.querySelectorAll('[data-skill]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.skill === id));
+      b.classList.toggle('path-focused', byId(b.dataset.skill).branch.id === branch);
+    }
+    for (const link of tree.querySelectorAll('.celestial-link')) link.classList.toggle('path-focused', link.dataset.branch === branch);
     for (const b of tree.querySelectorAll('[data-pick-skill]')) b.setAttribute('aria-pressed', String(b.dataset.pickSkill === pending));
     inspect(id);
   }

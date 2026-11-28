@@ -31,6 +31,13 @@ try {
   assert.equal(await tree.locator('.celestial-star.entry-star').count(),3);
   assert.equal(await tree.locator('.celestial-star.entry-star.available').count(),3);
   assert.equal(await tree.locator('.entry-label').count(),3);
+  assert.deepEqual(await tree.locator('.entry-label').allTextContents(),['Defender','Berserker','Protector']);
+  assert.equal(await tree.locator('.celestial-sky').count(),1);
+  assert.equal(await tree.locator('.celestial-link.path-focused').count(),2);
+  await tree.locator('.celestial-star').first().waitFor();
+  const bounds=await tree.boundingBox();
+  assert.ok(Math.abs(bounds.width-viewport.width)<=1);
+  assert.ok(Math.abs(bounds.height-viewport.height)<=1);
   assert.equal(await shortcut.evaluate(e=>e.style.getPropertyValue('--class-accent')),'');
   assert.equal(await tree.locator('.celestial-star.major.locked').count(),3);
   assert.equal(await tree.locator('.celestial-souls button').count(),0);

@@ -5,7 +5,31 @@ import { STARTER_CLASS_IDS } from './starter-classes.js';
 
 const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+
+// One deterministic sky per dialog; skill upgrades do not regenerate or restart it.
+function createCelestialSky(panel) {
+  let seed = 27183;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const stars = [[], [], []];
+  for (let i = 0; i < 360; i++) {
+    const x = random() * 1600, y = random() * 1000;
+    const bright = i % 21 === 0;
+    const radius = bright ? 1.15 + random() * .75 : .35 + random() * .7;
+    const color = i % 9 === 0 ? '#e9cda7' : i % 5 === 0 ? '#a2c9ff' : '#e0edff';
+    const opacity = .22 + random() * .7;
+    stars[i % 3].push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(2)}" fill="${color}" opacity="${opacity.toFixed(2)}"/>`);
+    if (bright) stars[i % 3].push(`<path d="M${(x-3.8).toFixed(1)} ${y.toFixed(1)}h7.6M${x.toFixed(1)} ${(y-3.8).toFixed(1)}v7.6" stroke="${color}" stroke-width=".45" opacity=".45"/>`);
+  }
+  const sky = document.createElement('div');
+  sky.className = 'celestial-sky';
+  sky.setAttribute('aria-hidden', 'true');
+  sky.innerHTML = `<div class="sky-nebula"></div><svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" focusable="false">${stars.map((group,i) => `<g class="sky-stars sky-stars-${i}">${group.join('')}</g>`).join('')}</svg><div class="sky-horizon"></div>`;
+  panel.prepend(sky);
+}
+
 export function createClassesUI(classPanel, treePanel, actions) {
+  createCelestialSky(classPanel);
+  createCelestialSky(treePanel);
   const classCards = classPanel.querySelector('#class-selection');
   const summary = classPanel.querySelector('#class-summary');
   const tree = treePanel.querySelector('#skilltree-content');
