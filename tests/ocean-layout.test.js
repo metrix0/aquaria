@@ -5,7 +5,7 @@ import { createWorld, tileAt, waterTileAt } from '../src/world.js';
 import { createGame, nearestItem } from '../src/gameplay/simulation.js';
 import { encodeSave, decodeSave } from '../src/save.js';
 import { WEST_EXTENSION, groundAt, KRAKEN_COLUMN, JUNGLE_FADE_START_COLUMN, TILE } from '../src/world/generation.js';
-import { MERMAIDS, CORAL_RUINS, CORAL_DIALS, CORAL_SOLUTION, CORAL_COLUMN, coralWallBounds, coralWallColumn, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, cycleCoralMark, coralMarksFor } from '../src/world/ocean-layout.js';
+import { MERMAIDS, CORAL_RUINS, CORAL_RUIN_RADIUS, CORAL_DIALS, CORAL_SOLUTION, CORAL_COLUMN, coralWallBounds, coralWallColumn, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, cycleCoralMark, coralMarksFor } from '../src/world/ocean-layout.js';
 
 test('western ruins and reachable dials replace the mermaid puzzle and unlock the coral permanently', () => {
   const game = createGame();
@@ -70,4 +70,21 @@ test('seabed is solid in the removed cave belts and the Kraken occupies deep wat
   assert.equal(kraken.x, (KRAKEN_COLUMN + WEST_EXTENSION) * TILE);
   assert.ok(groundAt(Math.floor(kraken.x / TILE)) > 85);
   assert.ok(kraken.x < (JUNGLE_FADE_START_COLUMN + WEST_EXTENSION) * TILE);
+});
+
+// Keep the clues visible even when scenery scales or placements change.
+test('puzzle ruins have unobstructed space between ocean landmarks', () => {
+  const {items} = createWorld();
+  const ruins = items.filter(item => item.kind === 'coral-ruin');
+  const landmarks = items.filter(item => item.kind === 'ocean-landmark');
+  for (const ruin of ruins) {
+    for (const landmark of landmarks) {
+      assert.ok(Math.abs(ruin.x - landmark.x) >= CORAL_RUIN_RADIUS + landmark.radius + 2 * TILE,
+        ruin.id + ' overlaps ' + landmark.id);
+    }
+  }
+  for (let i = 1; i < ruins.length; i++) {
+    assert.ok(ruins[i - 1].x - ruins[i].x >= 2 * CORAL_RUIN_RADIUS + 2 * TILE,
+      'ruins remain separated and ordered from east to west');
+  }
 });

@@ -1,7 +1,7 @@
 import { ghostHandReach } from './gameplay/enemies/wreck-ghost.js';
 import { drawCoralRuin, drawCoralDial } from "./coral-puzzle-art.js";
 import { drawOceanLandmark } from "./ocean-landmark-art.js";
-import { CORAL_OPEN_ID, coralWallColumn, coralWallBounds, coralMarksFor } from "./world/ocean-layout.js";
+import { CORAL_OPEN_ID, coralWallColumn, coralWallBounds, coralMarksFor, CORAL_RUIN_RADIUS } from "./world/ocean-layout.js";
 import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
@@ -2457,7 +2457,7 @@ export function createRenderer(canvas) {
 
     for (const item of world.items) {
       if (item.kind !== "chest" && world.harvested.has(item.id)) continue;
-      const margin = item.kind === 'ocean-landmark' ? item.radius : item.kind === 'coral-ruin' ? 84 : item.kind === 'coral-dial' ? 144 : 24;
+      const margin = item.kind === 'ocean-landmark' ? item.radius : item.kind === 'coral-ruin' ? CORAL_RUIN_RADIUS : item.kind === 'coral-dial' ? 144 : 24;
       if (item.x < camera.x - margin || item.x > camera.x + camera.width + margin)
         continue;
       const { x, y } = item;

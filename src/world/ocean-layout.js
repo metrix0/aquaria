@@ -27,14 +27,16 @@ export const MERMAIDS = [
   { id: 'mermaid-abyss', name: 'Abyss mermaid', column: westApproachColumn(-315), row: 78 },
 ];
 
+// The clue ruins have their own clear seabed sites, separate from the larger ocean landmarks.
 // Read the marked ruins in the order encountered swimming west from the island.
+export const CORAL_RUIN_RADIUS = 96;
 export const CORAL_RUINS = Object.freeze([
-  { column: westApproachColumn(-132), mark: 3 },
-  { column: westApproachColumn(-164) },
-  { column: westApproachColumn(-202), mark: 1 },
-  { column: westApproachColumn(-238) },
-  { column: westApproachColumn(-276), mark: 4 },
-  { column: westApproachColumn(-311), mark: 2 },
+  { column: -224, mark: 3 },
+  { column: -305 },
+  { column: -366, mark: 1 },
+  { column: -520 },
+  { column: -573, mark: 4 },
+  { column: -702, mark: 2 },
 ]);
 export const CORAL_MARK_COUNT = 4;
 export const CORAL_SOLUTION = Object.freeze(CORAL_RUINS.filter(ruin => ruin.mark).map(ruin => ruin.mark));
