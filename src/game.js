@@ -2,7 +2,7 @@ import { nearestDowned } from './gameplay/revival.js';
 import { singWithMermaid } from "./world/ocean-layout.js";
 import { Inventory, ITEMS, WOODEN_SHIELD } from './inventory.js';
 import { activateClass, unlockSkill as purchaseSkill, absorbSouls, grantDebugSouls, equipSkill, equippedSkill } from './classes.js';
-import { ARROW, BOW, FIREPLACE, CAULDRON, POISON_ARROW, WORKBENCH } from './content.js';
+import { ARROW, BOW, FIREPLACE, CAULDRON, MORNINGSTAR, POISON_ARROW, WORKBENCH } from './content.js';
 import { useRootRing } from './gameplay/root-ring.js';
 import { equippedHook, useGrapplingHook } from './gameplay/hook.js';
 import { wakeMimic } from './gameplay/enemies/mimic.js';
@@ -12,7 +12,7 @@ import { createScreenShake } from './gameplay/screen-shake.js';
 import { CRAWL_HEIGHT, PLAYER_SIZE, playerHeadInWater, playerImmobilized, playerInWater, toggleGodMode } from './gameplay/player.js';
 import { config } from './config.js';
 import { WEATHER_MODES, worldConditions } from './environment.js';
-import { beginBowDraw, aimBow, releaseBowDraw, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
+import { beginBowDraw, aimBow, releaseBowDraw, beginMorningstarSwing, aimMorningstar, releaseMorningstar, advanceMining, applyTerrain, awardTileAction, chestAt, collectChest, commitTileAction, craftItem, cauldronAt, createGame, equippedFeet, equippedRing, equippedSnorkel, equippedAddon, fireplaceAt, grantItem, moveInventoryStack, nearestItem, planTileAction, resetRoomProgress, stepGame, targetTile, templeDoorAt, transitionZone, useDressing, useFood, useUtilityItem, useWeapon, workbenchAt } from './gameplay/simulation.js';
 import { bindInput } from './input.js';
 import { useScholarSkill, receiveFeasts } from './gameplay/scholar.js';
 import { useWayfarerSkill } from './gameplay/wayfarer.js';
@@ -26,8 +26,9 @@ import { createUI } from './ui.js';
 import { createZoneTitle, createZoneTracker } from './zone-title.js';
 import { zoneAt } from './world/zones.js';
 import { version } from './build-info.js';
-import { inWater } from './world.js';
-import { COLS, ROWS, TILE, clamp } from './world/generation.js';
+import { inWater, worldCols, worldRows } from './world.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_ZONE } from './world/water-temple-interior.js';
+import { TILE, clamp } from './world/generation.js';
 
 const canvas = document.getElementById('scene');
 const renderer = createRenderer(canvas);
@@ -83,7 +84,7 @@ function storeProgress() {
 }
 
 function select(slot) {
-  if (selected !== slot) game.bowDraw = null;
+  if (selected !== slot) { game.bowDraw = null; game.morningstarDraw = null; }
   selected = slot;
   if (game.inventory.hotbar[slot]?.id === 'explorers-map') input.stopMining();
   ui.select(slot);
@@ -157,6 +158,7 @@ async function editTile(action) {
   const missing = rewards && [
     [action.item, action.amount], ['door', action.supportedDoor ? 1 : 0], ['kelp', action.supportedKelp?.amount ?? 0],
     ['wood', action.supportedTree ? Math.round(action.supportedTree.height / TILE) : 0],
+    ['seed', action.seedAmount ?? 0],
     ['tent', action.supportedTent ? 1 : 0],
   ].find(([item, amount]) => amount > 0 && !rewards.add(item, amount));
   if (missing) {
@@ -405,6 +407,13 @@ const input = bindInput(canvas, camera, {
   interact() {
     if (editPending || game.player.downed || nearestDowned(game.player, game.wayfarerPeers)) return;
     const item = nearestItem(game);
+    if (item?.kind === 'temple-door') {
+      if (transitionZone(game, item.targetZone)) {
+        input.stopMining();
+        updateCamera(0, true);
+      }
+      return;
+    }
     if (item?.kind === 'mermaid') { ui.notify(singWithMermaid(game.world, item.id)); game.dirty = true; }
     else if (item?.kind === WORKBENCH.id || item?.kind === FIREPLACE.id || item?.kind === CAULDRON.id) ui.open('craft-panel', item);
     else if (item?.kind === 'mimic') {
@@ -429,7 +438,17 @@ const input = bindInput(canvas, camera, {
   interactAtPointer() {
     if (game.player.downed) return true;
     const { pointer } = input;
-    const chest = chestAt(game, pointer.x + camera.x, pointer.y + camera.y);
+    const worldX = pointer.x + camera.x;
+    const worldY = pointer.y + camera.y;
+    const door = templeDoorAt(game, worldX, worldY);
+    if (door) {
+      if (!editPending && transitionZone(game, door.targetZone)) {
+        input.stopMining();
+        updateCamera(0, true);
+      }
+      return true;
+    }
+    const chest = chestAt(game, worldX, worldY);
     if (!chest) return false;
     if (chest.kind === 'mimic') {
       if (editPending) return true;
@@ -469,22 +488,31 @@ const input = bindInput(canvas, camera, {
     if (cast) storeProgress();
   },
   beginBow() {
-    if (ITEMS[game.inventory.hotbar[selected]?.id]?.weapon?.id !== BOW.id) return false;
+    const weaponId = ITEMS[game.inventory.hotbar[selected]?.id]?.weapon?.id;
+    if (weaponId !== BOW.id && weaponId !== MORNINGSTAR.id) return false;
     if (editPending || playerImmobilized(game.player)) return true;
     const {pointer} = input;
-    const result = beginBowDraw(game, selected, pointer.x+camera.x, pointer.y+camera.y);
+    const result = weaponId === MORNINGSTAR.id
+      ? beginMorningstarSwing(game, selected, pointer.x + camera.x, pointer.y + camera.y)
+      : beginBowDraw(game, selected, pointer.x + camera.x, pointer.y + camera.y);
     if (result?.message) ui.notify(result.message);
     return true;
   },
   releaseBow() {
-    if (ui.activePanel() || document.hidden) { game.bowDraw=null; return; }
+    if (ui.activePanel() || document.hidden) { game.bowDraw = null; game.morningstarDraw = null; return; }
     const {pointer} = input;
+    if (game.morningstarDraw) {
+      aimMorningstar(game, pointer.x + camera.x, pointer.y + camera.y);
+      const result = releaseMorningstar(game);
+      if (result?.message) ui.notify(result.message);
+      return;
+    }
     aimBow(game,pointer.x+camera.x,pointer.y+camera.y);
     const result=releaseBowDraw(game);
     if (result?.inventoryChanged) inventoryChanged();
     if (result?.message) ui.notify(result.message);
   },
-  cancelBow: () => { game.bowDraw = null; },
+  cancelBow: () => { game.bowDraw = null; game.morningstarDraw = null; },
   fend() {
     if (wardenAttackBlocked(game.player) || game.player.counterTime > 0) return true;
     if (editPending || playerImmobilized(game.player)) return false;
@@ -597,7 +625,7 @@ function resetCameraFraming() {
 function updateCamera(dt, snap = false) {
   const { player, world } = game;
   const horizontalAnchor = camera.width / camera.height < 0.8 ? 0.36 : 0.42;
-  const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, COLS * TILE - camera.width));
+  const x = clamp(player.x - camera.width * horizontalAnchor, 0, Math.max(0, worldCols(world) * TILE - camera.width));
   const swimming = !player.flightOrigin && !player.climb && playerInWater(world, player);
   const transitionDelay = 2;
   const transitionDuration = 1.5;
@@ -617,7 +645,7 @@ function updateCamera(dt, snap = false) {
   camera.crawlSeconds = crawling ? Math.min(1, camera.crawlSeconds + dt) : 0;
   const crawlOffset = camera.crawlSeconds >= 1 ? camera.height * 0.25 : 0;
   const targetY = centeredY + (underwaterY - centeredY) * camera.swimBlend + crawlOffset;
-  const y = clamp(targetY, 0, Math.max(0, ROWS * TILE - camera.height));
+  const y = clamp(targetY, 0, Math.max(0, worldRows(world) * TILE - camera.height));
   const factor = snap || reducedMotion ? 1 : Math.min(1, dt * 5);
   camera.x += (x - camera.x) * factor;
   camera.y += (y - camera.y) * factor;
@@ -721,10 +749,12 @@ function frame(now) {
   let shake = { x: 0, y: 0 };
   if (!playing) {
     game.bowDraw = null;
+    game.morningstarDraw = null;
     camera.crawlSeconds = 0;
   }
   if (playing) {
     if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
+    if (game.morningstarDraw) aimMorningstar(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     time += dt;
     accumulator += dt;
     while (accumulator >= timestep) {
@@ -762,6 +792,7 @@ function frame(now) {
     updateCamera(dt);
     ui.dancing((game.player.dancing ?? 0) > 0);
     if (game.bowDraw) aimBow(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
+    if (game.morningstarDraw) aimMorningstar(game,input.pointer.x+camera.x,input.pointer.y+camera.y);
     shake = screenShake.step(dt, time, reducedMotion);
     if (miningSwing) {
       miningSwing.phase += dt / miningSwing.duration;
@@ -792,20 +823,26 @@ function frame(now) {
       }
     }
   }
+  const currentZoneLabel = () => (game.zone === WATER_TEMPLE_ZONE ? 'Water Temple' : zoneAt(game.player));
   if (zoneGame !== game) {
     zoneGame = game;
     zoneTitle.clear();
-    zoneTracker = createZoneTracker(zoneAt(game.player));
+    zoneTracker = createZoneTracker(currentZoneLabel());
   }
   if (playing && !game.player.downed) {
-    const enteredZone = zoneTracker.update(zoneAt(game.player), now);
+    const enteredZone = zoneTracker.update(currentZoneLabel(), now);
     if (enteredZone) zoneTitle.show(enteredZone);
   }
-  const reviveTarget = room && playing && input.holdingInteract() ? nearestDowned(game.player, game.wayfarerPeers)?.downed.id : null;
-  ui.update(game, conditions);
+  const activeZone = game.zone ?? OVERWORLD_ZONE;
   const snorkel = equippedSnorkel(game)?.id ?? null;
   const held = game.inventory.hotbar[selected]?.id;
-  const peers = Array.from(room?.tick(now, dt, game.player, snorkel, reviveTarget, held) ?? []);
+  const allPeers = Array.from(room?.tick(now, dt, game.player, snorkel, null, held, activeZone) ?? []);
+  const peers = allPeers.filter((peer) => (peer.zone ?? OVERWORLD_ZONE) === activeZone);
+  const reviveTarget = room && playing && input.holdingInteract() ? nearestDowned(game.player, peers)?.downed.id : null;
+  if (reviveTarget && room) {
+    room.tick(now, 0, game.player, snorkel, reviveTarget, held, activeZone);
+  }
+  ui.update(game, conditions);
   game.wayfarerPeers = peers;
   if (room) receiveFeasts(game);
   if (room && !game.player.downed) updateWardenAllies(game, peers.filter(peer => !peer.downed));
@@ -814,7 +851,7 @@ function frame(now) {
   const drawStart = performance.now();
   renderer.draw({
     world: game.world, player: game.player, snorkel, ring: Boolean(equippedRing(game)), camera, time: reducedMotion ? 0 : time, elapsed: game.elapsed,
-    aim: targetMob ? null : aimedTile(), mining, miningSwing, held: ITEMS[held]?.weapon?.id ?? held, attack: game.bowDraw ? {kind:BOW.id,angle:game.bowDraw.angle,drawProgress:Math.min(1,game.bowDraw.elapsed/BOW.drawTime),extra:game.bowDraw.extra,charging:true} : game.attack,
+    aim: targetMob ? null : aimedTile(), mining, miningSwing, held: ITEMS[held]?.weapon?.id ?? held, attack: game.bowDraw ? {kind:BOW.id,angle:game.bowDraw.angle,drawProgress:Math.min(1,game.bowDraw.elapsed/BOW.drawTime),extra:game.bowDraw.extra,charging:true} : game.morningstarDraw ? {kind:MORNINGSTAR.id,angle:game.morningstarDraw.angle,drawProgress:Math.min(1,game.morningstarDraw.elapsed/MORNINGSTAR.drawTime),elapsed:game.morningstarDraw.elapsed,charging:true} : game.attack,
     hasArrow: game.inventory.count(ARROW.id) > 0 || game.inventory.count(POISON_ARROW.id) > 0, playerArrows: game.projectiles, rootWave: game.rootWave, hook: game.player.hook,
     targetMob, particles, peers, reducedMotion, conditions, worldTime, weatherSeed: game.weatherSeed,
     caveShadowsHidden, chests: game.chests, openChestId: ui.openChestId(), shake, drowning,

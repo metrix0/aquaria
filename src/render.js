@@ -31,7 +31,11 @@ import {
   isTreeStanding,
   tileAt,
   waterTileAt,
+  worldCols,
+  worldRows,
+  worldWaterRow,
 } from "./world.js";
+import { WATER_TEMPLE_ZONE } from "./world/water-temple-interior.js";
 import {
   COLS,
   JUNGLE_FADE_END_COLUMN,
@@ -761,12 +765,13 @@ export function createRenderer(canvas) {
 
   function waterClips(world, camera, overview) {
     let water, shore;
+    const inTemple = world?.zone === WATER_TEMPLE_ZONE;
     const x = Math.round(camera.x);
     const y = Math.round(camera.y);
     const left = Math.floor(x / TILE);
-    const right = Math.min(COLS, Math.ceil((x + camera.width) / TILE));
-    const top = Math.max(WATER_ROW, Math.floor(y / TILE));
-    const bottom = Math.min(ROWS, Math.ceil((y + camera.height) / TILE));
+    const right = Math.min(worldCols(world), Math.ceil((x + camera.width) / TILE));
+    const top = Math.max(worldWaterRow(world), Math.floor(y / TILE));
+    const bottom = Math.min(worldRows(world), Math.ceil((y + camera.height) / TILE));
     for (let ty = top; ty < bottom; ty++) {
       let tx = left;
       while (tx < right) {
@@ -774,6 +779,7 @@ export function createRenderer(canvas) {
           // Give exposed background walls the ocean behind their transparent edges.
           if (
             !overview &&
+            !inTemple &&
             ty >= firstCaveRows[tx] &&
             TILE_NEIGHBORS.some(
               ([dx, dy]) =>
@@ -1617,12 +1623,12 @@ export function createRenderer(canvas) {
     }
   }
 
-  function tileBounds(camera) {
+  function tileBounds(world, camera) {
     return {
       left: Math.max(0, Math.floor(camera.x / TILE) - 1),
-      right: Math.min(COLS, Math.ceil((camera.x + camera.width) / TILE) + 1),
+      right: Math.min(worldCols(world), Math.ceil((camera.x + camera.width) / TILE) + 1),
       top: Math.max(0, Math.floor(camera.y / TILE) - 1),
-      bottom: Math.min(ROWS, Math.ceil((camera.y + camera.height) / TILE) + 1),
+      bottom: Math.min(worldRows(world), Math.ceil((camera.y + camera.height) / TILE) + 1),
     };
   }
 
@@ -1727,9 +1733,9 @@ export function createRenderer(canvas) {
       ctx.save();
       ctx.beginPath();
       for (let sx = tx - reachTiles; sx <= tx + reachTiles; sx++) {
-        if (sx < 0 || sx >= COLS) continue;
+        if (sx < 0 || sx >= worldCols(world)) continue;
         for (let sy = floor - reachTiles - 2; sy <= floor + reachTiles - 1; sy++) {
-          if (sy < 0 || sy >= ROWS) continue;
+          if (sy < 0 || sy >= worldRows(world)) continue;
           if (tileAt(world, sx, sy) && !hasOpenFace(world, sx, sy)) continue;
           if (inBfsGrid && caveLight.colorAt(sx, sy).strength <= 0) continue;
           ctx.rect(sx * TILE, sy * TILE, TILE, TILE);
@@ -2035,9 +2041,10 @@ export function createRenderer(canvas) {
 
   function terrain(world, player, camera, time, bounds, openChestId, overview, chests) {
     const { left, right, top, bottom } = bounds;
-    shipwreckArt.backdrop(world, bounds);
+    const inTemple = world?.zone === WATER_TEMPLE_ZONE;
+    if (!inTemple) shipwreckArt.backdrop(world, bounds);
     waterTempleArt.backdrop(world, bounds, time, overview);
-    helmetWreckArt(bounds);
+    if (!inTemple) helmetWreckArt(bounds);
     for (let x = left; x < right; x++) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
@@ -2057,7 +2064,7 @@ export function createRenderer(canvas) {
         }
         const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
-          if (coralWallColumn(x - WEST_EXTENSION) && !world.harvested.has(CORAL_OPEN_ID) && y < groundAt(x)) {
+          if (!inTemple && coralWallColumn(x - WEST_EXTENSION) && !world.harvested.has(CORAL_OPEN_ID) && y < groundAt(x)) {
             const [shade, mid, tip] = coralColors[Math.floor(noise(x, y, 510) * coralColors.length)];
             rect(x * TILE, y * TILE, TILE, TILE, shade);
             rect(x * TILE + 2, y * TILE + 1, 11, 13, mid);
@@ -2080,20 +2087,20 @@ export function createRenderer(canvas) {
             ctx.restore();
           }
           const column = x - WEST_EXTENSION;
-          if (y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < ROOT_GROVE.mossReach &&
+          if (!inTemple && y > 36 && y < ISLAND_DEEPSTONE_ROW && Math.abs(column - ROOT_GROVE.column) < ROOT_GROVE.mossReach &&
               TILE_NEIGHBORS.some(([dx, dy]) => isDryIslandCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
             const moss = groveGroundGrowth(column, y);
             if (moss > .06 && noise(column, y, 173) < moss) {
               rect(x * TILE, y * TILE, TILE, TILE, moss > .77 ? '#5ea55483' : moss > .55 ? '#5d954b51' : '#5f7d402e');
             }
-          } else if (y >= JUNGLE_CAVE.mossStartRow &&
+          } else if (!inTemple && y >= JUNGLE_CAVE.mossStartRow &&
               TILE_NEIGHBORS.some(([dx, dy]) => isDryJungleCave(column + dx, y + dy) && !tileAt(world, x + dx, y + dy))) {
             const moss = jungleMossProgress(y);
             if (moss > .08 && noise(column, y, 277) < 0.14 + moss * 0.72) {
               rect(x * TILE, y * TILE, TILE, TILE, moss > .62 ? '#4d8a4966' : '#5382463d');
             }
           }
-        } else if (y >= firstCaveRows[x]) caveWall(world, x, y, overview, time);
+        } else if (!inTemple && y >= firstCaveRows[x]) caveWall(world, x, y, overview, time);
       }
     }
 
@@ -2255,6 +2262,14 @@ export function createRenderer(canvas) {
       )
         if (tree.kind === "jungle") jungleTree(tree);
         else palm(tree);
+    }
+    for (const sapling of world.saplings ?? []) {
+      if (sapling.tx < left - 2 || sapling.tx > right + 2) continue;
+      const sx = sapling.tx * TILE + TILE / 2;
+      const sy = (sapling.ty + 1) * TILE;
+      rect(sx - 1, sy - 6, 2, 6, sapling.kind === "jungle" ? "#4e7a48" : "#6c8a50");
+      rect(sx - 4, sy - 7, 3, 2, "#74b85e");
+      rect(sx + 1, sy - 8, 3, 2, "#86cc6a");
     }
 
     const tent = activeTent(world);
@@ -3626,10 +3641,11 @@ export function createRenderer(canvas) {
 
   function surfaceLine(world, camera, y, time) {
     const xOffset = Math.round(camera.x);
+    const waterRow = worldWaterRow(world);
     for (let x = 0; x < camera.width; ) {
       const tx = Math.floor((x + xOffset) / TILE);
       const width = Math.min(3, (tx + 1) * TILE - (x + xOffset));
-      if (waterTileAt(world, tx, WATER_ROW)) {
+      if (waterTileAt(world, tx, waterRow)) {
         const phase = x + xOffset - WEST_EXTENSION * TILE;
         const dy = surfaceWave(phase, time);
         const mix = jungleMixAt(x + xOffset + width * 0.5);
@@ -3813,49 +3829,52 @@ export function createRenderer(canvas) {
   }) {
     // Remote characters are supplied as a one-shot iterator; multiple draw passes reuse them.
     peers = Array.from(peers);
+    const inTemple = world?.zone === WATER_TEMPLE_ZONE;
     const scale = canvas.width / camera.width;
     const overview = scale <= 0.25;
     ctx.setTransform(scale, 0, 0, canvas.height / camera.height, 0, 0);
-    const surface = WATER - Math.round(camera.y);
+    const surface = (inTemple ? worldWaterRow(world) * TILE : WATER) - Math.round(camera.y);
     const { water, shore, backdrop } = waterClips(world, camera, overview);
-    const bounds = tileBounds(camera);
+    const bounds = tileBounds(world, camera);
     caveLight.update(world, player, bounds, overview || reducedMotion ? 0 : time);
     surfaceLight.update(world, player, bounds);
-    rect(-32, -32, camera.width + 64, camera.height + 64, "#101f33");
+    rect(-32, -32, camera.width + 64, camera.height + 64, inTemple ? "#0d1d26" : "#101f33");
     ctx.save();
     ctx.translate(shake.x, shake.y);
-    sky(camera, surface, time, conditions, reducedMotion);
-    // Keep star halos behind every world layer so they cannot shine through blocks.
-    starlight(camera, surface, time, conditions, reducedMotion);
-    const lightning = lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
-    const distantThunder = distantThunderAt(worldTime, weatherSeed, conditions, reducedMotion);
-    if (lightning || distantThunder) {
-      const characters = [player, ...peers];
-      if (lightning) {
-        activeLightningAnchor = lightningAnchor(
-          lightning, weatherSeed, camera, activeLightningAnchor, characters,
+    const lightning = inTemple ? null : lightningAt(worldTime, weatherSeed, conditions, reducedMotion);
+    const distantThunder = inTemple ? null : distantThunderAt(worldTime, weatherSeed, conditions, reducedMotion);
+    if (!inTemple) {
+      sky(camera, surface, time, conditions, reducedMotion);
+      // Keep star halos behind every world layer so they cannot shine through blocks.
+      starlight(camera, surface, time, conditions, reducedMotion);
+      if (lightning || distantThunder) {
+        const characters = [player, ...peers];
+        if (lightning) {
+          activeLightningAnchor = lightningAnchor(
+            lightning, weatherSeed, camera, activeLightningAnchor, characters,
+          );
+        }
+        if (distantThunder) {
+          activeDistantAnchor = lightningAnchor(
+            { event: distantThunder.event + 100000 }, weatherSeed, camera, activeDistantAnchor, characters,
+          );
+        }
+      }
+      if (
+        !reducedMotion &&
+        surface > 0 &&
+        !conditions.night &&
+        conditions.rain < 1
+      ) {
+        skyBird(
+          camera,
+          birdFlightAt(worldTime, weatherSeed),
+          (1 - conditions.darkness) * (1 - conditions.rain),
         );
       }
-      if (distantThunder) {
-        activeDistantAnchor = lightningAnchor(
-          { event: distantThunder.event + 100000 }, weatherSeed, camera, activeDistantAnchor, characters,
-        );
-      }
+      ocean(camera, surface, time, conditions, backdrop);
     }
-    if (
-      !reducedMotion &&
-      surface > 0 &&
-      !conditions.night &&
-      conditions.rain < 1
-    ) {
-      skyBird(
-        camera,
-        birdFlightAt(worldTime, weatherSeed),
-        (1 - conditions.darkness) * (1 - conditions.rain),
-      );
-    }
-    ocean(camera, surface, time, conditions, backdrop);
-    tintWater(camera, surface, shore);
+    tintWater(camera, surface, inTemple ? water : shore);
     if (surface > -5 && surface < camera.height + 5)
       surfaceLine(world, camera, surface, time);
 
@@ -3945,8 +3964,8 @@ export function createRenderer(canvas) {
       ctx.beginPath();ctx.arc(player.x,player.y+player.height/2,player.counterFlash>0?64*(1-player.counterFlash/.45):14,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
     if (attack?.charging) {
-      const x=player.x+Math.cos(attack.angle)*16,y=player.y+player.height/2+Math.sin(attack.angle)*16;
-      if (attack.drawProgress>=1) {
+      if (attack.kind !== 'morningstar' && attack.drawProgress>=1) {
+        const x=player.x+Math.cos(attack.angle)*16,y=player.y+player.height/2+Math.sin(attack.angle)*16;
         ctx.save();ctx.strokeStyle=attack.extra?'#9affcc':'#fff2a7';ctx.lineWidth=attack.extra?2:1;ctx.beginPath();ctx.arc(x,y,attack.extra?7:4,0,Math.PI*2);ctx.stroke();ctx.restore();
       }
       rect(player.x-10,player.y-10,20,2,'#293943');
@@ -4036,12 +4055,14 @@ export function createRenderer(canvas) {
     if (!caveShadowsHidden) shadeUnderground(world, player, bounds, overview, conditions.darkness);
     ctx.restore();
 
-    rain(world, camera, surface, time, conditions);
-    shadeAtmosphere(camera, conditions, time,
-      (lightning?.flash ?? 0) + (distantThunder?.flash ?? 0) * .3);
-    auroraLight(camera, surface, time, conditions);
-    drawDistantThunder(camera, distantThunder, activeDistantAnchor);
-    drawStormLightning(camera, lightning, activeLightningAnchor, weatherSeed);
+    if (!inTemple) {
+      rain(world, camera, surface, time, conditions);
+      shadeAtmosphere(camera, conditions, time,
+        (lightning?.flash ?? 0) + (distantThunder?.flash ?? 0) * .3);
+      auroraLight(camera, surface, time, conditions);
+      drawDistantThunder(camera, distantThunder, activeDistantAnchor);
+      drawStormLightning(camera, lightning, activeLightningAnchor, weatherSeed);
+    }
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));

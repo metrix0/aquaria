@@ -84,6 +84,8 @@ export function decodeSave(data) {
       ringCooldown: Number.isFinite(gear.ringCooldown) ? Math.max(0, Math.min(ROOT_RING.cooldown, gear.ringCooldown)) : 0 },
     world: { edits, doors, tent, harvested, chests, pendingWreckLoot: world.pendingWreckLoot,
       placedRopes: Array.isArray(world.placedRopes) ? world.placedRopes : [],
+      saplings: Array.isArray(world.saplings) ? world.saplings : [],
+      plantedTrees: Array.isArray(world.plantedTrees) ? world.plantedTrees : [],
       soulRewards: Array.isArray(world.soulRewards) ? world.soulRewards.filter((reward) =>
         typeof reward?.id === 'string' && reward.id.length <= 120 &&
         (reward.type === 'lesser' || reward.type === 'greater')).slice(0, 100) : [],
@@ -124,6 +126,8 @@ export function encodeSave(game, saveTerrain = true) {
     world: {
       generator: WORLD_VERSION, edits, doors, ...(tent ? { tent } : {}), harvested: Array.from(world.harvested),
       placedRopes: world.placedRopes ?? [],
+      ...(world.saplings?.length ? { saplings: world.saplings } : {}),
+      ...(world.plantedTrees?.length ? { plantedTrees: world.plantedTrees } : {}),
       ...(world.soulRewards?.length ? { soulRewards: world.soulRewards } : {}),
       pendingWreckLoot: Object.fromEntries(world.pendingWreckLoot),
       ...(droppedKrakenChest ? { krakenChest: { x: droppedKrakenChest.x - WEST_EXTENSION * TILE, y: droppedKrakenChest.restY ?? droppedKrakenChest.y } } : {}),

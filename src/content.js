@@ -41,7 +41,10 @@ export const BREATH_SECONDS = 18;
 export const WORKBENCH = { id: 'workbench', cost: { wood: 6 } };
 export const FIREPLACE = { id: 'fireplace', cost: { stone: 4, wood: 4 } };
 export const CAULDRON = { id: 'cauldron', name: 'Cauldron', cost: { iron: 4, stone: 3 }, station: WORKBENCH.id, requiresSkill: 'cauldron' };
-export const TENT = { id: 'tent' };
+export const STRING = { id: 'string' };
+export const TREE_SEED = { id: 'seed', name: 'Tree seed' };
+export const CLOTH = { id: 'cloth', name: 'Cloth', cost: { [STRING.id]: 2 }, amount: 1 };
+export const TENT = { id: 'tent', name: 'Tent', cost: { [CLOTH.id]: 2, wood: 4 }, amount: 1 };
 
 export const SNORKEL_CHEST_ID = 'wreck-chest';
 export const KRAKEN_CHEST_ID = 'kraken-chest';
@@ -160,12 +163,12 @@ export const CAPTAINS_CUTLASS = {
 };
 export const MORNINGSTAR = {
   id: 'morningstar', name: 'Morningstar', damage: 7, cooldown: 0.48, knockback: 260,
+  drawTime: 0.72, maxRange: 72, minRange: 26,
   blade: [8, -3, 11, 6],
 };
 export const COBALT_SPEAR = {
   id: 'cobalt-spear', station: WORKBENCH.id, cost: { cobalt: 4, iron: 1, wood: 2 }, damage: 6, cooldown: 0.4, knockback: 250, reach: 6,
 };
-export const STRING = { id: 'string' };
 export const BOW = { id: 'bow', cost: { wood: 3, [STRING.id]: 2 }, amount: 1, cooldown: 0.75, drawTime: 0.65 };
 export const ARROW = { id: 'arrow', cost: { wood: 1, stone: 1 }, amount: 4, damage: 2, speed: 240, knockback: 115 };
 export const POISON_NEEDLE = { id: 'poison-needle' };

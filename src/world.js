@@ -3,11 +3,25 @@ import { shipwreckSkeletons } from './world/shipwreck.js';
 import { caveClimbs, caveStructures, islandTraps, mineDecks } from './world/island-cave.js';
 import { jungleCaveClimbs, jungleCaveStructures, jungleCaveTraps } from './world/jungle-cave.js';
 import { MATERIAL, MATERIAL_IDS } from './content.js';
-import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents, groundAt } from './world/generation.js';
+import { DAY_CYCLE_SECONDS } from './environment.js';
+import { COLS, ROWS, TILE, WATER_ROW, WEST_EXTENSION, buildTree, generateCaveMushrooms, generateChunk, generateFixtures, generateMobs, generateTrees, generateVents, groundAt } from './world/generation.js';
+import { OVERWORLD_ZONE, createOverworldTempleDoors } from './world/water-temple-interior.js';
 
 export const ISLAND_TENT_ID = 'island-tent';
 export const CHUNK_SIZE = 32;
 export const TILE_NEIGHBORS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+export function worldCols(world) {
+  return world?.cols ?? COLS;
+}
+
+export function worldRows(world) {
+  return world?.rows ?? ROWS;
+}
+
+export function worldWaterRow(world) {
+  return world?.waterRow ?? WATER_ROW;
+}
 // The finite world contains at most ceil(COLS / 32) * ceil(ROWS / 32) chunks.
 // Keep generated chunks: distant enemy simulation otherwise continuously evicts
 // terrain needed by the next update. Tiles and flood masks together use ~0.75 MiB.
@@ -34,7 +48,9 @@ export function createWorld() {
   const trees = generateTrees();
   const structures = [...caveStructures, ...jungleCaveStructures, ...shipwreckSkeletons].map(([kind, column, floor]) => ({ kind, tx: column + WEST_EXTENSION, floor }));
   return {
-    items, trees, caveMushrooms: generateCaveMushrooms(), doors: new Map(), tent: null,
+    zone: OVERWORLD_ZONE,
+    items, trees, saplings: [], plantedTrees: [], caveMushrooms: generateCaveMushrooms(), doors: new Map(), tent: null,
+    templeDoors: createOverworldTempleDoors(),
     mobs: generateMobs(),
     krakenDefeated: false,
     jungleCultAggro: false,
@@ -70,6 +86,10 @@ function getChunk(world, cx, cy) {
 }
 
 export function tileAt(world, tx, ty) {
+  if (world?.grid) {
+    if (tx < 0 || tx >= world.cols || ty < 0 || ty >= world.rows) return MATERIAL.bedrock;
+    return world.grid[ty * world.cols + tx];
+  }
   if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return MATERIAL.bedrock;
   if (tx < 0 || tx >= COLS || ty >= ROWS) return MATERIAL.bedrock;
   if (ty < 0) return MATERIAL.air;
@@ -78,6 +98,11 @@ export function tileAt(world, tx, ty) {
 }
 
 export function waterTileAt(world, tx, ty) {
+  if (world?.grid) {
+    if (tx < 0 || tx >= world.cols || ty < 0 || ty >= world.rows) return false;
+    const index = ty * world.cols + tx;
+    return world.flooded[index] === 1 && world.grid[index] === MATERIAL.air;
+  }
   if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return false;
   if (tx < 0 || tx >= COLS || ty < WATER_ROW || ty >= ROWS) return false;
   const { tiles, flooded } = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
@@ -94,7 +119,7 @@ export function inWater(world, x, y) {
 }
 
 export function doorAt(world, tx, ty) {
-  if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS - 2) return;
+  if (tx < 0 || tx >= worldCols(world) || ty < 0 || ty >= worldRows(world) - 2) return;
   return world.doors.get(chunkKey(tx, ty)) ?? world.doors.get(chunkKey(tx, ty + 1));
 }
 
@@ -123,8 +148,8 @@ export function tentAt(world, tx, ty) {
 }
 
 export function buildCellFree(world, tx, ty) {
-  return tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS - 2
-    && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !tentAt(world, tx, ty) && !treeAt(world, tx, ty)
+  return tx >= 0 && tx < worldCols(world) && ty >= 0 && ty < worldRows(world) - 2
+    && !tileAt(world, tx, ty) && !doorAt(world, tx, ty) && !tentAt(world, tx, ty) && !treeAt(world, tx, ty) && !saplingAt(world, tx, ty)
     && !world.items.some((item) => (item.kind === 'chest' || !world.harvested.has(item.id))
       && Math.floor(item.x / TILE) === tx && Math.floor(item.y / TILE) === ty);
 }
@@ -168,6 +193,53 @@ export function rootedTreeAt(world, tx, ty) {
   return world.trees.find((tree) => tree.tx === tx && tree.ty === ty && isTreeStanding(world, tree));
 }
 
+export function saplingAt(world, tx, ty) {
+  return world.saplings?.find((sapling) => sapling.tx === tx && sapling.ty === ty) ?? null;
+}
+
+export function plantSapling(world, tx, ty, kind, plantedAt) {
+  const sapling = { id: `sapling-${tx}-${ty}-${Math.round(plantedAt * 100)}`, tx, ty, kind, plantedAt };
+  (world.saplings ??= []).push(sapling);
+  return sapling;
+}
+
+export function canGrowSapling(world, sapling, worldTime) {
+  if (!sapling || worldTime - sapling.plantedAt < 2 * DAY_CYCLE_SECONDS) return false;
+  if (sapling.ty > WATER_ROW || waterTileAt(world, sapling.tx, sapling.ty)) return false;
+  const ground = tileAt(world, sapling.tx, sapling.ty + 1);
+  if (ground !== MATERIAL.sand && ground !== MATERIAL.soil) return false;
+  for (let y = 0; y < sapling.ty; y++) {
+    if (tileAt(world, sapling.tx, y)) return false;
+  }
+  return true;
+}
+
+export function stepSaplings(world, worldTime) {
+  if (!world.saplings?.length) return false;
+  let changed = false;
+  const remaining = [];
+  for (const sapling of world.saplings) {
+    const ground = tileAt(world, sapling.tx, sapling.ty + 1);
+    if (ground !== MATERIAL.sand && ground !== MATERIAL.soil || tileAt(world, sapling.tx, sapling.ty)) {
+      changed = true;
+      continue;
+    }
+    if (canGrowSapling(world, sapling, worldTime)) {
+      const direction = (sapling.tx % 2 === 0 ? 1 : -1);
+      const height = sapling.kind === 'jungle' ? 68 + (sapling.tx % 3) * 8 : 48 + (sapling.tx % 3) * 8;
+      const tree = buildTree(`planted-${sapling.id}`, sapling.kind, sapling.tx, sapling.ty, height, direction);
+      world.trees.push(tree);
+      (world.plantedTrees ??= []).push(tree);
+      world.fixtureIds.add(tree.id);
+      changed = true;
+      continue;
+    }
+    remaining.push(sapling);
+  }
+  if (changed) world.saplings = remaining;
+  return changed;
+}
+
 export function rootedKelpAt(world, tx, ty) {
   return world.items.find((item) => item.kind === 'kelp' && item.tx === tx && item.ty === ty && !world.harvested.has(item.id));
 }
@@ -188,6 +260,7 @@ export function hasTileEdit(world, tx, ty) {
 }
 
 export function editTile(world, tx, ty, material) {
+  if (world?.immutableTerrain) return false;
   if (!isEditableTile(tx, ty) || (!Number.isInteger(material) || !MATERIAL_IDS[material]) || (material === MATERIAL.bedrock || material === MATERIAL.door)) return false;
   const cx = Math.floor(tx / CHUNK_SIZE);
   const cy = Math.floor(ty / CHUNK_SIZE);

@@ -1,4 +1,4 @@
-import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, MORNINGSTAR, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, WORKBENCH, normalizeSnorkel } from './content.js';
+import { ADDONS, ARMOR, ARROW, BOW, BROKEN_PICKAXE, CAPTAINS_CUTLASS, CLOTH, COBALT_SPEAR, COOKED_CRAB, COOKED_FISH, COPPER_PICKAXE, COPPER_SPEAR, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, IRON_PICKAXE, IRON_SWORD, KELP_DRESSING, MATERIAL, MORNINGSTAR, POISON_ARROW, POISON_NEEDLE, RAW_CRAB, RAW_FISH, SNORKELS, SPEAR, STRING, TENT, TREE_SEED, WORKBENCH, normalizeSnorkel } from './content.js';
 import { TILE } from './world/generation.js';
 import { ALL_SPAWN_ENTRIES } from './gameplay/spawn-catalog.js';
 
@@ -78,6 +78,7 @@ export const ITEMS = {
   [COPPER_SPEAR.id]: { name: 'Copper spear', description: 'Shore guards polish the tip so trouble can see itself coming.', weapon: COPPER_SPEAR },
   [BOW.id]: { name: 'Bow', description: 'Driftwood bent low and strung with spider silk. It sings on the release.', weapon: BOW },
   [STRING.id]: { name: 'String', description: 'Tough silk spun by cave spiders. Used to string bows.' },
+  [CLOTH.id]: { name: 'Cloth', description: 'Neatly woven spider silk fabric. Used to pitch tents and tailor equipment.' },
   [ARROW.id]: { name: 'Arrow', description: 'Stone-tipped and straight enough for a smuggler’s oath.' },
   [POISON_NEEDLE.id]: { name: 'Poison needle', description: 'A venomous spine taken from a lionfish.' },
   [POISON_ARROW.id]: { name: 'Poison arrow', description: 'Tipped with lionfish venom. Poisons enemies on hit.' },
@@ -90,6 +91,7 @@ export const ITEMS = {
   [CAULDRON.id]: { ...CAULDRON, block: MATERIAL.cauldron, description: "Combine up to three foods into a stew." },
   ...Object.fromEntries(Object.entries(STEWS).map(([id,recipe])=>[id,{...recipe,description:"Combines all ingredient effects."}])),
   [TENT.id]: { name: 'Tent', description: 'A sturdy canvas shelter. Place it on dry ground to set your respawn point.' },
+  [TREE_SEED.id]: { name: 'Tree seed', description: 'Plant on sand for a palm tree or on dirt for a jungle tree. Grows in open air after 2 days.' },
   [RAW_FISH.id]: { ...RAW_FISH, description: 'Fresh from the reef. Restores 5 seconds of oxygen, with a 10% chance of poison.' },
   [COOKED_FISH.id]: { ...COOKED_FISH, description: 'Seared over open coals. Safely restores 15 seconds of oxygen.' },
   [RAW_CRAB.id]: { ...RAW_CRAB, description: 'Pinchy shore catch. Restores 5 health, with a 10% chance of poison.' },

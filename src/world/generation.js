@@ -759,30 +759,28 @@ export function generateFixtures() {
   return items;
 }
 
+export function buildTree(id, kind, tx, ty, height, direction) {
+  const isJungle = kind === 'jungle';
+  const x = tx * TILE + (isJungle ? 8 : 7);
+  const y = ty * TILE;
+  const trunk = [];
+  for (let rise = 0; rise < height; rise += 2) {
+    const lean = isJungle
+      ? Math.round(Math.sin((rise / height) * Math.PI) * 3) * direction
+      : Math.floor(Math.pow(rise / height, 1.7) * 14) * direction;
+    trunk.push({ x: x + lean - (isJungle ? 4 : 3), y: y - rise - 2, width: isJungle ? (rise > height * 0.72 ? 6 : 8) : (rise > height * .68 ? 4 : 6) });
+  }
+  return isJungle ? { id, kind: 'jungle', tx, ty, x, y, height, direction, trunk } : { id, tx, ty, x, y, height, direction, trunk };
+}
+
 export function generateTrees() {
   const palms = [[49, 61, -1], [52, 46, 1], [58, 69, 1], [62, 48, -1]].map(([column, height, direction]) => {
     const tx = column + WEST_EXTENSION;
-    const ty = groundAt(tx);
-    const x = tx * TILE + 7;
-    const y = ty * TILE;
-    const trunk = [];
-    for (let rise = 0; rise < height; rise += 2) {
-      const lean = Math.floor(Math.pow(rise / height, 1.7) * 14) * direction;
-      trunk.push({ x: x + lean - 3, y: y - rise - 2, width: rise > height * .68 ? 4 : 6 });
-    }
-    return { id: 'palm-' + column, tx, ty, x, y, height, direction, trunk };
+    return buildTree('palm-' + column, 'palm', tx, groundAt(tx), height, direction);
   });
   const jungle = jungleTreeSpecs.map(([column, height, direction]) => {
     const tx = column + WEST_EXTENSION;
-    const ty = groundAt(tx);
-    const x = tx * TILE + 8;
-    const y = ty * TILE;
-    const trunk = [];
-    for (let rise = 0; rise < height; rise += 2) {
-      const lean = Math.round(Math.sin((rise / height) * Math.PI) * 3) * direction;
-      trunk.push({ x: x + lean - 4, y: y - rise - 2, width: rise > height * 0.72 ? 6 : 8 });
-    }
-    return { id: 'jungle-' + column, kind: 'jungle', tx, ty, x, y, height, direction, trunk };
+    return buildTree('jungle-' + column, 'jungle', tx, groundAt(tx), height, direction);
   });
   return [...palms, ...jungle];
 }

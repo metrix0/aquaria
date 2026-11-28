@@ -11,12 +11,14 @@ import { stepWardenBefore, stepWardenAfter, finishWardenStep, wardenAttackBlocke
 import { beneficial, harmful, foodYield, confuseOnHit, stepScholar, tomeEffect, spendTomeCooldown } from './scholar.js';
 import { stepWayfarer, finishWayfarer, catchFallMultiplier } from './wayfarer.js';
 import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
-import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, WOODEN_DOOR, WORKBENCH } from '../content.js';
-import { ISLAND_TENT_ID, activeTent, buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, rootedKelpAt, rootedTreeAt, setDoor, solidAt, tentAt, tileAt, treeAt, waterTileAt } from '../world.js';
+import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, MORNINGSTAR, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, TREE_SEED, WOODEN_DOOR, WORKBENCH } from '../content.js';
+import { ISLAND_TENT_ID, activeTent, buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, plantSapling, rootedKelpAt, rootedTreeAt, setDoor, solidAt, stepSaplings, tentAt, tileAt, treeAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_ZONE, createWaterTempleWorld } from '../world/water-temple-interior.js';
+import { worldCols, worldRows } from '../world.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
 import { GRAPPLING_HOOK, HOOKS, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
-import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen, settleDowned } from './player.js';
+import { CRAWL_HEIGHT, MAX_HEALTH, collides, movePlayer, playerImmobilized, playerInWater, spawn, stepBleed, stepPoison, takeDamage, updateOxygen, settleDowned } from './player.js';
 import { meleeHitbox, overlapsMob } from './melee.js';
 import { damageMob, mobSpec, resetHostiles, stepMobs, syncMobs } from './mobs.js';
 
@@ -46,8 +48,16 @@ function setFeet(game, id) {
 }
 
 export function createGame(snapshot) {
+  const overworld = createWorld();
+  const waterTemple = createWaterTempleWorld();
   const game = {
-    world: createWorld(),
+    zone: OVERWORLD_ZONE,
+    worlds: {
+      [OVERWORLD_ZONE]: overworld,
+      [WATER_TEMPLE_ZONE]: waterTemple,
+    },
+    world: overworld,
+    overworldReturn: null,
     classes: createClassProgress(snapshot?.progress?.classes),
     inventory: new Inventory(snapshot?.inventory),
     progress: {
@@ -73,6 +83,12 @@ export function createGame(snapshot) {
   };
   const { world } = game;
   for (const [x, y, material] of snapshot?.world.edits ?? []) editTile(world, x, y, material);
+  if (Array.isArray(snapshot?.world.saplings)) world.saplings = snapshot.world.saplings.map((s) => ({ ...s }));
+  for (const tree of snapshot?.world.plantedTrees ?? []) {
+    world.trees.push(tree);
+    world.plantedTrees.push(tree);
+    world.fixtureIds.add(tree.id);
+  }
   for (const id of snapshot?.world.harvested ?? []) {
     if (world.fixtureIds.has(id)) world.harvested.add(id);
   }
@@ -102,6 +118,9 @@ export function createGame(snapshot) {
     world.mobs = world.mobs.filter((mob) => mob.kind !== 'kraken' || mob.testSpawn);
   }
   game.chests = restoreChests(world, snapshot?.world.chests, snapshot?.world.pendingWreckLoot, game.weatherSeed);
+  for (const [id, chest] of restoreChests(waterTemple, snapshot?.world?.templeChests, null, game.weatherSeed)) {
+    game.chests.set(id, chest);
+  }
   for (const [x, y] of snapshot?.world.doors ?? []) placeDoor(world, x, y);
   world.tent = snapshot?.world.tent ?? null;
   game.player = spawn(world, oxygenCapacity(game), snapshot?.appearance,
@@ -195,7 +214,7 @@ function stepProjectiles(game, dt) {
       arrow.y += (arrow.dy * dt) / steps;
       const tx = Math.floor(arrow.x / TILE);
       const ty = Math.floor(arrow.y / TILE);
-      if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS || solidAt(world, tx, ty)) {
+      if (tx < 0 || tx >= worldCols(world) || ty < 0 || ty >= worldRows(world) || solidAt(world, tx, ty)) {
         effects.push({ x: arrow.x, y: arrow.y, material: tileAt(world, tx, ty) || MATERIAL.wood, count: 4, spread: 42 });
         removed = true;
         break;
@@ -361,6 +380,20 @@ export function useWeapon(game, slot, wx, wy, draw = null) {
   const ox = game.player.x;
   const oy = game.player.y + Math.ceil(game.player.height / 2);
   const angle = wx === ox && wy === oy ? (game.player.facing < 0 ? Math.PI : 0) : Math.atan2(wy - oy, wx - ox);
+  if (weapon?.id === MORNINGSTAR.id) {
+    const charge = clamp((draw?.elapsed ?? 0) / MORNINGSTAR.drawTime, 0, 1);
+    const maxRange = MORNINGSTAR.minRange + (MORNINGSTAR.maxRange - MORNINGSTAR.minRange) * charge;
+    const duration = 0.24 + 0.28 * charge;
+    const facing = Math.cos(angle) < 0 ? -1 : 1;
+    game.player.facing = facing;
+    game.attack = {
+      kind: MORNINGSTAR.id, angle, facing, timer: duration, duration,
+      damage: skillAttackDamage(game.player, weapon.damage * (item?.perfectWeapon ? 1.15 : 1), false, true),
+      knockback: weapon.knockback,
+      flail: { progress: 0, angle, maxRange, hitMobs: new Set(), wallHit: false },
+    };
+    return { handled: true };
+  }
   if (weapon?.id !== BOW.id) {
     const duration = (weapon?.cooldown ?? 0.28) * 1.4;
     const facing = Math.sign(wx - ox) || game.player.facing;
@@ -432,12 +465,63 @@ export function releaseBowDraw(game) {
     elapsed: draw.elapsed, extra: Boolean(game.player.skillBonuses?.extraDraw && draw.elapsed >= BOW.drawTime + 1 - 1e-6),
   });
 }
+export function beginMorningstarSwing(game, slot, wx, wy) {
+  if (ITEMS[game.inventory.hotbar[slot]?.id]?.weapon?.id !== MORNINGSTAR.id) return false;
+  if (game.attack || game.bowDraw || game.morningstarDraw || wardenAttackBlocked(game.player) || game.player.counterTime > 0) return true;
+  game.morningstarDraw = { slot, id: game.inventory.hotbar[slot].id, elapsed: 0, wx, wy };
+  aimMorningstar(game, wx, wy);
+  return true;
+}
+export function aimMorningstar(game, wx, wy) {
+  const draw = game.morningstarDraw;
+  if (!draw) return;
+  draw.wx = wx; draw.wy = wy;
+  const p = game.player;
+  draw.angle = Math.atan2(wy - p.y - Math.ceil(p.height / 2), wx - p.x);
+  p.facing = Math.cos(draw.angle) < 0 ? -1 : 1;
+}
+export function releaseMorningstar(game) {
+  const draw = game.morningstarDraw;
+  game.morningstarDraw = null;
+  if (!draw || game.inventory.hotbar[draw.slot]?.id !== draw.id || wardenAttackBlocked(game.player) || game.player.stun > 0 || game.player.flightOrigin) return;
+  return useWeapon(game, draw.slot, draw.wx, draw.wy, { elapsed: draw.elapsed });
+}
 function stepAttack(game, dt) {
-  const { attack, player, world, effects } = game;
+  const { attack, player, world } = game;
   if (!attack) return;
   attack.timer -= dt;
   if (attack.timer <= 0) {
     game.attack = null;
+    return;
+  }
+  if (attack.flail) {
+    const flail = attack.flail;
+    flail.progress = 1 - attack.timer / attack.duration;
+    const reach = Math.sin(flail.progress * Math.PI) * flail.maxRange;
+    const handX = player.x + player.facing * 5;
+    const handY = player.y + Math.ceil(player.height / 2);
+    const bx = handX + Math.cos(flail.angle) * reach;
+    const by = handY + Math.sin(flail.angle) * reach;
+    flail.bx = bx;
+    flail.by = by;
+    if (!flail.wallHit && flail.progress < 0.5 && solidAt(world, Math.floor(bx / TILE), Math.floor(by / TILE))) {
+      flail.wallHit = true;
+      attack.timer = Math.min(attack.timer, (1 - flail.progress) * attack.duration);
+      return;
+    }
+    for (let i = world.mobs.length - 1; i >= 0; i--) {
+      const mob = world.mobs[i];
+      if (mob.health <= 0 || mob.respawn > 0 || flail.hitMobs.has(mob)) continue;
+      const spec = mobSpec(mob);
+      if (!spec) continue;
+      const hit = mob.segments?.length
+        ? mob.segments.some((seg) => Math.hypot(bx - seg.x, by - seg.y) <= seg.radius + 7)
+        : Math.hypot(bx - mob.x, by - (mob.y + spec.centerY)) <= spec.radius + 7;
+      if (hit) {
+        flail.hitMobs.add(mob);
+        strikeMob(game, mob, attack.damage, flail.angle, attack.knockback);
+      }
+    }
     return;
   }
   if (!attack.hitMobs) return;
@@ -500,6 +584,7 @@ export function stepGame(game, input, dt) {
     return;
   }
   if (player.hook && !hasHook(game)) player.hook = null;
+  if (stepSaplings(world, game.worldTime)) game.dirty = true;
   const capacity = oxygenCapacity(game);
   const { x, y, health, oxygen } = player;
   stepWardenBefore(game, input, dt);
@@ -514,9 +599,29 @@ export function stepGame(game, input, dt) {
     player.hurt = Math.max(player.hurt, 0.85);
   }
   const fatalFall = fallLoss > 0 && player.health === 0;
+  if (game.morningstarDraw) {
+    const d = game.morningstarDraw;
+    if (playerImmobilized(player) || wardenAttackBlocked(player) || player.flightOrigin || game.inventory.hotbar[d.slot]?.id !== d.id) {
+      game.morningstarDraw = null;
+    } else {
+      d.elapsed += dt;
+    }
+  }
   stepAttack(game, dt);
   game.elapsed += dt;
   const hit = stepMobs(world, player, dt, game.elapsed, input.mining, input.night, game.enemies, game.effects);
+  if (game.zone !== OVERWORLD_ZONE && game.worlds?.[OVERWORLD_ZONE]) {
+    // Keep the overworld simulation advancing while the local player explores an interior zone.
+    const overworldAnchor = {
+      x: game.overworldReturn?.x ?? player.x,
+      y: game.overworldReturn?.y ?? player.y,
+      width: 0,
+      height: 0,
+      health: MAX_HEALTH,
+      godMode: true,
+    };
+    stepMobs(game.worlds[OVERWORLD_ZONE], overworldAnchor, dt, game.elapsed, null, input.night, game.enemies, []);
+  }
   stepClassEffects(game, dt);
   stepRootWave(game, dt);
   stepDroppedChests(game, dt);
@@ -567,6 +672,7 @@ export function stepGame(game, input, dt) {
     Object.assign(player, { dx: 0, climb: null, hook: null, hurt: 0, stun: 0, confused: 0, confusedGrace: 0, bleed: 0, bleedTick: 0, poison: 0, poisonTick: 0, blindness: 0, neurotoxin: 0, rushTime: 0, rageTime: 0, aegisTime: 0, cryTime: 0, counterTime: 0, catching: false, bracing: false });
     game.attack = null;
     game.bowDraw = null;
+    game.morningstarDraw = null;
     game.projectiles.length = 0;
     game.rootWave = null;
     game.dirty = true;
@@ -580,6 +686,10 @@ export function stepGame(game, input, dt) {
 }
 
 function respawnAfterDeath(game) {
+    if (game.zone !== OVERWORLD_ZONE && game.worlds?.[OVERWORLD_ZONE]) {
+      game.zone = OVERWORLD_ZONE;
+      game.world = game.worlds[OVERWORLD_ZONE];
+    }
     const { world, player } = game;
     const atTent = Boolean(world.tent && activeTent(world)?.placed);
     game.player = spawn(world, oxygenCapacity(game), player.appearance, player.armor, player.feet);
@@ -593,6 +703,7 @@ function respawnAfterDeath(game) {
     game.player.glowSeconds = player.glowSeconds;
     game.attack = null;
     game.bowDraw = null;
+    game.morningstarDraw = null;
     game.projectiles.length = 0;
     game.rootWave = null;
     resetHostiles(world);
@@ -757,10 +868,71 @@ export function fireplaceAt(game, tx, ty) {
   }
 }
 
+function templeDoorDistance(player, door) {
+  const b = door.bounds;
+  if (!b) return itemDistance(player, door);
+  const targetX = clamp(player.x, b.x, b.x + b.width);
+  const targetY = clamp(player.y + player.height / 2, b.y + 12, b.y + b.height);
+  return Math.hypot(player.x - targetX, player.y + Math.ceil(player.height / 2) - targetY);
+}
+
+export function templeDoorAt(game, worldX, worldY) {
+  for (const door of game.world.templeDoors ?? []) {
+    const b = door.bounds;
+    if (!b) continue;
+    if (worldX >= b.x && worldX <= b.x + b.width && worldY >= b.y && worldY <= b.y + b.height) {
+      if (templeDoorDistance(game.player, door) <= INTERACTION_RANGE + 24) return door;
+    }
+  }
+  return null;
+}
+
+export function transitionZone(game, targetZone) {
+  const nextWorld = game?.worlds?.[targetZone];
+  if (!nextWorld || targetZone === game.zone) return false;
+  const { player } = game;
+  if (game.zone === OVERWORLD_ZONE) {
+    game.overworldReturn = { x: player.x, y: player.y, facing: player.facing };
+  }
+  game.zone = targetZone;
+  game.world = nextWorld;
+  player.hook = null;
+  player.dx = 0;
+  player.dy = 0;
+  player.climb = null;
+  player.flightOrigin = null;
+  game.attack = null;
+  game.bowDraw = null;
+  game.projectiles.length = 0;
+  if (targetZone === WATER_TEMPLE_ZONE && nextWorld.spawnPoint) {
+    player.x = nextWorld.spawnPoint.x;
+    player.y = nextWorld.spawnPoint.floorY - player.height;
+    player.facing = nextWorld.spawnPoint.facing ?? 1;
+  } else if (targetZone === OVERWORLD_ZONE) {
+    const fallbackDoor = nextWorld.templeDoors?.[0];
+    const restore = game.overworldReturn ?? (fallbackDoor
+      ? { x: fallbackDoor.x, y: fallbackDoor.floor * TILE - player.height, facing: 1 }
+      : { x: player.x, y: player.y, facing: player.facing });
+    player.x = restore.x;
+    player.y = restore.y;
+    if (restore.facing) player.facing = restore.facing;
+  }
+  syncMobs(nextWorld, player);
+  game.dirty = true;
+  return true;
+}
+
 export function nearestItem(game) {
   const { player, world } = game;
   let result;
   let distance = INTERACTION_RANGE;
+  for (const door of world.templeDoors ?? []) {
+    const difference = templeDoorDistance(player, door);
+    if (difference < distance) {
+      distance = difference;
+      result = door;
+    }
+  }
   for (const item of world.items) {
     if (item.kind !== 'chest' && item.kind !== 'mermaid') continue;
     const difference = itemDistance(player, item);
@@ -945,16 +1117,17 @@ export function planTileAction(game, target, build, slot) {
     const trap = caveTrapAt(world, tx, ty);
     if (trap) return { tx, ty, before: MATERIAL.wood, after: MATERIAL.air, trap, amount: 0 };
     const tree = before === MATERIAL.air && treeAt(world, tx, ty);
-    if (tree) return { tx, ty, before: MATERIAL.wood, fixtureId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE) };
+    if (tree) return { tx, ty, before: MATERIAL.wood, fixtureId: tree.id, item: 'wood', amount: Math.round(tree.height / TILE), seedAmount: 1 + Math.floor(Math.random() * 2) };
     const kelp = before === MATERIAL.air && kelpAt(world, target.x ?? (tx + .5) * TILE, ty);
     if (kelp) return { tx, ty, before, fixtureId: kelp.id, item: 'kelp', amount: kelp.amount };
     const item = DROPS[before];
     if (ORE_MATERIALS.has(before) && !hasOpenFace(world, tx, ty, player)) return;
     const aboveTent = tentAt(world, tx, ty - 1);
     const supportedTent = aboveTent && aboveTent.tx === tx && aboveTent.ty === ty - 1 ? aboveTent : null;
+    const supportedTree = rootedTreeAt(world, tx, ty);
     return item && { tx, ty, before, after: MATERIAL.air, item, amount: 1,
       supportedDoor: doorAt(world, tx, ty - 1), supportedKelp: rootedKelpAt(world, tx, ty),
-      supportedTree: rootedTreeAt(world, tx, ty), supportedTent };
+      supportedTree, seedAmount: supportedTree ? 1 + Math.floor(Math.random() * 2) : 0, supportedTent };
   }
   const item = inventory.hotbar[slot]?.id;
   if (!buildCellFree(world, tx, ty)) return;
@@ -971,6 +1144,13 @@ export function planTileAction(game, target, build, slot) {
   if (item === WOODEN_DOOR.id) {
     if (buildCellFree(world, tx, ty - 1) && tileAt(world, tx, ty + 1)) {
       return { tx, ty, before, after: MATERIAL.door, item, slot, amount: -1 };
+    }
+    return;
+  }
+  if (item === TREE_SEED.id) {
+    const ground = tileAt(world, tx, ty + 1);
+    if (ground === MATERIAL.sand || ground === MATERIAL.soil) {
+      return { tx, ty, before, after: MATERIAL.air, plantSeed: ground === MATERIAL.sand ? 'palm' : 'jungle', item, slot, amount: -1 };
     }
     return;
   }
@@ -1034,7 +1214,9 @@ export function applyTerrain(game, tx, ty, material) {
 }
 
 export function commitTileAction(game, action) {
-  if (action.tentPlace) {
+  if (action.plantSeed) {
+    plantSapling(game.world, action.tx, action.ty, action.plantSeed, game.worldTime);
+  } else if (action.tentPlace) {
     game.world.tent = { tx: action.tx, ty: action.ty };
   } else if (action.tent) {
     if (action.tent.placed) game.world.tent = null;
@@ -1051,12 +1233,13 @@ export function commitTileAction(game, action) {
   awardTileAction(game, action);
 }
 
-export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp, supportedTree, supportedTent }, removedDoor = Boolean(supportedDoor)) {
+export function awardTileAction(game, { item, amount, slot, supportedDoor, supportedKelp, supportedTree, supportedTent, seedAmount }, removedDoor = Boolean(supportedDoor)) {
   if (amount > 0) game.inventory.add(item, foodYield(game.player,item,amount));
   else if (amount < 0) game.inventory.consume(game.inventory.hotbar, slot, -amount);
   if (removedDoor) game.inventory.add(WOODEN_DOOR.id, 1);
   if (supportedKelp) game.inventory.add('kelp', foodYield(game.player,'kelp',supportedKelp.amount));
   if (supportedTree) game.inventory.add('wood', Math.round(supportedTree.height / TILE));
+  if (seedAmount > 0) game.inventory.add(TREE_SEED.id, seedAmount);
   if (supportedTent) game.inventory.add(TENT.id, 1);
   game.dirty = true;
 }
