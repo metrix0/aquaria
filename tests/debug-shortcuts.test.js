@@ -29,7 +29,7 @@ test('God Mode and zoom shortcuts use Shift without toggling flight or repeating
     panel = 'backpack-panel';
     key('KeyZ');
     key('KeyG', { shiftKey: true });
-    assert.deepEqual(calls, ['toggle', 'speed', 1, -1]);
+    assert.deepEqual(calls, ['toggle', 'speed', -1, 1]);
   } finally {
     if (originalWindow === undefined) delete globalThis.window;
     else globalThis.window = originalWindow;

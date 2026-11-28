@@ -75,7 +75,7 @@ export function bindInput(canvas, camera, actions) {
     }
     if (code === 'KeyZ') {
       event.preventDefault();
-      actions.zoomBy?.(event.shiftKey ? -1 : 1);
+      actions.zoomBy?.(event.shiftKey ? 1 : -1);
     }
     if (code === 'KeyT') actions.emotes?.();
     if (code === 'KeyB') actions.dance?.();
