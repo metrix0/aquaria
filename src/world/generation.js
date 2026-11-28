@@ -759,9 +759,10 @@ export function generateFixtures() {
 
   for (const [index, ruin] of CORAL_RUINS.entries()) {
     const tx = ruin.column + WEST_EXTENSION;
-    const floorY = Math.min(groundAt(tx - 2), groundAt(tx), groundAt(tx + 2)) * TILE;
+    const floorY = groundAt(tx) * TILE;
     items.push({ ...ruin, id: 'coral-ruin-' + index, kind: 'coral-ruin', variant: index % 3,
-      x: (tx + .5) * TILE, y: floorY - 32, floorY });
+      x: (tx + .5) * TILE, y: floorY - 32, floorY,
+      leftFloorY: groundAt(tx - 2) * TILE, rightFloorY: groundAt(tx + 2) * TILE });
   }
   items.push(...oceanLandmarks({ groundAt, westExtension: WEST_EXTENSION, tile: TILE }));
   for (const dial of CORAL_DIALS) {

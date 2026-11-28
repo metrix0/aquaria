@@ -1,31 +1,101 @@
-// Large, layered pixel-art landmarks. Decorative only: the player can swim
-// between ribs, through archways and beneath the kelp canopy.
-const stone = ['#203844','#36555b','#567775','#77948a'];
-const bone = ['#394c4b','#697d73','#a9b9a1','#d5d6b4'];
+// Submerged architecture and fossil silhouettes. All dimensions below are
+// local pixel-art units; the world provides a full seabed profile per site.
+const stone = ['#182f37','#304c51','#4a6868','#76918a','#a0b0a0'];
+const bone = ['#34464a','#586a67','#87978a','#b0bca4','#d4d5b6'];
 const reef = ['#513b59','#996b82','#bd8a91','#dfa9a0'];
 const kelp = ['#244d4d','#386e60','#57927a','#81ad88'];
 const rand = (n,s=0) => { const v = Math.sin(n*79.17+s*23.49)*43758.5453; return v-Math.floor(v); };
 
-function masonry(rect,x,y,w,h,seed) {
-  rect(x,y,w,h,stone[0]);
-  rect(x+2,y+1,w-4,h-3,stone[1]);
-  rect(x+2,y+1,w-4,2,stone[2]);
-  rect(x+w-3,y+3,2,h-5,stone[0]);
-  if(rand(seed)>.5) {
-    rect(x+w*.36,y+3,2,Math.max(2,h-6),stone[0]);
-    rect(x+w*.36-4,y+h-4,6,2,stone[0]);
-  }
-  if(rand(seed,1)>.5) rect(x+3,y+2,Math.min(w-5,4+rand(seed,2)*9),3,kelp[2]);
+export function landmarkFloorAt(item, worldX) {
+  const i = Math.floor(worldX / item.tile) - item.floorStart;
+  return item.floorProfile[Math.max(0,Math.min(item.floorProfile.length-1,i))];
 }
-function pillar(rect,x,y,h,seed) {
-  masonry(rect,x-14,y-7,28,12,seed);
-  masonry(rect,x-11,y-15,22,8,seed+1);
-  for(let rise=15;rise<h;rise+=12) {
-    const lean=Math.round((rand(seed,3)-.5)*rise*.065);
-    masonry(rect,x-8+lean,y-rise-12,16,12,seed+rise);
-    rect(x-3+lean,y-rise-10,2,8,stone[2]);
+
+// Split each painted strip at terrain tile boundaries. Buried bones and
+// masonry disappear under the seabed rather than painting over solid blocks.
+function terrainPainter(rect,item) {
+  return (x,y,w,h,color) => {
+    const end=x+w;
+    for(let left=x;left<end;) {
+      const right=Math.min(end,(Math.floor(left/item.tile)+1)*item.tile);
+      const bottom=Math.min(y+h,landmarkFloorAt(item,left));
+      if(bottom>y && right>left) rect(left,y,right-left,bottom-y,color);
+      if(right<=left) break;
+      left=right;
+    }
+  };
+}
+
+// Pixel-stepped filled polygon, layered rather than outlined with disconnected
+// squares. A two-unit raster preserves the game's low-resolution art style.
+function poly(rect,points,color,step=2) {
+  const lo=Math.floor(Math.min(...points.map(p=>p[1]))/step)*step;
+  const hi=Math.ceil(Math.max(...points.map(p=>p[1]))/step)*step;
+  for(let y=lo;y<hi;y+=step) {
+    const scan=y+step*.5, xs=[];
+    for(let i=0;i<points.length;i++) {
+      const a=points[i],b=points[(i+1)%points.length];
+      if((a[1]<=scan&&b[1]>scan)||(b[1]<=scan&&a[1]>scan)) xs.push(a[0]+(scan-a[1])*(b[0]-a[0])/(b[1]-a[1]));
+    }
+    xs.sort((a,b)=>a-b);
+    for(let i=0;i+1<xs.length;i+=2) {
+      const x=Math.floor(xs[i]/step)*step, end=Math.ceil(xs[i+1]/step)*step;
+      if(end>x) rect(x,y,end-x,step,color);
+    }
   }
-  masonry(rect,x-15,y-h-13,30,9,seed+2);
+}
+
+function ribbon(rect,pts,width,palette=bone) {
+  function shape(mult,offset) {
+    const a=[],b=[];
+    pts.forEach(([x,y],i)=>{
+      const prev=pts[Math.max(0,i-1)],next=pts[Math.min(pts.length-1,i+1)];
+      const dx=next[0]-prev[0],dy=next[1]-prev[1],len=Math.hypot(dx,dy)||1;
+      const t=i/(pts.length-1), w=width*(.36+.64*Math.sin(Math.PI*t)**.65)*mult;
+      const nx=-dy/len,ny=dx/len;
+      a.push([x+nx*w+offset,y+ny*w+offset]);b.push([x-nx*w+offset,y-ny*w+offset]);
+    });
+    return a.concat(b.reverse());
+  }
+  poly(rect,shape(1,0),palette[0]);
+  poly(rect,shape(.76,-.7),palette[2]);
+  poly(rect,shape(.34,-1.2),palette[3]);
+}
+
+function masonry(rect,x,y,w,h,seed) {
+  if(w<5||h<5) {rect(x,y,w,h,stone[1]);return;}
+  rect(x,y,w,h,stone[0]);
+  rect(x+1,y+1,w-2,h-2,stone[1+Math.floor(rand(seed)*2)]);
+  rect(x+2,y+1,w-4,2,stone[3]);
+  rect(x+w-3,y+3,2,h-4,stone[0]);
+  if(rand(seed,5)>.48) {
+    rect(x+w*.4,y+3,2,Math.max(1,h-5),stone[0]);
+    rect(x+w*.4-3,y+h-3,5,1,stone[0]);
+  }
+  if(rand(seed,1)>.55) rect(x+3,y+2,Math.min(w-4,5+rand(seed,2)*11),2,kelp[2]);
+}
+function courses(rect,x,y,w,h,seed) {
+  for(let row=0;row<h;row+=10) {
+    const bh=Math.min(10,h-row);
+    for(let dx=0;dx<w;) {
+      const bw=Math.min(w-dx,dx===0&&row%20?9:18);
+      masonry(rect,x+dx,y+row,bw,bh,seed+row*7+dx);dx+=bw;
+    }
+  }
+}
+function pillar(rect,x,base,h,seed,width=20,broken=false) {
+  masonry(rect,x-width*.8,base-9,width*1.6,9,seed);
+  masonry(rect,x-width*.65,base-15,width*1.3,6,seed+1);
+  for(let rise=15;rise<h;rise+=11) {
+    const lean=Math.round((rand(seed,3)-.5)*rise*.05);
+    const bh=Math.min(11,h-rise);
+    masonry(rect,x-width/2+lean,base-rise-bh,width,bh,seed+rise);
+    if(bh>5) for(let f=-1;f<=1;f++) rect(x+f*width*.24+lean,base-rise-bh+2,2,bh-4,stone[3]);
+  }
+  if(!broken) {
+    masonry(rect,x-width*.65,base-h-6,width*1.3,6,seed+2);
+    masonry(rect,x-width*.85,base-h-12,width*1.7,6,seed+3);
+  }
 }
 function vine(rect,x,y,h,seed,time,hang=false) {
   for(let j=0;j<h;j+=3) {
@@ -39,62 +109,144 @@ function vine(rect,x,y,h,seed,time,hang=false) {
     }
   }
 }
-function ruin(rect,x,y,v,time) {
-  // Broken colonnade, submerged gate, and carved lintels. The middle is open.
-  for(let i=-6;i<=6;i++) masonry(rect,x+i*18-9,y-7+Math.abs(i%2)*2,18,12,i+v*11);
-  for(let i=-5;i<=5;i++) masonry(rect,x+i*18-9,y-14,18,7,i+22);
-  const left=84+v*20,right=v===1?58:110-v*9;
-  pillar(rect,x-84,y-14,left,7+v); pillar(rect,x-45,y-14,122,19+v);
-  pillar(rect,x+45,y-14,122,42+v); pillar(rect,x+84,y-14,right,53+v);
-  for(let i=0;i<7;i++) masonry(rect,x-63+i*18,y-153,18,12,90+i+v);
-  for(let i=0;i<5;i++) masonry(rect,x-45+i*18,y-161,18,8,110+i);
-  // Stepped, broken pediment and engraved band.
-  for(let i=0;i<9;i++) {
-    const px=x-63+i*14, top=y-164-Math.round((4-Math.abs(i-4))*3);
-    if(v!==2||i<6) masonry(rect,px,top,14,9,i+140);
+
+function arch(rect,cx,base,width,height,seed,broken=false) {
+  const rx=width/2, ry=height, spring=base-height*.66;
+  // Stone voussoirs form a true open arch with a continuous stone rim.
+  for(let i=0;i<22;i++) {
+    if(broken&&i>=9&&i<=14) continue;
+    const t0=Math.PI*i/22,t1=Math.PI*(i+1)/22;
+    const ring=(t,outer)=>[cx+Math.cos(t)*(rx+(outer?12:0)),spring-Math.sin(t)*(ry*.44+(outer?12:0))];
+    const pts=[ring(t0,false),ring(t1,false),ring(t1,true),ring(t0,true)];
+    poly(rect,pts,stone[0]);
+    const tm=(t0+t1)/2;
+    const inner=ring(tm,false),outer=ring(tm,true);
+    ribbon(rect,[inner,outer],3,[stone[0],stone[1],stone[2+(i%2)],stone[3]]);
   }
-  for(let i=-4;i<=4;i++) if(i%2===0) {
-    rect(x+i*12-2,y-149,4,4,'#9eb9a6');
-    rect(x+i*12-1,y-148,2,2,stone[0]);
-  }
-  for(let i=0;i<11;i++) {
-    const px=x+(rand(i,17+v)-.5)*224;
-    masonry(rect,px,y-3-rand(i,8)*9,8+rand(i,3)*14,6+rand(i,4)*9,i+160);
-  }
-  for(const [dx,h] of [[-52,53],[-89,30],[49,65],[85,28]]) vine(rect,x+dx,y-142+(Math.abs(dx)>60?46:0),h,dx+v,time,true);
+  pillar(rect,cx-rx-7,base,height*.66,seed,15);
+  pillar(rect,cx+rx+7,base,height*.66,seed+7,15);
 }
-function boneSegment(rect,x,y,w,h) {
-  rect(x-w/2,y-h/2,w,h,bone[0]);
-  rect(x-w/2+2,y-h/2+1,w-4,h-3,bone[1]);
-  rect(x-w/2+3,y-h/2+1,w-6,Math.max(2,h*.35),bone[2]);
+function relief(rect,x,y,seed) {
+  // Ancient carved sea guardian, weathered crown, eyes and central trident.
+  poly(rect,[[x-16,y-18],[x-7,y-25],[x+7,y-25],[x+16,y-18],[x+14,y+12],[x,y+23],[x-14,y+12]],stone[0]);
+  poly(rect,[[x-12,y-17],[x,y-21],[x+12,y-17],[x+10,y+9],[x,y+18],[x-10,y+9]],stone[2]);
+  rect(x-9,y-5,6,3,stone[0]);rect(x+3,y-5,6,3,stone[0]);
+  rect(x-1,y-5,3,12,stone[3]);rect(x-6,y+11,12,2,stone[0]);
+  if(seed%2) rect(x-4,y-19,8,3,'#6cae9e');
 }
-function skeleton(rect,x,y,v) {
-  // Leviathan spine, arcing ribs and enormous jaw with broken teeth.
-  const flip=v===1?-1:1;
-  const sx=dx=>x+dx*flip;
-  for(let i=0;i<13;i++) {
-    const dx=-147+i*19,dy=-17-Math.sin(i/12*Math.PI)*22;
-    boneSegment(rect,sx(dx),y+dy,20,13);
-    rect(sx(dx)-3,y+dy-13,6,9,bone[1]);
+function ruin(rect,floor,v,time) {
+  // A level deck on masonry piers follows terrain rather than hanging above it.
+  const deck=Math.min(...Array.from({length:13},(_,i)=>floor(-132+i*22)))-5;
+  for(let dx=-144;dx<144;dx+=12) {
+    const bottom=Math.max(floor(dx),floor(dx+11));
+    courses(rect,dx,deck,12,Math.max(5,bottom-deck+3),dx+v*71);
   }
-  for(let i=0;i<7;i++) {
-    const base=-98+i*23, h=77+Math.sin(i/6*Math.PI)*35;
-    for(let j=0;j<=24;j++) {
-      const t=j/24, dx=base+Math.sin(t*Math.PI)*23+t*9;
-      const py=y-23-Math.sin(t*Math.PI)*h;
-      boneSegment(rect,sx(dx),py,8,10);
+  for(let dx=-140;dx<140;dx+=20) masonry(rect,dx,deck-7,20,8,dx+55);
+  const base=deck-7;
+  if(v===0) {
+    // Grand triple arcade: broken side aisles, roof frieze and central idol.
+    arch(rect,0,base,86,139,20);
+    arch(rect,-92,base,49,88,31,true);
+    arch(rect,92,base,49,100,44);
+    for(let i=-3;i<=3;i++) masonry(rect,i*20-10,base-164,20,10,i+79);
+    relief(rect,0,base-181,1);
+    for(let i=-2;i<=2;i++) masonry(rect,i*19-9,base-194+Math.abs(i)*5,19,8,100+i);
+  } else if(v===1) {
+    // Drowned shrine: colossal facade, recessed door, pilasters and terraces.
+    courses(rect,-118,base-142,52,142,29);
+    courses(rect,66,base-142,52,142,93);
+    for(const dx of [-116,-78,78,116]) pillar(rect,dx,base,156,dx+141,22,dx===116);
+    arch(rect,0,base,90,136,60);
+    for(let i=-6;i<=6;i++) masonry(rect,i*20-10,base-168,20,12,i+92);
+    for(let j=0;j<4;j++) for(let i=-5+j;i<=5-j;i++) {
+      if(j>1&&i===3-j) continue;
+      masonry(rect,i*20-10,base-180-j*9,20,9,i+120+j*8);
     }
+    relief(rect,0,base-186,2);
+  } else {
+    // Fragmented palace: half an arch, collapsed tower, and leaning lintel.
+    courses(rect,-136,base-108,43,108,68);
+    pillar(rect,-101,base,139,18,25,true);
+    arch(rect,-36,base,78,118,33,true);
+    pillar(rect,51,base,91,91,22,true);
+    pillar(rect,111,base,52,76,24,true);
+    poly(rect,[[42,base-101],[128,base-63],[132,base-51],[38,base-88]],stone[0]);
+    poly(rect,[[46,base-99],[125,base-62],[127,base-58],[44,base-92]],stone[3]);
+    relief(rect,-115,base-78,3);
   }
-  // Skull, dark eye socket, split lower jaw and teeth.
-  const bx=sx(119)-32, by=y-78;
-  rect(bx+2,by+10,67,40,bone[0]); rect(bx+9,by+4,50,49,bone[1]);
-  rect(bx+14,by,37,17,bone[2]); rect(bx+7,by+15,51,29,bone[2]);
-  rect(bx+17,by+16,17,17,bone[0]); rect(bx+20,by+19,11,11,'#203c43');
-  rect(bx+47,by+25,11,9,bone[0]);
-  rect(bx+10,by+48,61,7,bone[1]); rect(bx+14,by+63,53,7,bone[2]);
-  rect(bx+15,by+55,7,11,bone[1]);
-  for(let i=0;i<6;i++) {rect(bx+23+i*7,by+53,4,8-i%3,bone[2]);rect(bx+23+i*7,by+62,3,4,bone[1]);}
-  rect(bx+13,by+7,22,3,bone[3]);
+  // Fallen masonry follows the seabed independently of the deck.
+  for(let i=0;i<18;i++) {
+    const px=(rand(i,17+v)-.5)*288,py=floor(px);
+    masonry(rect,px,py-5-rand(i,8)*11,8+rand(i,3)*16,6+rand(i,4)*9,i+160);
+  }
+  for(const [dx,h] of [[-72,62],[-117,34],[65,51],[107,26]]) {
+    vine(rect,dx,base-(v===2?67:113),h,dx+v,time,true);
+  }
+}
+function skull(rect,x,y,form,flip) {
+  const put=(x0,y0,w,h,c)=>rect(x+flip*(x0+(flip===-1?w:0)),y+y0,w,h,c);
+  const shape=(pts,c)=>poly(rect,pts.map(([px,py])=>[x+px*flip,y+py]),c);
+  // Skull is an organic stepped profile: brow, sloping snout, cheek and crest.
+  const outer=form===1?[[-49,-66],[-39,-86],[-13,-94],[16,-88],[34,-77],[54,-64],[72,-54],[76,-36],[60,-27],[21,-29],[10,-13],[-15,-15],[-36,-27],[-50,-43]]:
+    [[-44,-64],[-31,-79],[-8,-85],[17,-81],[37,-69],[60,-61],[66,-46],[60,-34],[20,-31],[8,-18],[-18,-21],[-35,-35],[-45,-46]];
+  shape(outer,bone[0]);
+  shape(outer.map(([px,py])=>[px*.91,py*.91-3]),bone[2]);
+  shape([[-34,-65],[-20,-76],[0,-81],[22,-73],[35,-65],[5,-67],[-10,-61]],bone[3]);
+  shape([[-24,-58],[-9,-65],[7,-58],[12,-43],[-1,-34],[-18,-37],[-27,-45]],bone[0]);
+  shape([[-20,-55],[-8,-60],[3,-54],[7,-44],[-3,-39],[-16,-42]],'#1f383f');
+  shape([[25,-59],[42,-55],[52,-47],[44,-41],[27,-44]],bone[1]);
+  shape([[30,-55],[41,-52],[46,-47],[31,-48]],bone[0]);
+  // Jaw hinges join the cranium; teeth overlap the jaw rather than floating.
+  shape([[-31,-39],[-16,-26],[0,-13],[32,-10],[62,-14],[70,-8],[62,1],[22,3],[-3,-2],[-23,-15],[-39,-29]],bone[0]);
+  shape([[-29,-35],[-13,-23],[2,-10],[32,-6],[62,-10],[65,-4],[25,0],[0,-5],[-20,-17]],bone[2]);
+  for(let i=0;i<8;i++) {
+    const px=11+i*7, upper=-32-(i>4?1:0),len=8+(i%3)*2;
+    shape([[px,upper],[px+5,upper],[px+3,upper+len]],bone[3]);
+    if(i!==2&&i!==6) shape([[px-1,-8],[px+4,-9],[px+2,-17-(i%2)*3]],bone[2]);
+  }
+  put(-27,-70,3,15,bone[1]);put(-29,-55,4,2,bone[1]);
+  if(form===1) shape([[-39,-75],[-58,-110],[-38,-96],[-27,-80]],bone[2]);
+  if(form===2) shape([[-13,-79],[2,-107],[14,-83]],bone[2]);
+}
+function skeleton(rect,floor,v) {
+  const flip=v===2?-1:1, sx=x=>x*flip;
+  const baseAt=x=>floor(sx(x))-7;
+  const count=v===1?11:v===2?6:8;
+  const tailStart=v===2?-135:-172;
+  const neck=79;
+  const points=Array.from({length:19},(_,i)=>{
+    const t=i/18, x=tailStart+(neck-tailStart)*t;
+    return [sx(x),baseAt(x)-Math.sin(Math.PI*t)*10];
+  });
+  // Connected spinal silhouette, irregular articulated vertebrae, and spines.
+  ribbon(rect,points,8);
+  points.forEach(([px,py],i)=>{
+    const size=5+7*Math.sin(Math.PI*(i+2)/23);
+    poly(rect,[[px-size,py-4],[px-3,py-size],[px+5,py-size],[px+size,py-1],[px+5,py+6],[px-size+2,py+5]],bone[1]);
+    rect(px-3,py-size+1,6,3,bone[3]);
+    if(i%3!==0) ribbon(rect,[[px,py-3],[px-4*flip,py-size-8],[px-5*flip,py-size-13]],3);
+  });
+  for(let i=0;i<count;i++) {
+    const u=i/(count-1), start=-130+u*190;
+    const foot=baseAt(start), h=(v===1?133:v===2?91:105)*(.55+.45*Math.sin(Math.PI*(u*.86+.1)));
+    const width=24+u*22;
+    const pts=Array.from({length:25},(_,j)=>{
+      const t=j/24,dx=start+Math.sin(t*Math.PI*.91)*width+t*12;
+      return [sx(dx),foot-Math.sin(t*Math.PI*.94)*h+t*(baseAt(dx)-foot)];
+    });
+    // Broken specimens have missing rib tips; the others curve continuously.
+    ribbon(rect,i%5===1&&v!==1?pts.slice(0,17):pts,5.1+u*1.6);
+  }
+  // Rest the jaw on the actual terrain beneath its footprint, with buried
+  // portions clipped by the painter. Skull joins the neck via a curved bone.
+  const head=118, headFloor=Math.max(...[-28,0,28,55].map(dx=>baseAt(head+dx)))+5;
+  ribbon(rect,[[sx(65),baseAt(65)-3],[sx(81),baseAt(81)-15],[sx(91),headFloor-25]],8);
+  skull(rect,sx(head),headFloor,v,flip);
+  // Grounded fragments and sediment staining.
+  for(let i=0;i<7;i++) {
+    const px=sx(-170+rand(i,v+8)*330),py=floor(px)-2;
+    ribbon(rect,[[px-8,py],[px,py-4],[px+10,py-2]],2.5);
+  }
 }
 function coralBranch(rect,x,y,h,seed,palette) {
   for(let j=0;j<h;j+=3) {
@@ -120,8 +272,20 @@ function garden(rect,x,y,v,time,isKelp) {
     else coralBranch(rect,px,py,h,i+v, i%2?reef:['#3d566b','#517e88','#76b1af','#a3d2c5']);
   }
 }
-export function drawOceanLandmark(rect,{x,y,style,variant},time) {
-  if(style==='ruin') ruin(rect,x,y,variant,time);
-  else if(style==='bones') skeleton(rect,x,y,variant);
-  else garden(rect,x,y,variant,time,style==='kelp');
+
+export function drawOceanLandmark(rect,item,time) {
+  const {x,y,style,variant,scale=1}=item;
+  const clipped=terrainPainter(rect,item);
+  const local=(px,py,w,h,c)=>clipped(x+px*scale,y+py*scale,w*scale,h*scale,c);
+  const floor=px=>(landmarkFloorAt(item,x+px*scale)-y)/scale;
+  if(style==='ruin') ruin(local,floor,variant,time);
+  else if(style==='bones') skeleton(local,floor,variant);
+  else {
+    // Ground each individual plant; no shared floating baseline.
+    for(let i=0;i<9;i++) {
+      const px=-94+i*23,py=floor(px),h=36+rand(i,variant+3)*89;
+      if(style==='kelp'||i%3===0) vine(local,px,py,h,i+variant*3,time);
+      else coralBranch(local,px,py,h,i+variant,i%2?reef:['#3d566b','#517e88','#76b1af','#a3d2c5']);
+    }
+  }
 }

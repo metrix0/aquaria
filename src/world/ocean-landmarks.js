@@ -3,14 +3,14 @@ import { createWildChest } from './wild-chest.js';
 // Hand-placed silhouettes with swimmable gaps. Coordinates are anchored to the
 // original island, not screen pixels, so chunk boundaries and saves are stable.
 const WEST = [
-  [-145,'reef'],[-260,'ruin'],[-241,'bones'],[-284,'kelp'],[-332,'ruin'],
-  [-390,'reef'],[-443,'bones'],[-492,'ruin'],[-550,'kelp'],[-602,'ruin'],
-  [-655,'bones'],[-677,'reef'],[-750,'ruin'],
+  [-145,'reef'],[-260,'ruin',0.8,2],[-241,'bones',.66,0],[-284,'kelp'],[-332,'ruin',1.45,0],
+  [-390,'reef'],[-443,'bones',2.85,1],[-492,'ruin',1.1,2],[-550,'kelp'],[-602,'ruin',2.1,1],
+  [-655,'bones',1.45,2],[-677,'reef'],[-750,'ruin',1.35,0],
 ];
 const EAST = [
-  [185,'reef'],[245,'ruin'],[300,'bones'],[350,'kelp'],[408,'ruin'],
-  [465,'reef'],[518,'bones'],[572,'ruin'],[628,'kelp'],[682,'ruin'],
-  [738,'bones'],[789,'reef'],[820,'ruin'],
+  [185,'reef'],[245,'ruin',0.8,2],[300,'bones',1.05,2],[350,'kelp'],[408,'ruin',1.6,0],
+  [465,'reef'],[518,'bones',1.8,0],[572,'ruin',1.15,1],[628,'kelp'],[682,'ruin',1.8,2],
+  [738,'bones',3.2,1],[789,'reef'],[820,'ruin',1.35,0],
 ];
 export const oceanVentColumns = Object.freeze([
   -178,-245,-320,-400,-480,-560,-640,-720,-780,
@@ -20,18 +20,21 @@ export const oceanVentColumns = Object.freeze([
 export function oceanLandmarks({ groundAt, westExtension, tile }) {
   const result = [];
   for (const [side, sites] of [['west', WEST], ['east', EAST]]) {
-    sites.forEach(([column, style], index) => {
+    sites.forEach(([column, style, scale = 1, form], index) => {
       const id = 'ocean-' + side + '-' + index;
       const tx = column + westExtension;
-      const radius = style === 'bones' ? 180 : style === 'ruin' ? 134 : 112;
-      const height = style === 'bones' ? 145 : style === 'ruin' ? 180 : 140;
-      // Anchor the silhouette to the shallowest ground under its footprint;
-      // individual foundations extend down into the changing seabed.
-      const floor = Math.min(...Array.from({length: 9}, (_, i) => groundAt(tx + i - 4)));
+      const radius = Math.ceil((style === 'bones' ? 205 : style === 'ruin' ? 158 : 125) * scale);
+      const nominalHeight = (style === 'bones' ? 170 : style === 'ruin' ? 222 : 148) * scale;
+      const extent = Math.ceil(radius / tile) + 2;
+      const floorStart = tx - extent;
+      const floorProfile = Array.from({length: extent * 2 + 1}, (_, i) => groundAt(floorStart + i) * tile);
       const x = (tx + .5) * tile;
-      const y = floor * tile;
-      result.push({ id, kind: 'ocean-landmark', style, variant: index % 3,
-        x, y, radius, height });
+      const y = groundAt(tx) * tile;
+      const topY = Math.min(...floorProfile) - nominalHeight;
+      const bottomY = Math.max(...floorProfile);
+      result.push({ id, kind: 'ocean-landmark', style, variant: form ?? index % 3,
+        x, y, radius, scale, height: y - topY, topY, bottomY,
+        floorStart, floorProfile, tile });
       if (style === 'ruin') {
         result.push(createWildChest({ id: id + '-chest', name: 'Sunken ruin chest',
           x, y: groundAt(tx) * tile - 8, lootTable: 'sunken-ruins' }));

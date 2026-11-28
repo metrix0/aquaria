@@ -2449,7 +2449,7 @@ export function createRenderer(canvas) {
 
     for (const item of world.items) {
       if (item.kind !== "chest" && world.harvested.has(item.id)) continue;
-      const margin = item.kind === 'ocean-landmark' ? item.radius : item.kind === 'coral-ruin' ? 48 : 24;
+      const margin = item.kind === 'ocean-landmark' ? item.radius : item.kind === 'coral-ruin' ? 55 : 24;
       if (item.x < camera.x - margin || item.x > camera.x + camera.width + margin)
         continue;
       const { x, y } = item;
@@ -2466,7 +2466,7 @@ export function createRenderer(canvas) {
           }
         }
       } else if (item.kind === "ocean-landmark") {
-        if (y >= camera.y - 20 && y - item.height <= camera.y + camera.height + 20) drawOceanLandmark(rect, item, time);
+        if (item.bottomY >= camera.y - 20 && item.topY <= camera.y + camera.height + 20) drawOceanLandmark(rect, item, time);
       } else if (item.kind === "coral-ruin") {
         drawCoralRuin(rect, item);
       } else if (item.kind === "coral-dial") {

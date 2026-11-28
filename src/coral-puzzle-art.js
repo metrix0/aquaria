@@ -16,24 +16,31 @@ function glyph(rect, x, y, mark, scale, color) {
 }
 function block(rect, x, y, w, h) {
   rect(x, y, w, h, '#263f4a');
+  if (h < 4 || w < 5) return;
   rect(x + 2, y + 1, w - 4, h - 3, '#52716c');
   rect(x + 2, y + 1, w - 4, 2, '#77918a');
   if (h > 5) rect(x + w - 3, y + 3, 1, h - 5, '#354d51');
 }
-export function drawCoralRuin(rect, { x, y, floorY, mark, variant }) {
-  block(rect, x - 32, floorY - 6, 64, 6);
-  block(rect, x - 25, floorY - 11, 50, 5);
-  const leftHeight = variant === 1 ? 27 : 45;
-  const rightHeight = variant === 2 ? 28 : 45;
+export function drawCoralRuin(rect, { x, y, floorY, leftFloorY = floorY, rightFloorY = floorY, mark, variant }) {
+  const deck = Math.min(floorY, leftFloorY, rightFloorY);
+  for(const [dx,bottom] of [[-32,leftFloorY],[-16,floorY],[0,floorY],[16,rightFloorY]]) {
+    for(let by=deck-7;by<bottom;by+=7) block(rect,x+dx,by,16,Math.min(7,bottom-by));
+  }
+  block(rect, x - 34, deck - 7, 68, 7);
+  block(rect, x - 28, deck - 12, 56, 5);
+  const leftHeight = variant === 1 ? 34 : 58;
+  const rightHeight = variant === 2 ? 36 : 58;
   for (const [dx, height] of [[-26, leftHeight], [17, rightHeight]]) {
-    for (let dy = 10; dy < height; dy += 9) block(rect, x + dx, floorY - dy - 8, 9, 9);
-    block(rect, x + dx - 3, floorY - height - 7, 15, 6);
+    for (let dy = 10; dy < height; dy += 9) block(rect, x + dx, deck - dy - 8, 9, 9);
+    block(rect, x + dx - 3, deck - height - 7, 15, 6);
   }
   if (variant === 0) {
-    block(rect, x - 30, floorY - 52, 60, 7);
-    block(rect, x - 15, floorY - 57, 30, 5);
+    block(rect, x - 33, deck - 67, 66, 7);
+    block(rect, x - 23, deck - 73, 46, 6);
+    block(rect, x - 12, deck - 79, 24, 6);
+    rect(x - 3, deck - 72, 6, 4, '#9cc9b5');
   } else {
-    block(rect, x + (variant === 1 ? 8 : -30), floorY - 51, 22, 6);
+    block(rect, x + (variant === 1 ? 8 : -30), deck - 64, 22, 6);
   }
   block(rect, x - 12, y - 14, 24, 30);
   rect(x - 8, y - 10, 16, 20, '#263f4a');

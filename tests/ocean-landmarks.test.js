@@ -4,7 +4,7 @@ import { createGame, nearestItem } from '../src/gameplay/simulation.js';
 import { waterTileAt } from '../src/world.js';
 import { TILE, WEST_EXTENSION, KRAKEN_COLUMN } from '../src/world/generation.js';
 import { CORAL_COLUMN } from '../src/world/ocean-layout.js';
-import { drawOceanLandmark } from '../src/ocean-landmark-art.js';
+import { drawOceanLandmark, landmarkFloorAt } from '../src/ocean-landmark-art.js';
 
 test('longer approaches contain swimmable ruins with stocked chests and oversized scenery', () => {
   const game = createGame();
@@ -26,9 +26,25 @@ test('longer approaches contain swimmable ruins with stocked chests and oversize
       assert.ok(side==='west'?column>CORAL_COLUMN&&column<-108:column>150&&column<KRAKEN_COLUMN);
     }
     for(const item of landmarks) {
+      assert.ok(item.floorProfile.length * TILE >= item.radius * 2);
       let pixels=0;
-      drawOceanLandmark((x,y,w,h)=>{assert.ok([x,y,w,h].every(Number.isFinite));assert.ok(w>0&&h>0);pixels++;},item,1);
+      drawOceanLandmark((x,y,w,h)=>{assert.ok([x,y,w,h].every(Number.isFinite));assert.ok(w>0&&h>0);assert.ok(y+h<=landmarkFloorAt(item,x)+1e-6, 'buried art must be clipped');pixels++;},item,1);
       assert.ok(pixels>50);
     }
+  }
+});
+
+test('fossils and ruins use varied silhouettes, scales and the actual seabed profile', () => {
+  const {world}=createGame();
+  const bones=world.items.filter(item=>item.style==='bones');
+  const ruins=world.items.filter(item=>item.style==='ruin');
+  assert.ok(Math.max(...bones.map(item=>item.scale))/Math.min(...bones.map(item=>item.scale))>4);
+  assert.ok(new Set(bones.map(item=>item.variant)).size>=3);
+  assert.ok(new Set(ruins.map(item=>item.variant)).size>=3);
+  for(const item of [...bones,...ruins]) {
+    assert.ok(item.topY<item.y && item.bottomY>=item.y);
+    let grounded=false;
+    drawOceanLandmark((x,y,w,h)=>{if(Math.abs(y+h-landmarkFloorAt(item,x))<2) grounded=true;},item,0);
+    assert.ok(grounded,item.id+' should touch seabed');
   }
 });
