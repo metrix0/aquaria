@@ -2,7 +2,6 @@ import { ADDONS, ARROW, BOW, CHEST_SIZE, FEET_GEAR, KELP_DRESSING, MATERIAL, POI
 import { BACKPACK_SIZE, EQUIPMENT_ITEMS, GRAPPLING_HOOK, HOOKS, WOODEN_SHIELD, HOTBAR_SIZE, ITEMS, ROOT_RING } from './inventory.js';
 import { TILE } from './world/generation.js';
 import { pickaxeIcon } from './pickaxe-art.js';
-import { spawnCreatureIcon } from './spawn-icon-art.js';
 import { ITEM_ICON_IDS } from './art/items/manifest.js';
 
 function createSlots(container, group, size) {
@@ -35,15 +34,13 @@ export function setItemIcon(icon, id) {
   const cubeBlock = Boolean(item?.block && item.block !== MATERIAL.workbench && item.block !== MATERIAL.fireplace && item.block !== MATERIAL.cauldron);
   const sprite = Boolean(!cubeBlock && appearance && ITEM_ICON_IDS.has(appearance));
   icon.className = id ? 'item item-' + appearance : '';
-  if (item?.pickaxe || item?.spawnKind) icon.classList.add('item-pickaxe');
+  if (item?.pickaxe) icon.classList.add('item-pickaxe');
   if (sprite) icon.classList.add('item-sprite');
   icon.style.backgroundImage = sprite
     ? 'url("' + new URL('./art/items/' + appearance + '.png', import.meta.url).href + '")'
     : item?.pickaxe
       ? pickaxeIcon(item.pickaxe)
-      : item?.spawnKind
-        ? spawnCreatureIcon(item.spawnKind)
-        : '';
+      : '';
 }
 
 // Highlight precisely the equipment slot that accepts this item.

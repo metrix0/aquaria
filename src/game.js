@@ -520,7 +520,7 @@ const input = bindInput(canvas, camera, {
       if (result.message) ui.notify(result.message);
       return true;
     }
-    const utility = useUtilityItem(game, selected, aimedTile(), { wx, wy });
+    const utility = useUtilityItem(game, selected, aimedTile());
     if (utility) {
       if (utility.inventoryChanged) inventoryChanged();
       ui.notify(utility.message);
@@ -556,19 +556,6 @@ const input = bindInput(canvas, camera, {
   },
   place() {
     if (editPending || game.player.downed) return;
-    const heldItem = ITEMS[game.inventory.hotbar[selected]?.id];
-    if (heldItem?.spawnKind) {
-      const { pointer } = input;
-      const utility = useUtilityItem(game, selected, aimedTile(), {
-        wx: pointer.x + camera.x,
-        wy: pointer.y + camera.y,
-      });
-      if (utility) {
-        if (utility.inventoryChanged) inventoryChanged();
-        ui.notify(utility.message);
-      }
-      return;
-    }
     const target = aimedTile();
     if (!target) return;
     const bench = workbenchAt(game, target.tx, target.ty) ?? fireplaceAt(game, target.tx, target.ty) ?? cauldronAt(game,target.tx,target.ty);

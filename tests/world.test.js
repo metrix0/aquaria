@@ -4249,7 +4249,7 @@ test('items menu divides items into tabs and opens on the All tab by default', (
   globalThis.document = { createElement: (tag) => makeEl(tag) };
   try {
     const catalog = { ...ITEMS, ...EQUIPMENT_ITEMS };
-    const counts = { weapons: 0, gear: 0, consumables: 0, blocks: 0, materials: 0, spawns: 0 };
+    const counts = { weapons: 0, gear: 0, consumables: 0, blocks: 0, materials: 0 };
     for (const [id, item] of Object.entries(catalog)) {
       const cat = itemCategory(id, item);
       assert.ok(Object.hasOwn(counts, cat), `unexpected category ${cat} for ${id}`);
@@ -4264,7 +4264,7 @@ test('items menu divides items into tabs and opens on the All tab by default', (
     const quantity = makeEl('input');
     const empty = makeEl('p');
     const status = makeEl('p');
-    const tabButtons = ['all', 'weapons', 'gear', 'consumables', 'blocks', 'materials', 'spawns'].map((tab) => {
+    const tabButtons = ['all', 'weapons', 'gear', 'consumables', 'blocks', 'materials'].map((tab) => {
       const btn = makeEl('button', { tab });
       btn.setAttribute('aria-selected', tab === 'all' ? 'true' : 'false');
       return btn;
@@ -4989,40 +4989,16 @@ test('grappling hook starts with reduced 9-block reach and upgrades through iron
   assert.equal(equippedHook(restored)?.id, COBALT_GRAPPLING_HOOK.id);
 });
 
-test('spawn items cover monsters and friends, show head icons, and spawn creatures where aimed', () => {
+test('legacy spawn items cannot be granted, used, or restored from saves', () => {
   const game = createGame();
-  const { world, player } = game;
-  assert.ok(ITEMS['spawn-crab']?.spawnKind === 'crab');
-  assert.ok(ITEMS['spawn-fish']?.spawnKind === 'fish');
-  assert.ok(ITEMS['spawn-pufferfish']?.spawnKind === 'pufferfish');
-  assert.ok(ITEMS['spawn-kraken']?.spawnKind === 'kraken');
-
+  const before = game.world.mobs.length;
+  assert.ok(Object.keys(ITEMS).every(id => !id.startsWith('spawn-')));
+  assert.equal(grantItem(game, 'spawn-crab', 1), false);
   game.inventory.hotbar[4] = { id: 'spawn-crab', count: 1 };
-  game.inventory.hotbar[5] = { id: 'spawn-pufferfish', count: 2 };
-
-  const mobsBefore = world.mobs.length;
-  const crabResult = useUtilityItem(game, 4, null);
-  assert.equal(crabResult.inventoryChanged, true);
-  assert.equal(crabResult.mob.kind, 'crab');
-  assert.equal(game.inventory.hotbar[4], null);
-  assert.equal(world.mobs.length, mobsBefore + 1);
-
-  const pufferResult = useUtilityItem(game, 5, null, { wx: player.x + 80, wy: WATER + 20 * TILE });
-  assert.equal(pufferResult.inventoryChanged, true);
-  assert.equal(pufferResult.mob.kind, 'pufferfish');
-  assert.equal(game.inventory.hotbar[5].count, 1);
-  assert.equal(world.mobs.length, mobsBefore + 2);
-
-  // Aiming above an island floor spawns a grounded creature directly under the pointer X.
-  const dropCol = Math.floor(SPAWN.x / TILE) + 2;
-  const floorRow = 14;
-  for (let y = floorRow - 4; y < floorRow; y++) editTile(world, dropCol, y, MATERIAL.air);
-  editTile(world, dropCol, floorRow, MATERIAL.stone);
-  game.inventory.hotbar[4] = { id: 'spawn-crab', count: 1 };
-  const aimedX = (dropCol + 0.5) * TILE;
-  const aimedAboveResult = useUtilityItem(game, 4, null, { wx: aimedX, wy: (floorRow - 3) * TILE });
-  assert.equal(aimedAboveResult.inventoryChanged, true);
-  assert.ok(Math.abs(aimedAboveResult.mob.x - aimedX) < 1);
+  assert.equal(useUtilityItem(game, 4, null), null);
+  assert.equal(game.world.mobs.length, before);
+  const restored = createGame(decodeSave(encodeSave(game)));
+  assert.equal(restored.inventory.hotbar[4], null);
 });
 
 test('player can dance, emit floating emojis, and render both cleanly', () => {

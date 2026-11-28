@@ -2,14 +2,12 @@ import { solidAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, generateMobs } from '../world/generation.js';
 import { mobSpec } from './mobs.js';
 import { pickEnemyType } from './enemies/enemy-fish.js';
-import { ALL_SPAWN_ENTRIES, FRIEND_SPAWN_ENTRIES, SPAWN_CATEGORIES } from './spawn-catalog.js';
+import { SPAWN_CATEGORIES } from './spawn-catalog.js';
 
-export { ALL_SPAWN_ENTRIES, FRIEND_SPAWN_ENTRIES, SPAWN_CATEGORIES };
+export { SPAWN_CATEGORIES };
 
 const allowed = new Map(SPAWN_CATEGORIES.flatMap(category => category.entries));
-const allAllowed = new Map(ALL_SPAWN_ENTRIES);
 const groundedKinds = new Set([
-  'crab',
   'spider', 'archer', 'miner', 'scorpion', 'hammer', 'greatsword', 'armored-skeleton', 'mimic',
   'cannibal-spear', 'cannibal-bow', 'shaman', 'cave-frog', 'frog',
   'ambient-ant', 'ambient-spider',
@@ -63,40 +61,14 @@ function spawnLocation(world, player, kind, spec) {
 
 let spawnSerial = 0;
 
-function spawnMobFromMap(world, player, kind, registry, wx, wy) {
+function spawnMobFromMap(world, player, kind, registry) {
   if (!registry.has(kind)) return { error: 'Unknown creature.' };
   const fishType = kind === 'reef-snapper' || kind === 'lanternfish';
   const actualKind = fishType ? 'fish' : kind;
   const template = generateMobs().find(mob => mob.kind === actualKind) ?? { kind: actualKind };
   const spec = mobSpec(template);
   if (!spec) return { error: 'This creature cannot be spawned.' };
-  const ground = groundedKinds.has(actualKind);
-  let position = null;
-  if (Number.isFinite(wx) && Number.isFinite(wy)) {
-    const px = Math.max(TILE * 2, Math.min((COLS - 2) * TILE, wx));
-    if (actualKind === 'worm') {
-      const py = Math.max(TILE * 2, Math.min((ROWS - 2) * TILE, wy));
-      if (!solidAt(world, Math.floor(px / TILE), Math.floor(py / TILE))) {
-        position = { x: px, y: py };
-      }
-    } else if (ground) {
-      const startRow = Math.floor(wy / TILE);
-      for (let drop = 0; drop <= 6; drop++) {
-        const candidateY = (startRow + drop + 1) * TILE - (spec.centerY + spec.height / 2);
-        if (candidateY + spec.height >= (ROWS - 2) * TILE) break;
-        if (clearSpace(world, px, candidateY, spec, true)) {
-          position = { x: px, y: candidateY };
-          break;
-        }
-      }
-    } else {
-      const py = Math.max(TILE * 2, Math.min((ROWS - 2) * TILE, wy));
-      if (clearSpace(world, px, py, spec, false)) {
-        position = { x: px, y: py };
-      }
-    }
-  }
-  position = position ?? spawnLocation(world, player, actualKind, spec);
+  const position = spawnLocation(world, player, actualKind, spec);
   if (!position) return { error: 'No clear space near your character. Move and try again.' };
 
   const index = ++spawnSerial;
@@ -139,7 +111,3 @@ export function spawnEnemyNear(world, player, kind) {
   return spawnMobFromMap(world, player, kind, allowed);
 }
 
-/** Spawn any hostile or friendly creature near the target world point or player. */
-export function spawnCreature(world, player, kind, wx, wy) {
-  return spawnMobFromMap(world, player, kind, allAllowed, wx, wy);
-}

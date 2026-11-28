@@ -1,4 +1,4 @@
-// Explicit creature spawn catalog shared by the Items spawn tab and enemy spawner.
+// Explicit creature catalog for the Spawn menu and enemy spawner.
 export const SPAWN_CATEGORIES = Object.freeze([
   { name: 'Ocean', entries: [
     ['jellyfish', 'Jellyfish'], ['squid', 'Squid'], ['shark', 'Shark'],
@@ -23,12 +23,3 @@ export const SPAWN_CATEGORIES = Object.freeze([
   ] },
 ]);
 
-export const FRIEND_SPAWN_ENTRIES = Object.freeze([
-  ['crab', 'Crab'],
-  ['fish', 'Fish'],
-]);
-
-export const ALL_SPAWN_ENTRIES = Object.freeze([
-  ...SPAWN_CATEGORIES.flatMap((category) => category.entries),
-  ...FRIEND_SPAWN_ENTRIES,
-]);
