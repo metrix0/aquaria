@@ -41,7 +41,7 @@ const camera = { x: 0, y: 0, width: 1, height: 1, swimSeconds: 0, swimBlend: 0, 
 const particles = [];
 const drowningWarningSeconds = 5;
 const screenShake = createScreenShake();
-const zoomLevels = [12.5, 25, 50, 75, 100, 125, 150, 200];
+const zoomLevels = [3, 6, 12.5, 25, 50, 75, 100, 125, 150, 200];
 const flightSpeedLevels = [0.5, 1, 2, 4, 8];
 let zoomIndex = zoomLevels.indexOf(100);
 
