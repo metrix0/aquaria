@@ -5,7 +5,7 @@ import { createWorld, tileAt, waterTileAt } from '../src/world.js';
 import { createGame, nearestItem } from '../src/gameplay/simulation.js';
 import { encodeSave, decodeSave } from '../src/save.js';
 import { WEST_EXTENSION, groundAt, KRAKEN_COLUMN, JUNGLE_FADE_START_COLUMN, TILE } from '../src/world/generation.js';
-import { MERMAIDS, CORAL_RUINS, CORAL_DIALS, CORAL_SOLUTION, CORAL_COLUMN, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, cycleCoralMark, coralMarksFor } from '../src/world/ocean-layout.js';
+import { MERMAIDS, CORAL_RUINS, CORAL_DIALS, CORAL_SOLUTION, CORAL_COLUMN, coralWallBounds, coralWallColumn, CORAL_OPEN_ID, EAST_SHIFT, WEST_GROWTH, cycleCoralMark, coralMarksFor } from '../src/world/ocean-layout.js';
 
 test('western ruins and reachable dials replace the mermaid puzzle and unlock the coral permanently', () => {
   const game = createGame();
@@ -13,6 +13,19 @@ test('western ruins and reachable dials replace the mermaid puzzle and unlock th
   const wall = CORAL_COLUMN + WEST_EXTENSION;
   for (const m of MERMAIDS) assert.equal(waterTileAt(world, m.column + WEST_EXTENSION, m.row), true);
   for (const y of [0, 16, 40, 80, 200, 500]) assert.equal(tileAt(world, wall, y), MATERIAL.bedrock);
+  const widths = [];
+  for (let row = 0; row <= 110; row++) {
+    const [west, east] = coralWallBounds(row);
+    widths.push(east - west + 1);
+    assert.ok(coralWallColumn(CORAL_COLUMN, row));
+    assert.ok(east < CORAL_DIALS[0].column);
+    for (const column of [west, east]) {
+      assert.equal(tileAt(world, column + WEST_EXTENSION, row), MATERIAL.bedrock);
+      assert.equal(waterTileAt(world, column + WEST_EXTENSION, row), false);
+    }
+  }
+  assert.ok(Math.min(...widths) >= 17 && Math.max(...widths) <= 30);
+  assert.ok(Math.max(...widths) - Math.min(...widths) >= 4);
   const ruins = world.items.filter(item => item.kind === 'coral-ruin');
   const dials = world.items.filter(item => item.kind === 'coral-dial');
   assert.equal(ruins.length, CORAL_RUINS.length);
@@ -36,6 +49,7 @@ test('western ruins and reachable dials replace the mermaid puzzle and unlock th
   }
   assert.ok(world.harvested.has(CORAL_OPEN_ID));
   assert.equal(waterTileAt(world, wall, 40), true);
+  for (const column of coralWallBounds(40)) assert.equal(waterTileAt(world, column + WEST_EXTENSION, 40), true);
   const loaded = createGame(decodeSave(encodeSave(game)));
   assert.equal(waterTileAt(loaded.world, wall, 40), true);
   assert.deepEqual(coralMarksFor(loaded.world), CORAL_SOLUTION);

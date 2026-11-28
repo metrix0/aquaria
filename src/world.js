@@ -90,7 +90,7 @@ export function tileAt(world, tx, ty) {
     if (tx < 0 || tx >= world.cols || ty < 0 || ty >= world.rows) return MATERIAL.bedrock;
     return world.grid[ty * world.cols + tx];
   }
-  if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return MATERIAL.bedrock;
+  if (coralWallColumn(tx - WEST_EXTENSION, ty) && !world.harvested?.has(CORAL_OPEN_ID)) return MATERIAL.bedrock;
   if (tx < 0 || tx >= COLS || ty >= ROWS) return MATERIAL.bedrock;
   if (ty < 0) return MATERIAL.air;
   const chunk = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
@@ -103,7 +103,7 @@ export function waterTileAt(world, tx, ty) {
     const index = ty * world.cols + tx;
     return world.flooded[index] === 1 && world.grid[index] === MATERIAL.air;
   }
-  if (coralWallColumn(tx - WEST_EXTENSION) && !world.harvested?.has(CORAL_OPEN_ID)) return false;
+  if (coralWallColumn(tx - WEST_EXTENSION, ty) && !world.harvested?.has(CORAL_OPEN_ID)) return false;
   if (tx < 0 || tx >= COLS || ty < WATER_ROW || ty >= ROWS) return false;
   const { tiles, flooded } = getChunk(world, Math.floor(tx / CHUNK_SIZE), Math.floor(ty / CHUNK_SIZE));
   const index = offset(tx, ty);

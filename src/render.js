@@ -1,5 +1,5 @@
 import { drawCoralRuin, drawCoralDial } from "./coral-puzzle-art.js";
-import { CORAL_OPEN_ID, coralWallColumn, coralMarksFor } from "./world/ocean-layout.js";
+import { CORAL_OPEN_ID, coralWallColumn, coralWallBounds, coralMarksFor } from "./world/ocean-layout.js";
 import { drawRootGrove } from './root-grove-art.js';
 import { drawRootBind, drawRootTrail, rootBindPose } from './root-ring-art.js';
 import { drawCaveStructure } from "./cave-structure-art.js";
@@ -2040,6 +2040,67 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  // Large overlapping reef lobes, eroded shelves, dark crevices and living tips.
+  // All texture is deterministic in world space, not a repeating tile sprite.
+  function drawLivingReefTile(x, y, overview) {
+    const px = x * TILE, py = y * TILE;
+    const [west, east] = coralWallBounds(y);
+    const column = x - WEST_EXTENSION;
+    const edge = Math.min(column - west, east - column);
+    const band = Math.sin(x * .49 + y * .29) + Math.sin(x * .21 - y * .43);
+    const palettes = [
+      ["#422b45", "#68405c", "#995a78", "#d18d9d"],
+      ["#293e4b", "#395d66", "#628c88", "#a4c2a1"],
+      ["#443449", "#71536b", "#a7809b", "#e0b2b4"],
+      ["#4c3b43", "#79534e", "#ad8066", "#dfb58a"],
+    ];
+    const [dark, base, mid, tip] = palettes[Math.min(3, Math.floor((band + 2) * .94))];
+    const fold = Math.sin(x * .92 + Math.sin(y * .22) * 2.5 + y * .19);
+    rect(px, py, TILE, TILE, fold < -.66 ? dark : base);
+    if (overview) {
+      if (edge <= 1 || fold > .64) rect(px, py, TILE, TILE, mid);
+      return;
+    }
+    // Irregular relief bands follow the reef's growth direction across tile boundaries.
+    for (let j = 0; j < 4; j++) {
+      const wy = y * TILE + j * 4;
+      const ridge = Math.sin(x * .9 + Math.sin(wy * .017) * 2.5 + wy * .012);
+      const shift = Math.round(noise(x, y * 4 + j, 517) * 5);
+      if (ridge > -.24) {
+        rect(px + shift - 3, py + j * 4, 16 - shift, 3, mid);
+        if (ridge > .66) rect(px + shift, py + j * 4, 7, 1, tip);
+      } else if (ridge < -.68) {
+        rect(px + shift, py + j * 4 + 1, 13 - shift, 2, dark);
+      }
+    }
+    const seed = noise(x, y, 519);
+    // Pitted, porous limestone texture and tiny polyps.
+    for (let i = 0; i < 3; i++) {
+      const dx = Math.floor(noise(x, y, 530 + i) * 13);
+      const dy = Math.floor(noise(x, y, 540 + i) * 13);
+      rect(px + dx, py + dy, 2, 2, i === 0 ? tip : dark);
+    }
+    if (edge <= 1 && seed > .28) {
+      const dir = column - west < east - column ? -1 : 1;
+      // Fan-like coral clusters jut out along both rugged silhouettes.
+      const rootX = px + (dir < 0 ? 4 : 12);
+      const rootY = py + 13;
+      const reach = 6 + Math.floor(seed * 12);
+      for (let i = 0; i < 3; i++) {
+        const span = reach - i * 3;
+        const bx = rootX + dir * span;
+        const by = rootY - 4 - i * 5;
+        rect(Math.min(rootX, bx), by, span + 2, 3, mid);
+        rect(bx, by - 4, 3, 6, mid);
+        rect(bx, by - 5, 3, 2, tip);
+      }
+      rect(rootX, rootY - 17, 4, 18, mid);
+    } else if (seed > .89 && fold > .2) {
+      // Scattered living branches break up the older coral skeleton.
+      coral(px + 8, py + 15, x * 197 + y);
+    }
+  }
+
   function terrain(world, player, camera, time, bounds, openChestId, overview, chests) {
     const { left, right, top, bottom } = bounds;
     const inTemple = world?.zone === WATER_TEMPLE_ZONE;
@@ -2050,10 +2111,17 @@ export function createRenderer(canvas) {
       for (let y = top; y < bottom; y++) {
         const material = tileAt(world, x, y);
         const ore = ORE_MATERIALS.has(material);
+        if (!inTemple && !world.harvested.has(CORAL_OPEN_ID) &&
+            coralWallColumn(x - WEST_EXTENSION, y) && y < groundAt(x)) {
+          drawLivingReefTile(x, y, overview);
+          continue;
+        }
         if (overview && material && !ore && material !== MATERIAL.workbench && material !== MATERIAL.fireplace && material !== MATERIAL.cauldron) {
           // At this scale each tile is only a few pixels wide. Paint continuous rock in one pass.
           const start = y;
-          while (y + 1 < bottom && tileAt(world, x, y + 1) === material) y++;
+          while (y + 1 < bottom && tileAt(world, x, y + 1) === material &&
+            (inTemple || world.harvested.has(CORAL_OPEN_ID) ||
+              !coralWallColumn(x - WEST_EXTENSION, y + 1) || y + 1 >= groundAt(x))) y++;
           rect(
             x * TILE,
             start * TILE,
@@ -2065,14 +2133,6 @@ export function createRenderer(canvas) {
         }
         const oreOpacity = ore ? oreOpacityAt(world, player, x, y) : 0;
         if (material) {
-          if (!inTemple && coralWallColumn(x - WEST_EXTENSION) && !world.harvested.has(CORAL_OPEN_ID) && y < groundAt(x)) {
-            const [shade, mid, tip] = coralColors[Math.floor(noise(x, y, 510) * coralColors.length)];
-            rect(x * TILE, y * TILE, TILE, TILE, shade);
-            rect(x * TILE + 2, y * TILE + 1, 11, 13, mid);
-            rect(x * TILE + 4, y * TILE + 3, 6, 3, tip);
-            if (!overview) coral(x * TILE + 8, y * TILE + 15, x * 197 + y);
-            continue;
-          }
           if (overview || (!shipwreckArt.timber(world, x, y, material) && !waterTempleArt.masonry(world, x, y, material, overview)))
             drawTile(world, x, y, material, oreOpacity, overview, time);
           if (ore && !overview && (player.addons?.chest === 'prospectors-brooch' || (player.skillBonuses?.ore ?? 0) > 0) &&
