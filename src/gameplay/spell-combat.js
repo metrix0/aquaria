@@ -23,8 +23,9 @@ function candidates(game,x,y,radius,excluded=new Set()) {
   return result.sort((a,b)=>a.d-b.d);
 }
 export function spellVisual(game,kind,x,y,radius,color,endX,endY) {
-  const duration={beam:.32, 'healing-stream':.8, mend:1.15, firebolt:.95, 'frost-lance':.72, 'storm-arc':.32, 'tidal-pulse':.7}[kind]??.52;
+  const duration={beam:.32, 'healing-stream':.8, mend:1.15, firebolt:.52, 'frost-lance':.72, 'storm-arc':.32, 'tidal-pulse':.55}[kind]??.52;
   game.projectiles.push({spellFx:kind,x,y,radius,color,endX,endY,life:duration,duration});
+  return game.projectiles[game.projectiles.length-1];
 }
 function hit(game,mob,amount,x,y,force) {
   damageMob(game.world,mob,amount,Math.atan2(mob.y-y,mob.x-x),force,game.effects,{melee:false,attacker:game.player});
@@ -36,8 +37,18 @@ export function burstSpell(game,kind,x,y,damage,radius,direct=null,splash=damage
     const falloff=Math.max(.45,1-Math.max(0,entry.d-(entry.radius??0))/radius*.55);
     hit(game,entry.mob,Math.max(1,Math.round(splash*falloff)),x,y,kind==='tidal-pulse'?210:130);
   }
-  spellVisual(game,kind,x,y,radius,spell.color);
-  game.effects.push({x,y,color:spell.color,count:kind==='firebolt'?30:24,spread:135});
+  const fx=spellVisual(game,kind,x,y,radius,spell.color);
+  if(kind==='tidal-pulse'){
+    // Match the radial line-of-sight used for damage, including terrain.
+    fx.reach=Array.from({length:64},(_,i)=>{
+      const a=i*Math.PI*2/64,dx=Math.cos(a),dy=Math.sin(a);
+      for(let d=4;d<=radius;d+=4){
+        if(solidAt(game.world,Math.floor((x+dx*d)/TILE),Math.floor((y+dy*d)/TILE)))return d-4;
+      }
+      return radius;
+    });
+  }
+  // The elemental renderer owns the burst; generic debris used to obscure it.
 }
 // Trace the aimed discharge to the first solid tile or enemy. All visible
 // branches correspond to actual hits, never an unrelated weather effect.

@@ -28,16 +28,16 @@ function lightning(ctx,x,y,tx,ty,seed,alpha=1) {
 export function drawElementalProjectile(ctx,rect,polygon,arrow) {
   const t=1.2-arrow.life;
   if(arrow.spell==='firebolt'){
-    // Turbulent, orange flame tongue, hot white core, and charcoal smoke.
-    for(let i=9;i>=0;i--){
-      const x=-6-i*3,y=Math.sin(i*1.7-t*21)*(2+i*.4),r=5-i*.4;
-      cluster(rect,x,y,r+1,i>5?'#644044':'#9d4031');
-      if(i<7)cluster(rect,x+1,y,r,i%2?'#e85c32':'#ff9b42');
-      if(i<3)cluster(rect,x+2,y,r*.6,'#ffd67d');
-    }
-    cluster(rect,2,0,6,'#c3492d');cluster(rect,3,0,5,'#ff8738');
-    cluster(rect,4,0,3,'#ffcf66');cluster(rect,5,0,2,'#fff4ca');
-    for(let i=0;i<5;i++)rect(-10-i*5,Math.sin(i*5-t*17)*7,2,1,'#ffd05d');
+    // Compact, stepped sprite in the same muted earth/amber palette as the
+    // world's torches. A flickering tongue trails the hot leading edge.
+    const flicker=Math.floor(t*18)%3-1;
+    polygon([[-17,1],[-12,-2],[-8,-2],[-6,-5],[-2,-6],[3,-6],[6,-4],[8,-1],[8,2],[5,5],[1,6],[-4,5],[-8,3],[-13,3]],'#813f32');
+    polygon([[-14,flicker],[-7,-1],[-4,-4],[1,-5],[5,-3],[7,0],[5,3],[1,5],[-4,3],[-8,2]],'#c45c38');
+    polygon([[-8,0],[-3,-3],[2,-4],[5,-2],[6,1],[3,3],[-1,4],[-4,2]],'#ed984d');
+    polygon([[-2,0],[0,-2],[3,-2],[5,0],[3,2],[0,2]],'#f6cf85');
+    rect(2,-1,2,2,'#fff1c6');
+    rect(-15,-3+flicker,2,1,'#dc874d');
+    rect(-20,2-flicker,2,1,'#b26b45');
   }else if(arrow.spell==='frost-lance'){
     // Long, angular translucent ice crystal and flaking shards.
     polygon([[-20,0],[-8,-5],[2,-6],[15,0],[2,6],[-8,4]],'#427a9d');
@@ -64,23 +64,28 @@ export function drawElementalImpact(ctx,rect,polygon,fx) {
     return;
   }
   if(fx.spellFx==='firebolt'){
-    // Expanding overlapping fireballs turn into rising smoke; sparks follow
-    // ballistic paths rather than forming a decorative outline.
-    for(let i=0;i<19;i++){
-      const a=noise(i+2)*Math.PI*2,dist=(.22+.78*noise(i+65))*r*Math.min(1,t*3.6);
-      const x=Math.cos(a)*dist,y=Math.sin(a)*dist-t*15,sz=(5+noise(i+8)*8)*(1-t*.55);
-      ctx.save();ctx.globalAlpha*=Math.min(1,(1-t)*2.3);
-      cluster(rect,x,y,sz+2,t>.48?'#55444a':'#8e3831');
-      cluster(rect,x,y,sz,t>.55?'#78605b':t>.28?'#da542b':'#ff933c');
-      if(t<.48)cluster(rect,x+1,y-1,sz*.52,t<.2?'#fff0b0':'#ffbf4c');
-      ctx.restore();
+    // A single, short, cohesive explosion, not a cloud of floating blobs.
+    // The flame front and sparks remain inside the actual blast radius.
+    const swell=Math.min(1,.24+t*3.8),outer=r*swell;
+    const contour=(size,phase=0)=>Array.from({length:24},(_,i)=>{
+      const a=i*Math.PI/12,rad=size*(i%2?.62+.13*noise(i+phase):.85+.13*noise(i+phase));
+      return [Math.cos(a)*rad,Math.sin(a)*rad];
+    });
+    ctx.save();ctx.globalAlpha*=Math.min(1,(1-t)*2.5);
+    if(t<.62){
+      const fade=1-Math.max(0,t-.24)*.8;
+      polygon(contour(outer,4),'#823e32');
+      polygon(contour(outer*.83,4),'#bf5837');
+      polygon(contour(outer*.57*fade,7),'#e98d49');
+      polygon(contour(outer*.28*fade,9),'#f6cb7d');
+      if(t<.25)polygon(contour(outer*.12,2),'#fff1c6');
     }
-    for(let i=0;i<30;i++){
-      const a=noise(i+91)*Math.PI*2,d=r*(.65+noise(i+20)*.65)*t*1.35;
-      const x=Math.cos(a)*d,y=Math.sin(a)*d+24*t*t;
-      ctx.save();ctx.globalAlpha*=1-t;rect(x,y,2+(i%3===0?2:0),2,i%3?'#ffad48':'#ffe18c');ctx.restore();
+    for(let i=0;i<20;i++){
+      const a=i*2.399,d=r*Math.min(.96,.2+t*(.65+noise(i+31)*.55));
+      const x=Math.cos(a)*d,y=Math.sin(a)*d;
+      rect(x-1,y-1,i%4===0?3:2,2,i%3?'#d78349':'#f6cc82');
     }
-    return;
+    ctx.restore();return;
   }
   if(fx.spellFx==='storm-arc'){
     // Brief contact flash and tiny, jagged electrical sparks at the struck
@@ -106,20 +111,33 @@ export function drawElementalImpact(ctx,rect,polygon,fx) {
     return;
   }
   if(fx.spellFx==='tidal-pulse'){
-    // Two broad breaking sheets of water surge outward, with foam on their
-    // leading edge and individual droplets peeling away from the crest.
-    for(const side of [-1,1]){
-      const reach=r*Math.min(1,t*1.7),h=(16+Math.sin(t*6)*6)*(1-t*.8);
-      ctx.save();ctx.scale(side,1);ctx.globalAlpha*=1-t*.75;
-      polygon([[0,8],[reach*.32,5],[reach*.65,-h*.55],[reach*.9,-h],[reach,-h*.6],[reach*.84,0],[reach,7],[reach*.7,10]],'#327f9c');
-      polygon([[reach*.15,7],[reach*.53,2],[reach*.85,-h],[reach,-h*.6],[reach*.78,-1],[reach*.9,5],[reach*.7,8]],'#64c9d1');
-      polygon([[reach*.64,-h*.55],[reach*.85,-h],[reach,-h*.6],[reach*.92,-h*.42],[reach*.8,-h*.65]],'#d0fff1');
-      for(let i=0;i<14;i++){const x=reach*(.45+noise(i+9)*.65),y=-noise(i+25)*h-t*12;rect(x,y,1+i%3,2,i%3?'#8ee1e1':'#e9fff4');}
-      ctx.restore();
+    // Damage is immediate in all directions. Show its complete footprint
+    // immediately, then a rapidly expanding, foamy water front. Per-angle
+    // reach comes from the combat world's solid tiles at the moment of cast.
+    const reach=fx.reach??Array(64).fill(r),n=reach.length;
+    const point=(i,d)=>{const a=i*Math.PI*2/n;return [Math.cos(a)*d,Math.sin(a)*d];};
+    const limits=reach.map(d=>clamp(d,0,r));
+    ctx.save();
+    ctx.globalAlpha*=Math.max(0,1-t);
+    // A faint water wash covers the real accessible damage area from frame 1.
+    polygon(limits.map((d,i)=>point(i,d)),'#438eaa32');
+    const front=r*Math.min(1,.35+t*4.5),width=4+6*(1-t);
+    for(let i=0;i<n;i++){
+      const j=(i+1)%n,a=Math.min(front,limits[i]),b=Math.min(front,limits[j]);
+      if(a<1||b<1)continue;
+      const innerA=Math.max(0,a-width),innerB=Math.max(0,b-width);
+      polygon([point(i,innerA),point(i,a),point(j,b),point(j,innerB)],'#327b98aa');
+      polygon([point(i,Math.max(0,a-5)),point(i,a),point(j,b),point(j,Math.max(0,b-5))],'#72c5d5');
+      // Broken, irregular pale foam with no decorative runes or extra rings.
+      if(i%5!==2){
+        polygon([point(i,Math.max(0,a-2)),point(i,a),point(j,b),point(j,Math.max(0,b-2))],i%3?'#bce9e6':'#e7f5e8');
+      }
+      if(i%4===0&&a>4){
+        const d=Math.max(0,a-3-noise(i+11)*width),[px,py]=point(i,d);
+        rect(px,py,1,1,'#e0f2ed');
+      }
     }
-    // Rising and falling spray makes the radial push readable underwater, too.
-    for(let i=0;i<16;i++){const a=i*2.399,d=r*t*(.35+noise(i+31)*.6);ctx.save();ctx.globalAlpha*=1-t;rect(Math.cos(a)*d,Math.sin(a)*d,2,3,'#a4eae5');ctx.restore();}
-    return;
+    ctx.restore();return;
   }
   if(fx.spellFx==='mend'){
     // Leaves and golden pollen lift from the recipient, not a magic circle.
