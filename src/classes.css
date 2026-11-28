@@ -266,3 +266,21 @@
   :is(#classes-panel,#skilltree-panel) .sky-nebula,
   :is(#classes-panel,#skilltree-panel) .sky-stars { animation: none; }
 }
+
+/* A definite chart cell prevents percentage-height SVGs from sizing the grid. */
+#skilltree-panel[open] { display: grid; grid-template-rows: 55px minmax(0,1fr); width: 100vw; height: 100dvh; }
+#skilltree-content { height: auto; align-self: stretch; display: flex; min-height: 0; }
+.celestial-tree { flex: 1; width: 100%; height: auto; min-height: 0; min-width: 0; }
+.celestial-layout { min-width: 0; min-height: 0; }
+.celestial-chart { grid-area: 1/1; position: relative; min-width: 0; min-height: 0; }
+.celestial-chart .celestial-map { position: absolute; inset: 22px 42px; width: auto; height: auto; max-width: 760px; max-height: none; margin: auto; }
+.celestial-chart .celestial-map svg { width: 100%; height: 100%; max-width: none; max-height: none; }
+.celestial-inspector { min-width: 0; }
+@media(max-width:720px) {
+  #skilltree-panel[open] { grid-template-rows: 47px minmax(0,1fr); }
+  .celestial-chart { grid-area: 1/1/2/3; }
+  .celestial-chart .celestial-map { inset: 14px 30px; max-width: 440px; }
+}
+@media(max-height:540px) and (min-width:721px) {
+  .celestial-chart .celestial-map { inset-block: 12px; }
+}
