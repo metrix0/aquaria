@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MATERIAL } from '../src/content.js';
-import { createGame, nearestItem, stepGame, templeDoorAt, transitionZone } from '../src/gameplay/simulation.js';
+import { createGame, nearestItem, stepGame, templeDoorAt, transitionZone, beginClassStatueAwakening, advanceClassStatueAwakening } from '../src/gameplay/simulation.js';
 import { connectRoom } from '../src/multiplayer/client.js';
 import { editTile, tileAt, waterTileAt } from '../src/world.js';
 import { TILE, WEST_EXTENSION, WORLD_VERSION } from '../src/world/generation.js';
 import { waterTempleDoorBounds } from '../src/world/water-temple.js';
-import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE } from '../src/world/water-temple-interior.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_INTERIOR, WATER_TEMPLE_ZONE, STATUE_AWAKEN_SECONDS } from '../src/world/water-temple-interior.js';
 
 const NO_INPUT = {
   left: false,
@@ -41,17 +41,19 @@ test('Water Temple main door is interactable and transitions into the standalone
   assert.equal(game.world.cols, WATER_TEMPLE_INTERIOR.cols);
   assert.equal(game.world.rows, WATER_TEMPLE_INTERIOR.rows);
 
-  // Interior walls are protected; water fills from the top height of the door down to the floor.
-  assert.equal(editTile(game.world, 10, 33, MATERIAL.air), false);
+  assert.equal(editTile(game.world, 10, 0, MATERIAL.air), false);
   assert.equal(tileAt(game.world, 0, 0), MATERIAL.stone);
-  const doorTopRow = WATER_TEMPLE_INTERIOR.lowerFloorRow - WATER_TEMPLE_INTERIOR.exitDoorHeightTiles;
-  assert.equal(game.world.waterRow, doorTopRow);
-  assert.equal(waterTileAt(game.world, 15, doorTopRow - 1), false);
-  assert.equal(waterTileAt(game.world, 15, doorTopRow), true);
-  assert.equal(waterTileAt(game.world, 15, doorTopRow + 1), true);
-  assert.equal(waterTileAt(game.world, 36, 12), false);
+  assert.equal(game.world.waterRow, game.world.rows);
+  const floor = WATER_TEMPLE_INTERIOR.lowerFloorRow;
+  for (let tx = 4; tx < game.world.cols - 4; tx++) {
+    assert.equal(tileAt(game.world, tx, floor), MATERIAL.stone);
+    assert.equal(tileAt(game.world, tx, floor - 1), MATERIAL.air);
+    assert.equal(waterTileAt(game.world, tx, floor - 1), false);
+  }
+  assert.equal(game.world.templeDoors.length, 1);
   assert.ok(game.chests.has('water-temple-sanctum-chest'));
-  assert.ok(game.world.templeDoors.some((d) => d.id === 'water-temple-sanctum-door'));
+  assert.deepEqual(game.world.items.filter(i => i.kind === 'class-statue').map(i => i.classId), ['warden','wayfarer','scholar']);
+
 });
 
 test('Exiting Water Temple returns player outside the main door and overworld keeps running while inside', () => {
@@ -149,4 +151,24 @@ test('Multiplayer pose broadcasts include zone so players in different maps do n
   const lastPose = sent.findLast((m) => m.event === 'pose');
   assert.equal(lastPose.payload.zone, 'water-temple');
   room.close();
+});
+
+test('each nearby starter statue awakens its class only after the animation; distant and duplicate interactions are rejected', () => {
+  const game = createGame();
+  transitionZone(game, WATER_TEMPLE_ZONE);
+  const statues = game.world.items.filter(i => i.kind === 'class-statue');
+  assert.equal(beginClassStatueAwakening(game, statues[2]), false);
+  for (const statue of statues) {
+    game.player.x = statue.x;
+    game.player.y = statue.floor * TILE - game.player.height;
+    assert.equal(nearestItem(game)?.id, statue.id);
+    const old = game.classes.active;
+    assert.equal(beginClassStatueAwakening(game, statue), true);
+    assert.equal(beginClassStatueAwakening(game, statue), false);
+    assert.equal(advanceClassStatueAwakening(game, .25), null);
+    assert.equal(game.classes.active, old);
+    assert.equal(advanceClassStatueAwakening(game, STATUE_AWAKEN_SECONDS), statue.classId);
+    assert.equal(game.classes.active, statue.classId);
+    assert.equal(game.world.statueAwakening, null);
+  }
 });

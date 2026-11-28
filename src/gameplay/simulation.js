@@ -4,7 +4,7 @@ import { CORAL_OPEN_ID, normalizeCoralMarks } from '../world/ocean-layout.js';
 import { SPELLS, spellCooldown, restoreSpellCooldowns } from '../spells.js';
 import { SOLO_DEATH_SECONDS, MULTIPLAYER_DEATH_SECONDS, advanceRevival } from './revival.js';
 import { START_WORLD_TIME } from '../environment.js';
-import { absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
+import { activateClass, absorbSouls, createClassProgress, skillBonuses, SOUL_ITEMS } from '../classes.js';
 import { rollWildChestGroupLoot } from '../world/wild-chest.js';
 import { stepRootWave } from './root-ring.js';
 import { activateWard, skillAttackDamage, stepClassEffects, strikeMob } from './class-effects.js';
@@ -16,7 +16,7 @@ import { caveTrapAt, stepCaveTraps } from './cave-traps.js';
 import { ADDONS, ARMOR, ARROW, BOW, BREATH_SECONDS, CHEST_SIZE, DIVING_FIN, DROPS, FEET_GEAR, FIREPLACE, CAULDRON, STEWS, FOODS, INTERACTION_RANGE, KELP_DRESSING, KELP_MINING_RULE, KRAKEN_CHEST_ID, MATERIAL, MINING_RULES, MORNINGSTAR, ORE_MATERIALS, POISON_ARROW, SNORKELS, TENT, TREE_SEED, WOODEN_DOOR, WORKBENCH } from '../content.js';
 import { ISLAND_TENT_ID, activeTent, buildCellFree, createWorld, doorAt, editTile, editedTiles, hasOpenFace, inWater, isEditableTile, kelpAt, placeDoor, plantSapling, rootedKelpAt, rootedTreeAt, setDoor, solidAt, stepSaplings, tentAt, tileAt, treeAt, waterTileAt } from '../world.js';
 import { COLS, ROWS, TILE, WATER, WEST_EXTENSION, clamp, generateMobs } from '../world/generation.js';
-import { OVERWORLD_ZONE, WATER_TEMPLE_ZONE, createWaterTempleWorld } from '../world/water-temple-interior.js';
+import { OVERWORLD_ZONE, WATER_TEMPLE_ZONE, createWaterTempleWorld, STATUE_AWAKEN_SECONDS } from '../world/water-temple-interior.js';
 import { worldCols, worldRows } from '../world.js';
 import { jungleVillageStructures } from '../world/jungle-village.js';
 import { GRAPPLING_HOOK, HOOKS, WOODEN_SHIELD, Inventory, ITEMS, ROOT_RING, moveStack, restoreSlots } from '../inventory.js';
@@ -890,6 +890,28 @@ export function templeDoorAt(game, worldX, worldY) {
   return null;
 }
 
+/** Nearby statues attune a starter class after their awakening animation. */
+export function beginClassStatueAwakening(game, item) {
+  const world = game.world;
+  if (world.zone !== WATER_TEMPLE_ZONE || game.player.downed || world.statueAwakening) return false;
+  const statue = world.items.find(s => s.kind === 'class-statue' && s.id === item?.id);
+  if (!statue || itemDistance(game.player, statue) >= INTERACTION_RANGE) return false;
+  // Reopening an already attuned class never resets its combat state.
+  world.statueAwakening = { id: statue.id, classId: statue.classId, elapsed: 0 };
+  return true;
+}
+
+export function advanceClassStatueAwakening(game, dt, reducedMotion = false) {
+  const state = game.world.statueAwakening;
+  if (!state) return null;
+  state.elapsed += Math.max(0, dt) * (reducedMotion ? 8 : 1);
+  if (state.elapsed < STATUE_AWAKEN_SECONDS) return null;
+  game.world.statueAwakening = null;
+  if (game.player.downed) return null;
+  if (game.classes.active !== state.classId && activateClass(game, state.classId)) return null;
+  return state.classId;
+}
+
 export function transitionZone(game, targetZone) {
   const nextWorld = game?.worlds?.[targetZone];
   if (!nextWorld || targetZone === game.zone) return false;
@@ -897,6 +919,7 @@ export function transitionZone(game, targetZone) {
   if (game.zone === OVERWORLD_ZONE) {
     game.overworldReturn = { x: player.x, y: player.y, facing: player.facing };
   }
+  if (game.world.statueAwakening) game.world.statueAwakening = null;
   game.zone = targetZone;
   game.world = nextWorld;
   player.hook = null;
@@ -937,7 +960,7 @@ export function nearestItem(game) {
     }
   }
   for (const item of world.items) {
-    if (item.kind !== 'chest' && item.kind !== 'coral-dial') continue;
+    if (item.kind !== 'chest' && item.kind !== 'coral-dial' && item.kind !== 'class-statue') continue;
     if (item.kind === 'coral-dial' && world.harvested.has(CORAL_OPEN_ID)) continue;
     const difference = itemDistance(player, item);
     if (difference < distance) {

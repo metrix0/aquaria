@@ -135,8 +135,8 @@ export const WATER_TEMPLE_LIGHT = Object.freeze({
 export function waterTempleLightSources(world, time = 0) {
   if (!world) return [];
   const sources = [];
-  for (const { column, floor, main } of waterTempleBraziers) {
-    const tx = column + WEST_EXTENSION;
+  const braziers = world.zone === 'water-temple' ? (world.braziers ?? []) : waterTempleBraziers.map(b => ({ ...b, tx: b.column + WEST_EXTENSION }));
+  for (const { tx, floor, main } of braziers) {
     const ty = floor - 1;
     if (!tileAt(world, tx, floor) || tileAt(world, tx, ty)) continue;
     const base = main ? WATER_TEMPLE_LIGHT : { ...WATER_TEMPLE_LIGHT, level: 34, radius: TILE * 3.5, alpha: 0.22 };

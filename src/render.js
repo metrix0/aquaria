@@ -39,6 +39,7 @@ import {
   worldWaterRow,
 } from "./world.js";
 import { WATER_TEMPLE_ZONE } from "./world/water-temple-interior.js";
+import { drawClassChamber } from "./class-chamber-art.js";
 import {
   COLS,
   JUNGLE_FADE_END_COLUMN,
@@ -1686,6 +1687,7 @@ export function createRenderer(canvas) {
           const depth = y - waterTempleFoundationTop(x - WEST_EXTENSION);
           if (depth < 12) ambient = Math.max(ambient, .63 - depth * .025);
         }
+        if (world?.zone === WATER_TEMPLE_ZONE && !tileAt(world, x, y)) ambient = Math.max(ambient, .72);
         const color = caveLight.colorAt(x, y);
         lightPixels.data[pixel + 3] = (1 - light) * (1 - ambient) * 218;
         // Pale overlay colors brighten every channel without painting over texture.
@@ -2292,9 +2294,9 @@ export function createRenderer(canvas) {
       }
     }
 
-    shipwreckArt.fittings(world, bounds);
+    if (!inTemple) shipwreckArt.fittings(world, bounds);
     // Scan beyond the viewport edge so tall colonies and their halos never pop in.
-    for (let x = Math.max(0, left - 2); x < Math.min(COLS, right + 2); x++) {
+    for (let x = Math.max(0, left - 2); !inTemple && x < Math.min(COLS, right + 2); x++) {
       const y = groundAt(x);
       if (
         y < top - 2 ||
@@ -3934,6 +3936,7 @@ export function createRenderer(canvas) {
     worldTime,
     weatherSeed,
     caveShadowsHidden,
+    activeClass = null,
     chests,
     openChestId,
     drowning = 0,
@@ -3993,6 +3996,7 @@ export function createRenderer(canvas) {
 
     ctx.save();
     ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    if (inTemple) drawClassChamber(ctx, world, bounds, time, activeClass, reducedMotion);
     terrain(world, player, camera, time, bounds, openChestId, overview, chests);
     doors(world, player, camera);
     caveTraps(world, camera, elapsed);

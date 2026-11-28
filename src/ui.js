@@ -474,12 +474,12 @@ export function createUI(actions, version) {
         if (label.textContent !== action) label.textContent = action;
         return;
       }
-      const focusedItem = panels.some((panel) => panel.open) ? null : nearestItem(game);
+      const focusedItem = panels.some((panel) => panel.open) || game.world.statueAwakening ? null : nearestItem(game);
       prompt.hidden = !focusedItem;
       if (focusedItem) {
         prompt.querySelector('kbd').hidden = touch;
         const label = prompt.querySelector('span');
-        const action = (focusedItem.kind === 'coral-dial' ? 'Change ' : 'Open ') + focusedItem.name.toLowerCase();
+        const action = focusedItem.kind === 'class-statue' ? (game.classes.active === focusedItem.classId ? 'View ' : 'Awaken ') + focusedItem.name : focusedItem.prompt ?? ((focusedItem.kind === 'coral-dial' ? 'Change ' : 'Open ') + focusedItem.name.toLowerCase());
         if (label.textContent !== action) label.textContent = action;
       }
     },
